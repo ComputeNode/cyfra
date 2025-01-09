@@ -14,6 +14,7 @@ Included Foton library provides a clean and fun way to animate functions and ray
 ![output](https://github.com/user-attachments/assets/3eac9f7f-72df-4a5d-b768-9117d651c78d)
 
 [code](https://github.com/ComputeNode/cyfra/blob/master/src/main/scala/io/computenode/cyfra/samples/foton/AnimatedRaytrace.scala)
+(this is API usage, to see ray tracing implementation look at [RtRenderer](https://github.com/ComputeNode/cyfra/blob/main/src/main/scala/io/computenode/cyfra/foton/rt/RtRenderer.scala))
 
 ### Animated Julia set
 <img src="assets/julia.gif" width="360">
