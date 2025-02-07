@@ -2,6 +2,10 @@
 
 Library provides a way to compile Scala 3 DSL to SPIR-V and to run it with Vulkan runtime on GPUs.
 
+It is multiplatform. It works on:
+ - Linux, Windows, and Mac (for Mac requires installation of moltenvk).
+ - Any dedicated or integrated GPUs that support Vulkan. In practice, it means almost all moderately modern devices from most manufacturers including Nvidia, AMD, Intel, Apple.
+
 Library is in an early stage - alpha release and proper documentation are coming.
 
 ## Animations
