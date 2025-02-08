@@ -108,19 +108,18 @@ private[cyfra] object ExpressionCompiler:
   def compileBlock(tree: E[_], ctx: Context): (List[Words], Context) = {
 
     @tailrec
-    def compileExpressions(exprs: List[E[_]], ctx: Context, acc: List[Words], usedNames: Set[String]): (List[Words], Context) = {
+    def compileExpressions(exprs: List[E[_]], ctx: Context, acc: List[Words]): (List[Words], Context) = {
       if (exprs.isEmpty) (acc, ctx)
       else {
         val expr = exprs.head
         if (ctx.exprRefs.contains(expr.treeid)) {
-          compileExpressions(exprs.tail, ctx, acc, usedNames)
+          compileExpressions(exprs.tail, ctx, acc)
         } else {
 
           val name: Option[String] = expr.of match
-            case Some(v) if !usedNames.contains(v.name.value) => Some(v.name.value)
+            case Some(v) => Some(v.name.value)
             case _ => None
-
-          val updatedUsedNames = usedNames ++ name
+          
           val (instructions, updatedCtx) = expr match {
             case c@Const(x) =>
               val constRef = ctx.constRefs((c.tag, x))
@@ -405,10 +404,10 @@ private[cyfra] object ExpressionCompiler:
           val ctxWithName = updatedCtx.copy(
             exprNames = updatedCtx.exprNames ++ name.map(n => (updatedCtx.nextResultId - 1, n)).toMap
           )
-          compileExpressions(exprs.tail, ctxWithName, acc ::: instructions, updatedUsedNames)
+          compileExpressions(exprs.tail, ctxWithName, acc ::: instructions)
         }
       }
     }
     val sortedTree = ScopeBuilder.buildScope(tree)
-    compileExpressions(sortedTree, ctx, Nil, Set.empty)
+    compileExpressions(sortedTree, ctx, Nil)
   }

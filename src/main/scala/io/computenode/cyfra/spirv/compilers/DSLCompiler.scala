@@ -5,16 +5,16 @@ import io.computenode.cyfra.dsl.Expression.*
 import io.computenode.cyfra.*
 import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.spirv.Opcodes.*
-import io.computenode.cyfra.dsl.{ComposeStruct, Expression, FunctionName, Functions, GArrayElem, GSeq, GStruct, GStructSchema, GetField, PhantomExpression, UniformStructRefTag, Value, WorkerIndexTag}
+import io.computenode.cyfra.dsl.*
 import izumi.reflect.Tag
 import izumi.reflect.macrortti.{LTag, LTagK, LightTypeTag}
 import org.lwjgl.BufferUtils
-import SpirvProgramCompiler.{ArrayBufferBlock, compileMain, createAndInitUniformBlock, createInvocationId, defineConstants, defineVarNames, defineVoids, getNameDecorations, headers, initAndDecorateUniforms}
+import SpirvProgramCompiler.*
 import io.computenode.cyfra.spirv.SpirvConstants.*
 import io.computenode.cyfra.spirv.SpirvTypes.*
 import io.computenode.cyfra.spirv.compilers.ExpressionCompiler.compileBlock
-import io.computenode.cyfra.spirv.compilers.GStructCompiler.defineStructTypes
-import io.computenode.cyfra.spirv.{Context}
+import io.computenode.cyfra.spirv.compilers.GStructCompiler.*
+import io.computenode.cyfra.spirv.Context
 
 import java.nio.ByteBuffer
 import scala.annotation.tailrec
@@ -63,8 +63,10 @@ private[cyfra] object DSLCompiler:
       case gf: GetField[_, _] => gf.resultSchema
     } :+ uniformSchema).distinct
     val (structDefs, structCtx) = defineStructTypes(structsInCode, typedContext)
+    val structNames = getStructNames(structsInCode, structCtx)
     val (decorations, uniformDefs, uniformContext) = initAndDecorateUniforms(inTypes, outTypes, structCtx)
     val (uniformStructDecorations, uniformStructInsns, uniformStructContext) = createAndInitUniformBlock(uniformSchema, uniformContext)
+    val blockNames = getBlockNames(uniformContext, uniformSchema)
     val (inputDefs, inputContext) = createInvocationId(uniformStructContext)
     val (constDefs, constCtx) = defineConstants(allExprs, inputContext)
     val (varDefs, varCtx) = defineVarNames(constCtx)
@@ -74,7 +76,9 @@ private[cyfra] object DSLCompiler:
 
     val code: List[Words] =
       SpirvProgramCompiler.headers :::
+        blockNames :::
         nameDecorations :::
+        structNames :::
         SpirvProgramCompiler.workgroupDecorations :::
         decorations :::
         uniformStructDecorations :::

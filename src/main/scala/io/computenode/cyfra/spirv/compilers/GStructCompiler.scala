@@ -1,6 +1,6 @@
 package io.computenode.cyfra.spirv.compilers
 
-import io.computenode.cyfra.spirv.Opcodes.{Instruction, Op, ResultRef, StorageClass, Words}
+import io.computenode.cyfra.spirv.Opcodes.*
 import io.computenode.cyfra.dsl.{GStruct, GStructSchema}
 import io.computenode.cyfra.spirv.Context
 import izumi.reflect.Tag
@@ -29,7 +29,17 @@ private[cyfra] object GStructCompiler:
           funPointerTypeMap = ctx.funPointerTypeMap + (ctx.nextResultId -> (ctx.nextResultId + 1))
         ))
     }
-
+    
+  def getStructNames(schemas: List[GStructSchema[_]], context: Context): (List[Words]) =
+    schemas.flatMap { schema =>
+      val structName = schema.structTag.tag.shortName
+      val structType = context.valueTypeMap(schema.structTag.tag)
+      Instruction(Op.OpName, List(ResultRef(structType), Text(structName))) ::
+        schema.fields.zipWithIndex.map { case ((name, _, tag), i) =>
+          Instruction(Op.OpMemberName, List(ResultRef(structType), IntWord(i), Text(name)))
+        }
+    }
+    
   private def sortSchemasDag(schemas: List[GStructSchema[_]]): List[GStructSchema[_]] =
     val schemaMap = schemas.map(s => s.structTag.tag -> s).toMap
     val visited = mutable.Set[LightTypeTag]()

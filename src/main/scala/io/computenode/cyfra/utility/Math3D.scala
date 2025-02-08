@@ -47,3 +47,6 @@ object Math3D:
     val newXAxis = (cos(angle), sin(angle))
     val newYAxis = (-newXAxis.y, newXAxis.x)
     (uv dot newXAxis, uv dot newYAxis) * 0.9f
+
+  def rotate(angle: Float32)(uv: Vec2[Float32]): Vec2[Float32] =
+    rotate(uv, angle)

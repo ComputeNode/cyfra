@@ -224,6 +224,17 @@ private[cyfra]  object SpirvProgramCompiler:
     (decoration, definition, newContext)
   }
 
+  def getBlockNames(context: Context, uniformSchema: GStructSchema[_]): List[Words] =
+    def namesForBlock(block: ArrayBufferBlock, tpe: String): List[Words] =
+      Instruction(Op.OpName, List(
+        ResultRef(block.structTypeRef),
+        Text(s"Buffer${tpe}")
+      )) :: Instruction(Op.OpName, List(
+        ResultRef(block.blockVarRef),
+        Text(s"data${tpe}")
+      )) :: Nil
+    // todo name uniform
+    context.inBufferBlocks.flatMap(namesForBlock(_, "In")) ::: context.outBufferBlocks.flatMap(namesForBlock(_, "Out"))
 
   def createAndInitUniformBlock(schema: GStructSchema[_], ctx: Context): (List[Words], List[Words], Context) =
     val uniformStructTypeRef = ctx.valueTypeMap(schema.structTag.tag)

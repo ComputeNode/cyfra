@@ -30,7 +30,7 @@ object AnimatedJulia:
       val rotatedUv = rotate(uv, Math.PI.toFloat / 3.0f)
       val recursionCount = julia(rotatedUv)
       val f = min(1f, recursionCount.asFloat / 100f)
-      val color = interpolate3(InterpolationThemes.Blue, f)
+      val color = interpolate(InterpolationThemes.Blue, f)
       (
         color.r,
         color.g,

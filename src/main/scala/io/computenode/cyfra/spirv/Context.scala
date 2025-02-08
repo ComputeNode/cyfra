@@ -21,7 +21,8 @@ private[cyfra] case class Context(
   outBufferBlocks: List[ArrayBufferBlock] = List(),
   nextResultId: Int = HEADER_REFS_TOP,
   nextBinding: Int = 0,
-  exprNames: Map[Int, String] = Map()
+  exprNames: Map[Int, String] = Map(),
+  memberNames: Map[Int, String] = Map(),
 ):
   def joinNested(ctx: Context): Context =
     this.copy(nextResultId = ctx.nextResultId, exprNames = ctx.exprNames ++ this.exprNames)

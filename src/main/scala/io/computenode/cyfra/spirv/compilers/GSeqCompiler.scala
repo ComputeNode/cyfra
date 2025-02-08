@@ -104,7 +104,9 @@ private[cyfra] object GSeqCompiler:
                 Instruction(Op.OpBranch, List(ResultRef(mergeBlock))),
                 Instruction(Op.OpLabel, List(ResultRef(mergeBlock)))
               )
-              (instructions, tailContext)
+              (instructions, tailContext.copy(exprNames = tailContext.exprNames ++ Map(
+                condResultRef -> "filterCondResult",
+              )))
             case TakeUntilOp(_) =>
               val (takeUntilOps, takeUntilContext) = ExpressionCompiler.compileBlock(dExpr, withElemRefCtx)
               val condResultRef = takeUntilContext.exprRefs(dExpr.treeid)
@@ -134,7 +136,9 @@ private[cyfra] object GSeqCompiler:
                 Instruction(Op.OpBranch, List(ResultRef(mergeBlock))),
                 Instruction(Op.OpLabel, List(ResultRef(mergeBlock)))
               )
-              (instructions, tailContext)
+              (instructions, tailContext.copy(exprNames = tailContext.exprNames ++ Map(
+                condResultRef -> "takeUntilCondResult",
+              )))
           }
       }
 
@@ -258,8 +262,20 @@ private[cyfra] object GSeqCompiler:
         ResultRef(resultVar)
       ))
     )
-
+    
+    val names = Map(
+      shouldTakeVar -> "shouldTake",
+      iVar -> "i",
+      accVar -> "acc",
+      shouldTakeInCheck -> "shouldTake",
+      iInCheck -> "iInCheck",
+      isLessThanLimitInCheck -> "isLessThanLimit",
+      accLoaded -> "accLoaded",
+      iLoaded -> "iLoaded",
+      iIncremented -> "iIncremented",
+    )
 
     (instructions, generatorCtx.copy(
-      exprRefs = generatorCtx.exprRefs + (fold.treeid -> finalResult)
+      exprRefs = generatorCtx.exprRefs + (fold.treeid -> finalResult),
+      exprNames = generatorCtx.exprNames ++ names
     ))
