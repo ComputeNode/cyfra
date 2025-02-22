@@ -60,6 +60,7 @@ private[cyfra] object ExpressionCompiler:
       case (from, _: ToUInt32[_]) if from.tag =:= Float32Tag.tag => Op.OpConvertFToU
       case (from, _: ToInt32[_]) if from.tag =:= UInt32Tag.tag => Op.OpBitcast
       case (from, _: ToUInt32[_]) if from.tag =:= Int32Tag.tag => Op.OpBitcast
+      case _ => throw new MatchError(s"Unexpected input: (${cexpr.fromTag}, $cexpr)")
     }
     val instructions = List(
       Instruction(tfOpcode, List(
