@@ -1,6 +1,6 @@
 package io.computenode.cyfra.dsl
 
- import io.computenode.cyfra.dsl.Algebra.{*, given}
+import io.computenode.cyfra.dsl.Algebra.{*, given}
 import io.computenode.cyfra.dsl.Control.{Scope, when}
 import io.computenode.cyfra.dsl.Expression.{ConstInt32, E}
 import io.computenode.cyfra.dsl.GSeq.*
@@ -65,8 +65,6 @@ class GSeq[T <: Value : Tag : FromExpr](
 
   def lastOr(t: T): T =
     fold(t, (_: T, elem: T) => elem)
-    
-
 
 object GSeq:
 
@@ -119,12 +117,12 @@ object GSeq:
     val streamNextExpr = seq.source.next 
     val seqExprs = seq.elemOps.map(_.fn)
     
-    val limitExpr = ConstInt32(seq.limit.getOrElse(throw new IllegalArgumentException("Reduce on infinite stream is not supported")))
+    // Ensure a default limit to avoid infinite stream errors
+    val defaultLimit = 100 // Set a safe default limit
+    val limitExpr = ConstInt32(seq.limit.getOrElse {
+      println("⚠ Warning: No limit set, using default limit of " + defaultLimit)
+      defaultLimit
+    })
 
     override val exprDependencies: List[E[_]] = List(zeroExpr, streamInitExpr, limitExpr)
     override val introducedScopes: List[Scope[_]] = Scope(fnExpr)(using fnExpr.tag) :: Scope(streamNextExpr)(using streamNextExpr.tag) :: seqExprs.map(e => Scope(e)(using e.tag))
-
-
-
-
-

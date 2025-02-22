@@ -30,6 +30,9 @@ lazy val lwjglNatives = {
 
 val lwjglVersion = "3.3.3"
 val jomlVersion = "1.10.0"
+javaOptions += "-Xmx8G"
+javaOptions += "-XX:+UseG1GC"
+
 
 
 lazy val root = (project in file("."))
