@@ -31,9 +31,6 @@ lazy val lwjglNatives = {
 val lwjglVersion = "3.3.3"
 val jomlVersion = "1.10.0"
 javaOptions += "-Xmx8G"
-javaOptions += "-XX:+UseG1GC"
-
-
 
 lazy val root = (project in file("."))
   .settings(
@@ -60,4 +57,3 @@ lazy val root = (project in file("."))
 
 lazy val vulkanSdk = System.getenv("VULKAN_SDK")
 javaOptions +=  s"-Dorg.lwjgl.vulkan.libname=$vulkanSdk/lib/libvulkan.1.dylib"
-
