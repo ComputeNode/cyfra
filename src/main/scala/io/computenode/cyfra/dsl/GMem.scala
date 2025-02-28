@@ -65,7 +65,9 @@ trait WritableGMem[T <: Value, R] extends GMem[T]:
         data.putFloat(x)
         data.putFloat(y)
       case illegal =>
-        throw new IllegalArgumentException(s"Uniform must be constructed from constants (got field $illegal)")
+        val errorMessage = s"Error: Unsupported uniform type encountered -> $illegal. Expected only constant values."
+        println(errorMessage)  // Add logging for better debugging
+        throw new IllegalArgumentException(errorMessage)
     }
     data.rewind()
     data
@@ -81,6 +83,13 @@ class FloatMem(val size: Int) extends WritableGMem[Float32, Float]:
     val res = buffer.asFloatBuffer()
     val result = new Array[Float](size)
     res.get(result)
+
+    // Debugging: Print first few values read
+    println("DEBUG: First few values read from FloatMem:")
+    for (i <- 0 until math.min(10, result.length)) {
+      println(s"  Read Value $i: ${result(i)}")
+    }
+
     result
   }
 
@@ -88,7 +97,14 @@ class FloatMem(val size: Int) extends WritableGMem[Float32, Float]:
     data.rewind()
     data.asFloatBuffer().put(floats)
     data.rewind()
+
+    // Debugging: Print first few values after writing
+    println("DEBUG: First few values written to FloatMem:")
+    for (i <- 0 until math.min(10, floats.length)) {
+      println(s"  Value $i: ${floats(i)}")
+    }
   }
+
 
 object FloatMem {
   def apply(floats: Array[Float]): FloatMem = {
