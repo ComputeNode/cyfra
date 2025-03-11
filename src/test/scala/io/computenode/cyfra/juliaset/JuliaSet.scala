@@ -12,7 +12,7 @@ import io.computenode.cyfra.*
 import io.computenode.cyfra.*
 import io.computenode.cyfra.dsl.Functions.*
 import io.computenode.cyfra.dsl.Control.*
-import io.computenode.cyfra.dsl.{Empty, GArray2DFunction, GContext, GSeq, MVPContext, Vec4FloatMem}
+import io.computenode.cyfra.dsl.{Empty, GFunction, GContext, GSeq, MVPContext, Vec4FloatMem}
 import io.computenode.cyfra.{ImageTests, ImageUtility}
 import org.apache.commons.io.IOUtils
 import org.junit.jupiter.api.Assertions.*
@@ -33,7 +33,7 @@ class JuliaSet {
     val RECURSION_LIMIT = 1000
     val const = (0.355f, 0.355f)
 
-    val function: GArray2DFunction[Empty, Vec4[Float32], Vec4[Float32]] = GArray2DFunction(dim, dim, {
+    val function: GFunction[Empty, Vec4[Float32], Vec4[Float32]] = GFunction(dim, dim, {
       case (_, (xi: Int32, yi: Int32), _) =>
         val x = 3.0f * (xi - (dim / 2)).asFloat / dim.toFloat
         val y = 3.0f * (yi - (dim / 2)).asFloat / dim.toFloat
