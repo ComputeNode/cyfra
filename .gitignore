@@ -16,6 +16,11 @@ bin
 #ignore ide folders
 .idea/
 .vscode/
+project/metals.sbt
+project/project/metals.sbt
+
+# ignore animated Julia set output
+julia/
 
 *.spv
 gradlew
@@ -24,4 +29,5 @@ target
 project/target
 out
 hs_err_pid*.log
+replay_pid*.log
 .bsp

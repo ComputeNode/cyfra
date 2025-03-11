@@ -2,7 +2,7 @@ package io.computenode.cyfra.foton.animation
 
 import io.computenode.cyfra
 import io.computenode.cyfra.dsl.Algebra.{*, given}
-import io.computenode.cyfra.dsl.{GArray2DFunction, RGBA}
+import io.computenode.cyfra.dsl.{GFunction, RGBA}
 import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.foton.rt.ImageRtRenderer.RaytracingIteration
 import io.computenode.cyfra.foton.rt.animation.AnimationRtRenderer.RaytracingIteration
@@ -16,7 +16,7 @@ import java.nio.file.{Path, Paths}
 import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
 
-trait AnimationRenderer[S <: AnimationRenderer.Scene, F <: GArray2DFunction[_, Vec4[Float32], Vec4[Float32]]](params: AnimationRenderer.Parameters):
+trait AnimationRenderer[S <: AnimationRenderer.Scene, F <: GFunction[_, Vec4[Float32], Vec4[Float32]]](params: AnimationRenderer.Parameters):
 
   private val msPerFrame = 1000.0f / params.framesPerSecond
 

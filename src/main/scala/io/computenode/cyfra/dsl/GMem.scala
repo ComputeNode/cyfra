@@ -22,19 +22,16 @@ trait GMem[H <: Value]:
 trait WritableGMem[T <: Value, R] extends GMem[T]:
   def stride: Int
   val data = MemoryUtil.memAlloc(size * stride)
-  
+
   protected def toResultArray(buffer: ByteBuffer): Array[R]
 
-  def map(fn: GFunction[T, T])(implicit context: GContext): Future[Array[R]] =
-    execute(fn.pipeline)(using context, UniformContext.empty)
-
-  def map[G <: GStruct[G] : Tag: GStructSchema](fn: GArray2DFunction[G, T, T])(implicit context: GContext, uniformContext: UniformContext[G]): Future[Array[R]] =
+  def map[G <: GStruct[G] : Tag: GStructSchema](fn: GFunction[G, T, T])(implicit context: GContext, uniformContext: UniformContext[G]): Future[Array[R]] =
     execute(fn.pipeline)
 
   private def execute(pipeline: ComputePipeline)(implicit context: GContext, uniformContext: UniformContext[_]) = {
     val isUniformEmpty = uniformContext.uniform.schema.fields.isEmpty
     val actions = Map(
-      LayoutLocation(0, 0) -> BufferAction.LoadTo, 
+      LayoutLocation(0, 0) -> BufferAction.LoadTo,
       LayoutLocation(0, 1) -> BufferAction.LoadFrom
     ) ++ (if(isUniformEmpty) Map.empty else Map(LayoutLocation(0, 2) -> BufferAction.LoadTo))
     val sequence = ComputationSequence(Seq(Compute(pipeline, actions)), Seq.empty)
@@ -46,7 +43,7 @@ trait WritableGMem[T <: Value, R] extends GMem[T]:
       toResultArray(out.head)
     }
   }
-  
+
   private def serializeUniform(g: GStruct[_]): ByteBuffer = {
     val data = MemoryUtil.memAlloc(g.schema.totalStride)
     g.productIterator.foreach {

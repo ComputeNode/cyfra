@@ -17,7 +17,7 @@ import io.computenode.cyfra.dsl.given
 import scala.concurrent.duration.DurationInt
 import io.computenode.cyfra.dsl.Functions.*
 import io.computenode.cyfra.dsl.Control.*
-import io.computenode.cyfra.dsl.{Empty, GArray2DFunction, GSeq, GStruct, Vec4FloatMem}
+import io.computenode.cyfra.dsl.{Empty, GFunction, GSeq, GStruct, Vec4FloatMem}
 import io.computenode.cyfra.{ImageUtility}
 
 import java.nio.file.Paths
@@ -48,7 +48,7 @@ def simpleray =
       (0f, 0f, 0f, 1f)
     }
 
-  val raytracing: GArray2DFunction[Empty, Vec4[Float32], Vec4[Float32]] = GArray2DFunction(dim, dim, {
+  val raytracing: GFunction[Empty, Vec4[Float32], Vec4[Float32]] = GFunction(dim, dim, {
     case (_, (xi: Int32, yi: Int32), _) =>
       val x = (xi.asFloat / dim.toFloat) * 2f - 1f
       val y = (yi.asFloat / dim.toFloat) * 2f - 1f

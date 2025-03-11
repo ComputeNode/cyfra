@@ -10,7 +10,7 @@ import io.computenode.cyfra.foton.rt.RtRenderer.RayHitInfo
 import io.computenode.cyfra.utility.Utility.timed
 import io.computenode.cyfra.foton.rt.ImageRtRenderer
 import io.computenode.cyfra.*
-import io.computenode.cyfra.dsl.{GArray2DFunction, GStruct, RGBA, Random, UniformContext, Vec4FloatMem}
+import io.computenode.cyfra.dsl.{GFunction, GStruct, RGBA, Random, UniformContext, Vec4FloatMem}
 import io.computenode.cyfra.foton.rt.shapes.{Box, Sphere}
 import io.computenode.cyfra.dsl.given
 
@@ -30,7 +30,7 @@ class ImageRtRenderer(params: ImageRtRenderer.Parameters) extends RtRenderer(par
   def render(scene: Scene): LazyList[Array[RGBA]] =
     render(scene, renderFunction(scene))
 
-  private def render(scene: Scene, fn: GArray2DFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]]): LazyList[Array[RGBA]] =
+  private def render(scene: Scene, fn: GFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]]): LazyList[Array[RGBA]] =
     val initialMem = Array.fill(params.width * params.height)((0.5f, 0.5f, 0.5f, 0.5f))
     LazyList.iterate((initialMem, 0), params.iterations + 1) { case (mem, render) =>
       UniformContext.withUniform(RaytracingIteration(render)):
@@ -39,8 +39,8 @@ class ImageRtRenderer(params: ImageRtRenderer.Parameters) extends RtRenderer(par
         (result, render + 1)
     }.drop(1).map(_._1)
 
-  private def renderFunction(scene: Scene): GArray2DFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]] =
-    GArray2DFunction(params.width, params.height, {
+  private def renderFunction(scene: Scene): GFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]] =
+    GFunction(params.width, params.height, {
       case (RaytracingIteration(frame), (xi: Int32, yi: Int32), lastFrame) =>
         renderFrame(xi, yi, frame, lastFrame, scene)
     })

@@ -23,11 +23,8 @@ trait Executable[H <: Value, R <: Value] {
 }
 
 trait GContext {
-  
   val vkContext = new VulkanContext(enableValidationLayers = true)
-
-  def compile[H <: Value: Tag: FromExpr, R <: Value: Tag](function: GFunction[H, R]): ComputePipeline
-  def compile[G <: GStruct[G] : Tag: GStructSchema, H <: Value: Tag: FromExpr, R <: Value: Tag: FromExpr](function: GArray2DFunction[G, H, R]): ComputePipeline
+  def compile[G <: GStruct[G] : Tag: GStructSchema, H <: Value: Tag: FromExpr, R <: Value: Tag: FromExpr](function: GFunction[G, H, R]): ComputePipeline
 }
 
 val WorkerIndexTag = "worker_index"
@@ -48,15 +45,7 @@ object Empty:
 class MVPContext extends GContext {
   implicit val ec: ExecutionContextExecutor = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(16))
 
-  override def compile[H <: Value: Tag: FromExpr, R <: Value: Tag](function: GFunction[H, R]): ComputePipeline = {
-    val tree = function.fn.apply(GArray[H](0).at(WorkerIndex))
-    val shaderCode = DSLCompiler.compile(tree, function.arrayInputs, function.arrayOutputs, Empty().schema)
-    val layoutInfo = LayoutInfo(Seq(LayoutSet(0, 0 to 1 map (Binding(_, InputBufferSize(typeStride(summon[Tag[H]])))))))
-    val shader = new Shader(shaderCode, new org.joml.Vector3i(256, 1, 1), layoutInfo, "main", vkContext.device)
-    new ComputePipeline(shader, vkContext)
-  }
-
-  override def compile[G <: GStruct[G] : Tag : GStructSchema, H <: Value : Tag : FromExpr, R <: Value : Tag : FromExpr](function: GArray2DFunction[G, H, R]): ComputePipeline = {
+  override def compile[G <: GStruct[G] : Tag : GStructSchema, H <: Value : Tag : FromExpr, R <: Value : Tag : FromExpr](function: GFunction[G, H, R]): ComputePipeline = {
     val uniformStructSchema = summon[GStructSchema[G]]
     val uniformStruct = uniformStructSchema.fromTree(UniformStructRef)
     val tree = function.fn.apply(uniformStruct, (WorkerIndex mod function.width, WorkerIndex / function.width), new GArray2D(function.width, function.height, GArray[H](0)))
