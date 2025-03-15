@@ -18,11 +18,11 @@ case class GFunction[G <: GStruct[G] : GStructSchema : Tag, H <: Value : Tag : F
   width: Int,
   height: Int,
   fn: (G, (Int32, Int32), GArray2D[H]) => R
-)(implicit context: GContext){
+)(implicit context: GContext){ // add uniformContext here?
   def arrayInputs: List[Tag[_]] = List(summon[Tag[H]])
   def arrayOutputs: List[Tag[_]] = List(summon[Tag[R]])
   val pipeline: ComputePipeline = context.compile(this)
-  def apply(mem: GMem[H]) = // is the type parameter right?
+  def apply(mem: GMem[H, R]) = // is the type parameter right?
     // Something like:
     // mem.execute(pipeline)(using context)
     // but how do we get the uniformContext?

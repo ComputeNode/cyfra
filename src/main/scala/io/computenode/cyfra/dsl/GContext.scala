@@ -19,7 +19,8 @@ import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 import scala.jdk.CollectionConverters.SeqHasAsJava
 import scala.language.postfixOps
 trait Executable[H <: Value, R <: Value] {
-  def execute(input: GMem[H], output: WritableGMem[R, _]): Future[Unit]
+  // added R due to changes to GMem
+  def execute(input: GMem[H, R], output: WritableGMem[R, _]): Future[Unit]
 }
 
 trait GContext {
