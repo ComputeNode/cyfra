@@ -9,6 +9,8 @@ build
 bin
 .project
 .classpath
+juliaOcean
+juliaSin
 
 # Ignore core dupmps
 .log
