@@ -22,4 +22,10 @@ case class GFunction[G <: GStruct[G] : GStructSchema : Tag, H <: Value : Tag : F
   def arrayInputs: List[Tag[_]] = List(summon[Tag[H]])
   def arrayOutputs: List[Tag[_]] = List(summon[Tag[R]])
   val pipeline: ComputePipeline = context.compile(this)
+  def apply(mem: GMem[H]) = // is the type parameter right?
+    // Something like:
+    // mem.execute(pipeline)(using context)
+    // but how do we get the uniformContext?
+    // Should I add it to GFunction's definition?
+    ???
 }
