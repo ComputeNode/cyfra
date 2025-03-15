@@ -46,4 +46,20 @@ Included Foton library provides a clean and fun way to animate functions and ray
 
 <img src="https://github.com/scalag/scalag/assets/4761866/2791afd8-0b3e-4113-8e01-3f4efccab37f" width="750">
 
+### Reduce GPU resulltion 
+To reduce the GPU resolution during rendering, you can adjust the parameters passed to the ``AnimatedFunctionRenderer``
+
+### Render the frames
+ 1. Install `ffmpeg` if you haven't already.
+ 2. Render to MP4:
+
+Render to MP4 :
+
+  ``ffmpeg -framerate 30 -i frame%02d.png -vf "scale=540:540" -c:v libx264 -pix_fmt yuv420p output_video.mp4``
+
+ 3. Render to GIF:
+
+Renderto to Gif
+
+``ffmpeg -t 3 -i output_video.mp4 -vf "fps=30,scale=720:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" -loop 0 output_git.gif``
 

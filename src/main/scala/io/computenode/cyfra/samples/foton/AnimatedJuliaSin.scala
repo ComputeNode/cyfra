@@ -51,3 +51,5 @@ object AnimatedJuliaSin:
     renderer.renderFramesToDir(animatedJuliaSin, Paths.get("juliaSin"))
 
 // ffmpeg -framerate 30 -i frame%02d.png -vf "scale=540:540" -c:v libx264 -pix_fmt yuv420p output_video6.mp4
+
+// ffmpeg -t 3 -i output_video.mp4 -vf "fps=30,scale=720:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" -loop 0 julaiSin.gif
