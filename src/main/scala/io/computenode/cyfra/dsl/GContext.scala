@@ -25,6 +25,11 @@ trait Executable[H <: Value, R <: Value] {
 trait GContext {
   val vkContext = new VulkanContext(enableValidationLayers = true)
   def compile[G <: GStruct[G] : Tag: GStructSchema, H <: Value: Tag: FromExpr, R <: Value: Tag: FromExpr](function: GFunction[G, H, R]): ComputePipeline
+
+  // (using context: GContext) would just be... "this", right?
+  // Should R be lifted up to the trait? like GContext[R]
+  // Maybe not, since compile has its own R parameter.
+  def execute[R](pipeline: ComputePipeline)(using uniformContext: UniformContext[_]): Future[Array[R]]
 }
 
 val WorkerIndexTag = "worker_index"
@@ -43,6 +48,9 @@ object Empty:
   given GStructSchema[Empty] = derived
 
 class MVPContext extends GContext {
+  // stub for execute
+  def execute[R](pipeline: ComputePipeline)(using uniformContext: UniformContext[_]) = ???
+
   implicit val ec: ExecutionContextExecutor = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(16))
 
   override def compile[G <: GStruct[G] : Tag : GStructSchema, H <: Value : Tag : FromExpr, R <: Value : Tag : FromExpr](function: GFunction[G, H, R]): ComputePipeline = {
