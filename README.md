@@ -47,7 +47,7 @@ Included Foton library provides a clean and fun way to animate functions and ray
 <img src="https://github.com/scalag/scalag/assets/4761866/2791afd8-0b3e-4113-8e01-3f4efccab37f" width="750">
 
 ### Reduce GPU resulltion 
-To reduce the GPU resolution during rendering, you can adjust the parameters passed to the ``AnimatedFunctionRenderer``
+To reduce the GPU resolution during rendering, you can adjust the parameters passed to the ``AnimatedFunctionRenderer((Parameters(1024, 1024, 30)))`` eg: 1024 to 512
 
 ### Render the frames
  1. Install `ffmpeg` if you haven't already.
