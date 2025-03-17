@@ -43,6 +43,13 @@ object Color:
   object InterpolationThemes:
     val Blue: InterpolationTheme = ((8f, 22f, 104f) * (1 / 255f), (62f, 82f, 199f) * (1 / 255f), (221f, 233f, 255f) * (1 / 255f))
     val Black: InterpolationTheme = ((255f, 255f, 255f) * (1 / 255f), (0f, 0f, 0f), (0f, 0f, 0f))
+    val Red: InterpolationTheme = ((120f, 20f, 20f) * (1 / 255f), (200f, 40f, 40f) * (1 / 255f), (255f, 150f, 150f) * (1 / 255f))
+    val Green: InterpolationTheme = ((10f, 50f, 10f) * (1 / 255f), (50f, 160f, 50f) * (1 / 255f), (180f, 255f, 180f) * (1 / 255f))
+    val Purple: InterpolationTheme = ((50f, 0f, 50f) * (1 / 255f), (128f, 0f, 128f) * (1 / 255f), (255f, 150f, 255f) * (1 / 255f))
+    val Fire: InterpolationTheme = ((120f, 40f, 0f) * (1 / 255f), (255f, 85f, 0f) * (1 / 255f), (255f, 200f, 50f) * (1 / 255f))
+    val Ocean: InterpolationTheme = ((0f, 32f, 64f) * (1 / 255f), (0f, 128f, 192f) * (1 / 255f), (128f, 224f, 255f) * (1 / 255f))
+    val Sunset: InterpolationTheme = ((255f, 94f, 77f) * (1 / 255f), (255f, 168f, 77f) * (1 / 255f), (255f, 239f, 161f) * (1 / 255f))
+    val Ice: InterpolationTheme = ((0f, 100f, 200f) * (1 / 255f), (100f, 200f, 255f) * (1 / 255f), (230f, 255f, 255f) * (1 / 255f))
 
   def interpolate(theme: InterpolationTheme, f: Float32): Vec3[Float32] =
     val (c1, c2, c3) = theme
