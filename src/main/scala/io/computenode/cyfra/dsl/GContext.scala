@@ -19,8 +19,7 @@ import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 import scala.jdk.CollectionConverters.SeqHasAsJava
 import scala.language.postfixOps
 trait Executable[H <: Value, R <: Value] {
-  // added R due to changes to GMem
-  def execute(input: GMem[H, R], output: WritableGMem[R, _]): Future[Unit]
+  def execute(input: GMem[H], output: WritableGMem[R, _]): Future[Unit]
 }
 
 trait GContext {
@@ -28,9 +27,7 @@ trait GContext {
   def compile[G <: GStruct[G] : Tag: GStructSchema, H <: Value: Tag: FromExpr, R <: Value: Tag: FromExpr](function: GFunction[G, H, R]): ComputePipeline
 
   // (using context: GContext) would just be... "this", right?
-  // Should R be lifted up to the trait? like GContext[R]
-  // Maybe not, since compile has its own R parameter.
-  def execute[R](pipeline: ComputePipeline, inData: Seq[ByteBuffer])(using uniformContext: UniformContext[_]): Future[Array[R]]
+  def execute[G <: GStruct[G] : Tag: GStructSchema, H <: Value: Tag: FromExpr, R <: Value: Tag: FromExpr](pipeline: ComputePipeline, inData: Seq[ByteBuffer], fn: GFunction[_, _, R])(using uniformContext: UniformContext[_]): Future[Array[R]]
 }
 
 val WorkerIndexTag = "worker_index"
@@ -50,7 +47,7 @@ object Empty:
 
 class MVPContext extends GContext {
   // stub for execute
-  def execute[R](pipeline: ComputePipeline, inData: Seq[ByteBuffer])(using uniformContext: UniformContext[_]) = ???
+  def execute[G <: GStruct[G] : Tag: GStructSchema, H <: Value: Tag: FromExpr, R <: Value: Tag: FromExpr](pipeline: ComputePipeline, inData: Seq[ByteBuffer], fn: GFunction[_, _, R])(using uniformContext: UniformContext[_]) = ???
 
   implicit val ec: ExecutionContextExecutor = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(16))
 

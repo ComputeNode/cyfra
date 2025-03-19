@@ -15,19 +15,19 @@ import scala.concurrent.ExecutionContext.Implicits.*
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 
-trait GMem[H <: Value, R]: // should it be R <: Value?
+trait GMem[H <: Value]:
   def size: Int
   val data: ByteBuffer
-  // def map(fn: H => H): Future[Array[R]] // again, not sure about R? Should it be R=H?
+  def map[R](fn: H => H): Future[Array[R]]
 
-trait WritableGMem[T <: Value, R] extends GMem[T, R]:
+trait WritableGMem[T <: Value, R] extends GMem[T]:
   def stride: Int
   val data = MemoryUtil.memAlloc(size * stride)
 
   protected def toResultArray(buffer: ByteBuffer): Array[R]
 
   // stub for map, for now the old one is used to make things compile.
-  // def map(fn: T => T): Future[Array[R]] = ???
+  // def map[R](fn: T => T): Future[Array[R]] = ???
 
   def map[G <: GStruct[G] : Tag: GStructSchema](fn: GFunction[G, T, T])(implicit context: GContext, uniformContext: UniformContext[G]): Future[Array[R]] =
     execute(fn.pipeline)
@@ -75,6 +75,8 @@ trait WritableGMem[T <: Value, R] extends GMem[T, R]:
   def write(data: Array[R]): Unit
 
 class FloatMem(val size: Int) extends WritableGMem[Float32, Float]:
+  // stub for map
+  override def map[R](fn: Float32 => Float32): Future[Array[R]] = ???
   def stride: Int = 4
 
   override protected def toResultArray(buffer: ByteBuffer): Array[Float] = {
@@ -104,7 +106,7 @@ object FloatMem {
 type RGBA = (Float, Float, Float, Float)
 class Vec4FloatMem(val size: Int) extends WritableGMem[Vec4[Float32], RGBA]:
   // stub for map
-  def map(fn: RGBA => RGBA) = ???
+  override def map[R](fn: Vec4[Float32] => Vec4[Float32]): Future[Array[R]] = ???
 
   def stride: Int = 16
 

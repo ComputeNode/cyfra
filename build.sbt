@@ -53,6 +53,3 @@ lazy val root = (project in file("."))
       "com.lihaoyi" %% "sourcecode" % "0.4.3-M5"
     )
   )
-
-// lazy val vulkanSdk = System.getenv("VULKAN_SDK")
-// javaOptions +=  s"-Dorg.lwjgl.vulkan.libname=$vulkanSdk/lib/libvulkan.1.dylib"
