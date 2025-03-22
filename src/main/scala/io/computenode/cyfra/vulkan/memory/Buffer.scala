@@ -49,6 +49,16 @@ private[cyfra] class Buffer(val size: Int, val usage: Int, flags: Int, memUsage:
     memFree(byteBuffer)
   }
 
+  /** mapToByteBuffer: Reads data from the GPU buffer and provides a ByteBuffer, so you can inspect or modify it on the CPU side. */
+  def mapToByteBuffer(): ByteBuffer = {
+    val tmp = ByteBuffer.allocate(size)
+    val bytes = new Array[Byte](size)
+    get(bytes)
+    tmp.put(bytes)
+    tmp.flip()
+    tmp
+  }
+
   protected def close(): Unit =
     vmaDestroyBuffer(allocator.get, handle, allocation)
 }
@@ -86,5 +96,14 @@ object Buffer {
 
       commandPool.endSingleTimeCommands(commandBuffer)
     }
-
+  
+  /** wrapByteBuffer: Takes an existing ByteBuffer and wraps it with a new GPU buffer object, so you can manage that data in Vulkan. */
+  def wrapByteBuffer(data: ByteBuffer, allocator: Allocator): Buffer = {
+    val buf = new Buffer(data.remaining(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 0, VMA_MEMORY_USAGE_GPU_ONLY, allocator)
+    val bytes = new Array[Byte](data.remaining())
+    data.get(bytes)
+    data.rewind()
+    Buffer.copyBuffer(ByteBuffer.wrap(bytes), buf, bytes.length)
+    buf
+  }
 }
