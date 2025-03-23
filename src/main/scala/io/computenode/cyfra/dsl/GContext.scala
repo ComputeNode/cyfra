@@ -25,9 +25,16 @@ trait Executable[H <: Value, R <: Value] {
 trait GContext {
   val vkContext = new VulkanContext(enableValidationLayers = true)
   def compile[G <: GStruct[G] : Tag: GStructSchema, H <: Value: Tag: FromExpr, R <: Value: Tag: FromExpr](function: GFunction[G, H, R]): ComputePipeline
-
-  // (using context: GContext) would just be... "this", right?
-  def execute[G <: GStruct[G] : Tag: GStructSchema, H <: Value: Tag: FromExpr, R <: Value: Tag: FromExpr](pipeline: ComputePipeline, inData: Seq[ByteBuffer], fn: GFunction[_, _, R])(using uniformContext: UniformContext[_]): Future[Array[R]]
+  def execute[
+    G <: GStruct[G] : Tag: GStructSchema,
+    H <: Value: Tag: FromExpr,
+    R <: Value: Tag: FromExpr
+  ](
+    mem: GMem[H],
+    pipeline: ComputePipeline,
+    inData: Seq[ByteBuffer],
+    fn: GFunction[G, H, R]
+  )(using uniformContext: UniformContext[_]): Future[Array[R]]
 }
 
 val WorkerIndexTag = "worker_index"
@@ -47,7 +54,16 @@ object Empty:
 
 class MVPContext extends GContext {
   // stub for execute
-  def execute[G <: GStruct[G] : Tag: GStructSchema, H <: Value: Tag: FromExpr, R <: Value: Tag: FromExpr](pipeline: ComputePipeline, inData: Seq[ByteBuffer], fn: GFunction[_, _, R])(using uniformContext: UniformContext[_]) = ???
+  def execute[
+    G <: GStruct[G] : Tag: GStructSchema,
+    H <: Value: Tag: FromExpr,
+    R <: Value: Tag: FromExpr
+  ](
+    mem: GMem[H],
+    pipeline: ComputePipeline,
+    inData: Seq[ByteBuffer],
+    fn: GFunction[G, H, R]
+  )(using uniformContext: UniformContext[_]) = ???
 
   implicit val ec: ExecutionContextExecutor = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(16))
 

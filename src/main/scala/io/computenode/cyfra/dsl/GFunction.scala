@@ -8,8 +8,13 @@ import izumi.reflect.Tag
 
 import scala.deriving.Mirror
 import scala.concurrent.Future
+import java.nio.ByteBuffer
 
-case class GFunction[G <: GStruct[G] : GStructSchema : Tag, H <: Value : Tag : FromExpr, R <: Value : Tag : FromExpr](
+case class GFunction[
+  G <: GStruct[G] : GStructSchema : Tag,
+  H <: Value : Tag : FromExpr,
+  R <: Value : Tag : FromExpr
+](
   width: Int,
   height: Int,
   fn: (G, (Int32, Int32), GArray2D[H]) => R
@@ -17,8 +22,9 @@ case class GFunction[G <: GStruct[G] : GStructSchema : Tag, H <: Value : Tag : F
   def arrayInputs: List[Tag[_]] = List(summon[Tag[H]])
   def arrayOutputs: List[Tag[_]] = List(summon[Tag[R]])
   val pipeline: ComputePipeline = context.compile(this)
-  def apply(mem: GMem[H])(using uniformContext: UniformContext[G]): Future[Array[R]] =
-    // context.execute(pipeline, inData, fn)(using uniformContext)
-    // What is the role of mem here, and how do we get inData?
-    ???
+  def apply(
+    mem: GMem[H],
+    inData: Seq[ByteBuffer]
+  )(using uniformContext: UniformContext[G]): Future[Array[R]] =
+    context.execute[G, H, R](mem, pipeline, inData, this)
 }
