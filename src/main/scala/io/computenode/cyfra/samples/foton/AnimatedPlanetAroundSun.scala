@@ -12,8 +12,9 @@ import io.computenode.cyfra.foton.rt.{Camera, Material}
 import scala.concurrent.duration.DurationInt
 
 import java.nio.file.Paths
-import io.computenode.cyfra.foton.animation.AnimationFunctions.orbit
+import io.computenode.cyfra.foton.animation.AnimationFunctions.*
 import io.computenode.cyfra.foton.rt.shapes.Cylinder
+import io.computenode.cyfra.dsl.Control.when
 
 object Orbit:
   @main
@@ -41,23 +42,27 @@ object Orbit:
       color = vec3(1f, 0.2f, 0.05f),
       emissive = vec3(4f, 0.4f, 0.1f)     
     )
+    val sunMaterial1Color1 = vec3(1f, 0.2f, 0.05f)
+    val sunMaterial1Color2 = vec3(0f, 0f, 1f)
 
     val lightMaterial = Material(
       color = (1f, 0.3f, 0.3f),
       emissive = vec3(4f)
     )
+       
 
     val staticShapes: List[Shape] = List(
-      Sphere((-1f, 0.5f, 14f),5f,sunMaterial),
-      Sphere((-140f, -140f, 10f), 50f, lightMaterial),
+      
+      Sphere((0f, -140f, 10f), 50f, lightMaterial),
     )
    
     val scene = AnimatedScene(
       shapes = staticShapes ::: List(
         Sphere(orbit((0f, 1f, 14f), 8f, 60.seconds, 0.millis, 0f, 300f), 1f, jupiterMaterial),
+        Sphere((-1f, 0.5f, 14f),5f, Material(colorChange(sunMaterial1Color1, sunMaterial1Color2, 4f), emissive = vec3(0f, 0.4f, 0.1f))),
         Cylinder(orbit((0f, 1f, 14f), 8f, 60.seconds, 0.millis, 0f, 300f),2f, 0f, ringMaterial)
       ),
-      camera = Camera(position = (0f, 0f, 0f)),
+      camera = Camera(position = (0f, 0f, -50f)),
       duration = 5.seconds
     )
 
@@ -68,7 +73,7 @@ object Orbit:
       pixelIterations = 500,
       iterations = 2,
       bgColor = hex("#000000"),
-      framesPerSecond = 30
+      framesPerSecond = 60
     )
     val renderer = AnimationRtRenderer(parameters)
     renderer.renderFramesToDir(scene, Paths.get("Orbit"))
