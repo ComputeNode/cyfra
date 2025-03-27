@@ -23,15 +23,10 @@ object AnimatedSDFs:
     val MAX_DIST: Float32 = 200f
     val MIN_DIST: Float32 = 0.0002f        
     val VISIBILITY_THRESHOLD: Float32 = 100f
-    // val SPHERE_POSITION: Vec3[Float32] = (-0.5f, -0.5f, 0f)
-    // val SPHERE_RADIUS: Float32 = 0.2f
     val BOX_POSITION: Vec3[Float32] = (0f, -0.1f, 0f)
     val BOX_SIZE: Vec3[Float32] = (0.2f, 0.4f, 0.2f)
-    val TORUS_POSITION: Vec3[Float32] = (0f, -0.7f, 0f)
+    val TORUS_POSITION: Vec3[Float32] = (0f, -0.9f, 0f)
     val TORUS_RADII: Vec2[Float32] = (0.25f, 0.07f)   
-
-    // def sdfSphere(center: Vec3[Float32], radius: Float32, position: Vec3[Float32]): Float32 = 
-    //   vecDistance(center, position) - radius
     
     def smoothMin(a: Float32, b: Float32, k: Float32): Float32 =
       val diff = abs(a - b)
@@ -55,13 +50,25 @@ object AnimatedSDFs:
       val q: Vec2[Float32] = (length((torusPos.x, torusPos.z)) - radii.x, torusPos.y)
       length(q) - radii.y
 
-    def getDistance(position: Vec3[Float32]): Float32 =      
-      val torus = sdfTorus(TORUS_POSITION, TORUS_RADII, position)
+    def getDistance(position: Vec3[Float32])(using AnimationInstant): Float32 =
+      val p = (
+        TORUS_POSITION.x,
+        smooth(from = TORUS_POSITION.y, to = 0.9f, duration = 2.seconds),
+        TORUS_POSITION.z  
+      )
+
+      val torus = sdfTorus(p, TORUS_RADII, position)
       val box = sdfBox(BOX_POSITION, BOX_SIZE, position)        
       smoothMin(torus, box, 0.5f)      
 
-    def getColor(position: Vec3[Float32]): Vec3[Float32] =      
-      val torus = sdfTorus(TORUS_POSITION, TORUS_RADII, position)
+    def getColor(position: Vec3[Float32])(using AnimationInstant): Vec3[Float32] =      
+      val p = (
+        TORUS_POSITION.x,
+        smooth(from = TORUS_POSITION.y, to = 0.9f, duration = 2.seconds),
+        TORUS_POSITION.z  
+      )
+      
+      val torus = sdfTorus(p, TORUS_RADII, position)
       val box = sdfBox(BOX_POSITION, BOX_SIZE, position)        
 
       val boxColor: Vec3[Float32] = (0f, 0.5f, 1f)
@@ -74,7 +81,7 @@ object AnimatedSDFs:
         lerp(boxColor.z, torusColor.z, factor)
       )
 
-    def getNormal(position: Vec3[Float32]): Vec3[Float32] =
+    def getNormal(position: Vec3[Float32])(using AnimationInstant): Vec3[Float32] =
       val epsilon = 0.01f
       normalize(
         getDistance((position.x + epsilon, position.y, position.z)),
@@ -82,7 +89,7 @@ object AnimatedSDFs:
         getDistance((position.x, position.y, position.z + epsilon)),
       )
 
-    def getLight(position: Vec3[Float32]): Float32 =
+    def getLight(position: Vec3[Float32])(using AnimationInstant): Float32 =
       val lightPos: Vec3[Float32] = (0.2f, -2f, -1f)
       val lightDir = normalize(position - lightPos)
       val normal = getNormal(position)
@@ -107,13 +114,8 @@ object AnimatedSDFs:
       val forward = normalize(lookAt - camera)
       val right = normalize(io.computenode.cyfra.dsl.Functions.cross((0f, 1f, 0f), forward))
       val up = io.computenode.cyfra.dsl.Functions.cross(forward, right)
-      val rayDirection = normalize(forward + 
-                        right * uv.x + 
-                        up * uv.y)
+      val rayDirection = normalize(forward + right * uv.x + up * uv.y)
 
-
-      // val rayDirection = (uv.x, uv.y, focalDistance)
-      // val distance = rayMarch(camera, rayDirection)
       val distance = rayMarch(camera, rayDirection)
             
       when(distance < VISIBILITY_THRESHOLD){
@@ -125,10 +127,10 @@ object AnimatedSDFs:
         (result.x, result.y, result.z, 1f)
       }.otherwise{
         (0.5f, 0.5f, 0.5f, 1f)
-      }      
+      }
 
-    val animation = AnimatedFunction.fromCoord(mainImage, 1.seconds)
+    val animation = AnimatedFunction.fromCoord(mainImage, 2.seconds)
 
-    val renderer = AnimatedFunctionRenderer(Parameters(1024, 1024, 1))
+    val renderer = AnimatedFunctionRenderer(Parameters(1024, 1024, 30))
     renderer.renderFramesToDir(animation, Paths.get("output"))
 
