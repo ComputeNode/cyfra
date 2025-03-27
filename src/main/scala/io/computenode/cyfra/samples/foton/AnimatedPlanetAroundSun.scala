@@ -42,8 +42,8 @@ object Orbit:
       color = vec3(1f, 0.2f, 0.05f),
       emissive = vec3(4f, 0.4f, 0.1f)     
     )
-    val sunMaterial1Color1 = vec3(1f, 0.2f, 0.05f)
-    val sunMaterial1Color2 = vec3(0f, 0f, 1f)
+    val sunMaterial1Color1 = vec3(1.0f, 0.5f, 0.0f)
+    val sunMaterial1Color2 = vec3(1f, 0f, 0.0f)
 
     val lightMaterial = Material(
       color = (1f, 0.3f, 0.3f),
@@ -58,11 +58,11 @@ object Orbit:
    
     val scene = AnimatedScene(
       shapes = staticShapes ::: List(
-        Sphere(orbit((0f, 1f, 14f), 8f, 60.seconds, 0.millis, 0f, 300f), 1f, jupiterMaterial),
-        Sphere((-1f, 0.5f, 14f),5f, Material(colorChange(sunMaterial1Color1, sunMaterial1Color2, 4f), emissive = vec3(0f, 0.4f, 0.1f))),
-        Cylinder(orbit((0f, 1f, 14f), 8f, 60.seconds, 0.millis, 0f, 300f),2f, 0f, ringMaterial)
+        Sphere(orbit((0f, 1f, 14f), 8f, 90.seconds, 0.millis, 0f, 300f), 1f, jupiterMaterial),
+        Sphere((-1f, 0.5f, 14f),5f, Material(colorChange(sunMaterial1Color1, sunMaterial1Color2, 900f), emissive = vec3(0.6f, 0.1f, 0.1f))),
+        Cylinder(orbit((0f, 1f, 14f), 8f, 90.seconds, 0.millis, 0f, 300f),2f, 0f, ringMaterial)
       ),
-      camera = Camera(position = (0f, 0f, -50f)),
+      camera = Camera(position = (0f, 0f, -10f)),
       duration = 5.seconds
     )
 
@@ -70,10 +70,10 @@ object Orbit:
       width = 640,
       height = 480,
       superFar = 300f,
-      pixelIterations = 500,
+      pixelIterations = 1000,
       iterations = 2,
       bgColor = hex("#000000"),
-      framesPerSecond = 60
+      framesPerSecond = 30
     )
     val renderer = AnimationRtRenderer(parameters)
     renderer.renderFramesToDir(scene, Paths.get("Orbit"))

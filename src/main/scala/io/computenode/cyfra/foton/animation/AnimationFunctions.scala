@@ -31,13 +31,15 @@ object AnimationFunctions:
         to
   
   def colorChange(color1: Vec3[Float32], color2: Vec3[Float32], changeRate: Float32): AnimationInstant ?=> Vec3[Float32] =
-    inst ?=> 
-      val clampedTime = inst.time.mod(changeRate)
-      when(clampedTime < changeRate/2f){
-        color1
-      } otherwise {
-        color2
-      }
+  inst ?=>
+    val time = inst.time.mod(changeRate * 2f)
+    val t = when(time < changeRate) {
+      time / changeRate
+    } otherwise {
+      (2f * changeRate - time) / changeRate 
+    }
+    color1 * (1f - t) + color2 * t
+    
   def orbit(center: Vec3[Float32], radius: Float32, duration: Milliseconds, at: Milliseconds = Milliseconds(0),
             initialAngle: Float32, finalAngle: Float32): AnimationInstant ?=> Vec3[Float32] =
     inst ?=>
