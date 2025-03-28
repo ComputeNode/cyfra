@@ -31,7 +31,6 @@ lazy val lwjglNatives = {
 val lwjglVersion = "3.3.3"
 val jomlVersion = "1.10.0"
 
-
 lazy val root = (project in file("."))
   .settings(
     name := "Cyfra",
@@ -51,10 +50,9 @@ lazy val root = (project in file("."))
       "org.scalameta" % "munit_3" % "1.0.0" % Test,
       "org.junit.jupiter" % "junit-jupiter" % "5.6.2" % Test,
       "org.junit.jupiter" % "junit-jupiter-engine" % "5.7.2" % Test,
+      "org.scalatest" %% "scalatest" % "3.2.16" % Test, // Added ScalaTest dependency
       "com.lihaoyi" %% "sourcecode" % "0.4.3-M5"
     )
   )
 
 lazy val vulkanSdk = System.getenv("VULKAN_SDK")
-javaOptions +=  s"-Dorg.lwjgl.vulkan.libname=$vulkanSdk/lib/libvulkan.1.dylib"
-

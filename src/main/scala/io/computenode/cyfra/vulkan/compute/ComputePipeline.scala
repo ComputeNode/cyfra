@@ -57,7 +57,7 @@ private[cyfra] class ComputePipeline(val computeShader: Shader, context: VulkanC
     pPipeline.get(0)
   }
 
-  protected def close(): Unit = {
+  def close(): Unit = {
     vkDestroyPipeline(device.get, handle, null)
     vkDestroyPipelineLayout(device.get, pipelineLayout, null)
     descriptorSetLayouts.map(_._1).foreach(vkDestroyDescriptorSetLayout(device.get, _, null))

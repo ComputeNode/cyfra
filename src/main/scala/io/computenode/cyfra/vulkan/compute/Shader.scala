@@ -35,7 +35,7 @@ private[cyfra] class Shader(shaderCode: ByteBuffer, val workgroupDimensions: Vec
     pShaderModule.get()
   }
 
-  protected def close(): Unit =
+  def close(): Unit =
     vkDestroyShaderModule(device.get, handle, null)
 }
 
@@ -46,12 +46,25 @@ object Shader {
 
   private def loadShader(path: String, classLoader: ClassLoader): ByteBuffer =
     try {
-      val file = new File(Objects.requireNonNull(classLoader.getResource(path)).getFile)
-      val fis = new FileInputStream(file)
-      val fc = fis.getChannel
-      fc.map(FileChannel.MapMode.READ_ONLY, 0, fc.size())
-    } catch
+      val resourceUrl = Objects.requireNonNull(classLoader.getResource(path))
+      if (resourceUrl.getProtocol == "jar") {
+        // Handle resources inside a JAR
+        val inputStream = classLoader.getResourceAsStream(path)
+        val bytes = inputStream.readAllBytes()
+        val buffer = ByteBuffer.allocateDirect(bytes.length)
+        buffer.put(bytes)
+        buffer.flip()
+        buffer
+      } else {
+        // Handle resources in the filesystem
+        val file = new File(resourceUrl.getFile)
+        val fis = new FileInputStream(file)
+        val fc = fis.getChannel
+        fc.map(FileChannel.MapMode.READ_ONLY, 0, fc.size())
+      }
+    } catch {
       case e: IOException =>
         throw new RuntimeException(e)
+    }
 
 }
