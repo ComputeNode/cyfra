@@ -11,13 +11,15 @@ import io.computenode.cyfra.foton.rt.animation.{AnimatedScene, AnimationRtRender
 import io.computenode.cyfra.foton.rt.shapes.{Plane, Shape, Sphere}
 import io.computenode.cyfra.foton.rt.{Camera, Material}
 
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import java.nio.file.Paths
 
 object AnimatedSolar:
 
+  private val DURATION: FiniteDuration = 5.seconds
+
   def orbit(center: Vec3[Float32], radius: Float32, speed: Float32 = 1f, offset: Float32 = 0f)(using AnimationInstant): Vec3[Float32] =
-    val a = smooth(from = 0f, to = 2f * Math.PI.toFloat, duration = 3.seconds)
+    val a = smooth(from = 0f, to = 2f * Math.PI.toFloat, duration = DURATION)
     (
       center.x + sin(a * speed + offset) * radius,
       center.y + 0f - cos(a * speed + offset) * radius / 3f,
@@ -73,7 +75,7 @@ object AnimatedSolar:
         Sphere(moonOrbit(), 0.4f, moonMaterial)
       ),
       camera = Camera(position = (0f, -3f, smooth(from = -32f, to = -1f, 200.seconds))),
-      duration = 3.seconds
+      duration = DURATION
     )
 
     val parameters = AnimationRtRenderer.Parameters(
