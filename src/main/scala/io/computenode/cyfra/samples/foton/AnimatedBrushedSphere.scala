@@ -9,9 +9,8 @@ import io.computenode.cyfra.dsl.given
 import io.computenode.cyfra.dsl.Algebra.{*, given}
 import io.computenode.cyfra.dsl.Control.when
 import io.computenode.cyfra.dsl.Functions.*
-import io.computenode.cyfra.dsl.GSeq
 import io.computenode.cyfra.dsl.Value.*
-import io.computenode.cyfra.dsl.{Empty, GArray2DFunction, GSeq, GStruct}
+import io.computenode.cyfra.dsl.{GSeq, GStruct}
 import io.computenode.cyfra.foton.animation.AnimatedFunctionRenderer.Parameters
 import io.computenode.cyfra.foton.animation.AnimationFunctions.*
 import io.computenode.cyfra.foton.animation.{AnimatedFunction, AnimatedFunctionRenderer}
@@ -43,13 +42,6 @@ object AnimatedBrushedSphere:
       material: Material,
     ) extends GStruct[RayHitInfo]
 
-    case class Triangle(
-      a: Vec3[Float32],
-      b: Vec3[Float32],
-      c: Vec3[Float32],
-      material: Material
-    ) extends GStruct[Triangle]
-
     case class Sphere(
       center: Vec3[Float32],
       radius: Float32,
@@ -64,9 +56,9 @@ object AnimatedBrushedSphere:
     ) extends GStruct[RayState]
 
     val brushedMaterial = Material(
-      color = vec3(0.5f),
+      color = (0f, 0.3f, 1f),
       emissive = vec3(0f),
-      shininess = 0.3f,
+      shininess = 0.5f,
     )
 
     val background = Material(
@@ -76,9 +68,9 @@ object AnimatedBrushedSphere:
     )
 
     val sphere = Sphere(
-      (0f, 0f, 0f),
-      1f,
-      Material((0f, 0.3f, 1f), vec3(0f), 0.5f)
+      center = (0f, 0f, 0f),
+      radius = 1f,
+      material = brushedMaterial
     )
 
     def testSphereHit(

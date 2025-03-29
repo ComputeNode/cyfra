@@ -41,8 +41,8 @@ object AnimatedSolar:
 
     val sun = Sphere(
       center = (0f, 0f, 0f),
-      3f,
-      sunMaterial
+      radius = 3f,
+      material = sunMaterial
     )
 
     val planeMaterial = Material(
@@ -53,7 +53,7 @@ object AnimatedSolar:
     val plane = Plane(
       point = vec3(0f, 10f, 0f),
       normal = vec3(0f, 1f, 0f),
-      planeMaterial
+      material = planeMaterial
     )
 
     val earthMaterial = Material(
