@@ -18,6 +18,7 @@ import org.lwjgl.vulkan.*
 import org.lwjgl.vulkan.KHRSynchronization2.vkCmdPipelineBarrier2KHR
 import org.lwjgl.vulkan.VK10.*
 import org.lwjgl.vulkan.VK13.*
+import org.lwjgl.system.MemoryUtil
 
 import java.nio.ByteBuffer
 
@@ -106,11 +107,17 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
 
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.get)
 
-        val pDescriptorSets = stack.longs(pipelineToDescriptorSets(pipeline).map(_.get): _*)
+        val descriptorSets = pipelineToDescriptorSets(pipeline)
+        val pDescriptorSets = stack.longs(descriptorSets.map(_.get): _*)
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.pipelineLayout, 0, pDescriptorSets, null)
 
         val workgroup = pipeline.computeShader.workgroupDimensions
-        vkCmdDispatch(commandBuffer, dataLength / workgroup.x, 1 / workgroup.y, 1 / workgroup.z) // TODO this can be changed to indirect dispatch, this would unlock options like filters
+        vkCmdDispatch(
+          commandBuffer,
+          Math.max(1, (dataLength + workgroup.x() - 1) / workgroup.x()), // Ceiling division
+          1, // Always use at least 1
+          1  // Always use at least 1
+        )
     }
 
     check(vkEndCommandBuffer(commandBuffer), "Failed to finish recording command buffer")
@@ -138,9 +145,30 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
       val buffers = set.bindings.zip(actions).map { case (binding, action) =>
         binding.size match
           case InputBufferSize(elemSize) =>
-            new Buffer(elemSize * dataLength, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | action.action, 0, VMA_MEMORY_USAGE_GPU_ONLY, allocator)
+            val memoryUsage = 
+              if ((action.action & BufferAction.LoadFrom.action) != 0) {
+                VMA_MEMORY_USAGE_CPU_TO_GPU 
+              } else {
+                VMA_MEMORY_USAGE_GPU_ONLY
+              }
+
+            val memoryFlags = 
+              if ((action.action & BufferAction.LoadFrom.action) != 0)
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+              else
+                0
+
+            new Buffer(elemSize * dataLength, 
+                      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | action.action, 
+                      memoryFlags,
+                      memoryUsage, 
+                      allocator)
           case UniformSize(size) =>
-            new Buffer(size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | action.action, 0, VMA_MEMORY_USAGE_GPU_ONLY, allocator)
+            new Buffer(size, 
+                      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | action.action, 
+                      0, 
+                      VMA_MEMORY_USAGE_GPU_ONLY, 
+                      allocator)
       }     
       set.update(buffers)
       (set, buffers)
@@ -150,54 +178,66 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
   }
 
   def execute(inputs: Seq[ByteBuffer], dataLength: Int): Seq[ByteBuffer] = pushStack { stack =>
-    timed("Vulkan full execute"):
-      val setToBuffers = createBuffers(dataLength)
+    try {
+      timed("Vulkan full execute"):
+        val setToBuffers = createBuffers(dataLength)
 
-      def buffersWithAction(bufferAction: BufferAction): Seq[Buffer] =
-        computeSequence.sequence.collect { case x: Compute =>
-          pipelineToDescriptorSets(x.pipeline).map(setToBuffers).zip(x.pumpLayoutLocations).flatMap(x => x._1.zip(x._2)).collect {
-            case (buffer, action) if (action.action & bufferAction.action) != 0 => buffer
+        def buffersWithAction(bufferAction: BufferAction): Seq[Buffer] =
+          computeSequence.sequence.collect { case x: Compute =>
+            pipelineToDescriptorSets(x.pipeline).map(setToBuffers).zip(x.pumpLayoutLocations).flatMap(x => x._1.zip(x._2)).collect {
+              case (buffer, action) if (action.action & bufferAction.action) != 0 => buffer
+            }
+          }.flatten
+
+        val stagingBuffer = new Buffer(
+          inputs.map(_.remaining()).max,
+          VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+          VMA_MEMORY_USAGE_UNKNOWN,
+          allocator
+        )
+
+        buffersWithAction(BufferAction.LoadTo).zipWithIndex.foreach { case (buffer, i) =>
+          Buffer.copyBuffer(inputs(i), stagingBuffer, buffer.size)
+          Buffer.copyBuffer(stagingBuffer, buffer, buffer.size, commandPool).block().destroy()
+        }
+
+        val fence = new Fence(device)
+        val commandBuffer = recordCommandBuffer(dataLength)
+        val pCommandBuffer = stack.callocPointer(1).put(0, commandBuffer)
+        val submitInfo = VkSubmitInfo
+          .calloc(stack)
+          .sType$Default()
+          .pCommandBuffers(pCommandBuffer)
+
+        timed("Vulkan render command"):
+          val result = vkQueueSubmit(queue.get, submitInfo, fence.get)
+          if (result != VK_SUCCESS) {
+            throw new RuntimeException(s"Failed to submit command buffer: ${result}")
           }
-        }.flatten
+          fence.block() // Wait for completion
+          vkQueueWaitIdle(queue.get) // Ensure all queue operations are done
 
-      val stagingBuffer = new Buffer(
-        inputs.map(_.remaining()).max,
-        VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
-        VMA_MEMORY_USAGE_UNKNOWN,
-        allocator
-      )
+        buffersWithAction(BufferAction.LoadFrom).foreach { buffer =>
+          vmaInvalidateAllocation(allocator.get, buffer.allocation, 0, VK_WHOLE_SIZE)
+        }
 
-      buffersWithAction(BufferAction.LoadTo).zipWithIndex.foreach { case (buffer, i) =>
-        Buffer.copyBuffer(inputs(i), stagingBuffer, buffer.size)
-        Buffer.copyBuffer(stagingBuffer, buffer, buffer.size, commandPool).block().destroy()
-      }
+        val results = buffersWithAction(BufferAction.LoadFrom).map { buffer =>
+          val out = BufferUtils.createByteBuffer(buffer.size)
+          Buffer.copyBuffer(buffer, out, buffer.size)
+          out
+        }
 
-      val fence = new Fence(device)
-      val commandBuffer = recordCommandBuffer(dataLength)
-      val pCommandBuffer = stack.callocPointer(1).put(0, commandBuffer)
-      val submitInfo = VkSubmitInfo
-        .calloc(stack)
-        .sType$Default()
-        .pCommandBuffers(pCommandBuffer)
+        stagingBuffer.destroy()
+        commandPool.freeCommandBuffer(commandBuffer)
+        setToBuffers.keys.foreach(_.update(Seq.empty))
+        setToBuffers.flatMap(_._2).foreach(_.destroy())
 
-      timed("Vulkan render command"):
-        check(vkQueueSubmit(queue.get, submitInfo, fence.get), "Failed to submit command buffer to queue")
-        fence.block().destroy()
-
-      val output = buffersWithAction(BufferAction.LoadFrom).map { buffer =>
-        Buffer.copyBuffer(buffer, stagingBuffer, buffer.size, commandPool).block().destroy()
-        val out = BufferUtils.createByteBuffer(buffer.size)
-        Buffer.copyBuffer(stagingBuffer, out, buffer.size)
-        out
-      }
-
-      stagingBuffer.destroy()
-      commandPool.freeCommandBuffer(commandBuffer)
-      setToBuffers.keys.foreach(_.update(Seq.empty))
-      setToBuffers.flatMap(_._2).foreach(_.destroy())
-
-      output
+        results
+    } catch {
+      case e: Exception =>
+        throw e
+    }
   }
 
   def destroy(): Unit =

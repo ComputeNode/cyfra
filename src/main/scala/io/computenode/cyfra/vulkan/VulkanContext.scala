@@ -3,6 +3,7 @@ package io.computenode.cyfra.vulkan
 import io.computenode.cyfra.vulkan.command.{CommandPool, Queue, StandardCommandPool}
 import io.computenode.cyfra.vulkan.core.{DebugCallback, Device, Instance}
 import io.computenode.cyfra.vulkan.memory.{Allocator, DescriptorPool}
+import org.lwjgl.vulkan.VK10
 
 /** @author
   *   MarconZet Created 13.04.2020
@@ -23,6 +24,12 @@ private[cyfra] class VulkanContext(val enableValidationLayers: Boolean = false) 
   val allocator: Allocator = new Allocator(instance, device)
   val descriptorPool: DescriptorPool = new DescriptorPool(device)
   val commandPool: CommandPool = new StandardCommandPool(device, computeQueue)
+
+  def deviceWaitIdle(): Unit = {
+    if (device != null) {
+      VK10.vkDeviceWaitIdle(device.get)
+    }
+  }
 
   def destroy(): Unit = {
     commandPool.destroy()
