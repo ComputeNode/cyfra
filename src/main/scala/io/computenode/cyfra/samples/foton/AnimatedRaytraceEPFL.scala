@@ -70,8 +70,8 @@ object BoxRaytrace:
 
     val scene = AnimatedScene(
       shapes = staticShapes,
-      camera = Camera(position = (smooth(from = -20f, to = 40f, duration = 3.seconds), 0f, -1f)),
-      duration = 3.seconds
+      camera = Camera(position = (smooth(from = -20f, to = 40f, duration = 6.seconds), 0f, -1f)),
+      duration = 6.seconds
     )
 
     val parameters = AnimationRtRenderer.Parameters(

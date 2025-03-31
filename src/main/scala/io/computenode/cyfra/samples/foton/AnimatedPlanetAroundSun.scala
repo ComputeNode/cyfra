@@ -54,12 +54,12 @@ object AnimatedPlanetAroundSun:
    
     val scene = AnimatedScene(
       shapes = staticShapes ::: List(
-        Sphere(orbit((0f, 1f, 14f), 8f, 90.seconds, 0.millis, 0f, 300f), 1f, alienPlanetMaterial),
+        Sphere(orbit((0f, 1f, 14f), 8f, 90.seconds, 0.millis, 90f, 390f), 1f, alienPlanetMaterial),
         Sphere((-1f, 0.5f, 14f),5f, Material(colorChange(sunMaterial1Color1, sunMaterial1Color2, 900f), emissive = vec3(0.6f, 0.1f, 0.1f))),
-        Cylinder(orbit((0f, 1f, 14f), 8f, 90.seconds, 0.millis, 0f, 300f),2f, 0f, ringMaterial)
+        Cylinder(orbit((0f, 1f, 14f), 8f, 90.seconds, 0.millis, 90f, 390f),2f, 0f, ringMaterial)
       ),
       camera = Camera(position = (0f, 0f, -10f)),
-      duration = 5.seconds
+      duration = 1990.milliseconds
     )
 
     val parameters = AnimationRtRenderer.Parameters(
@@ -69,7 +69,7 @@ object AnimatedPlanetAroundSun:
       pixelIterations = 10000,
       iterations = 2,
       bgColor = hex("#000000"),
-      framesPerSecond = 30
+      framesPerSecond = 60
     )
     val renderer = AnimationRtRenderer(parameters)
     renderer.renderFramesToDir(scene, Paths.get("raytracePlanetAndSun"))

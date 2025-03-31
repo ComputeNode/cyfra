@@ -38,6 +38,6 @@ object AnimatedWaveCircle:
       
       (c(0) / l, c(1) / l, c(2) / l, t.time)
     
-    val animatedStar = AnimatedFunction.fromCoord(waveColor, 30.milliseconds)
+    val animatedStar = AnimatedFunction.fromCoord(waveColor, 8.milliseconds)
     val renderer = AnimatedFunctionRenderer(Parameters(840, 473, 30000))
     renderer.renderFramesToDir(animatedStar, Paths.get("animatedWaveCircle"))
