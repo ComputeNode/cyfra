@@ -38,7 +38,7 @@ case class Box(
     val tEnter = max(tMinX, tMinY, tMinZ)
     val tExit = min(tMaxX, tMaxY, tMaxZ)
     
-    when(tEnter < tExit || tExit < 0.0f) {
+    when(tEnter > tExit || tExit < 0.0f) {
       currentHit
     } otherwise {
       val hitDistance = when(tEnter > 0f)(tEnter).otherwise(tExit)

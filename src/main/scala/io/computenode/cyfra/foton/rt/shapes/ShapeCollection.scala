@@ -10,13 +10,13 @@ import io.computenode.cyfra.dsl.given
 import io.computenode.cyfra.dsl.{GSeq, GStruct}
 import io.computenode.cyfra.foton.rt.RtRenderer.RayHitInfo
 import izumi.reflect.Tag
-
 import scala.util.chaining.*
 
 class ShapeCollection(
   val boxes: List[Box],
   val spheres: List[Sphere],
   val quads: List[Quad],
+  val cylinders: List[Cylinder],
   val planes: List[Plane]
 ) extends Shape:
   
@@ -24,19 +24,22 @@ class ShapeCollection(
     shapes.collect { case box: Box => box },
     shapes.collect { case sphere: Sphere => sphere },
     shapes.collect { case quad: Quad => quad },
+    shapes.collect { case cylinder: Cylinder => cylinder},
     shapes.collect { case plane: Plane => plane }
   )
   
   def addShape(shape: Shape): ShapeCollection =
     shape match
       case box: Box =>
-        ShapeCollection(box :: boxes, spheres, quads, planes)
+        ShapeCollection(box :: boxes, spheres, quads, cylinders, planes)
       case sphere: Sphere =>
-        ShapeCollection(boxes, sphere :: spheres, quads, planes)
+        ShapeCollection(boxes, sphere :: spheres, quads, cylinders,planes)
       case quad: Quad =>
-        ShapeCollection(boxes, spheres, quad :: quads, planes)
+        ShapeCollection(boxes, spheres, quad :: quads, cylinders,planes)
+      case cylinder : Cylinder =>
+        ShapeCollection(boxes, spheres, quads, cylinder :: cylinders,planes)
       case plane: Plane =>
-        ShapeCollection(boxes, spheres, quads, plane :: planes)
+        ShapeCollection(boxes, spheres, quads, cylinders, plane :: planes)
       case _ => assert(false, "Unknown shape type: Broken sealed hierarchy")
 
   def testRay(rayPos: Vec3[Float32], rayDir: Vec3[Float32], noHit: RayHitInfo): RayHitInfo =
@@ -50,3 +53,4 @@ class ShapeCollection(
       .pipe(testShapeType(spheres, _))
       .pipe(testShapeType(boxes, _))
       .pipe(testShapeType(planes, _))
+      .pipe(testShapeType(cylinders, _))

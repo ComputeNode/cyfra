@@ -30,6 +30,24 @@ object AnimationFunctions:
       .otherwise:
         to
   
+  def colorChange(color1: Vec3[Float32], color2: Vec3[Float32], changeRate: Float32): AnimationInstant ?=> Vec3[Float32] =
+  inst ?=>
+    val time = inst.time.mod(changeRate * 2f)
+    val t = when(time < changeRate) {
+      time / changeRate
+    } otherwise {
+      (2f * changeRate - time) / changeRate 
+    }
+    color1 * (1f - t) + color2 * t
+    
+  def orbit(center: Vec3[Float32], radius: Float32, duration: Milliseconds, at: Milliseconds = Milliseconds(0),
+            initialAngle: Float32, finalAngle: Float32): AnimationInstant ?=> Vec3[Float32] =
+    inst ?=>
+      val angle = smooth(initialAngle, finalAngle, duration, at)
+      val x = center.x + radius * cos(angle)
+      val z = center.z + radius * sin(angle)
+      (x, center.y, z)
+
 //  def freefall(from: Float32, to: Float32, g: Float32): Float32 => Vec3[Float32] =
 //    t =>
 //      val distance = to - from
