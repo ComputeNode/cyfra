@@ -24,16 +24,21 @@ trait Executable[H <: Value, R <: Value] {
 
 trait GContext {
   val vkContext = new VulkanContext(enableValidationLayers = true)
-  def compile[G <: GStruct[G] : Tag: GStructSchema, H <: Value: Tag: FromExpr, R <: Value: Tag: FromExpr](function: GFunction[G, H, R]): ComputePipeline
+
+  def compile[
+    G <: GStruct[G] : Tag: GStructSchema,
+    H <: Value: Tag: FromExpr,
+    R <: Value: Tag: FromExpr
+  ](function: GFunction[G, H, R]): ComputePipeline
+
   def execute[
     G <: GStruct[G] : Tag: GStructSchema,
     H <: Value: Tag: FromExpr,
     R <: Value: Tag: FromExpr
   ](
     mem: GMem[H],
-    pipeline: ComputePipeline,
     inData: Seq[ByteBuffer],
-    fn: GFunction[G, H, R]
+    fn: GFunction[G, H, R] // get the pipeline from fn.pipeline
   )(using uniformContext: UniformContext[_]): Future[Array[R]]
 }
 
@@ -60,10 +65,11 @@ class MVPContext extends GContext {
     R <: Value: Tag: FromExpr
   ](
     mem: GMem[H],
-    pipeline: ComputePipeline,
     inData: Seq[ByteBuffer],
     fn: GFunction[G, H, R]
-  )(using uniformContext: UniformContext[_]) = ???
+  )(using uniformContext: UniformContext[_]) =
+    // get the pipeline from fn.pipeline
+    ???
 
   implicit val ec: ExecutionContextExecutor = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(16))
 

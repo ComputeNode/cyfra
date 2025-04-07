@@ -26,5 +26,5 @@ case class GFunction[
     mem: GMem[H],
     inData: Seq[ByteBuffer]
   )(using uniformContext: UniformContext[G]): Future[Array[R]] =
-    context.execute[G, H, R](mem, pipeline, inData, this)
+    context.execute[G, H, R](mem, inData, this)
 }
