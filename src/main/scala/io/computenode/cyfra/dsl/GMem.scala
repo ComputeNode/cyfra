@@ -2,6 +2,7 @@ package io.computenode.cyfra.dsl
 
 import io.computenode.cyfra.dsl.Expression.*
 import io.computenode.cyfra.dsl.Value.*
+import io.computenode.cyfra.dsl.Algebra.FromExpr
 import io.computenode.cyfra.vulkan.compute.ComputePipeline
 import io.computenode.cyfra.vulkan.executor.SequenceExecutor.*
 import io.computenode.cyfra.vulkan.executor.{BufferAction, SequenceExecutor}
@@ -15,10 +16,18 @@ import scala.concurrent.ExecutionContext.Implicits.*
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 
-trait GMem[H <: Value]:
+trait GMem[H <: Value : Tag : FromExpr]:
   def size: Int
   val data: ByteBuffer
-  def map[R](fn: H => H)(using uniformContext: UniformContext[_]): Future[Array[R]]
+
+  // construct the GFunction and call execute on it.
+  def map[R <: Value: Tag : FromExpr](fn: H => R)(using context: GContext): Future[Array[R]] =
+    val gFun : GFunction[Empty, H, R] = GFunction(
+      size, // ??? = width
+      size, // ??? = height
+      (e: Empty, nums: (Int32, Int32), arr: GArray2D[H]) => fn(arr.at(nums._1, nums._2))
+    )
+    context.execute(this, gFun)
 
 trait WritableGMem[T <: Value, R] extends GMem[T]:
   def stride: Int
