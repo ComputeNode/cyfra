@@ -35,11 +35,7 @@ trait GContext {
     G <: GStruct[G] : Tag: GStructSchema,
     H <: Value: Tag: FromExpr,
     R <: Value: Tag: FromExpr
-  ](
-    mem: GMem[H],
-    inData: Seq[ByteBuffer],
-    fn: GFunction[G, H, R] // get the pipeline from fn.pipeline
-  )(using uniformContext: UniformContext[_]): Future[Array[R]]
+  ](mem: GMem[H], fn: GFunction[G, H, R])(using uniformContext: UniformContext[_]): Future[Array[R]]
 }
 
 val WorkerIndexTag = "worker_index"
@@ -63,12 +59,9 @@ class MVPContext extends GContext {
     G <: GStruct[G] : Tag: GStructSchema,
     H <: Value: Tag: FromExpr,
     R <: Value: Tag: FromExpr
-  ](
-    mem: GMem[H],
-    inData: Seq[ByteBuffer],
-    fn: GFunction[G, H, R]
-  )(using uniformContext: UniformContext[_]) =
+  ](mem: GMem[H], fn: GFunction[G, H, R])(using uniformContext: UniformContext[_]) =
     // get the pipeline from fn.pipeline
+    // get the data from mem
     ???
 
   implicit val ec: ExecutionContextExecutor = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(16))
