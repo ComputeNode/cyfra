@@ -4,10 +4,13 @@ import java.awt.image.BufferedImage
 import java.io.File
 import java.nio.file.Path
 import javax.imageio.ImageIO
+import javax.swing.JFrame
+import javax.swing.JLabel
+import javax.swing.ImageIcon
 
 object ImageUtility {
   def renderToImage(arr: Array[(Float, Float, Float, Float)], n: Int, location: Path): Unit = renderToImage(arr, n, n, location) 
-  def renderToImage(arr: Array[(Float, Float, Float, Float)], w: Int, h: Int, location: Path): Unit = {
+  def renderBufferedImg(arr: Array[(Float, Float, Float, Float)], w: Int, h: Int): BufferedImage = {
     val image = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB)
     for (y <- 0 until h) {
       for (x <- 0 until w) {
@@ -17,9 +20,20 @@ object ImageUtility {
         image.setRGB(x, y, (iR << 16) | (iG << 8) | iB)
       }
     }
+    image
+  }
 
+  def renderToImage(arr: Array[(Float, Float, Float, Float)], w: Int, h: Int, location: Path): Unit = {
+    val image = renderBufferedImg(arr, w, h)
     val outputFile = location.toFile
     ImageIO.write(image, "png", outputFile)
+  }
+
+  def displayImageToWindow(image: BufferedImage, frame: JFrame): Unit = {
+    frame.getContentPane.removeAll()
+    frame.getContentPane.add(new JLabel(new ImageIcon(image)))
+    frame.pack()
+    frame.repaint()
   }
 
 }
