@@ -44,6 +44,8 @@ lazy val root = (project in file("."))
       "org.lwjgl" % "lwjgl-vma" % lwjglVersion,
       "org.lwjgl" % "lwjgl" % lwjglVersion classifier lwjglNatives,
       "org.lwjgl" % "lwjgl-vma" % lwjglVersion classifier lwjglNatives,
+      "org.lwjgl" % "lwjgl-glfw" % lwjglVersion,
+      "org.lwjgl" % "lwjgl-glfw" % lwjglVersion classifier lwjglNatives,
       "org.joml" % "joml" % jomlVersion,
       "commons-io" % "commons-io" % "2.16.1",
       "org.slf4j" % "slf4j-api" % "1.7.30",
@@ -52,7 +54,8 @@ lazy val root = (project in file("."))
       "org.junit.jupiter" % "junit-jupiter" % "5.6.2" % Test,
       "org.junit.jupiter" % "junit-jupiter-engine" % "5.7.2" % Test,
       "com.lihaoyi" %% "sourcecode" % "0.4.3-M5"
-    )
+    ),
+    mainClass := Some("com.computenode.cyfra.app.Main")
   )
 
 lazy val vulkanSdk = System.getenv("VULKAN_SDK")
