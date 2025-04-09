@@ -10,6 +10,7 @@ import org.lwjgl.vulkan.EXTDebugReport.VK_EXT_DEBUG_REPORT_EXTENSION_NAME
 import org.lwjgl.vulkan.KHRPortabilityEnumeration.{VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR, VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME}
 import org.lwjgl.vulkan.VK10.*
 import org.lwjgl.vulkan.VK13.*
+import org.lwjgl.vulkan.KHRSurface.VK_KHR_SURFACE_EXTENSION_NAME
 
 import scala.collection.mutable
 import scala.jdk.CollectionConverters.given
@@ -21,6 +22,7 @@ import scala.util.chaining.*
 object Instance {
   val ValidationLayersExtensions: Seq[String] = List(VK_EXT_DEBUG_REPORT_EXTENSION_NAME)
   val MacOsExtensions: Seq[String] = List(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME)
+  val PlatformExtensions: Seq[String] = Seq(VK_KHR_SURFACE_EXTENSION_NAME, "VK_KHR_win32_surface")
 
   lazy val (extensions, layers): (Seq[String], Seq[String]) = pushStack { stack =>
     val ip = stack.ints(1)
@@ -94,6 +96,7 @@ private[cyfra] class Instance(enableValidationLayers: Boolean) extends VulkanObj
     val extensions = mutable.Buffer.from(Instance.MacOsExtensions)
     if (enableValidationLayers)
       extensions.addAll(Instance.ValidationLayersExtensions)
+    extensions.addAll(Instance.PlatformExtensions)
 
     val ppEnabledExtensionNames = stack.callocPointer(extensions.size)
     extensions.foreach(x => ppEnabledExtensionNames.put(stack.ASCII(x)))
