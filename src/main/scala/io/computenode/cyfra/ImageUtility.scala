@@ -7,6 +7,7 @@ import javax.imageio.ImageIO
 import javax.swing.JFrame
 import javax.swing.JLabel
 import javax.swing.ImageIcon
+import java.awt.Component
 
 object ImageUtility {
   def renderToImage(arr: Array[(Float, Float, Float, Float)], n: Int, location: Path): Unit = renderToImage(arr, n, n, location) 
@@ -30,10 +31,9 @@ object ImageUtility {
   }
 
   def displayImageToWindow(image: BufferedImage, frame: JFrame): Unit = {
-    frame.getContentPane.removeAll()
-    frame.getContentPane.add(new JLabel(new ImageIcon(image)))
-    frame.pack()
+    frame.getContentPane.getComponents.collectFirst { case label: JLabel =>
+      label.setIcon(new ImageIcon(image))
+    }
     frame.repaint()
   }
-
 }

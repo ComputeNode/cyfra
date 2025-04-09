@@ -23,12 +23,21 @@ import io.computenode.cyfra.{ImageUtility}
 import javax.swing.JFrame
 import java.awt.event.KeyAdapter
 import java.awt.event.KeyEvent
+import javax.swing.JLabel
+import java.awt.Color
+import javax.swing.ImageIcon
 
 @main
 def realTimeRendering =
+
   val dim = 1024
+  val emptyImage = new BufferedImage(dim, dim, BufferedImage.TYPE_INT_RGB)
   val frame = new JFrame("Cyfra Live Raytracing")
+  frame.getContentPane.add(new JLabel(new ImageIcon(emptyImage)))
+  frame.pack()
   frame.setVisible(true)
+
+
 
 
   def computeImage(xLimit : Int): GArray2DFunction[Empty, Vec4[Float32], Vec4[Float32]] = GArray2DFunction(dim, dim, {
@@ -54,8 +63,6 @@ def realTimeRendering =
   while (true) {
     val mem = Vec4FloatMem(Array.fill(dim * dim)((0f,0f,0f,0f)))
     val result = Await.result(mem.map(computeImage(xLimit)), 1.second)
-
     val image = ImageUtility.renderBufferedImg(result, dim, dim)
     ImageUtility.displayImageToWindow(image, frame)
-    Thread.sleep(20)
   }
