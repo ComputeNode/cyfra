@@ -28,4 +28,11 @@ trait WindowSystem {
    * @return true if the window should close, false otherwise
    */
   def shouldWindowClose(window: WindowHandle): Boolean
+  
+  /**
+   * Destroys a window and releases its resources.
+   *
+   * @param window The window handle to destroy
+   */
+  def destroyWindow(window: WindowHandle): Unit
 }

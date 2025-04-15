@@ -26,7 +26,8 @@ class RtRenderer(params: RtRenderer.Parameters):
 
   given ExecutionContext = Implicits.global
   
-  private case class RayTraceState(
+  // Change private to protected
+  protected case class RayTraceState(
     rayPos: Vec3[Float32],
     rayDir: Vec3[Float32],
     color: Vec3[Float32],
@@ -117,7 +118,7 @@ class RtRenderer(params: RtRenderer.Parameters):
     nextThroughput * (1.0f / rayProbability)
 
 
-  private def bounceRay(startRayPos: Vec3[Float32], startRayDir: Vec3[Float32], random: Random, scene: Scene): RayTraceState =
+  protected def bounceRay(startRayPos: Vec3[Float32], startRayDir: Vec3[Float32], random: Random, scene: Scene): RayTraceState =
     val initState = RayTraceState(startRayPos, startRayDir, (0f, 0f, 0f), (1f, 1f, 1f), random)
     GSeq.gen[RayTraceState](
       first = initState,
@@ -209,4 +210,4 @@ object RtRenderer:
   ) extends GStruct[RayHitInfo]
 
   val MinRayHitTime = 0.01f
-  
+

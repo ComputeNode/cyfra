@@ -6,12 +6,15 @@ import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import io.computenode.cyfra.vulkan.util.VulkanObject
 import org.lwjgl.vulkan.*
 import org.lwjgl.vulkan.KHRPortabilitySubset.VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME
+import org.lwjgl.vulkan.KHRSurface.VK_KHR_SURFACE_EXTENSION_NAME // Import surface extension
+import org.lwjgl.vulkan.KHRSwapchain.VK_KHR_SWAPCHAIN_EXTENSION_NAME // Import swapchain extension
 import org.lwjgl.vulkan.KHRSynchronization2.VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME
 import org.lwjgl.vulkan.VK10.*
 import org.lwjgl.vulkan.VK11.*
 
 import java.nio.ByteBuffer
 import scala.jdk.CollectionConverters.given
+import scala.collection.mutable
 
 /** @author
   *   MarconZet Created 13.04.2020
@@ -20,6 +23,8 @@ import scala.jdk.CollectionConverters.given
 object Device {
   final val MacOsExtension = VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME
   final val SyncExtension = VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME
+  // Add Swapchain extension constant
+  final val SwapchainExtension = VK_KHR_SWAPCHAIN_EXTENSION_NAME 
 }
 
 private[cyfra] class Device(instance: Instance) extends VulkanObject {
@@ -96,7 +101,20 @@ private[cyfra] class Device(instance: Instance) extends VulkanObject {
 
       vkGetPhysicalDeviceFeatures2(physicalDevice, physicalDeviceFeatures)
 
-      val additionalExtension = pProperties.stream().anyMatch(x => x.extensionNameString().equals(MacOsExtension))
+      // --- Determine required extensions ---
+      // Qualify SwapchainExtension with Device object
+      val requiredExtensions = mutable.ListBuffer(SyncExtension, Device.SwapchainExtension) 
+      if (deviceExtensionsSet.contains(MacOsExtension)) {
+        requiredExtensions += MacOsExtension
+      }
+      
+      // Filter based on available extensions
+      val extensionsToEnable = requiredExtensions.filter(deviceExtensionsSet).toList
+      
+      // --- Prepare extension names for Vulkan call ---
+      val ppExtensionNames = stack.callocPointer(extensionsToEnable.length)
+      extensionsToEnable.foreach(extension => ppExtensionNames.put(stack.ASCII(extension)))
+      ppExtensionNames.flip()
 
       val pQueuePriorities = stack.callocFloat(1).put(1.0f)
       pQueuePriorities.flip()
@@ -110,11 +128,6 @@ private[cyfra] class Device(instance: Instance) extends VulkanObject {
         .queueFamilyIndex(computeQueueFamily)
         .pQueuePriorities(pQueuePriorities)
 
-      val extensions = Seq(MacOsExtension, SyncExtension).filter(deviceExtensionsSet)
-      val ppExtensionNames = stack.callocPointer(extensions.length)
-      extensions.foreach(extension => ppExtensionNames.put(stack.ASCII(extension)))
-      ppExtensionNames.flip()
-
       val sync2 = VkPhysicalDeviceSynchronization2Features
         .calloc(stack)
         .sType$Default()
@@ -125,21 +138,51 @@ private[cyfra] class Device(instance: Instance) extends VulkanObject {
         .sType$Default()
         .pNext(sync2)
         .pQueueCreateInfos(pQueueCreateInfo)
-        .ppEnabledExtensionNames(ppExtensionNames)
+        .ppEnabledExtensionNames(ppExtensionNames) // Use the filtered list
 
       if (instance.enabledLayers.contains(ValidationLayer)) {
         val ppValidationLayers = stack.callocPointer(1).put(stack.ASCII(ValidationLayer))
         pCreateInfo.ppEnabledLayerNames(ppValidationLayers.flip())
       }
 
-      assert(vulkan13Features.synchronization2() || extensions.contains(SyncExtension))
+      assert(vulkan13Features.synchronization2() || extensionsToEnable.contains(SyncExtension))
 
       val pDevice = stack.callocPointer(1)
       check(vkCreateDevice(physicalDevice, pCreateInfo, null, pDevice), "Failed to create device")
+
+      // --- Debugging: Log enabled extensions ---
+      println("--- Enabled Device Extensions ---")
+      val enabledExtCount = pCreateInfo.enabledExtensionCount()
+      val ppEnabledExtNames = pCreateInfo.ppEnabledExtensionNames() // Get the PointerBuffer
+      if (ppEnabledExtNames != null) {
+        // Iterate through the PointerBuffer to get extension names
+        (0 until enabledExtCount).foreach { i =>
+          println(s"  ${ppEnabledExtNames.getStringUTF8(i)}")
+        }
+      } else {
+        println("  None")
+      }
+      println("--- End Enabled Device Extensions ---")
+      // --- End Debugging ---
+
       new VkDevice(pDevice.get(0), physicalDevice, pCreateInfo)
     }
 
   def get: VkDevice = device
+
+  /**
+   * Wait for all operations on the device to complete
+   */
+  def waitIdle(): Unit = {
+    vkDeviceWaitIdle(device)
+  }
+
+  // Add this method to the Device class
+  def destroySemaphore(semaphore: Long): Unit = {
+    if (semaphore != 0L) {
+      vkDestroySemaphore(device, semaphore, null)
+    }
+  }
 
   override protected def close(): Unit =
     vkDestroyDevice(device, null)

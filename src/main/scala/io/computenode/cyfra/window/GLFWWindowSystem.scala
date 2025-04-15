@@ -110,6 +110,21 @@ class GLFWWindowSystem extends WindowSystem {
   }
 
   /**
+   * Destroys a window and releases all associated resources.
+   *
+   * @param window The window handle to destroy
+   */
+  override def destroyWindow(window: WindowHandle): Unit = {
+    if (window != null && window.nativePtr != 0) {
+      // If the window has callbacks, clean them up
+      // This is handled automatically by GLFW when destroying the window
+      
+      // Destroy the window
+      GLFW.glfwDestroyWindow(window.nativePtr)
+    }
+  }
+
+  /**
    * Sets up GLFW callbacks for the given window handle.
    * Callbacks will populate the eventQueue with WindowEvents.
    */

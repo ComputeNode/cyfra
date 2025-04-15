@@ -1,13 +1,14 @@
 package io.computenode.cyfra.vulkan.core
 
 import io.computenode.cyfra.vulkan.VulkanContext
-import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
+import io.computenode.cyfra.vulkan.util.Util.{check, pushStack} // Ensure pushStack is imported
 import io.computenode.cyfra.vulkan.util.{VulkanAssertionError, VulkanObjectHandle}
 import org.lwjgl.system.MemoryStack
+import org.lwjgl.system.MemoryUtil.memAddress // Import memAddress
 import org.lwjgl.vulkan.KHRSurface.*
 import org.lwjgl.vulkan.KHRSwapchain.*
 import org.lwjgl.vulkan.VK10.*
-import org.lwjgl.vulkan.{VkExtent2D, VkSwapchainCreateInfoKHR, VkImageViewCreateInfo, VkSurfaceFormatKHR}
+import org.lwjgl.vulkan.{VkExtent2D, VkSwapchainCreateInfoKHR, VkImageViewCreateInfo, VkSurfaceFormatKHR, VkPresentInfoKHR, VkSemaphoreCreateInfo, VkSurfaceCapabilitiesKHR} // Added VkSurfaceCapabilitiesKHR
 
 import scala.jdk.CollectionConverters.given
 import scala.collection.mutable.ArrayBuffer
@@ -33,6 +34,13 @@ private[cyfra] class SwapChainManager(context: VulkanContext, surface: Surface) 
   private var swapChainImages: Array[Long] = _
   private var swapChainImageViews: Array[Long] = _
   
+  // Synchronization objects for rendering
+  private var imageAvailableSemaphores: Array[Long] = _
+  private var renderFinishedSemaphores: Array[Long] = _
+  private var inFlightFences: Array[Long] = _
+  private var imagesInFlight: Array[Long] = _
+  private var currentFrame = 0
+  
   protected val handle: Long = VK_NULL_HANDLE
   
   // Add a separate mutable field to track the actual swap chain handle
@@ -46,124 +54,10 @@ private[cyfra] class SwapChainManager(context: VulkanContext, surface: Surface) 
     // Return the current swap chain handle instead of the immutable 'handle'
     swapChainHandle
   }
-  
-  /**
-   * Choose an optimal surface format for the swap chain
-   *
-   * @param preferredFormat The preferred format, defaults to VK_FORMAT_B8G8R8A8_SRGB
-   * @param preferredColorSpace The preferred color space, defaults to VK_COLOR_SPACE_SRGB_NONLINEAR_KHR
-   * @return The selected surface format
-   */
-  def chooseSwapSurfaceFormat(
-    preferredFormat: Int = VK_FORMAT_B8G8R8A8_SRGB, 
-    preferredColorSpace: Int = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR
-  ): VkSurfaceFormatKHR = {
-    // Query available formats using VulkanContext
-    val availableFormats = context.getSurfaceFormats(surface)
-    
-    if (availableFormats.isEmpty) {
-      throw new VulkanAssertionError("No surface formats available", -1)
-    }
-    
-    // First look for exact match of format and color space
-    availableFormats.find(format => 
-      format.format() == preferredFormat && format.colorSpace() == preferredColorSpace
-    ).getOrElse {
-      // Then look for format with any color space
-      availableFormats.find(_.format() == preferredFormat)
-        .getOrElse(availableFormats.head) // Just return the first format if no match
-    }
-  }
-  
-  /**
-   * Choose an optimal presentation mode for the swap chain
-   *
-   * @param preferredMode The preferred presentation mode, defaults to VK_PRESENT_MODE_MAILBOX_KHR
-   * @return The selected presentation mode, or VK_PRESENT_MODE_FIFO_KHR if preferred isn't available
-   */
-  def chooseSwapPresentMode(preferredMode: Int = VK_PRESENT_MODE_MAILBOX_KHR): Int = {
-    // Query available presentation modes using VulkanContext
-    val availableModes = context.getPresentModes(surface)
-    
-    // If the preferred mode is supported, use it
-    if (availableModes.contains(preferredMode)) {
-      preferredMode
-    } else {
-      // FIFO is guaranteed to be supported by the Vulkan spec
-      VK_PRESENT_MODE_FIFO_KHR
-    }
-  }
-  
-  /**
-   * Choose an optimal swap extent based on the window dimensions
-   * and surface capabilities.
-   *
-   * @param width The window width
-   * @param height The window height
-   * @return The selected extent that fits within min/max bounds
-   */
-  def chooseSwapExtent(width: Int, height: Int): VkExtent2D = pushStack { stack =>
-    val capabilities = context.getSurfaceCapabilities(surface)
-    
-    // Get current extent from capabilities
-    val currentExtent = capabilities.getCurrentExtent()
-    
-    // If currentExtent is set to max uint32 (0xFFFFFFFF), the window manager 
-    // allows us to set our own resolution
-    if (currentExtent._1 != Int.MaxValue && currentExtent._2 != Int.MaxValue) {
-      val extent = VkExtent2D.calloc(stack)
-        .width(currentExtent._1)
-        .height(currentExtent._2)
-      return extent
-    }
-    
-    val extent = VkExtent2D.calloc(stack)
-      .width(width)
-      .height(height)
-    
-    // Clamp the extent between min and max
-    val minExtent = capabilities.getMinExtent()
-    val maxExtent = capabilities.getMaxExtent()
-    
-    extent.width(
-      Math.max(minExtent._1, Math.min(maxExtent._1, extent.width()))
-    )
-    
-    extent.height(
-      Math.max(minExtent._2, Math.min(maxExtent._2, extent.height()))
-    )
-    
-    extent
-  }
-  
-  /**
-   * Determine the optimal number of images in the swap chain
-   * 
-   * @param capabilities The surface capabilities
-   * @return The number of images to use
-   */
-  def determineImageCount(capabilities: SurfaceCapabilities): Int = {
-    // Start with minimum + 1 for triple buffering
-    var imageCount = capabilities.getMinImageCount() + 1
-    
-    // If max count is 0, there is no limit
-    // Otherwise ensure we don't exceed the maximum
-    val maxImageCount = capabilities.getMaxImageCount()
-    if (maxImageCount > 0) {
-      imageCount = Math.min(imageCount, maxImageCount)
-    }
-    
-    // Make sure we have at least enough images to handle MAX_FRAMES_IN_FLIGHT
-    imageCount = Math.max(imageCount, MAX_FRAMES_IN_FLIGHT)
-    
-    // Double-check against maxImageCount again if we adjusted for MAX_FRAMES_IN_FLIGHT
-    if (maxImageCount > 0) {
-      imageCount = Math.min(imageCount, maxImageCount)
-    }
-    
-    imageCount
-  }
-  
+
+  // Removed chooseSwapSurfaceFormat, chooseSwapPresentMode, chooseSwapExtent, determineImageCount methods
+  // Their logic is now inlined within initialize
+
   /**
    * Initialize the swap chain with specified dimensions
    * 
@@ -172,79 +66,180 @@ private[cyfra] class SwapChainManager(context: VulkanContext, surface: Surface) 
    * @return True if initialization was successful
    */
   def initialize(width: Int, height: Int): Boolean = pushStack { stack =>
-    // Clean up previous swap chain if it exists
     cleanup()
-    
-    // Get surface capabilities
-    val capabilities = context.getSurfaceCapabilities(surface)
-    
-    // Select swap chain settings using our methods
-    val surfaceFormat = chooseSwapSurfaceFormat()
-    val presentMode = chooseSwapPresentMode()
-    val extent = chooseSwapExtent(width, height)
-    
-    // Store selected format, extent, and present mode
-    swapChainExtent = extent
-    swapChainImageFormat = surfaceFormat.format()
-    swapChainColorSpace = surfaceFormat.colorSpace()
+
+    // --- Query Surface Capabilities ONCE ---
+    val capabilities = VkSurfaceCapabilitiesKHR.calloc(stack)
+    check(
+      vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface.get, capabilities),
+      "Failed to get surface capabilities"
+    )
+    val currentTransform = capabilities.currentTransform()
+    val minImageCountCap = capabilities.minImageCount()
+    val maxImageCountCap = capabilities.maxImageCount()
+    val currentExtentCap = capabilities.currentExtent()
+    val minExtentCap = capabilities.minImageExtent()
+    val maxExtentCap = capabilities.maxImageExtent()
+
+    // --- Choose Surface Format ---
+    val availableFormats: List[(Int, Int)] = context.getSurfaceFormats(surface)
+    val preferredFormat = VK_FORMAT_B8G8R8A8_SRGB
+    val preferredColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR
+    println(s"--- Surface Format Selection ---") // Keep debug prints for now
+    println(s"Available Formats (${availableFormats.length}):")
+    availableFormats.foreach(f => println(s"  Format: ${f._1}, ColorSpace: ${f._2}"))
+    println(s"Preferred Format: $preferredFormat, Preferred ColorSpace: $preferredColorSpace")
+    if (availableFormats.isEmpty) {
+      throw new VulkanAssertionError("No surface formats available", -1)
+    }
+    val exactMatch = availableFormats.find { case (fmt, cs) => fmt == preferredFormat && cs == preferredColorSpace }
+    val formatMatch = availableFormats.find { case (fmt, _) => fmt == preferredFormat }
+    val (chosenFormat, chosenColorSpace) = exactMatch.orElse(formatMatch).getOrElse(availableFormats.head)
+    println(s"Chosen Format: $chosenFormat, Chosen ColorSpace: $chosenColorSpace")
+    println(s"--- End Surface Format Selection ---")
+
+    // --- Choose Present Mode ---
+    val availableModes = context.getPresentModes(surface)
+    val preferredMode = VK_PRESENT_MODE_MAILBOX_KHR
+    val presentMode = if (availableModes.contains(preferredMode)) preferredMode else VK_PRESENT_MODE_FIFO_KHR
+
+    // --- Choose Swap Extent ---
+    println(s"--- Swap Extent Selection ---") // Keep debug prints
+    println(s"Requested Extent: ${width}x${height}")
+    println(s"Capabilities Current Extent: ${currentExtentCap.width()}x${currentExtentCap.height()}")
+    println(s"Capabilities Min Extent: ${minExtentCap.width()}x${minExtentCap.height()}")
+    println(s"Capabilities Max Extent: ${maxExtentCap.width()}x${maxExtentCap.height()}")
+    val (chosenWidth, chosenHeight) = if (currentExtentCap.width() != -1) { // Use -1 for UINT32_MAX check
+      (currentExtentCap.width(), currentExtentCap.height())
+    } else {
+      val w = Math.max(minExtentCap.width(), Math.min(maxExtentCap.width(), width))
+      val h = Math.max(minExtentCap.height(), Math.min(maxExtentCap.height(), height))
+      (w, h)
+    }
+    println(s"Final Chosen Extent: ${chosenWidth}x${chosenHeight}")
+    println(s"--- End Swap Extent Selection ---")
+
+    // --- Determine Image Count ---
+    var imageCount = minImageCountCap + 1
+    if (maxImageCountCap > 0) {
+      imageCount = Math.min(imageCount, maxImageCountCap)
+    }
+    // Optional: Ensure enough images for frames in flight
+    // imageCount = Math.max(imageCount, MAX_FRAMES_IN_FLIGHT)
+    // if (maxImageCountCap > 0) {
+    //   imageCount = Math.min(imageCount, maxImageCountCap)
+    // }
+    swapChainImageCount = imageCount // Store the final count
+
+    swapChainImageFormat = chosenFormat
+    swapChainColorSpace = chosenColorSpace
     swapChainPresentMode = presentMode
-    
-    // Determine optimal image count based on capabilities and MAX_FRAMES_IN_FLIGHT
-    val imageCount = determineImageCount(capabilities)
-    swapChainImageCount = imageCount
-    
-    // Check if the compute queue supports presentation
-    val queueFamilyIndex = device.computeQueueFamily
-    val supportsPresentation = context.isQueueFamilyPresentSupported(queueFamilyIndex, surface)
-    
-    // Use exclusive mode since we're only using one queue
-    val queueFamilyIndices = Array(queueFamilyIndex)
-    
+
+    // --- Debugging: Check Queue Family Presentation Support ---
+    val computeQueueFamily = context.computeQueue.familyIndex
+    val supportsPresent = context.isQueueFamilyPresentSupported(computeQueueFamily, surface)
+    println(s"--- Queue Family Presentation Check ---")
+    println(s"Compute Queue Family Index: $computeQueueFamily")
+    println(s"Supports presentation to surface: $supportsPresent")
+    if (!supportsPresent) {
+        // This might be the root cause if presentation is needed from this queue
+        println("ERROR: The selected compute queue family does not support presentation to this surface!")
+        // Optionally throw an error to halt execution if this is critical
+        // throw new VulkanAssertionError(s"Queue family $computeQueueFamily does not support presentation to the surface", -1)
+    }
+    println(s"--- End Queue Family Presentation Check ---")
+    // --- End Debugging ---
+
+    // Store selected format, extent, and present mode
+    swapChainExtent = VkExtent2D.calloc(stack).width(chosenWidth).height(chosenHeight)
+    swapChainImageFormat = chosenFormat
+    swapChainColorSpace = chosenColorSpace
+    swapChainPresentMode = presentMode
+
     // Create the swap chain
     val createInfo = VkSwapchainCreateInfoKHR.calloc(stack)
       .sType$Default()
       .surface(surface.get)
       .minImageCount(imageCount)
-      .imageFormat(surfaceFormat.format())
-      .imageColorSpace(surfaceFormat.colorSpace())
-      .imageExtent(extent)
-      .imageArrayLayers(1) // Always 1 unless using stereoscopic 3D
-      .imageUsage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
-      .preTransform(capabilities.getCurrentTransform()) // Use current transform
+      .imageFormat(swapChainImageFormat)
+      .imageColorSpace(swapChainColorSpace)
+      .imageExtent(swapChainExtent)
+      .imageArrayLayers(1)
+      .imageUsage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT) // Added TRANSFER_DST
+      .preTransform(currentTransform) // Use transform queried earlier
       .compositeAlpha(VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR)
-      .presentMode(presentMode)
-      .clipped(true)  // Ignore obscured pixels
+      .presentMode(swapChainPresentMode)
+      .clipped(true)
       .oldSwapchain(VK_NULL_HANDLE)
-    
-    // Set image sharing mode based on queue usage
-    // Exclusive mode offers better performance
-    createInfo.imageSharingMode(VK_SHARING_MODE_EXCLUSIVE)
+      .imageSharingMode(VK_SHARING_MODE_EXCLUSIVE)
       .queueFamilyIndexCount(0)
       .pQueueFamilyIndices(null)
-    
+
+    // --- Debugging Start ---
+    println(s"--- SwapChain Creation Info ---") // Keep debug prints
+    println(s"Device Handle: ${device.get}")
+    println(s"Surface Handle: ${surface.get}")
+    println(s"Min Image Count: ${createInfo.minImageCount()}")
+    println(s"Image Format: ${createInfo.imageFormat()}")
+    println(s"Image Color Space: ${createInfo.imageColorSpace()}")
+    println(s"Image Extent: ${createInfo.imageExtent().width()}x${createInfo.imageExtent().height()}")
+    println(s"Image Usage: ${createInfo.imageUsage()}")
+    println(s"Pre Transform: ${createInfo.preTransform()}")
+    println(s"Present Mode: ${createInfo.presentMode()}")
+    println(s"Sharing Mode: ${createInfo.imageSharingMode()}")
+    println(s"--- End SwapChain Creation Info ---")
+    // --- Debugging End ---
+
+    // --- Explicit Handle Checks ---
+    // Use .address() to get the underlying Long handle for VkDevice
+    if (device.get.address() == VK_NULL_HANDLE) { 
+        throw new VulkanAssertionError("Device handle is VK_NULL_HANDLE before vkCreateSwapchainKHR", -1)
+    }
+    if (surface.get == VK_NULL_HANDLE) {
+        throw new VulkanAssertionError("Surface handle is VK_NULL_HANDLE before vkCreateSwapchainKHR", -1)
+    }
+    if (createInfo == null) {
+        throw new VulkanAssertionError("VkSwapchainCreateInfoKHR struct is null before vkCreateSwapchainKHR", -1)
+    }
+    // --- End Explicit Handle Checks ---
+
     // Create the swap chain
     val pSwapChain = stack.callocLong(1)
+    // --- Debugging: Log addresses ---
+    // Use memAddress for NIO buffers
+    println(s"Calling vkCreateSwapchainKHR with Device: ${device.get}, CreateInfo Address: ${createInfo.address()}, pSwapChain Address: ${memAddress(pSwapChain)}") 
+    // --- End Debugging ---
+
     val result = vkCreateSwapchainKHR(device.get, createInfo, null, pSwapChain)
     if (result != VK_SUCCESS) {
+      // --- Debugging: Print result code on failure ---
+      println(s"vkCreateSwapchainKHR failed with result code: $result (${VulkanAssertionError.translateVulkanResult(result)})")
+      // --- End Debugging ---
       throw new VulkanAssertionError("Failed to create swap chain", result)
     }
-    swapChainHandle = pSwapChain.get(0)  // Store in the mutable field
-    
+    swapChainHandle = pSwapChain.get(0)
+    // --- Debugging: Log success ---
+    println(s"vkCreateSwapchainKHR succeeded. SwapChain Handle: $swapChainHandle")
+    // --- End Debugging ---
+
     // Get the swap chain images
     val pImageCount = stack.callocInt(1)
     vkGetSwapchainImagesKHR(device.get, swapChainHandle, pImageCount, null)
     val actualImageCount = pImageCount.get(0)
-    
+
     val pSwapChainImages = stack.callocLong(actualImageCount)
     vkGetSwapchainImagesKHR(device.get, swapChainHandle, pImageCount, pSwapChainImages)
-    
+
     swapChainImages = new Array[Long](actualImageCount)
     for (i <- 0 until actualImageCount) {
       swapChainImages(i) = pSwapChainImages.get(i)
     }
-    
+
     // Create image views for the swap chain images
     createImageViews()
+    
+    // Create synchronization objects
+    createSynchronizationObjects()
     
     true
   }
@@ -289,10 +284,10 @@ private[cyfra] class SwapChainManager(context: VulkanContext, surface: Surface) 
       createInfo.subresourceRange { range =>
         range
           .aspectMask(VK_IMAGE_ASPECT_COLOR_BIT)  // Color aspect only
-          .baseMipLevel(0)                       // Start at first mip level
-          .levelCount(1)                         // Only one mip level
-          .baseArrayLayer(0)                     // Start at first array layer
-          .layerCount(1)                         // Only one array layer
+          .baseMipLevel(0)
+          .levelCount(1)
+          .baseArrayLayer(0)
+          .layerCount(1)
       }
       
       // Create the image view
@@ -303,6 +298,187 @@ private[cyfra] class SwapChainManager(context: VulkanContext, surface: Surface) 
       )
       swapChainImageViews(i) = pImageView.get(0)
     }
+  }
+  
+  /**
+   * Create synchronization objects for rendering
+   */
+  private def createSynchronizationObjects(): Unit = pushStack { stack =>
+    // Create the semaphores and fences for frame synchronization
+    imageAvailableSemaphores = new Array[Long](MAX_FRAMES_IN_FLIGHT)
+    renderFinishedSemaphores = new Array[Long](MAX_FRAMES_IN_FLIGHT)
+    inFlightFences = new Array[Long](MAX_FRAMES_IN_FLIGHT)
+    imagesInFlight = new Array[Long](swapChainImages.length)
+    
+    // Initialize imagesInFlight array with VK_NULL_HANDLE
+    for (i <- imagesInFlight.indices) {
+      imagesInFlight(i) = VK_NULL_HANDLE
+    }
+    
+    // Semaphore creation info
+    val semaphoreInfo = VkSemaphoreCreateInfo.calloc(stack)
+      .sType$Default()
+    
+    // Fence creation info - create in signaled state so first frame doesn't wait
+    val fenceInfo = org.lwjgl.vulkan.VkFenceCreateInfo.calloc(stack)
+      .sType$Default()
+      .flags(VK_FENCE_CREATE_SIGNALED_BIT)
+    
+    for (i <- 0 until MAX_FRAMES_IN_FLIGHT) {
+      // Create imageAvailable semaphore
+      val pImageAvailableSemaphore = stack.callocLong(1)
+      check(
+        vkCreateSemaphore(device.get, semaphoreInfo, null, pImageAvailableSemaphore),
+        s"Failed to create image available semaphore for frame $i"
+      )
+      imageAvailableSemaphores(i) = pImageAvailableSemaphore.get(0)
+      
+      // Create renderFinished semaphore
+      val pRenderFinishedSemaphore = stack.callocLong(1)
+      check(
+        vkCreateSemaphore(device.get, semaphoreInfo, null, pRenderFinishedSemaphore),
+        s"Failed to create render finished semaphore for frame $i"
+      )
+      renderFinishedSemaphores(i) = pRenderFinishedSemaphore.get(0)
+      
+      // Create inFlight fence
+      val pFence = stack.callocLong(1)
+      check(
+        vkCreateFence(device.get, fenceInfo, null, pFence),
+        s"Failed to create in-flight fence for frame $i"
+      )
+      inFlightFences(i) = pFence.get(0)
+    }
+  }
+  
+  /**
+   * Creates command buffers for rendering to the swapchain images
+   * 
+   * @param commandPool The command pool to allocate command buffers from
+   * @return Array of command buffers, one for each swap chain image
+   */
+  def createCommandBuffers(commandPool: Long): Array[org.lwjgl.vulkan.VkCommandBuffer] = pushStack { stack =>
+    // Allocate one command buffer per swap chain image
+    val allocInfo = org.lwjgl.vulkan.VkCommandBufferAllocateInfo.calloc(stack)
+      .sType$Default()
+      .commandPool(commandPool)
+      .level(VK_COMMAND_BUFFER_LEVEL_PRIMARY)
+      .commandBufferCount(swapChainImages.length)
+      
+    val pCommandBuffers = stack.mallocPointer(swapChainImages.length)
+    check(
+      vkAllocateCommandBuffers(device.get, allocInfo, pCommandBuffers),
+      "Failed to allocate command buffers"
+    )
+    
+    val commandBuffers = new Array[org.lwjgl.vulkan.VkCommandBuffer](swapChainImages.length)
+    for (i <- 0 until swapChainImages.length) {
+      commandBuffers(i) = new org.lwjgl.vulkan.VkCommandBuffer(pCommandBuffers.get(i), device.get)
+    }
+    
+    commandBuffers
+  }
+  
+  /**
+   * Acquire the next image in the swap chain
+   * 
+   * @return The index of the acquired swap chain image
+   */
+  def acquireNextImage(): Int = pushStack { stack =>
+    // Wait for the previous frame to finish
+    check(
+      vkWaitForFences(device.get, stack.longs(inFlightFences(currentFrame)), true, Long.MaxValue),
+      "Failed to wait for fence"
+    )
+    
+    // Get the next image
+    val pImageIndex = stack.callocInt(1)
+    val result = vkAcquireNextImageKHR(
+      device.get,
+      swapChainHandle,
+      Long.MaxValue,
+      imageAvailableSemaphores(currentFrame),
+      VK_NULL_HANDLE,
+      pImageIndex
+    )
+    
+    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+      // Swap chain is outdated, needs recreation
+      return -1
+    } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+      throw new VulkanAssertionError("Failed to acquire swap chain image", result)
+    }
+    
+    val imageIndex = pImageIndex.get(0)
+    
+    // Check if a previous frame is using this image
+    if (imagesInFlight(imageIndex) != VK_NULL_HANDLE) {
+      check(
+        vkWaitForFences(device.get, stack.longs(imagesInFlight(imageIndex)), true, Long.MaxValue),
+        "Failed to wait for image fence"
+      )
+    }
+    
+    // Mark the image as being in use by this frame
+    imagesInFlight(imageIndex) = inFlightFences(currentFrame)
+    
+    // Reset the fence for this frame
+    check(
+      vkResetFences(device.get, stack.longs(inFlightFences(currentFrame))),
+      "Failed to reset fence"
+    )
+    
+    imageIndex
+  }
+  
+  /**
+   * Submit a command buffer for rendering and present the image
+   * 
+   * @param commandBuffer The command buffer to submit
+   * @param imageIndex The index of the swap chain image to present
+   * @param queue The queue to submit the command buffer to
+   * @return True if the presentation was successful
+   */
+  def submitAndPresent(commandBuffer: org.lwjgl.vulkan.VkCommandBuffer, imageIndex: Int, queue: org.lwjgl.vulkan.VkQueue): Boolean = pushStack { stack =>
+    // Set up submit info
+    val waitSemaphores = stack.longs(imageAvailableSemaphores(currentFrame))
+    val waitStages = stack.ints(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
+    val signalSemaphores = stack.longs(renderFinishedSemaphores(currentFrame))
+    
+    val submitInfo = org.lwjgl.vulkan.VkSubmitInfo.calloc(stack)
+      .sType$Default()
+      .pWaitSemaphores(waitSemaphores)
+      .pWaitDstStageMask(waitStages)
+      .pCommandBuffers(stack.pointers(commandBuffer))
+      .pSignalSemaphores(signalSemaphores)
+    
+    // Submit the command buffer
+    check(
+      vkQueueSubmit(queue, submitInfo, inFlightFences(currentFrame)),
+      "Failed to submit draw command buffer"
+    )
+    
+    // Present the image
+    val presentInfo = VkPresentInfoKHR.calloc(stack)
+      .sType$Default()
+      .pWaitSemaphores(signalSemaphores)
+      .swapchainCount(1)
+      .pSwapchains(stack.longs(swapChainHandle))
+      .pImageIndices(stack.ints(imageIndex))
+    
+    val result = vkQueuePresentKHR(queue, presentInfo)
+    
+    // Update frame index for next frame
+    currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT
+    
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+      // Swap chain needs recreation
+      return false
+    } else if (result != VK_SUCCESS) {
+      throw new VulkanAssertionError("Failed to present swap chain image", result)
+    }
+    
+    true
   }
   
   /**
@@ -326,12 +502,48 @@ private[cyfra] class SwapChainManager(context: VulkanContext, surface: Surface) 
    */
   def getImages: Array[Long] = swapChainImages
   
+  // Added getter for single image
+  def getImage(index: Int): Long = {
+    if (swapChainImages == null || index < 0 || index >= swapChainImages.length) {
+      throw new IndexOutOfBoundsException(s"Image index $index out of bounds (0 to ${if (swapChainImages == null) "null" else swapChainImages.length - 1})")
+    }
+    swapChainImages(index)
+  }
+  
   /**
    * Get the swap chain image views
    * 
    * @return Array of image view handles
    */
   def getImageViews: Array[Long] = swapChainImageViews
+  
+  /**
+   * Get the current frame index
+   * 
+   * @return The current frame index
+   */
+  def getCurrentFrame: Int = currentFrame
+  
+  /**
+   * Get the image available semaphore for the current frame
+   * 
+   * @return The image available semaphore handle
+   */
+  def getImageAvailableSemaphore: Long = imageAvailableSemaphores(currentFrame)
+  
+  /**
+   * Get the render finished semaphore for the current frame
+   * 
+   * @return The render finished semaphore handle
+   */
+  def getRenderFinishedSemaphore: Long = renderFinishedSemaphores(currentFrame)
+  
+  /**
+   * Get the in-flight fence for the current frame
+   * 
+   * @return The in-flight fence handle
+   */
+  def getInFlightFence: Long = inFlightFences(currentFrame)
   
   /**
    * Clean up any existing swap chain resources
@@ -351,15 +563,38 @@ private[cyfra] class SwapChainManager(context: VulkanContext, surface: Surface) 
       swapChainHandle = VK_NULL_HANDLE
     }
     
-    // These don't need explicit destruction as they're just wrapper objects
-    swapChainImages = null
-    swapChainExtent = null
+    if (imageAvailableSemaphores != null) {
+      imageAvailableSemaphores.foreach(semaphore => 
+        if (semaphore != VK_NULL_HANDLE) {
+          vkDestroySemaphore(device.get, semaphore, null)
+        }
+      )
+      imageAvailableSemaphores = null
+    }
+    
+    if (renderFinishedSemaphores != null) {
+      renderFinishedSemaphores.foreach(semaphore => 
+        if (semaphore != VK_NULL_HANDLE) {
+          vkDestroySemaphore(device.get, semaphore, null)
+        }
+      )
+      renderFinishedSemaphores = null
+    }
+    
+    if (inFlightFences != null) {
+      inFlightFences.foreach(fence => 
+        if (fence != VK_NULL_HANDLE) {
+          vkDestroyFence(device.get, fence, null)
+        }
+      )
+      inFlightFences = null
+    }
   }
   
   /**
-   * Close and clean up all resources
+   * Clean up all resources used by the swap chain manager
    */
-  override protected def close(): Unit = {
+  override def close(): Unit = {
     cleanup()
   }
 }

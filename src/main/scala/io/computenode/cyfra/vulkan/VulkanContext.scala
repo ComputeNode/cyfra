@@ -42,9 +42,9 @@ private[cyfra] class VulkanContext(val enableValidationLayers: Boolean = false) 
   /** Get available surface formats for a surface
    *
    * @param surface The surface to query formats for
-   * @return A list of supported surface formats
+   * @return A list of supported surface formats as (format, colorSpace) tuples
    */
-  def getSurfaceFormats(surface: Surface): List[VkSurfaceFormatKHR] = pushStack { stack =>
+  def getSurfaceFormats(surface: Surface): List[(Int, Int)] = pushStack { stack => // Return type changed
     val countPtr = stack.callocInt(1)
     check(
       vkGetPhysicalDeviceSurfaceFormatsKHR(device.physicalDevice, surface.get, countPtr, null),
@@ -62,7 +62,8 @@ private[cyfra] class VulkanContext(val enableValidationLayers: Boolean = false) 
       "Failed to get surface formats"
     )
     
-    surfaceFormats.iterator().asScala.toList
+    // Extract format and colorSpace values directly into a list of tuples
+    surfaceFormats.iterator().asScala.map(f => (f.format(), f.colorSpace())).toList 
   }
   
   /** Get available presentation modes for a surface
