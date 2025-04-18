@@ -22,9 +22,6 @@ case class GFunction[
   def arrayInputs: List[Tag[_]] = List(summon[Tag[H]])
   def arrayOutputs: List[Tag[_]] = List(summon[Tag[R]])
   val pipeline: ComputePipeline = context.compile(this)
-  def apply(
-    mem: GMem[H],
-    inData: Seq[ByteBuffer]
-  )(using uniformContext: UniformContext[G]): Future[Array[R]] =
-    context.execute[G, H, R](mem, inData, this)
+  def apply(mem: GMem[H])(using uniformContext: UniformContext[G]): Future[Array[R]] =
+    context.execute[G, H, R](mem, this)
 }
