@@ -84,8 +84,6 @@ trait WritableGMem[T <: Value, R] extends GMem[T]:
   def write(data: Array[R]): Unit
 
 class FloatMem(val size: Int) extends WritableGMem[Float32, Float]:
-  // stub for map
-  override def map[R](fn: Float32 => Float32)(using uniformContext: UniformContext[_]): Future[Array[R]] = ???
   def stride: Int = 4
 
   override protected def toResultArray(buffer: ByteBuffer): Array[Float] = {
@@ -114,8 +112,6 @@ object FloatMem {
 
 type RGBA = (Float, Float, Float, Float)
 class Vec4FloatMem(val size: Int) extends WritableGMem[Vec4[Float32], RGBA]:
-  // stub for map
-  override def map[R](fn: Vec4[Float32] => Vec4[Float32])(using uniformContext: UniformContext[_]): Future[Array[R]] = ???
 
   def stride: Int = 16
 
