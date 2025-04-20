@@ -15,13 +15,14 @@ import io.computenode.cyfra.runtime.{GArray2DFunction, GContext, MVPContext}
 import io.computenode.cyfra.utility.Units.Milliseconds
 import io.computenode.cyfra.utility.Utility.timed
 import io.computenode.cyfra.dsl.Algebra.{*, given}
-import io.computenode.cyfra.runtime.GMem.fRGBA
+import io.computenode.cyfra.runtime.mem.GMem.fRGBA
+import io.computenode.cyfra.runtime.mem.Vec4FloatMem
 
 import java.nio.file.{Path, Paths}
 import scala.concurrent.ExecutionContext.Implicits
 import scala.concurrent.{Await, ExecutionContext}
 import scala.concurrent.duration.DurationInt
-import io.computenode.cyfra.runtime.Vec4FloatMem
+
 
 class AnimatedFunctionRenderer(params: AnimatedFunctionRenderer.Parameters) extends AnimationRenderer[AnimatedFunction, AnimatedFunctionRenderer.RenderFn](params):
 

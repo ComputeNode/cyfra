@@ -85,7 +85,7 @@ lazy val vscode = (project in file("cyfra-vscode"))
 
 lazy val e2eTest = (project in file("cyfra-e2e-test"))
   .settings(commonSettings)
-  .dependsOn(foton)
+  .dependsOn(runtime)
 
 lazy val root = (project in file("."))
   .settings(name := "Cyfra")

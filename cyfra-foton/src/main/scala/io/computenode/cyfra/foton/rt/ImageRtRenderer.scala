@@ -10,9 +10,9 @@ import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.foton.rt.shapes.{Box, Sphere}
 import io.computenode.cyfra.dsl.{GStruct, UniformContext, given}
 import io.computenode.cyfra.runtime.GArray2DFunction
-import io.computenode.cyfra.runtime.GMem.fRGBA
+import io.computenode.cyfra.runtime.mem.GMem.fRGBA
 import io.computenode.cyfra.utility.ImageUtility
-import io.computenode.cyfra.runtime.Vec4FloatMem
+import io.computenode.cyfra.runtime.mem.Vec4FloatMem
 import io.computenode.cyfra.dsl.Algebra.{*, given}
 
 import java.nio.file.{Path, Paths}

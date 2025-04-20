@@ -1,11 +1,19 @@
 package io.computenode.cyfra.juliaset
 
-import io.computenode.cyfra.dsl.Algebra.given
+import io.computenode.cyfra.dsl.Algebra.{*, given}
 import io.computenode.cyfra.*
+import io.computenode.cyfra.dsl.Control.when
+import io.computenode.cyfra.dsl.GStruct.Empty
+import io.computenode.cyfra.dsl.Value.*
+import io.computenode.cyfra.runtime.{GArray2DFunction, GContext, MVPContext}
 import org.apache.commons.io.IOUtils
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.runner.RunWith
+import io.computenode.cyfra.dsl.Functions.*
+import io.computenode.cyfra.dsl.GSeq
+import io.computenode.cyfra.runtime.mem.Vec4FloatMem
+import io.computenode.cyfra.utility.ImageUtility
 
 import java.io.File
 import java.nio.file.Files
