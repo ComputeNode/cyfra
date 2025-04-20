@@ -5,7 +5,7 @@ import io.computenode.cyfra.dsl.Control.*
 import io.computenode.cyfra.dsl.Expression.*
 import io.computenode.cyfra.dsl.Functions.*
 import io.computenode.cyfra.dsl.Value.*
-import io.computenode.cyfra.dsl.{GArray2DFunction, GContext, GSeq, GStruct, MVPContext, UniformContext, Value, Vec4FloatMem}
+import io.computenode.cyfra.dsl.{GFunction, GContext, GSeq, GStruct, MVPContext, UniformContext, Value, Vec4FloatMem}
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.{ImageUtility}
 
@@ -29,7 +29,7 @@ given ExecutionContext = Implicits.global
 
 @main
 def main =
-  
+
   val dim = 2048
   val minRayHitTime = 0.01f
   val rayPosNormalNudge = 0.01f
@@ -40,7 +40,7 @@ def main =
   val pixelIterationsPerFrame = 1000
   val bgColor = (0.2f, 0.2f, 0.2f)
   val exposure = 1f
-  
+
   case class Random[T <: Value](value: T, nextSeed: UInt32)
 
   def lessThan(f: Vec3[Float32], f2: Float32): Vec3[Float32] =
@@ -245,7 +245,7 @@ def main =
 
   case class RaytracingIteration(frame: Int32) extends GStruct[RaytracingIteration]
 
-  def function(): GArray2DFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]] = GArray2DFunction(dim, dim, {
+  def function(): GFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]] = GFunction(dim, dim, {
     case (RaytracingIteration(frame), (xi: Int32, yi: Int32), lastFrame) =>
       def wangHash(seed: UInt32): UInt32 = {
         val s1 = (seed ^ 61) ^ (seed >> 16)
@@ -295,7 +295,7 @@ def main =
         val pc = fixedQuad.c - p
         val m = pc cross pq
         val v = pa dot m
-        
+
         def checkHit(intersectPoint: Vec3[Float32]): RayHitInfo =
           val dist = when(abs(rayDir.x) > 0.1f) {
             (intersectPoint.x - rayPos.x) / rayDir.x
@@ -305,8 +305,8 @@ def main =
             (intersectPoint.z - rayPos.z) / rayDir.z
           }
           when(dist > minRayHitTime && dist < currentHit.dist) {
-            RayHitInfo(dist, fixedNormal, quad.color, quad.emissive, quad.percentSpecular, 
-              quad.roughness, quad.specularColor, quad.indexOfRefraction, 
+            RayHitInfo(dist, fixedNormal, quad.color, quad.emissive, quad.percentSpecular,
+              quad.roughness, quad.specularColor, quad.indexOfRefraction,
               quad.refractionChance, quad.refractionRoughness, quad.refractionColor)
           } otherwise {
             currentHit
@@ -388,9 +388,9 @@ def main =
         })
 
       def fresnelReflectAmount(
-        n1: Float32, 
+        n1: Float32,
         n2: Float32,
-        normal: Vec3[Float32], 
+        normal: Vec3[Float32],
         incident: Vec3[Float32],
         f0: Float32,
         f90: Float32
@@ -413,7 +413,7 @@ def main =
           val ret = r0 + ((1.0f - r0) * x * x * x * x * x)
           mix(f0, f90, ret)
         }
-        
+
       val MaxBounces = 8
       def getColorForRay(startRayPos: Vec3[Float32], startRayDir: Vec3[Float32], initRngState: UInt32): RayTraceState =
         val initState = RayTraceState(startRayPos, startRayDir, (0f, 0f, 0f), (1f, 1f, 1f), initRngState)
@@ -430,7 +430,7 @@ def main =
               }.otherwise {
                 throughput
               }
-             
+
               val specularChance = when(testResult.percentSpecular > 0.0f){
                 fresnelReflectAmount(
                   when(testResult.fromInside)(testResult.indexOfRefraction).otherwise(1.0f),
@@ -440,22 +440,22 @@ def main =
               }.otherwise {
                 0f
               }
-              
+
               val refractionChance = when(specularChance > 0.0f) {
                 testResult.refractionChance * ((1.0f - specularChance) / (1.0f - testResult.percentSpecular))
               } otherwise {
                 testResult.refractionChance
               }
-                
+
               val Random(rayRoll, nextRngState1) = randomFloat(rngState)
               val doSpecular = when(specularChance > 0.0f && rayRoll < specularChance) {
                 1.0f
               }.otherwise(0.0f)
-              
+
               val doRefraction = when(refractionChance > 0.0f && doSpecular === 0.0f && rayRoll < specularChance + refractionChance ) {
                 1.0f
               }.otherwise(0.0f)
-              
+
               val rayProbability = when(doSpecular === 1.0f) {
                 specularChance
               }.elseWhen(doRefraction === 1.0f) {
@@ -463,43 +463,43 @@ def main =
               }.otherwise {
                 1.0f - (specularChance + refractionChance)
               }
-              
+
               val rayProbabilityCorrected = max(rayProbability, 0.01f)
-              
+
               val nextRayPos = when(doRefraction === 1.0f) {
                 (rayPos + rayDir * testResult.dist) - (testResult.normal * rayPosNormalNudge)
               }.otherwise {
                 (rayPos + rayDir * testResult.dist) + (testResult.normal * rayPosNormalNudge)
               }
-              
-              
+
+
               val Random(randomVec1, nextRngState2) = randomVector(nextRngState1)
               val diffuseRayDir = normalize(testResult.normal + randomVec1)
               val specularRayDirPerfect = reflect(rayDir, testResult.normal)
               val specularRayDir = normalize(mix(specularRayDirPerfect, diffuseRayDir, testResult.roughness * testResult.roughness))
-              
+
               val Random(randomVec2, nextRngState3) = randomVector(nextRngState2)
               val refractionRayDirPerfect = refract(
-                rayDir, 
-                testResult.normal, 
+                rayDir,
+                testResult.normal,
                 when(testResult.fromInside)(testResult.indexOfRefraction).otherwise(1.0f / testResult.indexOfRefraction)
               )
               val refractionRayDir = normalize(
                 mix(
-                  refractionRayDirPerfect, 
-                  normalize(-testResult.normal + randomVec2), 
+                  refractionRayDirPerfect,
+                  normalize(-testResult.normal + randomVec2),
                   testResult.refractionRoughness * testResult.refractionRoughness
               ))
-              
+
               val rayDirSpecular = mix(diffuseRayDir, specularRayDir, doSpecular)
               val rayDirRefracted = mix(rayDirSpecular, refractionRayDir, doRefraction)
-              
+
               val nextColor = (throughput2 mulV testResult.emissive) addV color
-              
+
               val nextThroughput = when(doRefraction === 0.0f) {
                 throughput2 mulV mix[Vec3[Float32]](testResult.albedo, testResult.specularColor, doSpecular);
               }.otherwise(throughput2)
-              
+
               val throughputRayProb = nextThroughput * (1.0f / rayProbabilityCorrected)
 
               RayTraceState(nextRayPos, rayDirRefracted, nextColor, throughputRayProb, nextRngState3)
@@ -509,7 +509,7 @@ def main =
 
           }
         ).limit(MaxBounces).takeWhile(!_.finished).lastOr(initState)
-      
+
       val rngState = xi * 1973 + yi * 9277 + frame * 26699 | 1
       case class RenderIteration(color: Vec3[Float32], rngState: UInt32) extends GStruct[RenderIteration]
       val color =
@@ -531,14 +531,14 @@ def main =
             RenderIteration(withBg, rtResult.rngState)
           }).limit(pixelIterationsPerFrame)
             .fold((0f,0f,0f), {case (acc, RenderIteration(color, _)) => acc + (color * (1.0f / pixelIterationsPerFrame.toFloat))})
-  
+
       when(frame === 0) {
         (color, 1.0f)
       } otherwise {
         mix(lastFrame.at(xi, yi), (color, 1.0f), vec4(1.0f / (frame.asFloat + 1f)))
       }
   })
-  
+
   val initialMem = Array.fill(dim * dim)((0.5f,0.5f,0.5f,0.5f))
   val renders = 100
   val code = function()

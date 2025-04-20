@@ -3,7 +3,7 @@ package io.computenode.cyfra.foton.rt.animation
 import io.computenode.cyfra
 import io.computenode.cyfra.dsl.Algebra.{*, given}
 import io.computenode.cyfra.dsl.Value.*
-import io.computenode.cyfra.dsl.{GArray2DFunction, GStruct, RGBA, UniformContext, Vec4FloatMem}
+import io.computenode.cyfra.dsl.{GFunction, GStruct, RGBA, UniformContext, Vec4FloatMem}
 import io.computenode.cyfra.foton.animation.AnimationRenderer
 import io.computenode.cyfra.foton.rt.ImageRtRenderer.RaytracingIteration
 import io.computenode.cyfra.foton.rt.animation.AnimationRtRenderer.RaytracingIteration
@@ -21,7 +21,7 @@ class AnimationRtRenderer(params: AnimationRtRenderer.Parameters) extends RtRend
   protected def renderFrame(
     scene: AnimatedScene,
     time: Float32,
-    fn: GArray2DFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]]
+    fn: GFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]]
   ): Array[RGBA] =
     val initialMem = Array.fill(params.width * params.height)((0.5f, 0.5f, 0.5f, 0.5f))
     List.iterate((initialMem, 0), params.iterations + 1) { case (mem, render) =>
@@ -32,15 +32,15 @@ class AnimationRtRenderer(params: AnimationRtRenderer.Parameters) extends RtRend
     }.map(_._1).last
 
 
-  protected def renderFunction(scene: AnimatedScene): GArray2DFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]] =
-    GArray2DFunction(params.width, params.height, {
+  protected def renderFunction(scene: AnimatedScene): GFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]] =
+    GFunction(params.width, params.height, {
       case (RaytracingIteration(frame, time), (xi: Int32, yi: Int32), lastFrame) =>
         renderFrame(xi, yi, frame, lastFrame, scene.at(time))
     })
 
 object AnimationRtRenderer:
-  
-  type RenderFn = GArray2DFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]]
+
+  type RenderFn = GFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]]
   case class RaytracingIteration(frame: Int32, time: Float32) extends GStruct[RaytracingIteration]
 
   case class Parameters(

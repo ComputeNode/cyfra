@@ -4,7 +4,7 @@ import io.computenode.cyfra.utility.Units.Milliseconds
 import io.computenode.cyfra
 import io.computenode.cyfra.dsl.Algebra.{*, given}
 import io.computenode.cyfra.dsl.Value.*
-import io.computenode.cyfra.dsl.{GArray2DFunction, GContext, GStruct, MVPContext, RGBA, UniformContext, Vec4FloatMem}
+import io.computenode.cyfra.dsl.{GFunction, GContext, GStruct, MVPContext, RGBA, UniformContext, Vec4FloatMem}
 import io.computenode.cyfra.foton.animation.AnimatedFunctionRenderer.{AnimationIteration, RenderFn}
 import io.computenode.cyfra.foton.animation.AnimationFunctions.AnimationInstant
 import io.computenode.cyfra.foton.animation.AnimationRenderer
@@ -25,15 +25,15 @@ class AnimatedFunctionRenderer(params: AnimatedFunctionRenderer.Parameters) exte
   given GContext = new MVPContext()
 
   given ExecutionContext = Implicits.global
-  
+
   protected override def renderFrame(scene: AnimatedFunction, time: Float32, fn: RenderFn): Array[RGBA] =
     val mem = Array.fill(params.width * params.height)((0.5f, 0.5f, 0.5f, 0.5f))
     UniformContext.withUniform(AnimationIteration(time)):
       val fmem = Vec4FloatMem(mem)
       Await.result(fmem.map(fn), 1.minute)
 
-  protected override def renderFunction(scene: AnimatedFunction): RenderFn = 
-    GArray2DFunction(params.width, params.height, {
+  protected override def renderFunction(scene: AnimatedFunction): RenderFn =
+    GFunction(params.width, params.height, {
       case (AnimationIteration(time), (xi: Int32, yi: Int32), lastFrame) =>
         val lastColor = lastFrame.at(xi, yi)
         val x = (xi - (params.width / 2)).asFloat / params.width.toFloat
@@ -43,7 +43,7 @@ class AnimatedFunctionRenderer(params: AnimatedFunctionRenderer.Parameters) exte
     })
 
 object AnimatedFunctionRenderer:
-  type RenderFn = GArray2DFunction[AnimationIteration, Vec4[Float32], Vec4[Float32]]
+  type RenderFn = GFunction[AnimationIteration, Vec4[Float32], Vec4[Float32]]
   case class AnimationIteration(time: Float32) extends GStruct[AnimationIteration]
 
   case class Parameters(

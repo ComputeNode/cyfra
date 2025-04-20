@@ -2,6 +2,7 @@ package io.computenode.cyfra.dsl
 
 import io.computenode.cyfra.dsl.Expression.*
 import io.computenode.cyfra.dsl.Value.*
+import io.computenode.cyfra.dsl.Algebra.FromExpr
 import io.computenode.cyfra.vulkan.compute.ComputePipeline
 import io.computenode.cyfra.vulkan.executor.SequenceExecutor.*
 import io.computenode.cyfra.vulkan.executor.{BufferAction, SequenceExecutor}
@@ -15,26 +16,35 @@ import scala.concurrent.ExecutionContext.Implicits.*
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 
-trait GMem[H <: Value]:
+trait GMem[H <: Value : Tag : FromExpr]:
   def size: Int
   val data: ByteBuffer
+
+  // construct the GFunction and call execute on it.
+  def map[R <: Value: Tag : FromExpr](fn: H => R)(using context: GContext): Future[Array[R]] =
+    val gFun : GFunction[Empty, H, R] = GFunction(
+      size, // ??? = width
+      size, // ??? = height
+      (e: Empty, nums: (Int32, Int32), arr: GArray2D[H]) => fn(arr.at(nums._1, nums._2))
+    )
+    context.execute(this, gFun)
 
 trait WritableGMem[T <: Value, R] extends GMem[T]:
   def stride: Int
   val data = MemoryUtil.memAlloc(size * stride)
-  
+
   protected def toResultArray(buffer: ByteBuffer): Array[R]
 
-  def map(fn: GFunction[T, T])(implicit context: GContext): Future[Array[R]] =
-    execute(fn.pipeline)(using context, UniformContext.empty)
+  // stub for map, for now the old one is used to make things compile.
+  // def map[R](fn: T => T): Future[Array[R]] = ???
 
-  def map[G <: GStruct[G] : Tag: GStructSchema](fn: GArray2DFunction[G, T, T])(implicit context: GContext, uniformContext: UniformContext[G]): Future[Array[R]] =
+  def map[G <: GStruct[G] : Tag: GStructSchema](fn: GFunction[G, T, T])(implicit context: GContext, uniformContext: UniformContext[G]): Future[Array[R]] =
     execute(fn.pipeline)
 
   private def execute(pipeline: ComputePipeline)(implicit context: GContext, uniformContext: UniformContext[_]) = {
     val isUniformEmpty = uniformContext.uniform.schema.fields.isEmpty
     val actions = Map(
-      LayoutLocation(0, 0) -> BufferAction.LoadTo, 
+      LayoutLocation(0, 0) -> BufferAction.LoadTo,
       LayoutLocation(0, 1) -> BufferAction.LoadFrom
     ) ++ (if(isUniformEmpty) Map.empty else Map(LayoutLocation(0, 2) -> BufferAction.LoadTo))
     val sequence = ComputationSequence(Seq(Compute(pipeline, actions)), Seq.empty)
@@ -46,7 +56,7 @@ trait WritableGMem[T <: Value, R] extends GMem[T]:
       toResultArray(out.head)
     }
   }
-  
+
   private def serializeUniform(g: GStruct[_]): ByteBuffer = {
     val data = MemoryUtil.memAlloc(g.schema.totalStride)
     g.productIterator.foreach {
@@ -74,7 +84,6 @@ trait WritableGMem[T <: Value, R] extends GMem[T]:
   def write(data: Array[R]): Unit
 
 class FloatMem(val size: Int) extends WritableGMem[Float32, Float]:
-
   def stride: Int = 4
 
   override protected def toResultArray(buffer: ByteBuffer): Array[Float] = {
@@ -103,6 +112,7 @@ object FloatMem {
 
 type RGBA = (Float, Float, Float, Float)
 class Vec4FloatMem(val size: Int) extends WritableGMem[Vec4[Float32], RGBA]:
+
   def stride: Int = 16
 
   override protected def toResultArray(buffer: ByteBuffer): Array[RGBA] = {

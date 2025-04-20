@@ -1,7 +1,7 @@
 package foton
 
 import io.computenode.cyfra.ImageUtility
-import io.computenode.cyfra.dsl.{Empty, FloatMem, GArray, GArray2DFunction, GContext, GFunction, MVPContext, Vec4FloatMem}
+import io.computenode.cyfra.dsl.{Empty, FloatMem, GArray, GContext, GFunction, MVPContext, Vec4FloatMem}
 import io.computenode.cyfra.vscode.VscodeConnection
 import io.computenode.cyfra.vscode.VscodeConnection.{RenderedMessage, RenderingMessage}
 
@@ -53,7 +53,7 @@ inline def f(fn: (Float32, Float32) => RGB)(using f: sourcecode.File) =
   connection.send(RenderingStep.toMessage(RenderingStep.CompilingShader))
   given GContext = new MVPContext
 
-  val gpuFunction: GArray2DFunction[Empty, Vec4[Float32], Vec4[Float32]] = GArray2DFunction(Width, Height, {
+  val gpuFunction: GFunction[Empty, Vec4[Float32], Vec4[Float32]] = GFunction(Width, Height, {
     case (_, (x, y), _) =>
       val u = x.asFloat / WidthU.asFloat
       val v = y.asFloat / HeightU.asFloat

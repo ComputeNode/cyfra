@@ -11,15 +11,14 @@ import scala.concurrent.Await
 
 given GContext = new MVPContext
 
-@main
-def sample =
-  val gpuFunction = GFunction:
-    (value: Float32) => value * 2f
+// @main
+// def sample =
+//   val gpuFunction = GFunction:
+//     (value: Float32) => value * 2f
 
-  val data = FloatMem((1 to 128).map(_.toFloat).toArray)
+//   val data = FloatMem((1 to 128).map(_.toFloat).toArray)
 
-  val result = Await.result(data.map(gpuFunction), 1.second)
-  println(result.mkString(", "))
-  
-  
-  
+//   val result = Await.result(data.map(gpuFunction), 1.second)
+//   println(result.mkString(", "))
+
+
