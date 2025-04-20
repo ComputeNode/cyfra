@@ -63,9 +63,10 @@ private[cyfra] class SwapChainManager(context: VulkanContext, surface: Surface) 
    * 
    * @param width The current window width
    * @param height The current window height
+   * @param preferredPresentMode The preferred Vulkan present mode (e.g., VK_PRESENT_MODE_FIFO_KHR)
    * @return True if initialization was successful
    */
-  def initialize(width: Int, height: Int): Boolean = pushStack { stack =>
+  def initialize(width: Int, height: Int, preferredPresentMode: Int = VK_PRESENT_MODE_MAILBOX_KHR): Boolean = pushStack { stack =>
     cleanup()
 
     // --- Query Surface Capabilities ONCE ---
@@ -100,8 +101,8 @@ private[cyfra] class SwapChainManager(context: VulkanContext, surface: Surface) 
 
     // --- Choose Present Mode ---
     val availableModes = context.getPresentModes(surface)
-    val preferredMode = VK_PRESENT_MODE_MAILBOX_KHR
-    val presentMode = if (availableModes.contains(preferredMode)) preferredMode else VK_PRESENT_MODE_FIFO_KHR
+    // Use the provided preferredPresentMode parameter
+    val presentMode = if (availableModes.contains(preferredPresentMode)) preferredPresentMode else VK_PRESENT_MODE_FIFO_KHR
 
     // --- Choose Swap Extent ---
     println(s"--- Swap Extent Selection ---") // Keep debug prints
