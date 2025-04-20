@@ -31,28 +31,71 @@ lazy val lwjglNatives = {
 val lwjglVersion = "3.3.3"
 val jomlVersion = "1.10.0"
 
+lazy val commonSettings = Seq(
+  libraryDependencies ++= Seq(
+    "dev.zio" % "izumi-reflect_3" % "2.3.10",
+    "com.lihaoyi" % "pprint_3" % "0.9.0",
+    "com.diogonunes" % "JColor" % "5.5.1",
+    "org.lwjgl" % "lwjgl" % lwjglVersion,
+    "org.lwjgl" % "lwjgl-vulkan" % lwjglVersion,
+    "org.lwjgl" % "lwjgl-vma" % lwjglVersion,
+    "org.lwjgl" % "lwjgl" % lwjglVersion classifier lwjglNatives,
+    "org.lwjgl" % "lwjgl-vma" % lwjglVersion classifier lwjglNatives,
+    "org.joml" % "joml" % jomlVersion,
+    "commons-io" % "commons-io" % "2.16.1",
+    "org.slf4j" % "slf4j-api" % "1.7.30",
+    "org.slf4j" % "slf4j-simple" % "1.7.30" % Test,
+    "org.scalameta" % "munit_3" % "1.0.0" % Test,
+    "org.junit.jupiter" % "junit-jupiter" % "5.6.2" % Test,
+    "org.junit.jupiter" % "junit-jupiter-engine" % "5.7.2" % Test,
+    "com.lihaoyi" %% "sourcecode" % "0.4.3-M5"
+  )
+)
+
+lazy val utility = (project in file("cyfra-utility"))
+  .settings(commonSettings)
+
+lazy val vulkan = (project in file("cyfra-vulkan"))
+  .settings(commonSettings)
+  .dependsOn(utility)
+
+lazy val dsl = (project in file("cyfra-dsl"))
+  .settings(commonSettings)
+  .dependsOn(vulkan, utility)
+
+lazy val compiler = (project in file("cyfra-compiler"))
+  .settings(commonSettings)
+  .dependsOn(dsl, utility)
+
+lazy val runtime = (project in file("cyfra-runtime"))
+  .settings(commonSettings)
+  .dependsOn(compiler, dsl, vulkan, utility)
+
+lazy val foton = (project in file("cyfra-foton"))
+  .settings(commonSettings)
+  .dependsOn(compiler, dsl, runtime, utility)
+
+lazy val examples = (project in file("cyfra-examples"))
+  .settings(commonSettings)
+  .dependsOn(foton)
+
+lazy val vscode = (project in file("cyfra-vscode"))
+  .settings(commonSettings)
+  .dependsOn(foton)
+
+lazy val e2eTest = (project in file("cyfra-e2e-test"))
+  .settings(commonSettings)
+  .dependsOn(foton)
 
 lazy val root = (project in file("."))
-  .settings(
-    name := "Cyfra",
-    libraryDependencies ++= Seq(
-      "dev.zio" % "izumi-reflect_3" % "2.3.10",
-      "com.lihaoyi" % "pprint_3" % "0.9.0",
-      "com.diogonunes" % "JColor" % "5.5.1",
-      "org.lwjgl" % "lwjgl" % lwjglVersion,
-      "org.lwjgl" % "lwjgl-vulkan" % lwjglVersion,
-      "org.lwjgl" % "lwjgl-vma" % lwjglVersion,
-      "org.lwjgl" % "lwjgl" % lwjglVersion classifier lwjglNatives,
-      "org.lwjgl" % "lwjgl-vma" % lwjglVersion classifier lwjglNatives,
-      "org.joml" % "joml" % jomlVersion,
-      "commons-io" % "commons-io" % "2.16.1",
-      "org.slf4j" % "slf4j-api" % "1.7.30",
-      "org.slf4j" % "slf4j-simple" % "1.7.30" % Test,
-      "org.scalameta" % "munit_3" % "1.0.0" % Test,
-      "org.junit.jupiter" % "junit-jupiter" % "5.6.2" % Test,
-      "org.junit.jupiter" % "junit-jupiter-engine" % "5.7.2" % Test,
-      "com.lihaoyi" %% "sourcecode" % "0.4.3-M5"
-    )
+  .settings(name := "Cyfra")
+  .aggregate(
+    compiler,
+    dsl,
+    foton,
+    runtime,
+    vulkan,
+    examples
   )
 
 lazy val vulkanSdk = System.getenv("VULKAN_SDK")
