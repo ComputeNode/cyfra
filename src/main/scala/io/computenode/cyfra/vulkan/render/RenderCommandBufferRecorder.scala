@@ -59,8 +59,8 @@ class RenderCommandBufferRecorder(device: Device, allocator: Allocator) {
         // Copy buffer data to image
         val bufferImageCopy = VkBufferImageCopy.calloc(1, stack) // Explicitly allocate a buffer of size 1
           .bufferOffset(0)
-          .bufferRowLength(0) // Tightly packed
-          .bufferImageHeight(0) // Tightly packed
+          .bufferRowLength(0) 
+          .bufferImageHeight(0) 
           .imageSubresource(
             VkImageSubresourceLayers.calloc(stack)
               .aspectMask(VK_IMAGE_ASPECT_COLOR_BIT)

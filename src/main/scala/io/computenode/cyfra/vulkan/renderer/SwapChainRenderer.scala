@@ -131,7 +131,7 @@ class SwapChainRenderer(context: VulkanContext) extends AutoCloseable {
     commandRecorder.recordTransferToSwapChain(
       commandBuffer,
       renderedData,
-      swapChainManager.getImages(imageIndex), // Corrected line
+      swapChainManager.getImages(imageIndex), 
       width,
       height
     )
@@ -155,20 +155,20 @@ class SwapChainRenderer(context: VulkanContext) extends AutoCloseable {
       // Configure submission
       val submitInfo = VkSubmitInfo.calloc(stack)
         .sType$Default()
-        .pWaitSemaphores(waitSemaphores)      // Set the pointer to the wait semaphores
-        .pWaitDstStageMask(waitStages)        // Set the wait stages
-        .pCommandBuffers(pCommandBuffers)    // Set the command buffers
-        .pSignalSemaphores(signalSemaphores) // Set the pointer to the signal semaphores
+        .pWaitSemaphores(waitSemaphores)     
+        .pWaitDstStageMask(waitStages)       
+        .pCommandBuffers(pCommandBuffers)    
+        .pSignalSemaphores(signalSemaphores) 
       
       // Submit to queue
       check(
-        vkQueueSubmit(context.computeQueue.get, submitInfo, inFlightFence.get), // Access computeQueue via context
+        vkQueueSubmit(context.computeQueue.get, submitInfo, inFlightFence.get), 
         "Failed to submit render command buffer"
       )
     }
     
     // Submit and present - pass command buffer and the compute queue from context
-    val presentSuccess = swapChainManager.submitAndPresent(commandBuffers(imageIndex), imageIndex, context.computeQueue.get) // Use context.computeQueue.get
+    val presentSuccess = swapChainManager.submitAndPresent(commandBuffers(imageIndex), imageIndex, context.computeQueue.get) 
     
     // Update frame index
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT

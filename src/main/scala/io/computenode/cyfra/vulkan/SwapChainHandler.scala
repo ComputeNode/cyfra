@@ -1,24 +1,19 @@
 package io.computenode.cyfra.vulkan
 
 import io.computenode.cyfra.vulkan.core.{Surface, SurfaceManager, SwapChainManager}
-import io.computenode.cyfra.vulkan.util.Util.{check, pushStack} // Import pushStack
+import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import org.lwjgl.system.MemoryStack
 import org.lwjgl.vulkan.VK10.*
-import org.lwjgl.vulkan.KHRSurface.* // Add this import
+import org.lwjgl.vulkan.KHRSurface.* 
 import org.lwjgl.vulkan.VkSemaphoreCreateInfo
-import org.lwjgl.vulkan.VkCommandBuffer // Import VkCommandBuffer
-import org.lwjgl.vulkan.VkQueue // Import VkQueue
+import org.lwjgl.vulkan.VkCommandBuffer 
+import org.lwjgl.vulkan.VkQueue 
 
 /**
  * Handles the complete lifecycle of swap chain operations
  * including synchronization primitives and window resize events
  */
 class SwapChainHandler(context: VulkanContext) extends AutoCloseable {
-  // Synchronization resources managed by SwapChainManager
-  // private val MAX_FRAMES_IN_FLIGHT = 2 // No longer needed here
-  // private val imageAvailableSemaphores = new Array[Long](MAX_FRAMES_IN_FLIGHT) // No longer needed here
-  // private val renderFinishedSemaphores = new Array[Long](MAX_FRAMES_IN_FLIGHT) // No longer needed here
-  // private var currentFrameIndex = 0 // No longer needed here, managed by SwapChainManager
 
   // Surface and swap chain managers
   private var surfaceManager: SurfaceManager = new SurfaceManager(context)
@@ -62,16 +57,8 @@ class SwapChainHandler(context: VulkanContext) extends AutoCloseable {
       return false
     }
 
-    // Synchronization primitives are now created inside SwapChainManager
-    // createSyncObjects() // No longer needed here
-
     true
   }
-
-  /**
-   * Create semaphores for synchronization - REMOVED as SwapChainManager handles this
-   */
-  // private def createSyncObjects(): Unit = { ... } // Removed
 
   /**
    * Notify the handler that a window resize has occurred
@@ -100,9 +87,6 @@ class SwapChainHandler(context: VulkanContext) extends AutoCloseable {
       return -1 // Indicate failure/need retry
     }
 
-    // SwapChainManager now handles synchronization internally
-    // val imageAvailableSemaphore = imageAvailableSemaphores(currentFrameIndex) // No longer needed
-
     // Try to acquire an image - no semaphore argument needed
     val imageIndex = swapChainManager.acquireNextImage()
 
@@ -124,25 +108,18 @@ class SwapChainHandler(context: VulkanContext) extends AutoCloseable {
    * @return True if presentation was successful
    */
   def presentImage(commandBuffer: VkCommandBuffer, imageIndex: Int, queue: VkQueue): Boolean = {
-    // SwapChainManager handles synchronization internally
-    // val renderFinishedSemaphore = renderFinishedSemaphores(currentFrameIndex) // No longer needed
 
     // Use submitAndPresent which handles submission and presentation
     val result = swapChainManager.submitAndPresent(commandBuffer, imageIndex, queue)
 
-    // Frame index is managed internally by SwapChainManager
-    // currentFrameIndex = (currentFrameIndex + 1) % MAX_FRAMES_IN_FLIGHT // No longer needed
-
     // Track frames since last resize
     framesSinceResize += 1
 
-    // If presentation failed or it's been many frames since resize, request recreation
     // Note: submitAndPresent returns false if swapchain is suboptimal/out-of-date
     if (!result) {
       resizeRequested = true // Request recreation on next acquire
       return false
     } else if (framesSinceResize > 300 && resizeRequested) {
-      // Optional: Force recreate if resize was requested long ago but presentation succeeded
       recreateSwapChain()
       return false // Indicate recreation happened
     }
@@ -207,9 +184,6 @@ class SwapChainHandler(context: VulkanContext) extends AutoCloseable {
     println("Closing SwapChainHandler...")
     // Wait for device to be idle before cleanup
     context.device.waitIdle()
-
-    // Clean up semaphores - REMOVED as SwapChainManager handles this
-    // for (i <- 0 until MAX_FRAMES_IN_FLIGHT) { ... } // Removed
 
     // Close swap chain manager
     if (swapChainManager != null) {

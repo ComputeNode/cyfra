@@ -8,15 +8,15 @@ import io.computenode.cyfra.utility.Color.*
 import io.computenode.cyfra.utility.Math3D.*
 import io.computenode.cyfra.utility.Units.Milliseconds
 import io.computenode.cyfra.vulkan.VulkanContext
-import io.computenode.cyfra.vulkan.core.{SurfaceManager, SwapChainManager} // Add SurfaceManager here
+import io.computenode.cyfra.vulkan.core.{SurfaceManager, SwapChainManager}
 import io.computenode.cyfra.vulkan.render.RenderCommandBufferRecorder
 import io.computenode.cyfra.vulkan.render.RenderLoopSynchronizer
 import io.computenode.cyfra.window.{GLFWWindowSystem, WindowEvent, WindowHandle}
 import org.lwjgl.glfw.GLFW
-import io.computenode.cyfra.dsl.derived // Add this import
+import io.computenode.cyfra.dsl.derived
 import io.computenode.cyfra.dsl.*
-import io.computenode.cyfra.dsl.Functions.* // Import tan, normalize, etc.
-import io.computenode.cyfra.dsl.Control.* // Import 'when'
+import io.computenode.cyfra.dsl.Functions.*
+import io.computenode.cyfra.dsl.Control.*
 import org.lwjgl.vulkan.*
 import org.lwjgl.vulkan.KHRSurface.*
 import org.lwjgl.system.MemoryStack.*
@@ -27,9 +27,8 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.DurationInt
 import java.util.concurrent.atomic.AtomicReference
 
-/**
- * Real-time ray tracing renderer that renders progressively to a Vulkan swap chain
- */
+//eal-time ray tracing renderer that renders progressively to a Vulkan swap chain
+ 
 class RealtimeRtRenderer(params: RealtimeRtRenderer.Parameters) extends RtRenderer(params) {
 
   private val context = new VulkanContext(params.enableValidation)
@@ -52,9 +51,8 @@ class RealtimeRtRenderer(params: RealtimeRtRenderer.Parameters) extends RtRender
   // For quality/framerate measurements
   private var frameTimeHistory = List.empty[Double]
   
-  /**
-   * Start the renderer and create a window
-   */
+//art the renderer and create a window
+
   def start(initialScene: Scene): Unit = {
     // Initialize window and Vulkan resources
     val window = windowSystem.createWindow(params.width, params.height, params.windowTitle)
@@ -177,17 +175,16 @@ class RealtimeRtRenderer(params: RealtimeRtRenderer.Parameters) extends RtRender
     } finally {
       // Clean up resources
       context.device.waitIdle()
-      synchronizer.close() // Assuming RenderLoopSynchronizer has a public close or destroy
-      swapChainManager.destroy() // Use destroy() for VulkanObject subclasses
-      surfaceManager.destroy() // Use destroy() instead of close()
+      synchronizer.close()
+      swapChainManager.destroy()
+      surfaceManager.destroy()
       windowSystem.destroyWindow(window)
-      context.destroy() // Use destroy() for VulkanContext
+      context.destroy()
     }
   }
   
-  /**
-   * Render the next progressive sample
-   */
+  // Render the next progressive sample
+   
   private def renderNextSample(scene: Scene, frame: Int, accumulator: Array[RGBA]): Array[RGBA] = {
     // Create function for this frame
     val fn = createRenderFunction(scene, frame, currentPixelIterations)
@@ -202,9 +199,8 @@ class RealtimeRtRenderer(params: RealtimeRtRenderer.Parameters) extends RtRender
     result
   }
   
-  /**
-   * Create the render function for a specific frame
-   */
+  // Create the render function for a specific frame
+   
   private def createRenderFunction(
       scene: Scene, 
       frame: Int,
@@ -217,22 +213,15 @@ class RealtimeRtRenderer(params: RealtimeRtRenderer.Parameters) extends RtRender
         val r: Float32 = currentAccumulatedValue.r
         val g: Float32 = currentAccumulatedValue.g
         val b: Float32 = currentAccumulatedValue.b
-        val sampleCount: Float32 = currentAccumulatedValue.a // Use .a for the 4th component (alpha/sample count)
+        val sampleCount: Float32 = currentAccumulatedValue.a
         
         val samples = sampleCount
         
-        // Only add samples up to the history limit
-        // Use 'when' for DSL conditional logic
         when (samples >= frameAccumulationHistory) {
-          // Return the existing accumulated value if history limit is reached
-          currentAccumulatedValue // Return the Vec4[Float32] directly
-        }.otherwise { // Replace 'else' with 'otherwise'
-          // Generate a unique seed based on pixel position and frame
+                    currentAccumulatedValue
+        }.otherwise {
           val rngSeed = xi * 1973 + yi * 9277 + frame * 26699 | 1
-          
-          // Create an iteration for accumulating color from multiple samples
-          // Moved RenderIteration definition to companion object
-          
+
           // Generate the color for this frame
           val newSampleColor = GSeq.gen(
             first = RealtimeRtRenderer.RenderIteration((0f, 0f, 0f), Random(rngSeed.unsigned)), 
@@ -262,11 +251,11 @@ class RealtimeRtRenderer(params: RealtimeRtRenderer.Parameters) extends RtRender
               )
               
               // Return the iteration with the new color
-              RealtimeRtRenderer.RenderIteration(withBg, rtResult.random) // Use qualified name
+              RealtimeRtRenderer.RenderIteration(withBg, rtResult.random) 
             }
           ).limit(pixelIterations)
            .fold((0f, 0f, 0f), { 
-             case (acc, RealtimeRtRenderer.RenderIteration(color, _)) => // Use qualified name
+             case (acc, RealtimeRtRenderer.RenderIteration(color, _)) => 
                acc + (color * (1.0f / pixelIterations.toFloat)) 
            })
           
@@ -283,13 +272,12 @@ class RealtimeRtRenderer(params: RealtimeRtRenderer.Parameters) extends RtRender
           val accumulatedB = b * accumulationWeight + colorCorrected.b * newWeight // Use .b
           
           (accumulatedR, accumulatedG, accumulatedB, totalSamples)
-        } // End of 'otherwise' block
+        } 
     })
   }
   
-  /**
-   * Process window and input events
-   */
+  // Process window and input events
+   
   private def processEvent(event: WindowEvent, window: WindowHandle): Unit = {
     event match {
       case WindowEvent.Resize(newWidth, newHeight) if newWidth > 0 && newHeight > 0 =>
@@ -347,9 +335,8 @@ class RealtimeRtRenderer(params: RealtimeRtRenderer.Parameters) extends RtRender
     }
   }
   
-  /**
-   * Update the camera and mark for accumulation reset
-   */
+  // Update the camera and mark for accumulation reset
+   
   private def updateCamera(updater: Camera => Camera): Unit = {
     val currentCamera = cameraRef.get()
     val newCamera = updater(currentCamera)
@@ -364,9 +351,8 @@ class RealtimeRtRenderer(params: RealtimeRtRenderer.Parameters) extends RtRender
     currentFrame = 0
   }
   
-  /**
-   * Update frame time statistics
-   */
+  // Update frame time statistics
+   
   private def updateFrameStats(deltaTime: Double): Unit = {
     // Keep only the last 60 frames for statistics
     frameTimeHistory = (deltaTime :: frameTimeHistory).take(60)
@@ -384,9 +370,8 @@ class RealtimeRtRenderer(params: RealtimeRtRenderer.Parameters) extends RtRender
     }
   }
   
-  /**
-   * Adapt quality settings based on frame rate
-   */
+  // Adapt quality settings based on frame rate
+   
   private def adaptQualitySettings(deltaTime: Double): Unit = {
     val fps = 1.0 / deltaTime
     val targetFPS = params.targetFPS
@@ -401,16 +386,13 @@ class RealtimeRtRenderer(params: RealtimeRtRenderer.Parameters) extends RtRender
     }
   }
   
-  /**
-   * Stop the renderer
-   */
+  // Stop the renderer
+   
   def stop(): Unit = {
     isRunning = false
   }
   
-  /**
-   * Update the scene during rendering
-   */
+  // Update the scene during rendering
   def updateScene(scene: Scene): Unit = {
     sceneRef.set(scene)
     cameraRef.set(scene.camera)
@@ -419,9 +401,7 @@ class RealtimeRtRenderer(params: RealtimeRtRenderer.Parameters) extends RtRender
 }
 
 object RealtimeRtRenderer {
-  /**
-   * Parameters specific to real-time ray tracing
-   */
+  // Parameters specific to real-time ray tracing
   class Parameters(
     var width: Int,
     var height: Int,
@@ -440,20 +420,15 @@ object RealtimeRtRenderer {
     val adaptiveFrameInterval: Int = 10,  // Check every 10 frames
     val enableValidation: Boolean = false
   ) extends RtRenderer.Parameters:
-    // Implement the required field from RtRenderer.Parameters
     override val pixelIterations: Int = initialPixelIterations
   
-  /**
-   * Uniform for progressive rendering
-   */
-  case class RealtimeIteration(frame: Int32) extends GStruct[RealtimeIteration] // Ensure derived import is present
+  // Uniform for progressive rendering
+  case class RealtimeIteration(frame: Int32) extends GStruct[RealtimeIteration] 
   
   // Moved from createRenderFunction
   case class RenderIteration(color: Vec3[Float32], random: Random) extends GStruct[RenderIteration] 
 
-  /**
-   * Start rendering with default parameters
-   */
+  // Start rendering with default parameters
   def render(scene: Scene, width: Int = 800, height: Int = 600): RealtimeRtRenderer = {
     val params = new Parameters(width, height)
     val renderer = new RealtimeRtRenderer(params)

@@ -9,10 +9,8 @@ import org.lwjgl.vulkan.VK10.*
 import org.lwjgl.glfw.GLFW
 import org.lwjgl.vulkan.{VkPhysicalDevice, VkSurfaceCapabilitiesKHR}
 
-/** Class that encapsulates a Vulkan surface (VkSurfaceKHR)
-  * 
-  * @author
-  *   Created based on project conventions
+/** 
+  * Class that encapsulates a Vulkan surface (VkSurfaceKHR)
   */
 private[cyfra] class Surface(instance: Instance, windowHandle: Long) extends VulkanObjectHandle {
 

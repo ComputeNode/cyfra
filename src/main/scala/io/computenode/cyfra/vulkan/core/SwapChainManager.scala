@@ -55,9 +55,6 @@ private[cyfra] class SwapChainManager(context: VulkanContext, surface: Surface) 
     swapChainHandle
   }
 
-  // Removed chooseSwapSurfaceFormat, chooseSwapPresentMode, chooseSwapExtent, determineImageCount methods
-  // Their logic is now inlined within initialize
-
   /**
    * Initialize the swap chain with specified dimensions
    * 
@@ -86,30 +83,18 @@ private[cyfra] class SwapChainManager(context: VulkanContext, surface: Surface) 
     val availableFormats: List[(Int, Int)] = context.getSurfaceFormats(surface)
     val preferredFormat = VK_FORMAT_B8G8R8A8_SRGB
     val preferredColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR
-    println(s"--- Surface Format Selection ---") // Keep debug prints for now
-    println(s"Available Formats (${availableFormats.length}):")
-    availableFormats.foreach(f => println(s"  Format: ${f._1}, ColorSpace: ${f._2}"))
-    println(s"Preferred Format: $preferredFormat, Preferred ColorSpace: $preferredColorSpace")
     if (availableFormats.isEmpty) {
       throw new VulkanAssertionError("No surface formats available", -1)
     }
     val exactMatch = availableFormats.find { case (fmt, cs) => fmt == preferredFormat && cs == preferredColorSpace }
     val formatMatch = availableFormats.find { case (fmt, _) => fmt == preferredFormat }
     val (chosenFormat, chosenColorSpace) = exactMatch.orElse(formatMatch).getOrElse(availableFormats.head)
-    println(s"Chosen Format: $chosenFormat, Chosen ColorSpace: $chosenColorSpace")
-    println(s"--- End Surface Format Selection ---")
 
     // --- Choose Present Mode ---
     val availableModes = context.getPresentModes(surface)
-    // Use the provided preferredPresentMode parameter
     val presentMode = if (availableModes.contains(preferredPresentMode)) preferredPresentMode else VK_PRESENT_MODE_FIFO_KHR
 
     // --- Choose Swap Extent ---
-    println(s"--- Swap Extent Selection ---") // Keep debug prints
-    println(s"Requested Extent: ${width}x${height}")
-    println(s"Capabilities Current Extent: ${currentExtentCap.width()}x${currentExtentCap.height()}")
-    println(s"Capabilities Min Extent: ${minExtentCap.width()}x${minExtentCap.height()}")
-    println(s"Capabilities Max Extent: ${maxExtentCap.width()}x${maxExtentCap.height()}")
     val (chosenWidth, chosenHeight) = if (currentExtentCap.width() != -1) { // Use -1 for UINT32_MAX check
       (currentExtentCap.width(), currentExtentCap.height())
     } else {
@@ -117,39 +102,25 @@ private[cyfra] class SwapChainManager(context: VulkanContext, surface: Surface) 
       val h = Math.max(minExtentCap.height(), Math.min(maxExtentCap.height(), height))
       (w, h)
     }
-    println(s"Final Chosen Extent: ${chosenWidth}x${chosenHeight}")
-    println(s"--- End Swap Extent Selection ---")
 
     // --- Determine Image Count ---
     var imageCount = minImageCountCap + 1
     if (maxImageCountCap > 0) {
       imageCount = Math.min(imageCount, maxImageCountCap)
     }
-    // Optional: Ensure enough images for frames in flight
-    // imageCount = Math.max(imageCount, MAX_FRAMES_IN_FLIGHT)
-    // if (maxImageCountCap > 0) {
-    //   imageCount = Math.min(imageCount, maxImageCountCap)
-    // }
     swapChainImageCount = imageCount // Store the final count
 
     swapChainImageFormat = chosenFormat
     swapChainColorSpace = chosenColorSpace
     swapChainPresentMode = presentMode
 
-    // --- Debugging: Check Queue Family Presentation Support ---
+    // --- Check Queue Family Presentation Support ---
     val computeQueueFamily = context.computeQueue.familyIndex
     val supportsPresent = context.isQueueFamilyPresentSupported(computeQueueFamily, surface)
-    println(s"--- Queue Family Presentation Check ---")
-    println(s"Compute Queue Family Index: $computeQueueFamily")
-    println(s"Supports presentation to surface: $supportsPresent")
     if (!supportsPresent) {
-        // This might be the root cause if presentation is needed from this queue
-        println("ERROR: The selected compute queue family does not support presentation to this surface!")
-        // Optionally throw an error to halt execution if this is critical
-        // throw new VulkanAssertionError(s"Queue family $computeQueueFamily does not support presentation to the surface", -1)
+        throw new VulkanAssertionError(s"Queue family $computeQueueFamily does not support presentation to the surface", -1)
     }
-    println(s"--- End Queue Family Presentation Check ---")
-    // --- End Debugging ---
+    // --- End Check ---
 
     // Store selected format, extent, and present mode
     swapChainExtent = VkExtent2D.calloc(stack).width(chosenWidth).height(chosenHeight)
@@ -167,7 +138,7 @@ private[cyfra] class SwapChainManager(context: VulkanContext, surface: Surface) 
       .imageExtent(swapChainExtent)
       .imageArrayLayers(1)
       .imageUsage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT) // Added TRANSFER_DST
-      .preTransform(currentTransform) // Use transform queried earlier
+      .preTransform(currentTransform)
       .compositeAlpha(VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR)
       .presentMode(swapChainPresentMode)
       .clipped(true)
@@ -176,23 +147,7 @@ private[cyfra] class SwapChainManager(context: VulkanContext, surface: Surface) 
       .queueFamilyIndexCount(0)
       .pQueueFamilyIndices(null)
 
-    // --- Debugging Start ---
-    println(s"--- SwapChain Creation Info ---") // Keep debug prints
-    println(s"Device Handle: ${device.get}")
-    println(s"Surface Handle: ${surface.get}")
-    println(s"Min Image Count: ${createInfo.minImageCount()}")
-    println(s"Image Format: ${createInfo.imageFormat()}")
-    println(s"Image Color Space: ${createInfo.imageColorSpace()}")
-    println(s"Image Extent: ${createInfo.imageExtent().width()}x${createInfo.imageExtent().height()}")
-    println(s"Image Usage: ${createInfo.imageUsage()}")
-    println(s"Pre Transform: ${createInfo.preTransform()}")
-    println(s"Present Mode: ${createInfo.presentMode()}")
-    println(s"Sharing Mode: ${createInfo.imageSharingMode()}")
-    println(s"--- End SwapChain Creation Info ---")
-    // --- Debugging End ---
-
     // --- Explicit Handle Checks ---
-    // Use .address() to get the underlying Long handle for VkDevice
     if (device.get.address() == VK_NULL_HANDLE) { 
         throw new VulkanAssertionError("Device handle is VK_NULL_HANDLE before vkCreateSwapchainKHR", -1)
     }
@@ -206,22 +161,12 @@ private[cyfra] class SwapChainManager(context: VulkanContext, surface: Surface) 
 
     // Create the swap chain
     val pSwapChain = stack.callocLong(1)
-    // --- Debugging: Log addresses ---
-    // Use memAddress for NIO buffers
-    println(s"Calling vkCreateSwapchainKHR with Device: ${device.get}, CreateInfo Address: ${createInfo.address()}, pSwapChain Address: ${memAddress(pSwapChain)}") 
-    // --- End Debugging ---
 
     val result = vkCreateSwapchainKHR(device.get, createInfo, null, pSwapChain)
     if (result != VK_SUCCESS) {
-      // --- Debugging: Print result code on failure ---
-      println(s"vkCreateSwapchainKHR failed with result code: $result (${VulkanAssertionError.translateVulkanResult(result)})")
-      // --- End Debugging ---
       throw new VulkanAssertionError("Failed to create swap chain", result)
     }
     swapChainHandle = pSwapChain.get(0)
-    // --- Debugging: Log success ---
-    println(s"vkCreateSwapchainKHR succeeded. SwapChain Handle: $swapChainHandle")
-    // --- End Debugging ---
 
     // Get the swap chain images
     val pImageCount = stack.callocInt(1)
@@ -269,10 +214,10 @@ private[cyfra] class SwapChainManager(context: VulkanContext, surface: Surface) 
       val createInfo = VkImageViewCreateInfo.calloc(stack)
         .sType$Default()
         .image(swapChainImages(i))
-        .viewType(VK_IMAGE_VIEW_TYPE_2D)  // 2D texture images
-        .format(swapChainImageFormat)     // Same format as the swap chain images
+        .viewType(VK_IMAGE_VIEW_TYPE_2D)
+        .format(swapChainImageFormat)
         
-      // Component mapping - use identity swizzle (no remapping)
+      // Component mapping - use identity swizzle
       createInfo.components { components =>
         components
           .r(VK_COMPONENT_SWIZZLE_IDENTITY)
@@ -281,10 +226,10 @@ private[cyfra] class SwapChainManager(context: VulkanContext, surface: Surface) 
           .a(VK_COMPONENT_SWIZZLE_IDENTITY)
       }
       
-      // Define subresource range - for color images without mipmapping or multiple layers
+      // Define subresource range
       createInfo.subresourceRange { range =>
         range
-          .aspectMask(VK_IMAGE_ASPECT_COLOR_BIT)  // Color aspect only
+          .aspectMask(VK_IMAGE_ASPECT_COLOR_BIT)
           .baseMipLevel(0)
           .levelCount(1)
           .baseArrayLayer(0)
@@ -383,7 +328,7 @@ private[cyfra] class SwapChainManager(context: VulkanContext, surface: Surface) 
   /**
    * Acquire the next image in the swap chain
    * 
-   * @return The index of the acquired swap chain image
+   * @return The index of the acquired swap chain image, or -1 if the swapchain is outdated
    */
   def acquireNextImage(): Int = pushStack { stack =>
     // Wait for the previous frame to finish
@@ -438,7 +383,7 @@ private[cyfra] class SwapChainManager(context: VulkanContext, surface: Surface) 
    * @param commandBuffer The command buffer to submit
    * @param imageIndex The index of the swap chain image to present
    * @param queue The queue to submit the command buffer to
-   * @return True if the presentation was successful
+   * @return False if the swapchain is outdated or suboptimal, true otherwise
    */
   def submitAndPresent(commandBuffer: org.lwjgl.vulkan.VkCommandBuffer, imageIndex: Int, queue: org.lwjgl.vulkan.VkQueue): Boolean = pushStack { stack =>
     // Set up submit info
@@ -503,7 +448,12 @@ private[cyfra] class SwapChainManager(context: VulkanContext, surface: Surface) 
    */
   def getImages: Array[Long] = swapChainImages
   
-  // Added getter for single image
+  /**
+   * Get a single swap chain image by index
+   * 
+   * @param index The index of the image
+   * @return The image handle (VkImage)
+   */
   def getImage(index: Int): Long = {
     if (swapChainImages == null || index < 0 || index >= swapChainImages.length) {
       throw new IndexOutOfBoundsException(s"Image index $index out of bounds (0 to ${if (swapChainImages == null) "null" else swapChainImages.length - 1})")
