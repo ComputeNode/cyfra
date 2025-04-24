@@ -30,13 +30,6 @@ class VulkanRenderLoop(windowSystem: GLFWWindowSystem, context: VulkanContext) e
   private var swapChainManager: SwapChainManager = _
   private val commandPool = context.commandPool
 
-  // Per-frame synchronization
-  private val imageAvailableSemaphores = new Array[Long](MAX_FRAMES_IN_FLIGHT)
-  private val renderFinishedSemaphores = new Array[Long](MAX_FRAMES_IN_FLIGHT)
-  private val inFlightFences = new Array[Fence](MAX_FRAMES_IN_FLIGHT)
-  private var imagesInFlight: Map[Int, Fence] = Map.empty
-  private var currentFrameIndex = 0
-
   // Frame timing and stats
   private var targetFPS = 60
   private var limitFrameRate = true
@@ -100,9 +93,6 @@ class VulkanRenderLoop(windowSystem: GLFWWindowSystem, context: VulkanContext) e
     // Create command buffers - one for each swap chain image
     createCommandBuffers()
     
-    // Create synchronization objects
-    createSyncObjects()
-    
     true
   }
 
@@ -115,39 +105,6 @@ class VulkanRenderLoop(windowSystem: GLFWWindowSystem, context: VulkanContext) e
     
     // Allocate command buffers from the command pool
     commandBuffers = context.commandPool.createCommandBuffers(swapChainImages.length).toArray
-  }
-
-  /**
-   * Create semaphores and fences for frame synchronization.
-   */
-  private def createSyncObjects(): Unit = {
-    pushStack { stack =>
-      // Initialize semaphore creation info
-      val semaphoreInfo = VkSemaphoreCreateInfo.calloc(stack)
-        .sType$Default()
-      
-      // Create semaphores and fences for each frame in flight
-      for (i <- 0 until MAX_FRAMES_IN_FLIGHT) {
-        val pImageAvailableSemaphore = stack.mallocLong(1)
-        val pRenderFinishedSemaphore = stack.mallocLong(1)
-        
-        check(
-          vkCreateSemaphore(context.device.get, semaphoreInfo, null, pImageAvailableSemaphore),
-          s"Failed to create image available semaphore $i"
-        )
-        check(
-          vkCreateSemaphore(context.device.get, semaphoreInfo, null, pRenderFinishedSemaphore),
-          s"Failed to create render finished semaphore $i"
-        )
-        
-        // Store the semaphore handles
-        imageAvailableSemaphores(i) = pImageAvailableSemaphore.get(0)
-        renderFinishedSemaphores(i) = pRenderFinishedSemaphore.get(0)
-        
-        // Create fence in signaled state so first waitForFences succeeds
-        inFlightFences(i) = new Fence(context.device, VK_FENCE_CREATE_SIGNALED_BIT)
-      }
-    }
   }
 
   /**
@@ -272,10 +229,7 @@ class VulkanRenderLoop(windowSystem: GLFWWindowSystem, context: VulkanContext) e
    */
   private def drawFrame(renderFunction: (VkCommandBuffer, Int) => Unit): Unit = {
     try {
-      // Wait for the previous frame to finish
-      inFlightFences(currentFrameIndex).block()
-      
-      // Acquire next image - no semaphore parameter needed
+      // Acquire next image from swap chain manager
       val imageIndex = swapChainManager.acquireNextImage()
       
       // If image acquisition failed, recreate the swap chain
@@ -287,29 +241,12 @@ class VulkanRenderLoop(windowSystem: GLFWWindowSystem, context: VulkanContext) e
         return
       }
       
-      // Check if this image is still being used by another frame
-      imagesInFlight.get(imageIndex).foreach(_.block())
-      
-      // Mark the image as in use by this frame
-      imagesInFlight = imagesInFlight + (imageIndex -> inFlightFences(currentFrameIndex))
-      
-      // Reset the fence before submitting new work
-      inFlightFences(currentFrameIndex).reset()
-      
       // Record command buffer with drawing commands
       val commandBuffer = commandBuffers(imageIndex)
       vkResetCommandBuffer(commandBuffer, 0) // Reset the command buffer before recording
       recordCommandBuffer(commandBuffer, imageIndex, renderFunction)
       
-      // Submit command buffer with proper synchronization
-      submitCommandBuffer(
-        commandBuffer,
-        imageAvailableSemaphores(currentFrameIndex),
-        renderFinishedSemaphores(currentFrameIndex),
-        inFlightFences(currentFrameIndex)
-      )
-      
-      // Present the rendered image using submitAndPresent instead of presentImage
+      // Submit command buffer and present the image using swapChainManager
       val presentSuccess = swapChainManager.submitAndPresent(
         commandBuffer,
         imageIndex, 
@@ -322,54 +259,10 @@ class VulkanRenderLoop(windowSystem: GLFWWindowSystem, context: VulkanContext) e
         framebufferResized = false
         return
       }
-      
-      // Move to next frame
-      currentFrameIndex = (currentFrameIndex + 1) % MAX_FRAMES_IN_FLIGHT
     } catch {
       case e: Exception =>
         e.printStackTrace()
         isRunning = false
-    }
-  }
-
-  /**
-   * Submit a command buffer to the queue with synchronization.
-   */
-  private def submitCommandBuffer(
-      commandBuffer: VkCommandBuffer,
-      waitSemaphore: Long,
-      signalSemaphore: Long,
-      fence: Fence
-  ): Unit = {
-    pushStack { stack =>
-      // Set up wait semaphore and stage
-      val waitSemaphores = stack.mallocLong(1)
-      waitSemaphores.put(0, waitSemaphore)
-      
-      val waitStages = stack.mallocInt(1)
-      waitStages.put(0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
-      
-      // Set up signal semaphore
-      val signalSemaphores = stack.mallocLong(1)
-      signalSemaphores.put(0, signalSemaphore)
-      
-      // Set up command buffer
-      val pCommandBuffers = stack.pointers(commandBuffer)
-      
-      // Submit info
-      val submitInfo = VkSubmitInfo.calloc(stack)
-        .sType$Default()
-        .waitSemaphoreCount(1)
-        .pWaitSemaphores(waitSemaphores)
-        .pWaitDstStageMask(waitStages)
-        .pCommandBuffers(pCommandBuffers)
-        .pSignalSemaphores(signalSemaphores)
-      
-      // Submit to the queue with fence
-      check(
-        vkQueueSubmit(context.computeQueue.get, submitInfo, fence.get),
-        "Failed to submit draw command buffer"
-      )
     }
   }
 
@@ -452,9 +345,6 @@ class VulkanRenderLoop(windowSystem: GLFWWindowSystem, context: VulkanContext) e
       // Create new command buffers
       createCommandBuffers()
     }
-    
-    // Reset the images in flight since we have a new swap chain
-    imagesInFlight = Map.empty
   }
 
   /**
@@ -463,8 +353,7 @@ class VulkanRenderLoop(windowSystem: GLFWWindowSystem, context: VulkanContext) e
   def isInitialized: Boolean = {
     window != null && window.nativePtr != 0 && 
     swapChainManager != null && 
-    commandBuffers != null && commandBuffers.nonEmpty &&
-    imageAvailableSemaphores.nonEmpty && renderFinishedSemaphores.nonEmpty
+    commandBuffers != null && commandBuffers.nonEmpty
   }
 
   /**
@@ -475,19 +364,6 @@ class VulkanRenderLoop(windowSystem: GLFWWindowSystem, context: VulkanContext) e
     
     if (context != null) {
       context.device.waitIdle()
-    }
-    
-    // Clean up Vulkan resources - synchronization objects
-    for (i <- 0 until MAX_FRAMES_IN_FLIGHT) {
-      if (imageAvailableSemaphores(i) != 0) {
-        vkDestroySemaphore(context.device.get, imageAvailableSemaphores(i), null)
-      }
-      if (renderFinishedSemaphores(i) != 0) {
-        vkDestroySemaphore(context.device.get, renderFinishedSemaphores(i), null)
-      }
-      if (inFlightFences(i) != null) {
-        inFlightFences(i).close()
-      }
     }
     
     // Clean up command buffers

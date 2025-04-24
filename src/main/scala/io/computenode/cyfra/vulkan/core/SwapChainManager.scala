@@ -296,35 +296,7 @@ private[cyfra] class SwapChainManager(context: VulkanContext, surface: Surface) 
       inFlightFences(i) = pFence.get(0)
     }
   }
-  
-  /**
-   * Creates command buffers for rendering to the swapchain images
-   * 
-   * @param commandPool The command pool to allocate command buffers from
-   * @return Array of command buffers, one for each swap chain image
-   */
-  def createCommandBuffers(commandPool: Long): Array[org.lwjgl.vulkan.VkCommandBuffer] = pushStack { stack =>
-    // Allocate one command buffer per swap chain image
-    val allocInfo = org.lwjgl.vulkan.VkCommandBufferAllocateInfo.calloc(stack)
-      .sType$Default()
-      .commandPool(commandPool)
-      .level(VK_COMMAND_BUFFER_LEVEL_PRIMARY)
-      .commandBufferCount(swapChainImages.length)
-      
-    val pCommandBuffers = stack.mallocPointer(swapChainImages.length)
-    check(
-      vkAllocateCommandBuffers(device.get, allocInfo, pCommandBuffers),
-      "Failed to allocate command buffers"
-    )
-    
-    val commandBuffers = new Array[org.lwjgl.vulkan.VkCommandBuffer](swapChainImages.length)
-    for (i <- 0 until swapChainImages.length) {
-      commandBuffers(i) = new org.lwjgl.vulkan.VkCommandBuffer(pCommandBuffers.get(i), device.get)
-    }
-    
-    commandBuffers
-  }
-  
+
   /**
    * Acquire the next image in the swap chain
    * 
