@@ -100,6 +100,56 @@ class SwapChainHandler(context: VulkanContext) extends AutoCloseable {
   }
 
   /**
+   * Present the rendered image by submitting the command buffer
+   *
+   * @param commandBuffer The command buffer containing rendering commands for the image
+   * @param imageIndex Index of the image to present
+   * @param queue The queue to submit to and present on
+   * @return True if presentation was successful
+   */
+  def presentImage(commandBuffer: VkCommandBuffer, imageIndex: Int, queue: VkQueue): Boolean = {
+
+    // Use submitAndPresent which handles submission and presentation
+    val result = swapChainManager.submitAndPresent(commandBuffer, imageIndex, queue)
+
+    // Track frames since last resize
+    framesSinceResize += 1
+
+    // Note: submitAndPresent returns false if swapchain is suboptimal/out-of-date
+    if (!result) {
+      resizeRequested = true // Request recreation on next acquire
+      return false
+    } else if (framesSinceResize > 300 && resizeRequested) {
+      recreateSwapChain()
+      return false // Indicate recreation happened
+    }
+
+    true
+  }
+
+  /**
+   * Get the current image available semaphore (from SwapChainManager)
+   */
+  def getCurrentImageAvailableSemaphore: Long = {
+    swapChainManager.getImageAvailableSemaphore // Delegate to SwapChainManager
+  }
+
+  /**
+   * Get the current render finished semaphore (from SwapChainManager)
+   */
+  def getCurrentRenderFinishedSemaphore: Long = {
+    swapChainManager.getRenderFinishedSemaphore // Delegate to SwapChainManager
+  }
+  
+  /**
+   * Get the current in-flight fence (from SwapChainManager)
+   */
+  def getCurrentInFlightFence: Long = {
+    swapChainManager.getInFlightFence // Delegate to SwapChainManager
+  }
+
+
+  /**
    * Recreate the swap chain (e.g., after window resize)
    */
   def recreateSwapChain(): Boolean = {
