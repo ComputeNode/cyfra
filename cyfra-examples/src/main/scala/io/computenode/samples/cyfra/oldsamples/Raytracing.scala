@@ -18,6 +18,7 @@ import io.computenode.cyfra.dsl.Control.when
 import io.computenode.cyfra.dsl.Functions.*
 import io.computenode.cyfra.dsl.given
 import io.computenode.cyfra.dsl.Value.*
+import io.computenode.cyfra.runtime.mem.Vec4FloatMem
 import io.computenode.cyfra.utility.ImageUtility
 
 given GContext = new MVPContext()
