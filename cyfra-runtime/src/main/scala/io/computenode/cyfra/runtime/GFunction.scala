@@ -19,3 +19,15 @@ case class GFunction[
   def arrayOutputs: List[Tag[_]] = List(summon[Tag[R]])
   val pipeline: ComputePipeline = context.compile(this)
 }
+
+object GFunction:
+  def apply[
+    H <: Value : Tag : FromExpr, 
+    R <: Value : Tag : FromExpr
+  ](fn: H => R)(using context: GContext) = 
+    new GFunction[GStruct.Empty, H, R](
+      ???,
+      ???,
+      (_, xy: (Int32, Int32), gArray: GArray2D[H])
+        => fn(gArray.at(xy._1, xy._2))
+    )
