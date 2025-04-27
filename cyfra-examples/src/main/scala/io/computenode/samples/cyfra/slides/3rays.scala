@@ -208,7 +208,7 @@ def rays =
       .map(state => (state.color, 1f))
       .lastOr((0f,0f,0f,1f))
 
-  val raytracing: GArray2DFunction[Empty, Vec4[Float32], Vec4[Float32]] = GArray2DFunction(dim, dim, {
+  val raytracing: GFunction[Empty, Vec4[Float32], Vec4[Float32]] = GFunction(dim, dim, {
     case (_, (xi: Int32, yi: Int32), _) =>
       val x = (xi.asFloat / dim.toFloat) * 2f - 1f
       val y = (yi.asFloat / dim.toFloat) * 2f - 1f
