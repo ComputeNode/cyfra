@@ -26,10 +26,7 @@ trait WritableGMem[T <: Value, R] extends GMem[T]:
 
   protected def toResultArray(buffer: ByteBuffer): Array[R]
 
-  def map(fn: GFunction[T, T])(implicit context: GContext): Future[Array[R]] =
-    execute(fn.pipeline)(using context, UniformContext.empty)
-
-  def map[G <: GStruct[G] : Tag : GStructSchema](fn: GArray2DFunction[G, T, T])(implicit context: GContext, uniformContext: UniformContext[G]): Future[Array[R]] =
+  def map[G <: GStruct[G] : Tag : GStructSchema](fn: GFunction[G, T, T])(implicit context: GContext, uniformContext: UniformContext[G]): Future[Array[R]] =
     execute(fn.pipeline)
 
   private def execute(pipeline: ComputePipeline)(implicit context: GContext, uniformContext: UniformContext[_]) = {
