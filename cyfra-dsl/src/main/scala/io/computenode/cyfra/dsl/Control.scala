@@ -3,6 +3,7 @@ package io.computenode.cyfra.dsl
 import io.computenode.cyfra.dsl.Algebra.FromExpr
 import io.computenode.cyfra.dsl.Expression.E
 import io.computenode.cyfra.dsl.Value.GBoolean
+import io.computenode.cyfra.dsl.macros.Source
 import izumi.reflect.Tag
 
 import java.util.UUID
@@ -17,7 +18,7 @@ object Control:
     thenCode: T,
     otherConds: List[Scope[GBoolean]],
     otherCases: List[Scope[T]],
-    name: sourcecode.Name
+    name: Source
   ):
     def elseWhen(cond: GBoolean)(t: T): When[T] =
       When(when, thenCode, otherConds :+ Scope(cond.tree), otherCases :+ Scope(t.tree.asInstanceOf[E[T]]), name)
@@ -32,6 +33,6 @@ object Control:
     otherwise: Scope[T]
   ) extends Expression[T]
   
-  def when[T <: Value: Tag: FromExpr](cond: GBoolean)(fn: T)(using name: sourcecode.Name): When[T] =
+  def when[T <: Value: Tag: FromExpr](cond: GBoolean)(fn: T)(using name: Source): When[T] =
     When(cond, fn, Nil, Nil, name)
     

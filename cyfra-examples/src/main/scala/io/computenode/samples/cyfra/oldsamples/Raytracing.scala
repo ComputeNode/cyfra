@@ -20,6 +20,7 @@ import io.computenode.cyfra.dsl.given
 import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.runtime.mem.Vec4FloatMem
 import io.computenode.cyfra.utility.ImageUtility
+import io.computenode.cyfra.runtime.mem.Vec4FloatMem
 
 given GContext = new MVPContext()
 given ExecutionContext = Implicits.global

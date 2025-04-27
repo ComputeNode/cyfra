@@ -8,6 +8,7 @@ import java.nio.ByteBuffer
 trait GMem[H <: Value]:
   def size: Int
   val data: ByteBuffer
+
 object GMem:
   type fRGBA = (Float, Float, Float, Float)
 

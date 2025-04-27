@@ -14,11 +14,11 @@ object Tests:
 
     def xd(x: Any): Any = x
 
-    def purefn(i: Int32): Int32 =
+    def purefn(i: Int32, j: Int32): Int32 =
       val a = 2
       val b = 3
       val foo = summon[Source]
       println(foo)
       3
 
-    purefn(2)
+    purefn(2, 3)

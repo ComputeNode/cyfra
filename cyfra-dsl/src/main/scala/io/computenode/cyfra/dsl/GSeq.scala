@@ -5,6 +5,7 @@ import io.computenode.cyfra.dsl.Control.{Scope, when}
 import io.computenode.cyfra.dsl.Expression.{ConstInt32, E}
 import GSeq.*
 import io.computenode.cyfra.dsl.Value.*
+import io.computenode.cyfra.dsl.macros.Source
 import io.computenode.cyfra.dsl.{Expression, GSeq, PhantomExpression}
 import izumi.reflect.Tag
 
@@ -15,7 +16,7 @@ class GSeq[T <: Value : Tag : FromExpr](
   val uninitSource: Expression[_] => GSeqStream[_],
   val elemOps: List[GSeq.ElemOp[_]],
   val limit: Option[Int],
-  val name: sourcecode.Name,
+  val name: Source,
   val currentElemExprTreeId: Int = treeidState.getAndIncrement(),
   val aggregateElemExprTreeId: Int = treeidState.getAndIncrement()
 ):
@@ -70,7 +71,7 @@ class GSeq[T <: Value : Tag : FromExpr](
 
 object GSeq:
 
-  def gen[T <: Value : Tag : FromExpr](first: T, next: T => T)(using name: sourcecode.Name) = GSeq(
+  def gen[T <: Value : Tag : FromExpr](first: T, next: T => T)(using name: Source) = GSeq(
     ce => GSeqStream(first, next(summon[FromExpr[T]].fromExpr(ce.asInstanceOf[E[T]])).tree),
     Nil,
     None,

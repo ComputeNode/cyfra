@@ -4,7 +4,7 @@ import ExpressionCompiler.compileBlock
 import io.computenode.cyfra.spirv.Opcodes.*
 import io.computenode.cyfra.dsl.Control.WhenExpr
 import io.computenode.cyfra.dsl.Expression.E
-import io.computenode.cyfra.spirv.{Context, ScopeBuilder}
+import io.computenode.cyfra.spirv.{Context, BlockBuilder}
 import izumi.reflect.Tag
 import io.computenode.cyfra.spirv.SpirvConstants.*
 import io.computenode.cyfra.spirv.SpirvTypes.*

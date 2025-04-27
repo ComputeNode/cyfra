@@ -24,5 +24,3 @@ def sample =
   val result = Await.result(data.map(gpuFunction), 1.second)
   println(result.mkString(", "))
   
-  
-  

@@ -14,6 +14,7 @@ import io.computenode.cyfra.spirv.SpirvTypes.*
 import io.computenode.cyfra.spirv.compilers.ExpressionCompiler.compileBlock
 import io.computenode.cyfra.spirv.compilers.GStructCompiler.*
 import io.computenode.cyfra.spirv.Context
+import io.computenode.cyfra.spirv.compilers.FunctionCompiler.compileFunctions
 
 import java.nio.ByteBuffer
 import scala.annotation.tailrec
@@ -24,6 +25,7 @@ import scala.util.Random
 
 private[cyfra] object DSLCompiler:
 
+  // TODO: Not traverse same fn scopes for each fn call 
   private def getAllExprsFlattened(root: E[_]): List[E[_]] = 
     var blockI = 0
     val allScopesCache = mutable.Map[Int, List[E[_]]]()
@@ -36,7 +38,6 @@ private[cyfra] object DSLCompiler:
         if (allScopesCache.contains(root.treeid)) {
           return allScopesCache(root.treeid)
         }
-        // Random is skipped! FromExpr???
         val eScopes = e.introducedScopes
         val newToVisit = toVisit ::: e.exprDependencies ::: eScopes.map(_.expr)
         val result = e.exprDependencies ::: acc
@@ -70,8 +71,9 @@ private[cyfra] object DSLCompiler:
     val (constDefs, constCtx) = defineConstants(allExprs, inputContext)
     val (varDefs, varCtx) = defineVarNames(constCtx)
     val resultType = tree.tree.tag
-    val (main, finalCtx) = compileMain(tree, resultType, varCtx)
-    val nameDecorations = getNameDecorations(finalCtx)
+    val (main, ctxAfterMain) = compileMain(tree, resultType, varCtx)
+    val (fnDefs, ctxWithFnDefs) = compileFunctions(ctxAfterMain)
+    val nameDecorations = getNameDecorations(ctxWithFnDefs)
 
     val code: List[Words] =
       SpirvProgramCompiler.headers :::
@@ -88,10 +90,11 @@ private[cyfra] object DSLCompiler:
         inputDefs :::
         constDefs :::
         varDefs :::
-        main
+        main :::
+        fnDefs
 
     val fullCode = code.map {
-      case WordVariable(name) if name == BOUND_VARIABLE => IntWord(finalCtx.nextResultId)
+      case WordVariable(name) if name == BOUND_VARIABLE => IntWord(ctxWithFnDefs.nextResultId)
       case x => x
     }
     val bytes = fullCode.flatMap(_.toWords).toArray

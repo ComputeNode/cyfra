@@ -4,6 +4,7 @@ import io.computenode.cyfra.dsl.Expression
 import Expression.Const
 import io.computenode.cyfra.dsl.Functions.*
 import io.computenode.cyfra.dsl.Value.*
+import io.computenode.cyfra.dsl.macros.Source
 import izumi.reflect.Tag
 
 import java.util.concurrent.atomic.AtomicInteger
@@ -16,7 +17,7 @@ trait Expression[T <: Value : Tag] extends Product:
     case v: Value => s"#${v.tree.treeid.toString}"
     case e: Expression[_] => s"${e.treeid.toString}"
   }.mkString("[", ", ", "]")
-  override def toString: String = s"${this.productPrefix}(${of.fold("")(v => s"name = ${v.name.value}, ")}children=${childrenStrings}, id=$treeid)"
+  override def toString: String = s"${this.productPrefix}(${of.fold("")(v => s"name = ${v.source}, ")}children=${childrenStrings}, id=$treeid)"
   private def exploreDeps(children: List[Any]): (List[Expression[_]], List[Scope[_]]) =  (for (elem <- children) yield
     elem match {
       case b: Scope[_] =>
@@ -110,8 +111,15 @@ object Expression:
   case class ComposeVec2[T <: Scalar: Tag](a: T, b: T) extends Expression[Vec2[T]]
   case class ComposeVec3[T <: Scalar: Tag](a: T, b: T, c: T) extends Expression[Vec3[T]]
   case class ComposeVec4[T <: Scalar: Tag](a: T, b: T, c: T, d: T) extends Expression[Vec4[T]]
+  
   case class ExtFunctionCall[R <: Value : Tag](fn: FunctionName, args: List[Value]) extends Expression[R]
-
+  case class FunctionCall[R <: Value : Tag](fn: Source.PureIdentifier, body: Scope[R], args: List[Value], origExprId: Int) extends E[R]:
+    // This introduces a conflict in tree ids, but they should never happen in one scope
+    override private[cyfra] val treeid = origExprId
+    
+  
   case class Pass[T <: Value : Tag](value: T) extends E[T]
 
   case class Dynamic[T <: Value : Tag](source: String) extends E[T]
+  
+
