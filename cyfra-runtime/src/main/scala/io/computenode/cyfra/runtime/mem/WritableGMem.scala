@@ -8,7 +8,7 @@ import io.computenode.cyfra.vulkan.executor.{BufferAction, SequenceExecutor}
 import io.computenode.cyfra.*
 import io.computenode.cyfra.dsl.*
 import io.computenode.cyfra.runtime.mem.GMem.totalStride
-import io.computenode.cyfra.runtime.{GArray2DFunction, GContext, GFunction}
+import io.computenode.cyfra.runtime.{GContext, GFunction}
 import io.computenode.cyfra.spirv.SpirvTypes.typeStride
 import io.computenode.cyfra.utility.Utility.timed
 import izumi.reflect.Tag
