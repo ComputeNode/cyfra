@@ -5,13 +5,13 @@ import io.computenode.cyfra.*
 import io.computenode.cyfra.dsl.Control.when
 import io.computenode.cyfra.dsl.GStruct.Empty
 import io.computenode.cyfra.dsl.Value.*
-import io.computenode.cyfra.runtime.{GArray2DFunction, GContext, MVPContext}
+import io.computenode.cyfra.runtime.{GFunction, GContext, MVPContext}
 import org.apache.commons.io.IOUtils
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.runner.RunWith
 import io.computenode.cyfra.dsl.Functions.*
-import io.computenode.cyfra.dsl.GSeq
+import io.computenode.cyfra.dsl.{GSeq, GArray2D}
 import io.computenode.cyfra.runtime.mem.Vec4FloatMem
 import io.computenode.cyfra.utility.ImageUtility
 
@@ -32,8 +32,9 @@ class JuliaSet {
     val RECURSION_LIMIT = 1000
     val const = (0.355f, 0.355f)
 
-    val function: GArray2DFunction[Empty, Vec4[Float32], Vec4[Float32]] = GArray2DFunction(dim, dim, {
-      case (_, (xi: Int32, yi: Int32), _) =>
+    val function = GFunction.from2D[Empty, Vec4[Float32], Vec4[Float32]](dim,
+      (_: Empty, xy: (Int32, Int32), _: GArray2D[Vec4[Float32]]) =>
+        val (xi, yi) = xy
         val x = 3.0f * (xi - (dim / 2)).asFloat / dim.toFloat
         val y = 3.0f * (yi - (dim / 2)).asFloat / dim.toFloat
         val uv = (x, y)
@@ -77,7 +78,7 @@ class JuliaSet {
           )
         .otherwise:
           (8f / 255f, 22f / 255f, 104f / 255f, 1.0f)
-    })
+    )
 
     val r = Await.result(Vec4FloatMem(dim * dim).map(function), 10.hours)
     val outputTemp = File.createTempFile("julia", ".png")
