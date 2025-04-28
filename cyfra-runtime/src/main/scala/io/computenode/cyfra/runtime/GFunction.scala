@@ -29,11 +29,11 @@ object GFunction:
     G <: GStruct[G] : GStructSchema : Tag,
     H <: Value : Tag : FromExpr,
     R <: Value : Tag : FromExpr
-  ](width: Int)(fn: (G, (Int32, Int32), GArray2D[H]) => R)(using context: GContext) =
+  ](width: Int, fn: (G, (Int32, Int32), GArray2D[H]) => R)(using context: GContext) =
     GFunction[G, H, R](
       (g: G, index: Int32, a: GArray[H]) =>
         val x: Int32 = index / width
         val y: Int32 = index mod width
-        val arr = GArray2D(width, ???, a)
+        val arr = GArray2D(width, width, a) // fix this! GArray2D should only have width.
         fn(g, (x, y), arr)
     )
