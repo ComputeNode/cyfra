@@ -37,7 +37,7 @@ class AnimationRtRenderer(params: AnimationRtRenderer.Parameters) extends RtRend
 
 
   protected def renderFunction(scene: AnimatedScene): GFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]] =
-    GFunction(params.width, params.height, {
+    GFunction.from2D(params.width, {
       case (RaytracingIteration(frame, time), (xi: Int32, yi: Int32), lastFrame) =>
         renderFrame(xi, yi, frame, lastFrame, scene.at(time))
     })
