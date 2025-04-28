@@ -1,7 +1,7 @@
 package io.computenode.cyfra.runtime
 
-import io.computenode.cyfra.dsl.Algebra.FromExpr
-import io.computenode.cyfra.dsl.{GArray, GStruct, GStructSchema, Value}
+import io.computenode.cyfra.dsl.Algebra.{*, given}
+import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.dsl.Value.Int32
 import io.computenode.cyfra.vulkan.compute.ComputePipeline
 import izumi.reflect.Tag
@@ -20,7 +20,20 @@ object GFunction:
   def apply[
     H <: Value : Tag : FromExpr,
     R <: Value : Tag : FromExpr
-  ](fn: H => R)(using context: GContext) = 
+  ](fn: H => R)(using context: GContext) =
     new GFunction[GStruct.Empty, H, R](
       (_, index: Int32, gArray: GArray[H]) => fn(gArray.at(index))
+    )
+
+  def from2D[
+    G <: GStruct[G] : GStructSchema : Tag,
+    H <: Value : Tag : FromExpr,
+    R <: Value : Tag : FromExpr
+  ](width: Int)(fn: (G, (Int32, Int32), GArray2D[H]) => R)(using context: GContext) =
+    GFunction[G, H, R](
+      (g: G, index: Int32, a: GArray[H]) =>
+        val x: Int32 = index / width
+        val y: Int32 = index mod width
+        val arr = GArray2D(width, ???, a)
+        fn(g, (x, y), arr)
     )
