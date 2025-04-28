@@ -26,10 +26,20 @@ import scala.language.postfixOps
 class MVPContext extends GContext {
   implicit val ec: ExecutionContextExecutor = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(16))
 
-  override def compile[G <: GStruct[G] : Tag : GStructSchema, H <: Value : Tag : FromExpr, R <: Value : Tag : FromExpr](function: GFunction[G, H, R]): ComputePipeline = {
+  override def compile[
+    G <: GStruct[G] : Tag : GStructSchema, 
+    H <: Value : Tag : FromExpr, 
+    R <: Value : Tag : FromExpr
+  ](function: GFunction[G, H, R]): ComputePipeline = {
     val uniformStructSchema = summon[GStructSchema[G]]
     val uniformStruct = uniformStructSchema.fromTree(UniformStructRef)
-    val tree = function.fn.apply(uniformStruct, (WorkerIndex mod function.width, WorkerIndex / function.width), new GArray2D(function.width, function.height, GArray[H](0)))
+    val tree = function
+      .fn
+      .apply(
+        uniformStruct,
+        WorkerIndex,
+        GArray[H](0)
+      )
     val shaderCode = DSLCompiler.compile(tree, function.arrayInputs, function.arrayOutputs, uniformStructSchema)
     dumpSpvToFile(shaderCode, "program.spv")
     val inOut = 0 to 1 map (Binding(_, InputBufferSize(typeStride(summon[Tag[H]]))))
