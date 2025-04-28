@@ -37,7 +37,7 @@ class AnimatedFunctionRenderer(params: AnimatedFunctionRenderer.Parameters) exte
       Await.result(fmem.map(fn), 1.minute)
 
   protected override def renderFunction(scene: AnimatedFunction): RenderFn = 
-    GFunction(params.width, params.height, {
+    GFunction.from2D(params.width, {
       case (AnimationIteration(time), (xi: Int32, yi: Int32), lastFrame) =>
         val lastColor = lastFrame.at(xi, yi)
         val x = (xi - (params.width / 2)).asFloat / params.width.toFloat
