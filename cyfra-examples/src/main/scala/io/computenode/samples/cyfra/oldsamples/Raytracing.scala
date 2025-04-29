@@ -247,7 +247,7 @@ def main =
 
   case class RaytracingIteration(frame: Int32) extends GStruct[RaytracingIteration]
 
-  def function(): GArray2DFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]] = GArray2DFunction(dim, dim, {
+  def function(): GFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]] = GFunction.from2D(dim, {
     case (RaytracingIteration(frame), (xi: Int32, yi: Int32), lastFrame) =>
       def wangHash(seed: UInt32): UInt32 = {
         val s1 = (seed ^ 61) ^ (seed >> 16)

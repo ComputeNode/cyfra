@@ -7,7 +7,7 @@ import io.computenode.cyfra.foton.animation.AnimationRenderer
 import io.computenode.cyfra.foton.rt.ImageRtRenderer.RaytracingIteration
 import io.computenode.cyfra.foton.rt.animation.AnimationRtRenderer.RaytracingIteration
 import io.computenode.cyfra.foton.rt.RtRenderer
-import io.computenode.cyfra.runtime.GArray2DFunction
+import io.computenode.cyfra.runtime.GFunction
 import io.computenode.cyfra.runtime.mem.GMem.fRGBA
 import io.computenode.cyfra.utility.Units.Milliseconds
 import io.computenode.cyfra.utility.Utility.timed
@@ -25,7 +25,7 @@ class AnimationRtRenderer(params: AnimationRtRenderer.Parameters) extends RtRend
   protected def renderFrame(
     scene: AnimatedScene,
     time: Float32,
-    fn: GArray2DFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]]
+    fn: GFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]]
   ): Array[fRGBA] =
     val initialMem = Array.fill(params.width * params.height)((0.5f, 0.5f, 0.5f, 0.5f))
     List.iterate((initialMem, 0), params.iterations + 1) { case (mem, render) =>
@@ -36,15 +36,15 @@ class AnimationRtRenderer(params: AnimationRtRenderer.Parameters) extends RtRend
     }.map(_._1).last
 
 
-  protected def renderFunction(scene: AnimatedScene): GArray2DFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]] =
-    GArray2DFunction(params.width, params.height, {
+  protected def renderFunction(scene: AnimatedScene): GFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]] =
+    GFunction.from2D(params.width, {
       case (RaytracingIteration(frame, time), (xi: Int32, yi: Int32), lastFrame) =>
         renderFrame(xi, yi, frame, lastFrame, scene.at(time))
     })
 
 object AnimationRtRenderer:
   
-  type RenderFn = GArray2DFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]]
+  type RenderFn = GFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]]
   case class RaytracingIteration(frame: Int32, time: Float32) extends GStruct[RaytracingIteration]
 
   case class Parameters(

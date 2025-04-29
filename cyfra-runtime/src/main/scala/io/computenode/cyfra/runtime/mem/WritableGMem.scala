@@ -8,7 +8,7 @@ import io.computenode.cyfra.vulkan.executor.{BufferAction, SequenceExecutor}
 import io.computenode.cyfra.*
 import io.computenode.cyfra.dsl.*
 import io.computenode.cyfra.runtime.mem.GMem.totalStride
-import io.computenode.cyfra.runtime.{GArray2DFunction, GContext, GFunction}
+import io.computenode.cyfra.runtime.{GContext, GFunction}
 import io.computenode.cyfra.spirv.SpirvTypes.typeStride
 import io.computenode.cyfra.utility.Utility.timed
 import izumi.reflect.Tag
@@ -26,10 +26,7 @@ trait WritableGMem[T <: Value, R] extends GMem[T]:
 
   protected def toResultArray(buffer: ByteBuffer): Array[R]
 
-  def map(fn: GFunction[T, T])(implicit context: GContext): Future[Array[R]] =
-    execute(fn.pipeline)(using context, UniformContext.empty)
-
-  def map[G <: GStruct[G] : Tag : GStructSchema](fn: GArray2DFunction[G, T, T])(implicit context: GContext, uniformContext: UniformContext[G]): Future[Array[R]] =
+  def map[G <: GStruct[G] : Tag : GStructSchema](fn: GFunction[G, T, T])(implicit context: GContext, uniformContext: UniformContext[G]): Future[Array[R]] =
     execute(fn.pipeline)
 
   private def execute(pipeline: ComputePipeline)(implicit context: GContext, uniformContext: UniformContext[_]) = {
