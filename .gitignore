@@ -24,5 +24,6 @@ target
 project/target
 out
 hs_err_pid*.log
+replay_pid*.log
 .bsp
 metals.sbt
