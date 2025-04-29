@@ -34,6 +34,6 @@ object GFunction:
       (g: G, index: Int32, a: GArray[H]) =>
         val x: Int32 = index / width
         val y: Int32 = index mod width
-        val arr = GArray2D(width, width, a) // fix this! GArray2D should only have width.
+        val arr = GArray2D(width, width, a)
         fn(g, (x, y), arr)
     )
