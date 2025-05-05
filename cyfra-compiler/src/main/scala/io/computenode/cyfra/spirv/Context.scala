@@ -14,6 +14,7 @@ private[cyfra] case class Context(
   funPointerTypeMap: Map[Int, Int] = Map(),
   uniformPointerMap: Map[Int, Int] = Map(),
   inputPointerMap: Map[Int, Int] = Map(),
+  funcTypeMap: Map[(LightTypeTag, List[LightTypeTag]), Int] = Map(),
   voidTypeRef: Int = -1,
   voidFuncTypeRef: Int = -1,
   workerIndexRef: Int = -1,
@@ -30,7 +31,7 @@ private[cyfra] case class Context(
   functions: Map[Source.PureIdentifier, SprivFunction] = Map(),
 ):
   def joinNested(ctx: Context): Context =
-    this.copy(nextResultId = ctx.nextResultId, exprNames = ctx.exprNames ++ this.exprNames)
+    this.copy(nextResultId = ctx.nextResultId, exprNames = ctx.exprNames ++ this.exprNames, functions = ctx.functions ++ this.functions)
 
 private[cyfra] object Context:
   

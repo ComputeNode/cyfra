@@ -10,10 +10,12 @@ import io.computenode.cyfra.spirv.SpirvConstants.GLSL_EXT_REF
 import io.computenode.cyfra.dsl.macros.Source
 import io.computenode.cyfra.dsl.Control
 import io.computenode.cyfra.spirv.compilers.ExpressionCompiler.compileBlock
+import izumi.reflect.macrortti.LightTypeTag
 
 private[cyfra] object FunctionCompiler:
 
-  case class SprivFunction(sourceFn: Source.PureIdentifier, functionId: Int, body: Expression[_], inputArgs: List[Expression[_]])
+  case class SprivFunction(sourceFn: Source.PureIdentifier, functionId: Int, body: Expression[_], inputArgs: List[Expression[_]]):
+    def returnType: LightTypeTag = body.tag.tag
 
   def compileFunctionCall(call: Expression.FunctionCall[_], ctx: Context): (List[Instruction], Context) =
     val (ctxWithFn, fn) = if ctx.functions.contains(call.fn) then
@@ -33,48 +35,82 @@ private[cyfra] object FunctionCompiler:
       ResultRef(fn.functionId)
     ) ::: call.exprDependencies.map(d => ResultRef(ctxWithFn.exprRefs(d.treeid)))))
 
-    val updatedContext = ctx.copy(
+    val updatedContext = ctxWithFn.copy(
       exprRefs = ctxWithFn.exprRefs + (call.treeid -> ctxWithFn.nextResultId),
       nextResultId = ctxWithFn.nextResultId + 1
     )
     (instructions, updatedContext)
-  
-  def compileFunctions(ctx: Context): (List[Words], Context) =
-    val functionDefinitions = ctx.functions.values.toList.map { fn =>
-      val (fnInstructions, fnCtx) = compileFunction(fn, ctx)
-      (fnInstructions, fnCtx)
+
+  def defineFunctionTypes(ctx: Context, functions: List[SprivFunction]): (List[Words], Context) =
+    val typeDefs = functions.zipWithIndex.map { case (fn, offset) =>
+      val functionTypeId = ctx.nextResultId + offset
+      val functionTypeDef = Instruction(Op.OpTypeFunction, List(
+        ResultRef(functionTypeId),
+        ResultRef(ctx.valueTypeMap(fn.returnType)),
+      ) :::
+        fn.inputArgs.map(arg => ResultRef(ctx.valueTypeMap(arg.tag.tag)))
+      )
+      val functionSign = (fn.returnType, fn.inputArgs.map(_.tag.tag))
+      (functionSign, functionTypeDef, functionTypeId)
     }
-    val instructions = functionDefinitions.flatMap(_._1)
-    val updatedContext = functionDefinitions.map(_._2).reduce(_.joinNested(_))
-    (instructions, updatedContext)
+
+    val functionTypeInstructions = typeDefs.map(_._2)
+    val functionTypeMap = typeDefs.map { case (sign, _, id) => sign -> id }.toMap
+
+    val updatedContext = ctx.copy(
+      funcTypeMap = ctx.funcTypeMap ++ functionTypeMap,
+      nextResultId = ctx.nextResultId + typeDefs.size
+    )
+
+    (functionTypeInstructions, updatedContext)
+
+  def compileFunctions(ctx: Context): (List[Words], List[Words], Context) =
     
-  def compileFunction(fn: SprivFunction, ctx: Context): (List[Words], Context) =
+    def compileFuncRec(ctx: Context, functions: List[SprivFunction]): (List[Words], List[Words], Context) =
+      val (functionTypeDefs, ctxWithFunTypes) = defineFunctionTypes(ctx, functions)
+      val (lastCtx, functionDefs) = functions.foldLeft(ctxWithFunTypes, List.empty[Words]) {
+        case ((lastCtx, acc), fn) =>
+
+          val (fnInstructions, fnCtx) = compileFunction(fn, lastCtx)
+          (lastCtx.joinNested(fnCtx), acc ::: fnInstructions)
+      }
+      val newFunctions = lastCtx.functions.values.toSet.diff(ctx.functions.values.toSet)
+      if newFunctions.isEmpty then
+        (functionTypeDefs, functionDefs, lastCtx)
+      else
+        val (newFunctionTypeDefs, newFunctionDefs, newCtx) = compileFuncRec(lastCtx, newFunctions.toList)
+        (functionTypeDefs ::: newFunctionTypeDefs, functionDefs ::: newFunctionDefs, newCtx)
+        
+    compileFuncRec(ctx, ctx.functions.values.toList)
+  
+    
+  private def compileFunction(fn: SprivFunction, ctx: Context): (List[Words], Context) =
     val opFunction = Instruction(Op.OpFunction, List(
       ResultRef(ctx.valueTypeMap(fn.body.tag.tag)),
-      ResultRef(ctx.nextResultId),
       ResultRef(fn.functionId),
-      StorageClass.Function
+      FunctionControlMask.Pure,
+      ResultRef(ctx.funcTypeMap((fn.returnType, fn.inputArgs.map(_.tag.tag))))
     ))
     val paramsWithIndices = fn.inputArgs.zipWithIndex
     val opFunctionParameters = paramsWithIndices.map { case (arg, i) =>
       Instruction(Op.OpFunctionParameter, List(
         ResultRef(ctx.valueTypeMap(arg.tag.tag)),
-        ResultRef(ctx.nextResultId + i + 1)
+        ResultRef(ctx.nextResultId + i)
       ))
     }
+    val labelId = ctx.nextResultId + fn.inputArgs.size
     val ctxWithParameters = ctx.copy(
       exprRefs = ctx.exprRefs ++ paramsWithIndices.map { case (arg, i) =>
-        arg.treeid -> (ctx.nextResultId + i + 1)
+        arg.treeid -> (ctx.nextResultId + i)
       },
-      nextResultId = ctx.nextResultId + fn.inputArgs.size + 1
+      nextResultId = labelId + 1
     )
     val (bodyInstructions, bodyCtx) = compileBlock(
       fn.body,
       ctxWithParameters
     )
-    val functionInstructions = List(
-      opFunction,
-      Instruction(Op.OpLabel, List(ResultRef(ctx.nextResultId))),
+    val functionInstructions = opFunction :: opFunctionParameters ::: List(
+      Instruction(Op.OpLabel, List(ResultRef(labelId))),
     ) ::: bodyInstructions ::: List(
       Instruction(Op.OpReturnValue, List(ResultRef(bodyCtx.exprRefs(fn.body.treeid)))),
       Instruction(Op.OpFunctionEnd, List())

@@ -382,13 +382,16 @@ def main =
         rayDir: Vec3[Float32],
         currentHit: RayHitInfo,
       ): RayHitInfo =
+        
         val spheresHit = GSeq.of(spheres).fold(currentHit, {
           case (hit, sphere) =>
             testSphereTrace(rayPos, rayDir, hit, sphere)
         })
+        
         GSeq.of(walls).fold(spheresHit, { (hit, wall) =>
           testQuadTrace(rayPos, rayDir, hit, wall)
         })
+
 
       def fresnelReflectAmount(
         n1: Float32, 

@@ -13,10 +13,9 @@ trait Expression[T <: Value : Tag] extends Product:
   def tag: Tag[T] = summon[Tag[T]]
   private[cyfra] val treeid: Int = treeidState.getAndIncrement()
   private[cyfra] var of: Option[Value] = None
-  private val childrenStrings = this.productIterator.collect {
-    case v: Value => s"#${v.tree.treeid.toString}"
-    case e: Expression[_] => s"${e.treeid.toString}"
-  }.mkString("[", ", ", "]")
+  private lazy val childrenStrings = this.exprDependencies
+    .map(e => s"#${e.treeid}")
+    .mkString("[", ", ", "]")
   override def toString: String = s"${this.productPrefix}(${of.fold("")(v => s"name = ${v.source}, ")}children=${childrenStrings}, id=$treeid)"
   private def exploreDeps(children: List[Any]): (List[Expression[_]], List[Scope[_]]) =  (for (elem <- children) yield
     elem match {
@@ -86,7 +85,6 @@ object Expression:
   case class Or(a: GBoolean, b: GBoolean) extends Expression[GBoolean]
   case class Not(a: GBoolean) extends Expression[GBoolean]
   
-  
   case class ExtractScalar[V <: Vec[_] : Tag, S <: Scalar : Tag](a: V, i: Int32) extends Expression[S]
 
   sealed trait ConvertExpression[F <: Scalar : Tag, T <: Scalar : Tag] extends Expression[T] {
@@ -103,6 +101,7 @@ object Expression:
   object Const {
     def unapply[T <: Scalar](c: Const[T]): Option[Any] = Some(c.value)
   }
+  
   case class ConstFloat32(value: Float) extends Const[Float32]
   case class ConstInt32(value: Int) extends Const[Int32]
   case class ConstUInt32(value: Int) extends Const[UInt32]

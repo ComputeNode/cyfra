@@ -4,6 +4,8 @@ import Source.Enclosing
 
 import scala.quoted.*
 import io.computenode.cyfra.dsl.{Expression, Value}
+import izumi.reflect.WeakTag
+import izumi.reflect.macrortti.LightTypeTag
 
 // Part of this file is copied from lihaoyi's sourcecode library: https://github.com/com-lihaoyi/sourcecode
 
@@ -30,8 +32,8 @@ object Source:
 
   case class NonPure(shortName: String, fullName: String) extends Enclosing
   case class Pure(shortName: String, fullName: String, params: List[Value]) extends Enclosing:
-    val identifier: PureIdentifier = PureIdentifier(shortName, fullName)
-  case class PureIdentifier(shortName: String, fullName: String)
+    def identifier: PureIdentifier = PureIdentifier(shortName, fullName, params.map(_.tree.tag.tag))
+  case class PureIdentifier(shortName: String, fullName: String, args: List[LightTypeTag])
   case object Pass extends Enclosing
 
   inline implicit def generate: Source = ${ sourceImpl }
@@ -56,6 +58,8 @@ object Source:
   
   def enclosingMethod(using Quotes): Expr[Enclosing] =
     import quotes.reflect.*
+    val applyOwner = Symbol.spliceOwner.owner
+    quotes.reflect.report.info(applyOwner.toString)
     val ownerDefOpt = findOwner(Symbol.spliceOwner, owner0 => Util.isSynthetic(owner0) || Util.getName(owner0) == "ev" || !owner0.isDefDef)
     ownerDefOpt match
       case Some(ownerDef) =>
@@ -66,7 +70,7 @@ object Source:
           case dd: DefDef if isPure(dd) =>
             val paramTerms: List[Term] = for {
               paramGroup <- dd.paramss
-              param <- paramGroup.params
+              param <- paramGroup.params 
             } yield Ref(param.symbol)
             val paramExprs: List[Expr[Value]] = paramTerms.map(_.asExpr.asInstanceOf[Expr[Value]])
             val paramList = Expr.ofList(paramExprs)

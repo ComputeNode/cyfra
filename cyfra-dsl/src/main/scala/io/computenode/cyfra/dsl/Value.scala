@@ -21,7 +21,7 @@ object Value {
   case class Float32(tree: E[Float32])(using val source: Source) extends FloatType
   given FromExpr[Float32] with
     def fromExpr(f: E[Float32])(using Source) = Float32(f)
-
+  
   trait IntType extends Scalar
   case class Int32(tree: E[Int32])(using val source: Source) extends IntType
   given FromExpr[Int32] with

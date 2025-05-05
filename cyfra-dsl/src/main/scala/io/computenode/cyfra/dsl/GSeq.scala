@@ -66,8 +66,6 @@ class GSeq[T <: Value : Tag : FromExpr](
 
   def lastOr(t: T): T =
     fold(t, (_: T, elem: T) => elem)
-    
-
 
 object GSeq:
 
@@ -77,7 +75,7 @@ object GSeq:
     None,
     name
   )
-  
+
   // REALLY naive implementation, should be replaced with dynamic array (O(1)) access
   def of[T <: Value : Tag : FromExpr](xs: List[T]) =
     GSeq.gen[Int32](0, _ + 1).map { i =>
@@ -112,7 +110,7 @@ object GSeq:
 
   sealed trait GSeqSource[T <: Value: Tag]
   case class GSeqStream[T <: Value: Tag](init: T, next: Expression[_]) extends GSeqSource[T]
-  
+
   case class FoldSeq[R <: Value : Tag, T <: Value : Tag](zero: R, fn: Expression[_], seq: GSeq[T]) extends Expression[R]:
     val zeroExpr = zero.tree
     val fnExpr = fn

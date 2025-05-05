@@ -9,7 +9,7 @@ import io.computenode.cyfra.spirv.SpirvConstants.*
 import io.computenode.cyfra.spirv.SpirvTypes.*
 
 private[cyfra] object GSeqCompiler:
-  
+
   def compileFold(fold: FoldSeq[_, _], ctx: Context): (List[Words], Context) =
     val loopBack = ctx.nextResultId
     val mergeBlock = ctx.nextResultId + 1

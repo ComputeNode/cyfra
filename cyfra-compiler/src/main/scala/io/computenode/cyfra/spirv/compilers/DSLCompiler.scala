@@ -14,7 +14,7 @@ import io.computenode.cyfra.spirv.SpirvTypes.*
 import io.computenode.cyfra.spirv.compilers.ExpressionCompiler.compileBlock
 import io.computenode.cyfra.spirv.compilers.GStructCompiler.*
 import io.computenode.cyfra.spirv.Context
-import io.computenode.cyfra.spirv.compilers.FunctionCompiler.compileFunctions
+import io.computenode.cyfra.spirv.compilers.FunctionCompiler.{compileFunctions, defineFunctionTypes}
 
 import java.nio.ByteBuffer
 import scala.annotation.tailrec
@@ -72,7 +72,7 @@ private[cyfra] object DSLCompiler:
     val (varDefs, varCtx) = defineVarNames(constCtx)
     val resultType = tree.tree.tag
     val (main, ctxAfterMain) = compileMain(tree, resultType, varCtx)
-    val (fnDefs, ctxWithFnDefs) = compileFunctions(ctxAfterMain)
+    val (fnTypeDefs, fnDefs, ctxWithFnDefs) = compileFunctions(ctxAfterMain)
     val nameDecorations = getNameDecorations(ctxWithFnDefs)
 
     val code: List[Words] =
@@ -84,6 +84,7 @@ private[cyfra] object DSLCompiler:
         decorations :::
         uniformStructDecorations :::
         typeDefs :::
+        fnTypeDefs :::
         structDefs :::
         uniformDefs :::
         uniformStructInsns :::
