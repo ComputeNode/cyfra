@@ -32,8 +32,8 @@ object GFunction:
   ](width: Int, fn: (G, (Int32, Int32), GArray2D[H]) => R)(using context: GContext) =
     GFunction[G, H, R](
       (g: G, index: Int32, a: GArray[H]) =>
-        val x: Int32 = index / width
-        val y: Int32 = index mod width
+        val x: Int32 = index mod width
+        val y: Int32 = index / width
         val arr = GArray2D(width, a)
         fn(g, (x, y), arr)
     )
