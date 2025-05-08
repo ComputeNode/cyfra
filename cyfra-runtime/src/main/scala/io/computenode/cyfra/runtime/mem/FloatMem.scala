@@ -3,17 +3,14 @@ package io.computenode.cyfra.runtime.mem
 import io.computenode.cyfra.dsl.Value.Float32
 
 import java.nio.ByteBuffer
+import org.lwjgl.system.MemoryUtil
 
-class FloatMem(val size: Int) extends WritableGMem[Float32, Float]:
-
-  def stride: Int = 4
-
-  override protected def toResultArray(buffer: ByteBuffer): Array[Float] = {
-    val res = buffer.asFloatBuffer()
+class FloatMem(val size: Int, protected val data: ByteBuffer) extends RamGMem[Float32, Float]:
+  def toArray: Array[Float] =
+    val res = data.asFloatBuffer()
     val result = new Array[Float](size)
     res.get(result)
     result
-  }
 
   def write(floats: Array[Float]): Unit = {
     data.rewind()
@@ -22,12 +19,16 @@ class FloatMem(val size: Int) extends WritableGMem[Float32, Float]:
   }
 
 object FloatMem {
-  def apply(floats: Array[Float]): FloatMem = {
-    val floatMem = new FloatMem(floats.length)
-    floatMem.write(floats)
-    floatMem
-  }
+  val FloatSize = 4
 
-  def apply(size: Int): FloatMem =
-    new FloatMem(size)
+  def apply(floats: Array[Float]): FloatMem =
+    val size = floats.length
+    val data = MemoryUtil.memAlloc(size * FloatSize)
+    data.asFloatBuffer().put(floats)
+    data.rewind()
+    new FloatMem(size, data)
+
+  def apply(size: Int): FloatMem = 
+    val data = MemoryUtil.memAlloc(size * FloatSize)
+    new FloatMem(size, data)
 }

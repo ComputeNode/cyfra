@@ -547,7 +547,7 @@ def main =
   List.range(0, renders).foldLeft(initialMem) {
     case(mem, i) =>
       UniformContext.withUniform(RaytracingIteration(i)):
-        val newMem = Await.result(Vec4FloatMem(mem).map(code), 1.minute)
+        val newMem = Vec4FloatMem(mem).map(code).asInstanceOf[Vec4FloatMem].toArray
         ImageUtility.renderToImage(newMem, dim, Paths.get(s"generated.png"))
         println(s"Finished render $i")
         newMem

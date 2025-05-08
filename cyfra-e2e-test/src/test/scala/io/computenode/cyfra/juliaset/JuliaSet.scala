@@ -79,7 +79,7 @@ class JuliaSet {
           (8f / 255f, 22f / 255f, 104f / 255f, 1.0f)
     })
 
-    val r = Await.result(Vec4FloatMem(dim * dim).map(function), 10.hours)
+    val r = Vec4FloatMem(dim * dim).map(function).asInstanceOf[Vec4FloatMem].toArray
     val outputTemp = File.createTempFile("julia", ".png")
     ImageUtility.renderToImage(r, dim, outputTemp.toPath)
     val referenceImage = getClass.getResource("julia.png")

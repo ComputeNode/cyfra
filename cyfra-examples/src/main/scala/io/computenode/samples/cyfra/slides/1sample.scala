@@ -21,7 +21,7 @@ def sample =
 
   val data = FloatMem((1 to 128).map(_.toFloat).toArray)
 
-  val result = Await.result(data.map(gpuFunction), 1.second)
+  val result = data.map(gpuFunction).asInstanceOf[FloatMem].toArray
   println(result.mkString(", "))
   
   
