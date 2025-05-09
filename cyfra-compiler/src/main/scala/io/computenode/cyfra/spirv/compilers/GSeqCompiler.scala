@@ -58,12 +58,13 @@ private[cyfra] object GSeqCompiler:
           ).copy(nextResultId = context.nextResultId + 1)
           val (reduceOps, reduceCtx) = ExpressionCompiler.compileBlock(foldFnExpr, forReduceCtx)
           val instructions = List(
-            Instruction(Op.OpLoad, List(
+            Instruction(Op.OpLoad, List( // val currentAcc = acc
               ResultRef(foldZeroType),
               ResultRef(resultRef),
               ResultRef(resultVar)
             ))
-          ) ::: reduceOps ::: List(
+          ) ::: reduceOps // val nextAcc = reduceFn(acc, elem)
+            ::: List( // acc = nextAcc
             Instruction(Op.OpStore, List(
               ResultRef(resultVar),
               ResultRef(reduceCtx.exprRefs(foldFnExpr.treeid))

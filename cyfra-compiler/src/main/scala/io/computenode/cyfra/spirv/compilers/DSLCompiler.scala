@@ -26,7 +26,7 @@ import scala.util.Random
 private[cyfra] object DSLCompiler:
 
   // TODO: Not traverse same fn scopes for each fn call 
-  private def getAllExprsFlattened(root: E[_]): List[E[_]] = 
+  private def getAllExprsFlattened(root: E[_], visitDetached: Boolean): List[E[_]] = 
     var blockI = 0
     val allScopesCache = mutable.Map[Int, List[E[_]]]()
     val visited = mutable.Set[Int]()
@@ -39,7 +39,8 @@ private[cyfra] object DSLCompiler:
           return allScopesCache(root.treeid)
         }
         val eScopes = e.introducedScopes
-        val newToVisit = toVisit ::: e.exprDependencies ::: eScopes.map(_.expr)
+        val filteredScopes = if visitDetached then eScopes else eScopes.filterNot(_.isDetached)
+        val newToVisit = toVisit ::: e.exprDependencies ::: filteredScopes.map(_.expr)
         val result = e.exprDependencies ::: acc
         visited += e.treeid
         blockI += 1
@@ -53,7 +54,7 @@ private[cyfra] object DSLCompiler:
 
   def compile(tree: Value, inTypes: List[Tag[_]], outTypes: List[Tag[_]], uniformSchema: GStructSchema[_]): ByteBuffer =
     val treeExpr = tree.tree
-    val allExprs = getAllExprsFlattened(treeExpr)
+    val allExprs = getAllExprsFlattened(treeExpr, visitDetached = true)
     val typesInCode = allExprs.map(_.tag).distinct
     val allTypes = (typesInCode ::: inTypes ::: outTypes).distinct
     def scalarTypes = allTypes.filter(_.tag <:< summon[Tag[Scalar]].tag)
@@ -84,8 +85,8 @@ private[cyfra] object DSLCompiler:
         decorations :::
         uniformStructDecorations :::
         typeDefs :::
-        fnTypeDefs :::
         structDefs :::
+        fnTypeDefs :::
         uniformDefs :::
         uniformStructInsns :::
         inputDefs :::

@@ -19,4 +19,3 @@ class GArray2D[T <: Value : Tag: FromExpr](width: Int, height: Int, val arr: GAr
 }
 
 case class GArrayElem[T <: Value : Tag](index: Int, i: Expression[Int32]) extends Expression[T]
-

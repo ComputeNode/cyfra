@@ -10,7 +10,7 @@ import java.util.UUID
 
 object Control:
   
-  case class Scope[T <: Value : Tag](expr: Expression[T]):
+  case class Scope[T <: Value : Tag](expr: Expression[T], isDetached: Boolean = false):
     def rootTreeId: Int = expr.treeid
   
   case class When[T <: Value: Tag : FromExpr](

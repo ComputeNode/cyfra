@@ -18,7 +18,7 @@ abstract class GStruct[T <: GStruct[T] : Tag : GStructSchema] extends Value with
   lazy val tree: E[T] =
     schema.tree(self)
   override protected def init(): Unit = ()
-  private[dsl] var _name = Source("Unknown", Source.Pass)
+  private[dsl] var _name = Source("Unknown")
   override def source: Source = _name
 
 case class GStructSchema[T <: GStruct[T]: Tag](

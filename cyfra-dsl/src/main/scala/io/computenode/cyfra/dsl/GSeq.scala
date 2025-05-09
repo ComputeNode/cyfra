@@ -75,7 +75,7 @@ object GSeq:
     None,
     name
   )
-
+  
   // REALLY naive implementation, should be replaced with dynamic array (O(1)) access
   def of[T <: Value : Tag : FromExpr](xs: List[T]) =
     GSeq.gen[Int32](0, _ + 1).map { i =>

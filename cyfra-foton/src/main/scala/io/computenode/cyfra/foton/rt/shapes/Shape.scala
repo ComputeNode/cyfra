@@ -5,9 +5,13 @@ import io.computenode.cyfra.dsl.Functions.*
 import io.computenode.cyfra.dsl.Algebra.{*, given}
 import io.computenode.cyfra.dsl.Value.*
 
-trait Shape private[shapes]():
-  def testRay(
-    rayPos: Vec3[Float32],
-    rayDir: Vec3[Float32],
-    currentHit: RayHitInfo,
-  ): RayHitInfo
+trait Shape
+
+object Shape:
+  trait TestRay[S <: Shape]:
+    def testRay(
+      shape: S,
+      rayPos: Vec3[Float32],
+      rayDir: Vec3[Float32],
+      currentHit: RayHitInfo,
+    ): RayHitInfo

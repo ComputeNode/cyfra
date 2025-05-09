@@ -49,4 +49,5 @@ object Value {
   case class Vec4[T <: Value](tree: E[Vec4[T]])(using val source: Source) extends Vec[T]
   given [T <: Scalar]: FromExpr[Vec4[T]] with
     def fromExpr(f: E[Vec4[T]])(using Source) = Vec4(f)
+
 }

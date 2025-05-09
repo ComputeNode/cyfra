@@ -9,12 +9,14 @@ import io.computenode.cyfra.spirv.compilers.FunctionCompiler.SprivFunction
 import io.computenode.cyfra.spirv.SpirvConstants.GLSL_EXT_REF
 import io.computenode.cyfra.dsl.macros.Source
 import io.computenode.cyfra.dsl.Control
+import io.computenode.cyfra.dsl.macros.FnCall.FnIdentifier
 import io.computenode.cyfra.spirv.compilers.ExpressionCompiler.compileBlock
+import io.computenode.cyfra.spirv.compilers.SpirvProgramCompiler.bubbleUpVars
 import izumi.reflect.macrortti.LightTypeTag
 
 private[cyfra] object FunctionCompiler:
 
-  case class SprivFunction(sourceFn: Source.PureIdentifier, functionId: Int, body: Expression[_], inputArgs: List[Expression[_]]):
+  case class SprivFunction(sourceFn: FnIdentifier, functionId: Int, body: Expression[_], inputArgs: List[Expression[_]]):
     def returnType: LightTypeTag = body.tag.tag
 
   def compileFunctionCall(call: Expression.FunctionCall[_], ctx: Context): (List[Instruction], Context) =
@@ -109,9 +111,10 @@ private[cyfra] object FunctionCompiler:
       fn.body,
       ctxWithParameters
     )
+    val (vars, nonVarsBody) = bubbleUpVars(bodyInstructions)
     val functionInstructions = opFunction :: opFunctionParameters ::: List(
       Instruction(Op.OpLabel, List(ResultRef(labelId))),
-    ) ::: bodyInstructions ::: List(
+    ) ::: vars ::: nonVarsBody ::: List(
       Instruction(Op.OpReturnValue, List(ResultRef(bodyCtx.exprRefs(fn.body.treeid)))),
       Instruction(Op.OpFunctionEnd, List())
     )

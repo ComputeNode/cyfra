@@ -1,7 +1,7 @@
 package io.computenode.cyfra.spirv
 
+import io.computenode.cyfra.dsl.macros.FnCall.FnIdentifier
 import io.computenode.cyfra.dsl.macros.Source
-import io.computenode.cyfra.dsl.macros.Source.Enclosing
 import io.computenode.cyfra.spirv.compilers.FunctionCompiler.SprivFunction
 import io.computenode.cyfra.spirv.SpirvConstants.HEADER_REFS_TOP
 import io.computenode.cyfra.spirv.compilers.SpirvProgramCompiler.ArrayBufferBlock
@@ -27,14 +27,11 @@ private[cyfra] case class Context(
   nextBinding: Int = 0,
   exprNames: Map[Int, String] = Map(),
   memberNames: Map[Int, String] = Map(),
-  currentEnclosing: Enclosing = EntrypointEnclosing,
-  functions: Map[Source.PureIdentifier, SprivFunction] = Map(),
+  functions: Map[FnIdentifier, SprivFunction] = Map(),
 ):
   def joinNested(ctx: Context): Context =
     this.copy(nextResultId = ctx.nextResultId, exprNames = ctx.exprNames ++ this.exprNames, functions = ctx.functions ++ this.functions)
 
 private[cyfra] object Context:
   
-  private[cyfra] val EntrypointEnclosing = Source.NonPure("entrypoint", "entrypoint")
-
   def initialContext: Context = Context()

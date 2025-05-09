@@ -12,6 +12,7 @@ import io.computenode.cyfra.dsl.Math3D.*
 import io.computenode.cyfra.runtime.{GContext, MVPContext}
 import io.computenode.cyfra.dsl.Algebra.{*, given}
 import io.computenode.cyfra.dsl.Functions.*
+import io.computenode.cyfra.dsl.Pure.pure
 
 import java.nio.file.{Path, Paths}
 import scala.collection.mutable
@@ -35,29 +36,31 @@ class RtRenderer(params: RtRenderer.Parameters):
     finished: GBoolean = false
   ) extends GStruct[RayTraceState]
 
-  private def applyRefractionThroughput(state: RayTraceState, testResult: RayHitInfo) =
+  private def applyRefractionThroughput(state: RayTraceState, testResult: RayHitInfo) = pure:
     when(testResult.fromInside) {
       state.throughput mulV exp[Vec3[Float32]](-testResult.material.refractionColor * testResult.dist)
     }.otherwise {
       state.throughput
     }
 
-  private def calculateSpecularChance(state: RayTraceState, testResult: RayHitInfo) = when(testResult.material.percentSpecular > 0.0f) {
-    val material = testResult.material
-    fresnelReflectAmount(
-      when(testResult.fromInside)(material.indexOfRefraction).otherwise(1.0f),
-      when(!testResult.fromInside)(material.indexOfRefraction).otherwise(1.0f),
-      state.rayDir, testResult.normal, material.percentSpecular, 1.0f
-    )
-  }.otherwise {
-    0f
-  }
+  private def calculateSpecularChance(state: RayTraceState, testResult: RayHitInfo) = pure: 
+    when(testResult.material.percentSpecular > 0.0f) {
+      val material = testResult.material
+      fresnelReflectAmount(
+        when(testResult.fromInside)(material.indexOfRefraction).otherwise(1.0f),
+        when(!testResult.fromInside)(material.indexOfRefraction).otherwise(1.0f),
+        state.rayDir, testResult.normal, material.percentSpecular, 1.0f
+      )
+    }.otherwise {
+      0f
+    }
 
-  private def getRefractionChance(state: RayTraceState, testResult: RayHitInfo, specularChance: Float32) = when(specularChance > 0.0f) {
-    testResult.material.refractionChance * ((1.0f - specularChance) / (1.0f - testResult.material.percentSpecular))
-  } otherwise {
-    testResult.material.refractionChance
-  }
+  private def getRefractionChance(state: RayTraceState, testResult: RayHitInfo, specularChance: Float32) = pure:
+    when(specularChance > 0.0f) {
+      testResult.material.refractionChance * ((1.0f - specularChance) / (1.0f - testResult.material.percentSpecular))
+    } otherwise {
+      testResult.material.refractionChance
+    }
 
   private case class RayAction(doSpecular: Float32, doRefraction: Float32, rayProbability: Float32)
   private def getRayAction(state: RayTraceState, testResult: RayHitInfo, random: Random): (RayAction, Random) =
@@ -82,7 +85,7 @@ class RtRenderer(params: RtRenderer.Parameters):
     (RayAction(doSpecular, doRefraction, max(rayProbability, 0.01f)), nextRandom)
 
   private val rayPosNormalNudge = 0.01f
-  private def getNextRayPos(rayPos: Vec3[Float32], rayDir: Vec3[Float32], testResult: RayHitInfo, doRefraction: Float32) =
+  private def getNextRayPos(rayPos: Vec3[Float32], rayDir: Vec3[Float32], testResult: RayHitInfo, doRefraction: Float32) = pure:
     when(doRefraction =~= 1.0f) {
       (rayPos + rayDir * testResult.dist) - (testResult.normal * rayPosNormalNudge)
     }.otherwise {
@@ -110,7 +113,7 @@ class RtRenderer(params: RtRenderer.Parameters):
     doRefraction: Float32, 
     rayProbability: Float32, 
     refractedThroughput: Vec3[Float32]
-  ) =
+  ) = pure:
     val nextThroughput = when(doRefraction === 0.0f) {
       refractedThroughput mulV mix[Vec3[Float32]](testResult.material.color, testResult.material.specularColor, doSpecular);
     }.otherwise(refractedThroughput)

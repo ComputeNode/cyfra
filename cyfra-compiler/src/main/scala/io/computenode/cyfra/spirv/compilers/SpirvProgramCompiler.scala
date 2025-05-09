@@ -12,7 +12,7 @@ import izumi.reflect.Tag
 
 private[cyfra]  object SpirvProgramCompiler:
 
-  private def bubbleUpVars(exprs: List[Words]): (List[Words], List[Words]) =
+  def bubbleUpVars(exprs: List[Words]): (List[Words], List[Words]) =
     exprs.partition {
       case Instruction(Op.OpVariable, _) => true
       case _ => false

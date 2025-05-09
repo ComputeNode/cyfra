@@ -329,7 +329,7 @@ private[cyfra] object ExpressionCompiler:
 
             case fc: FunctionCall[_] =>
               compileFunctionCall(fc, ctx)
-              
+     
             case ga@GArrayElem(index, i) =>
               val instructions = List(
                 Instruction(Op.OpAccessChain, List(
@@ -416,7 +416,6 @@ private[cyfra] object ExpressionCompiler:
         }
       }
     }
-    val treeEnclosing = tree.of.map(_.source.enclosing).getOrElse(throw new Exception("No source found for tree"))
-    val sortedTree = BlockBuilder.buildBlock(tree, treeEnclosing)
+    val sortedTree = BlockBuilder.buildBlock(tree, providedExprIds = ctx.exprRefs.keySet)
     compileExpressions(sortedTree, ctx, Nil)
   }

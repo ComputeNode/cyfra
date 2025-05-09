@@ -4,6 +4,7 @@ import io.computenode.cyfra.dsl.Expression
 import Expression.Const
 import io.computenode.cyfra.dsl.Functions.*
 import io.computenode.cyfra.dsl.Value.*
+import io.computenode.cyfra.dsl.macros.FnCall.FnIdentifier
 import io.computenode.cyfra.dsl.macros.Source
 import izumi.reflect.Tag
 
@@ -34,7 +35,6 @@ trait Expression[T <: Value : Tag] extends Product:
     }
   def exprDependencies: List[Expression[_]] = exploreDeps(this.productIterator.toList)._1
   def introducedScopes: List[Scope[_]] = exploreDeps(this.productIterator.toList)._2
-
 
 trait CustomTreeId:
   self: Expression[_] =>
@@ -69,7 +69,7 @@ object Expression:
   case class BitwiseNot[T <: Scalar : Tag](a: T) extends BitwiseOpExpression[T]
   case class ShiftLeft[T <: Scalar : Tag](a: T, by: UInt32) extends BitwiseOpExpression[T]
   case class ShiftRight[T <: Scalar : Tag](a: T, by: UInt32) extends BitwiseOpExpression[T]
-  
+
   sealed trait ComparisonOpExpression[T <: Value: Tag] extends Expression[GBoolean] {
     def operandTag = summon[Tag[T]]
     def a: T
@@ -112,10 +112,7 @@ object Expression:
   case class ComposeVec4[T <: Scalar: Tag](a: T, b: T, c: T, d: T) extends Expression[Vec4[T]]
   
   case class ExtFunctionCall[R <: Value : Tag](fn: FunctionName, args: List[Value]) extends Expression[R]
-  case class FunctionCall[R <: Value : Tag](fn: Source.PureIdentifier, body: Scope[R], args: List[Value], origExprId: Int) extends E[R]:
-    // This introduces a conflict in tree ids, but they should never happen in one scope
-    override private[cyfra] val treeid = origExprId
-    
+  case class FunctionCall[R <: Value : Tag](fn: FnIdentifier, body: Scope[R], args: List[Value]) extends E[R]
   
   case class Pass[T <: Value : Tag](value: T) extends E[T]
 
