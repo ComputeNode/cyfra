@@ -12,11 +12,6 @@ class FloatMem(val size: Int, protected val data: ByteBuffer) extends RamGMem[Fl
     res.get(result)
     result
 
-  def write(floats: Array[Float]): Unit = {
-    data.rewind()
-    data.asFloatBuffer().put(floats)
-    data.rewind()
-  }
 
 object FloatMem {
   val FloatSize = 4

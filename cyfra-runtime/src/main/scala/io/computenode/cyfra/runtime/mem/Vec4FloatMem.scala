@@ -15,16 +15,6 @@ class Vec4FloatMem(val size: Int, protected val data: ByteBuffer) extends RamGMe
     result
   }
 
-  def write(vecs: Array[fRGBA]): Unit = {
-    data.rewind()
-    vecs.foreach { case (x, y, z, a) =>
-      data.putFloat(x)
-      data.putFloat(y)
-      data.putFloat(z)
-      data.putFloat(a)
-    }
-    data.rewind()
-  }
 
 object Vec4FloatMem:
   val Vec4FloatSize = 16
