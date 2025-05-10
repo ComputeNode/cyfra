@@ -288,5 +288,5 @@ def randomRays =
 
 
   val mem = Vec4FloatMem(Array.fill(dim * dim)((0f,0f,0f,0f)))
-  val result = Await.result(mem.map(raytracing), 5.seconds)
+  val result = mem.map(raytracing).asInstanceOf[Vec4FloatMem].toArray
   ImageUtility.renderToImage(result, dim, Paths.get(s"generated4.png"))

@@ -34,7 +34,7 @@ class AnimatedFunctionRenderer(params: AnimatedFunctionRenderer.Parameters) exte
     val mem = Array.fill(params.width * params.height)((0.5f, 0.5f, 0.5f, 0.5f))
     UniformContext.withUniform(AnimationIteration(time)):
       val fmem = Vec4FloatMem(mem)
-      Await.result(fmem.map(fn), 1.minute)
+      fmem.map(fn).asInstanceOf[Vec4FloatMem].toArray
 
   protected override def renderFunction(scene: AnimatedFunction): RenderFn = 
     GFunction.from2D(params.width, {

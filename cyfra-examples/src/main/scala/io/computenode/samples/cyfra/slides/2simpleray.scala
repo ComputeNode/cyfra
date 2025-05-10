@@ -64,5 +64,5 @@ def simpleray =
 
 
   val mem = Vec4FloatMem(Array.fill(dim * dim)((0f,0f,0f,0f)))
-  val result = Await.result(mem.map(raytracing), 1.second)
+  val result = mem.map(raytracing).asInstanceOf[Vec4FloatMem].toArray
   ImageUtility.renderToImage(result, dim, Paths.get(s"generated2.png"))
