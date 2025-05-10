@@ -39,12 +39,13 @@ trait GContext {
     val out = executor.execute(inData, mem.size)
     executor.destroy()
 
-    val inTags = fn.arrayInputs
-    assert(inTags.size == 1)
+    val outTags = fn.arrayOutputs
+    assert(outTags.size == 1)
 
-    inTags.head match
+    outTags.head match
       case t if t == Tag[Float32] =>
         new FloatMem(mem.size, out.head).asInstanceOf[GMem[R]]
       case t if t == Tag[Vec4[Float32]] =>
         new Vec4FloatMem(mem.size, out.head).asInstanceOf[GMem[R]]
+      case _ => assert(false, "Supported output types are Float32 and Vec4[Float32]")
 }
