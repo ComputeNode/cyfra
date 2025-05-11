@@ -11,7 +11,7 @@ import io.computenode.cyfra.foton.animation.AnimationRenderer
 import io.computenode.cyfra.foton.rt.ImageRtRenderer.RaytracingIteration
 import io.computenode.cyfra.foton.rt.animation.AnimationRtRenderer.RaytracingIteration
 import io.computenode.cyfra.foton.rt.RtRenderer
-import io.computenode.cyfra.runtime.{GArray2DFunction, GContext, MVPContext}
+import io.computenode.cyfra.runtime.{GFunction, GContext, MVPContext}
 import io.computenode.cyfra.utility.Units.Milliseconds
 import io.computenode.cyfra.utility.Utility.timed
 import io.computenode.cyfra.dsl.Algebra.{*, given}
@@ -34,10 +34,10 @@ class AnimatedFunctionRenderer(params: AnimatedFunctionRenderer.Parameters) exte
     val mem = Array.fill(params.width * params.height)((0.5f, 0.5f, 0.5f, 0.5f))
     UniformContext.withUniform(AnimationIteration(time)):
       val fmem = Vec4FloatMem(mem)
-      Await.result(fmem.map(fn), 1.minute)
+      fmem.map(fn).asInstanceOf[Vec4FloatMem].toArray
 
   protected override def renderFunction(scene: AnimatedFunction): RenderFn = 
-    GArray2DFunction(params.width, params.height, {
+    GFunction.from2D(params.width, {
       case (AnimationIteration(time), (xi: Int32, yi: Int32), lastFrame) =>
         val lastColor = lastFrame.at(xi, yi)
         val x = (xi - (params.width / 2)).asFloat / params.width.toFloat
@@ -47,7 +47,7 @@ class AnimatedFunctionRenderer(params: AnimatedFunctionRenderer.Parameters) exte
     })
 
 object AnimatedFunctionRenderer:
-  type RenderFn = GArray2DFunction[AnimationIteration, Vec4[Float32], Vec4[Float32]]
+  type RenderFn = GFunction[AnimationIteration, Vec4[Float32], Vec4[Float32]]
   case class AnimationIteration(time: Float32) extends GStruct[AnimationIteration]
 
   case class Parameters(

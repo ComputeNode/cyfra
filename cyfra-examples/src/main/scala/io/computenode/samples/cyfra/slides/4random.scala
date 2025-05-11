@@ -266,7 +266,7 @@ def randomRays =
 
   case class RenderIteration(color: Vec3[Float32], rngState: UInt32) extends GStruct[RenderIteration]
 
-  val raytracing: GArray2DFunction[Empty, Vec4[Float32], Vec4[Float32]] = GArray2DFunction(dim, dim, {
+  val raytracing: GFunction[Empty, Vec4[Float32], Vec4[Float32]] = GFunction.from2D(dim, {
     case (_, (xi: Int32, yi: Int32), _) =>
       val rngState = xi * 1973 + yi * 9277 + 2137 * 26699 | 1
       val color = GSeq.gen(first = RenderIteration((0f,0f,0f), rngState.unsigned), next = {
@@ -288,5 +288,5 @@ def randomRays =
 
 
   val mem = Vec4FloatMem(Array.fill(dim * dim)((0f,0f,0f,0f)))
-  val result = Await.result(mem.map(raytracing), 5.seconds)
+  val result = mem.map(raytracing).asInstanceOf[Vec4FloatMem].toArray
   ImageUtility.renderToImage(result, dim, Paths.get(s"generated4.png"))

@@ -209,7 +209,7 @@ def rays =
       .map(state => (state.color, 1f))
       .lastOr((0f,0f,0f,1f))
 
-  val raytracing: GArray2DFunction[Empty, Vec4[Float32], Vec4[Float32]] = GArray2DFunction(dim, dim, {
+  val raytracing: GFunction[Empty, Vec4[Float32], Vec4[Float32]] = GFunction.from2D(dim, {
     case (_, (xi: Int32, yi: Int32), _) =>
       val x = (xi.asFloat / dim.toFloat) * 2f - 1f
       val y = (yi.asFloat / dim.toFloat) * 2f - 1f
@@ -224,5 +224,5 @@ def rays =
 
 
   val mem = Vec4FloatMem(Array.fill(dim * dim)((0f,0f,0f,0f)))
-  val result = Await.result(mem.map(raytracing), 1.second)
+  val result = mem.map(raytracing).asInstanceOf[Vec4FloatMem].toArray
   ImageUtility.renderToImage(result, dim, Paths.get(s"generated3.png"))

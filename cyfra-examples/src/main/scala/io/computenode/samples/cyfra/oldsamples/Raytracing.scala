@@ -248,7 +248,7 @@ def main =
 
   case class RaytracingIteration(frame: Int32) extends GStruct[RaytracingIteration]
 
-  def function(): GArray2DFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]] = GArray2DFunction(dim, dim, {
+  def function(): GFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]] = GFunction.from2D(dim, {
     case (RaytracingIteration(frame), (xi: Int32, yi: Int32), lastFrame) =>
       def wangHash(seed: UInt32): UInt32 = {
         val s1 = (seed ^ 61) ^ (seed >> 16)
@@ -551,7 +551,7 @@ def main =
   List.range(0, renders).foldLeft(initialMem) {
     case(mem, i) =>
       UniformContext.withUniform(RaytracingIteration(i)):
-        val newMem = Await.result(Vec4FloatMem(mem).map(code), 1.minute)
+        val newMem = Vec4FloatMem(mem).map(code).asInstanceOf[Vec4FloatMem].toArray
         ImageUtility.renderToImage(newMem, dim, Paths.get(s"generated.png"))
         println(s"Finished render $i")
         newMem

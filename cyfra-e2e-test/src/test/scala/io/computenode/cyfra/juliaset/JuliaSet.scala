@@ -5,16 +5,15 @@ import io.computenode.cyfra.*
 import io.computenode.cyfra.dsl.Control.when
 import io.computenode.cyfra.dsl.GStruct.Empty
 import io.computenode.cyfra.dsl.Value.*
-import io.computenode.cyfra.runtime.{GArray2DFunction, GContext, MVPContext}
+import io.computenode.cyfra.runtime.{GContext, GFunction, MVPContext}
 import org.apache.commons.io.IOUtils
-import org.junit.jupiter.api.Assertions.*
-import org.junit.jupiter.api.Test
 import org.junit.runner.RunWith
 import io.computenode.cyfra.dsl.Functions.*
-import io.computenode.cyfra.dsl.GSeq
 import io.computenode.cyfra.dsl.Pure.pure
+import io.computenode.cyfra.dsl.{GArray2D, GSeq}
 import io.computenode.cyfra.runtime.mem.Vec4FloatMem
 import io.computenode.cyfra.utility.ImageUtility
+import munit.FunSuite
 
 import java.io.File
 import java.nio.file.Files
@@ -22,18 +21,17 @@ import scala.concurrent.ExecutionContext.Implicits
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext}
 
-class JuliaSet {
+class JuliaSet extends FunSuite:
   given GContext = new MVPContext()
   given ExecutionContext = Implicits.global
-
-  @Test
-  def testJuliaSet(): Unit = {
+  
+  test("Render julia set"):
     val dim = 4096
     val max = 1
     val RECURSION_LIMIT = 1000
     val const = (0.355f, 0.355f)
 
-    val function: GArray2DFunction[Empty, Vec4[Float32], Vec4[Float32]] = GArray2DFunction(dim, dim, {
+    val function = GFunction.from2D[Empty, Vec4[Float32], Vec4[Float32]](dim, {
       case (_, (xi: Int32, yi: Int32), _) =>
         val x = 3.0f * (xi - (dim / 2)).asFloat / dim.toFloat
         val y = 3.0f * (yi - (dim / 2)).asFloat / dim.toFloat
@@ -80,11 +78,9 @@ class JuliaSet {
           (8f / 255f, 22f / 255f, 104f / 255f, 1.0f)
     })
 
-    val r = Await.result(Vec4FloatMem(dim * dim).map(function), 10.hours)
+    val r = Vec4FloatMem(dim * dim).map(function).asInstanceOf[Vec4FloatMem].toArray
     val outputTemp = File.createTempFile("julia", ".png")
     ImageUtility.renderToImage(r, dim, outputTemp.toPath)
     val referenceImage = getClass.getResource("julia.png")
     ImageTests.assertImagesEquals(outputTemp, new File(referenceImage.getPath))
-  }
-}
-
+  

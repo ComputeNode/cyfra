@@ -9,7 +9,7 @@ import io.computenode.cyfra.*
 import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.foton.rt.shapes.{Box, Sphere}
 import io.computenode.cyfra.dsl.{GStruct, UniformContext, given}
-import io.computenode.cyfra.runtime.GArray2DFunction
+import io.computenode.cyfra.runtime.GFunction
 import io.computenode.cyfra.runtime.mem.GMem.fRGBA
 import io.computenode.cyfra.utility.ImageUtility
 import io.computenode.cyfra.runtime.mem.Vec4FloatMem
@@ -31,17 +31,19 @@ class ImageRtRenderer(params: ImageRtRenderer.Parameters) extends RtRenderer(par
   def render(scene: Scene): LazyList[Array[fRGBA]] =
     render(scene, renderFunction(scene))
 
-  private def render(scene: Scene, fn: GArray2DFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]]): LazyList[Array[fRGBA]] =
+  private def render(scene: Scene, fn: GFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]]): LazyList[Array[fRGBA]] =
     val initialMem = Array.fill(params.width * params.height)((0.5f, 0.5f, 0.5f, 0.5f))
     LazyList.iterate((initialMem, 0), params.iterations + 1) { case (mem, render) =>
       UniformContext.withUniform(RaytracingIteration(render)):
         val fmem = Vec4FloatMem(mem)
-        val result = timed(s"Rendered iteration $render")(Await.result(fmem.map(fn), 1.minute))
+        val result = timed(s"Rendered iteration $render")(
+          fmem.map(fn).asInstanceOf[Vec4FloatMem].toArray
+        )
         (result, render + 1)
     }.drop(1).map(_._1)
 
-  private def renderFunction(scene: Scene): GArray2DFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]] =
-    GArray2DFunction(params.width, params.height, {
+  private def renderFunction(scene: Scene): GFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]] =
+    GFunction.from2D(params.width, {
       case (RaytracingIteration(frame), (xi: Int32, yi: Int32), lastFrame) =>
         renderFrame(xi, yi, frame, lastFrame, scene)
     })

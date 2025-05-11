@@ -2,7 +2,7 @@ package io.computenode.cyfra
 
 import com.diogonunes.jcolor.Ansi.colorize
 import com.diogonunes.jcolor.Attribute
-import org.junit.jupiter.api.Assertions.assertEquals
+import munit.Assertions.assertEquals
 
 import java.awt.Image
 import java.awt.image.BufferedImage
@@ -13,12 +13,13 @@ object ImageTests:
   def assertImagesEquals(result: File, expected: File) = {
     val expectedImage = ImageIO.read(expected)
     val resultImage = ImageIO.read(result)
-    println("Got image:")
-    println(renderAsText(resultImage, 50, 50))
+    //println("Got image:")
+    //println(renderAsText(resultImage, 50, 50))
     assertEquals(expectedImage.getWidth, resultImage.getWidth, "Width was different")
     assertEquals(expectedImage.getHeight, resultImage.getHeight, "Height was different")
     for (x <- 0 until expectedImage.getWidth; y <- 0 until expectedImage.getHeight) {
-      assertEquals(expectedImage.getRGB(x, y), resultImage.getRGB(x, y), s"Pixel $x, $y was different")
+      val equal = expectedImage.getRGB(x, y) == resultImage.getRGB(x, y)
+      assert(equal, s"Pixel $x, $y was different. Output file: ${result.getAbsolutePath}")
     }
   }
 
