@@ -36,7 +36,9 @@ class ImageRtRenderer(params: ImageRtRenderer.Parameters) extends RtRenderer(par
     LazyList.iterate((initialMem, 0), params.iterations + 1) { case (mem, render) =>
       UniformContext.withUniform(RaytracingIteration(render)):
         val fmem = Vec4FloatMem(mem)
-        val result = timed(s"Rendered iteration $render")(Await.result(fmem.map(fn), 1.minute))
+        val result = timed(s"Rendered iteration $render")(
+          fmem.map(fn).asInstanceOf[Vec4FloatMem].toArray
+        )
         (result, render + 1)
     }.drop(1).map(_._1)
 

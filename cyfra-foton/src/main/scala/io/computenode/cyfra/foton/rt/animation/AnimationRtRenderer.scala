@@ -31,7 +31,7 @@ class AnimationRtRenderer(params: AnimationRtRenderer.Parameters) extends RtRend
     List.iterate((initialMem, 0), params.iterations + 1) { case (mem, render) =>
       UniformContext.withUniform(RaytracingIteration(render, time)):
         val fmem = Vec4FloatMem(mem)
-        val result = Await.result(fmem.map(fn), 1.minute)
+        val result = fmem.map(fn).asInstanceOf[Vec4FloatMem].toArray
         (result, render + 1)
     }.map(_._1).last
 
