@@ -2,12 +2,14 @@ package io.computenode.cyfra.spirv.compilers
 
 import io.computenode.cyfra.spirv.Opcodes.*
 import ExtFunctionCompiler.compileExtFunctionCall
+import FunctionCompiler.compileFunctionCall
 import WhenCompiler.compileWhen
 import io.computenode.cyfra.dsl.Control.WhenExpr
 import io.computenode.cyfra.dsl.Expression.*
 import io.computenode.cyfra.dsl.*
 import io.computenode.cyfra.dsl.Value.*
-import io.computenode.cyfra.spirv.{Context, ScopeBuilder}
+import io.computenode.cyfra.dsl.macros.Source
+import io.computenode.cyfra.spirv.{BlockBuilder, Context}
 import izumi.reflect.Tag
 import io.computenode.cyfra.spirv.SpirvConstants.*
 import io.computenode.cyfra.spirv.SpirvTypes.*
@@ -77,7 +79,6 @@ private[cyfra] object ExpressionCompiler:
       nextResultId = ctx.nextResultId + 1
     )
     (instructions, updatedContext)
-  
 
   def comparisonOp(comparisonOpExpression: ComparisonOpExpression[_]) =
     comparisonOpExpression match
@@ -109,7 +110,7 @@ private[cyfra] object ExpressionCompiler:
       nextResultId = ctx.nextResultId + 1
     )
     (instructions, updatedContext)
-  
+
   def compileBlock(tree: E[_], ctx: Context): (List[Words], Context) = {
 
     @tailrec
@@ -122,7 +123,7 @@ private[cyfra] object ExpressionCompiler:
         } else {
 
           val name: Option[String] = expr.of match
-            case Some(v) => Some(v.name.value)
+            case Some(v) => Some(v.source.name)
             case _ => None
           
           val (instructions, updatedCtx) = expr match {
@@ -259,7 +260,6 @@ private[cyfra] object ExpressionCompiler:
               )
               (instructions, updatedContext)
 
-
             case e: ExtractScalar[_, _] =>
               val instructions = List(
                 Instruction(Op.OpVectorExtractDynamic, List(
@@ -327,6 +327,9 @@ private[cyfra] object ExpressionCompiler:
             case fc: ExtFunctionCall[_] =>
               compileExtFunctionCall(fc, ctx)
 
+            case fc: FunctionCall[_] =>
+              compileFunctionCall(fc, ctx)
+     
             case ga@GArrayElem(index, i) =>
               val instructions = List(
                 Instruction(Op.OpAccessChain, List(
@@ -413,6 +416,6 @@ private[cyfra] object ExpressionCompiler:
         }
       }
     }
-    val sortedTree = ScopeBuilder.buildScope(tree)
+    val sortedTree = BlockBuilder.buildBlock(tree, providedExprIds = ctx.exprRefs.keySet)
     compileExpressions(sortedTree, ctx, Nil)
   }

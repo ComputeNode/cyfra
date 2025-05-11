@@ -8,6 +8,7 @@ import izumi.reflect.Tag
 import io.computenode.cyfra.dsl.Functions.*
 import io.computenode.cyfra.dsl.Algebra.{*, given}
 import io.computenode.cyfra.dsl.Value.*
+import io.computenode.cyfra.foton.rt.shapes.Shape.TestRay
 
 import scala.util.chaining.*
 
@@ -38,10 +39,11 @@ class ShapeCollection(
       case _ => assert(false, "Unknown shape type: Broken sealed hierarchy")
 
   def testRay(rayPos: Vec3[Float32], rayDir: Vec3[Float32], noHit: RayHitInfo): RayHitInfo =
-    def testShapeType[T <: GStruct[T] with Shape : FromExpr : Tag](shapes: List[T], currentHit: RayHitInfo): RayHitInfo =
+    def testShapeType[T <: GStruct[T] with Shape : FromExpr : Tag : TestRay](shapes: List[T], currentHit: RayHitInfo): RayHitInfo =
+      val testRay = summon[TestRay[T]]
       if shapes.isEmpty then currentHit
       else GSeq.of(shapes).fold(currentHit, { (currentHit, shape) =>
-        shape.testRay(rayPos, rayDir, currentHit)
+        testRay.testRay(shape, rayPos, rayDir, currentHit)
       })
 
     testShapeType(quads, noHit)

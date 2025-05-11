@@ -7,27 +7,33 @@ import io.computenode.cyfra.dsl.Functions.*
 import io.computenode.cyfra.dsl.Algebra.{*, given}
 import io.computenode.cyfra.dsl.Control.when
 import io.computenode.cyfra.dsl.Value.*
+import io.computenode.cyfra.foton.rt.shapes.Shape.TestRay
+import io.computenode.cyfra.dsl.Pure.pure
 
 case class Plane(
   point: Vec3[Float32],
   normal: Vec3[Float32],
   material: Material
-) extends GStruct[Plane] with Shape:
-  def testRay(
-    rayPos: Vec3[Float32],
-    rayDir: Vec3[Float32],
-    currentHit: RayHitInfo,
-  ): RayHitInfo =
-    val denom = normal dot rayDir
-    given epsilon: Float32 = 0.1f
-    when(denom =~= 0.0f) {
-      currentHit
-    } otherwise {
-      val t = ((point - rayPos) dot normal) / denom
-      when(t < 0.0f || t >= currentHit.dist) {
+) extends GStruct[Plane] with Shape
+
+object Plane:
+  given TestRay[Plane] with
+    def testRay(
+      plane: Plane,
+      rayPos: Vec3[Float32],
+      rayDir: Vec3[Float32],
+      currentHit: RayHitInfo,
+    ): RayHitInfo = pure:
+      val denom = plane.normal dot rayDir
+      given epsilon: Float32 = 0.1f
+      when(denom =~= 0.0f) {
         currentHit
       } otherwise {
-        val hitNormal = when(denom < 0.0f)(normal).otherwise(-normal)
-        RayHitInfo(t, hitNormal, material)
+        val t = ((plane.point - rayPos) dot plane.normal) / denom
+        when(t < 0.0f || t >= currentHit.dist) {
+          currentHit
+        } otherwise {
+          val hitNormal = when(denom < 0.0f)(plane.normal).otherwise(-plane.normal)
+          RayHitInfo(t, hitNormal, plane.material)
+        }
       }
-    }

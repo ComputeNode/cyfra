@@ -24,5 +24,3 @@ def sample =
   val result = data.map(gpuFunction).asInstanceOf[FloatMem].toArray
   println(result.mkString(", "))
   
-  
-  

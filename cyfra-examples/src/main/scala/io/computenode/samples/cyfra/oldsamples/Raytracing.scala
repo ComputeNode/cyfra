@@ -20,6 +20,7 @@ import io.computenode.cyfra.dsl.given
 import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.runtime.mem.Vec4FloatMem
 import io.computenode.cyfra.utility.ImageUtility
+import io.computenode.cyfra.runtime.mem.Vec4FloatMem
 
 given GContext = new MVPContext()
 given ExecutionContext = Implicits.global
@@ -381,13 +382,16 @@ def main =
         rayDir: Vec3[Float32],
         currentHit: RayHitInfo,
       ): RayHitInfo =
+        
         val spheresHit = GSeq.of(spheres).fold(currentHit, {
           case (hit, sphere) =>
             testSphereTrace(rayPos, rayDir, hit, sphere)
         })
+        
         GSeq.of(walls).fold(spheresHit, { (hit, wall) =>
           testQuadTrace(rayPos, rayDir, hit, wall)
         })
+
 
       def fresnelReflectAmount(
         n1: Float32, 

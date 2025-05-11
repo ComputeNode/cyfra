@@ -9,6 +9,7 @@ import io.computenode.cyfra.runtime.{GContext, GFunction, MVPContext}
 import org.apache.commons.io.IOUtils
 import org.junit.runner.RunWith
 import io.computenode.cyfra.dsl.Functions.*
+import io.computenode.cyfra.dsl.Pure.pure
 import io.computenode.cyfra.dsl.{GArray2D, GSeq}
 import io.computenode.cyfra.runtime.mem.Vec4FloatMem
 import io.computenode.cyfra.utility.ImageUtility
@@ -37,18 +38,18 @@ class JuliaSet extends FunSuite:
         val uv = (x, y)
         val len = length((x, y)) * 1000f
 
-        def juliaSet(uv: Vec2[Float32]): Int32 =
+        def juliaSet(uv: Vec2[Float32]): Int32 = pure:
           GSeq.gen(uv, next = v => {
             ((v.x * v.x) - (v.y * v.y), 2.0f * v.x * v.y) + const
           }).limit(RECURSION_LIMIT).map(length).takeWhile(_ < 2.0f).count
 
-        def rotate(uv: Vec2[Float32], angle: Float32): Vec2[Float32] =
+        def rotate(uv: Vec2[Float32], angle: Float32): Vec2[Float32] = pure:
           val newXAxis = (cos(angle), sin(angle))
           val newYAxis = (-newXAxis.y, newXAxis.x)
           (uv dot newXAxis, uv dot newYAxis) * 0.9f
 
 
-        def interpolateColor(f: Float32): Vec3[Float32] =
+        def interpolateColor(f: Float32): Vec3[Float32] = pure:
           val c1 = (8f, 22f, 104f) * (1 / 255f)
           val c2 = (62f, 82f, 199f) * (1 / 255f)
           val c3 = (221f, 233f, 255f) * (1 / 255f)
@@ -83,5 +84,3 @@ class JuliaSet extends FunSuite:
     val referenceImage = getClass.getResource("julia.png")
     ImageTests.assertImagesEquals(outputTemp, new File(referenceImage.getPath))
   
-
-

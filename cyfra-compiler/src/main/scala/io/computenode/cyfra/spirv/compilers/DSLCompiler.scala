@@ -14,6 +14,7 @@ import io.computenode.cyfra.spirv.SpirvTypes.*
 import io.computenode.cyfra.spirv.compilers.ExpressionCompiler.compileBlock
 import io.computenode.cyfra.spirv.compilers.GStructCompiler.*
 import io.computenode.cyfra.spirv.Context
+import io.computenode.cyfra.spirv.compilers.FunctionCompiler.{compileFunctions, defineFunctionTypes}
 
 import java.nio.ByteBuffer
 import scala.annotation.tailrec
@@ -24,7 +25,8 @@ import scala.util.Random
 
 private[cyfra] object DSLCompiler:
 
-  private def getAllExprsFlattened(root: E[_]): List[E[_]] = 
+  // TODO: Not traverse same fn scopes for each fn call 
+  private def getAllExprsFlattened(root: E[_], visitDetached: Boolean): List[E[_]] = 
     var blockI = 0
     val allScopesCache = mutable.Map[Int, List[E[_]]]()
     val visited = mutable.Set[Int]()
@@ -36,9 +38,9 @@ private[cyfra] object DSLCompiler:
         if (allScopesCache.contains(root.treeid)) {
           return allScopesCache(root.treeid)
         }
-        // Random is skipped! FromExpr???
         val eScopes = e.introducedScopes
-        val newToVisit = toVisit ::: e.exprDependencies ::: eScopes.map(_.expr)
+        val filteredScopes = if visitDetached then eScopes else eScopes.filterNot(_.isDetached)
+        val newToVisit = toVisit ::: e.exprDependencies ::: filteredScopes.map(_.expr)
         val result = e.exprDependencies ::: acc
         visited += e.treeid
         blockI += 1
@@ -52,7 +54,7 @@ private[cyfra] object DSLCompiler:
 
   def compile(tree: Value, inTypes: List[Tag[_]], outTypes: List[Tag[_]], uniformSchema: GStructSchema[_]): ByteBuffer =
     val treeExpr = tree.tree
-    val allExprs = getAllExprsFlattened(treeExpr)
+    val allExprs = getAllExprsFlattened(treeExpr, visitDetached = true)
     val typesInCode = allExprs.map(_.tag).distinct
     val allTypes = (typesInCode ::: inTypes ::: outTypes).distinct
     def scalarTypes = allTypes.filter(_.tag <:< summon[Tag[Scalar]].tag)
@@ -70,8 +72,9 @@ private[cyfra] object DSLCompiler:
     val (constDefs, constCtx) = defineConstants(allExprs, inputContext)
     val (varDefs, varCtx) = defineVarNames(constCtx)
     val resultType = tree.tree.tag
-    val (main, finalCtx) = compileMain(tree, resultType, varCtx)
-    val nameDecorations = getNameDecorations(finalCtx)
+    val (main, ctxAfterMain) = compileMain(tree, resultType, varCtx)
+    val (fnTypeDefs, fnDefs, ctxWithFnDefs) = compileFunctions(ctxAfterMain)
+    val nameDecorations = getNameDecorations(ctxWithFnDefs)
 
     val code: List[Words] =
       SpirvProgramCompiler.headers :::
@@ -83,15 +86,17 @@ private[cyfra] object DSLCompiler:
         uniformStructDecorations :::
         typeDefs :::
         structDefs :::
+        fnTypeDefs :::
         uniformDefs :::
         uniformStructInsns :::
         inputDefs :::
         constDefs :::
         varDefs :::
-        main
+        main :::
+        fnDefs
 
     val fullCode = code.map {
-      case WordVariable(name) if name == BOUND_VARIABLE => IntWord(finalCtx.nextResultId)
+      case WordVariable(name) if name == BOUND_VARIABLE => IntWord(ctxWithFnDefs.nextResultId)
       case x => x
     }
     val bytes = fullCode.flatMap(_.toWords).toArray

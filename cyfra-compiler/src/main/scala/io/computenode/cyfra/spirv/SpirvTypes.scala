@@ -8,6 +8,7 @@ import izumi.reflect.Tag
 import izumi.reflect.macrortti.{LTag, LightTypeTag}
 
 private[cyfra] object SpirvTypes:
+
   val Int32Tag = summon[Tag[Int32]]
   val UInt32Tag = summon[Tag[UInt32]]
   val Float32Tag = summon[Tag[Float32]]
@@ -57,7 +58,6 @@ private[cyfra] object SpirvTypes:
       vecSize(v) * typeStride(v.typeArgs.head)
   
   def typeStride(tag: Tag[_]): Int = typeStride(tag.tag)
-  
   
   def toWord(tpe: Tag[_], value: Any): Words = tpe match {
     case t if t == Int32Tag =>

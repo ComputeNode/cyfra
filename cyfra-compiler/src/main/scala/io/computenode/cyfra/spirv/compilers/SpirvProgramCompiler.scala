@@ -12,7 +12,7 @@ import izumi.reflect.Tag
 
 private[cyfra]  object SpirvProgramCompiler:
 
-  private def bubbleUpVars(exprs: List[Words]): (List[Words], List[Words]) =
+  def bubbleUpVars(exprs: List[Words]): (List[Words], List[Words]) =
     exprs.partition {
       case Instruction(Op.OpVariable, _) => true
       case _ => false
@@ -73,7 +73,11 @@ private[cyfra]  object SpirvProgramCompiler:
   }
 
   def getNameDecorations(ctx: Context): List[Instruction] =
-    ctx.exprNames.map {
+    val funNames = ctx.functions.map {
+      case (id, fn) => (fn.functionId, fn.sourceFn.fullName)
+    }.toList
+    val allNames = ctx.exprNames ++ funNames
+    allNames.map {
       case (id, name) =>
         Instruction(Op.OpName, List(
           ResultRef(id),

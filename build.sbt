@@ -1,5 +1,5 @@
 ThisBuild / organization := "com.computenode.cyfra"
-ThisBuild / scalaVersion := "3.3.3"
+ThisBuild / scalaVersion := "3.6.4"
 ThisBuild / version      := "0.1.0-SNAPSHOT"
 
 lazy val osName = System.getProperty("os.name").toLowerCase
@@ -96,11 +96,9 @@ lazy val root = (project in file("."))
     examples
   )
 
-
 e2eTest / Test / javaOptions ++= Seq(
   "-Dorg.lwjgl.system.stackSize=1024",
   "-DuniqueLibraryNames=true"
 )
 
 e2eTest / Test / fork := true
-

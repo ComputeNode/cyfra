@@ -4,6 +4,8 @@ import io.computenode.cyfra.dsl.Expression
 import Expression.Const
 import io.computenode.cyfra.dsl.Functions.*
 import io.computenode.cyfra.dsl.Value.*
+import io.computenode.cyfra.dsl.macros.FnCall.FnIdentifier
+import io.computenode.cyfra.dsl.macros.Source
 import izumi.reflect.Tag
 
 import java.util.concurrent.atomic.AtomicInteger
@@ -12,11 +14,10 @@ trait Expression[T <: Value : Tag] extends Product:
   def tag: Tag[T] = summon[Tag[T]]
   private[cyfra] val treeid: Int = treeidState.getAndIncrement()
   private[cyfra] var of: Option[Value] = None
-  private val childrenStrings = this.productIterator.collect {
-    case v: Value => s"#${v.tree.treeid.toString}"
-    case e: Expression[_] => s"${e.treeid.toString}"
-  }.mkString("[", ", ", "]")
-  override def toString: String = s"${this.productPrefix}(${of.fold("")(v => s"name = ${v.name.value}, ")}children=${childrenStrings}, id=$treeid)"
+  private lazy val childrenStrings = this.exprDependencies
+    .map(e => s"#${e.treeid}")
+    .mkString("[", ", ", "]")
+  override def toString: String = s"${this.productPrefix}(${of.fold("")(v => s"name = ${v.source}, ")}children=${childrenStrings}, id=$treeid)"
   private def exploreDeps(children: List[Any]): (List[Expression[_]], List[Scope[_]]) =  (for (elem <- children) yield
     elem match {
       case b: Scope[_] =>
@@ -34,7 +35,6 @@ trait Expression[T <: Value : Tag] extends Product:
     }
   def exprDependencies: List[Expression[_]] = exploreDeps(this.productIterator.toList)._1
   def introducedScopes: List[Scope[_]] = exploreDeps(this.productIterator.toList)._2
-
 
 trait CustomTreeId:
   self: Expression[_] =>
@@ -69,7 +69,7 @@ object Expression:
   case class BitwiseNot[T <: Scalar : Tag](a: T) extends BitwiseOpExpression[T]
   case class ShiftLeft[T <: Scalar : Tag](a: T, by: UInt32) extends BitwiseOpExpression[T]
   case class ShiftRight[T <: Scalar : Tag](a: T, by: UInt32) extends BitwiseOpExpression[T]
-  
+
   sealed trait ComparisonOpExpression[T <: Value: Tag] extends Expression[GBoolean] {
     def operandTag = summon[Tag[T]]
     def a: T
@@ -84,7 +84,6 @@ object Expression:
   case class And(a: GBoolean, b: GBoolean) extends Expression[GBoolean]
   case class Or(a: GBoolean, b: GBoolean) extends Expression[GBoolean]
   case class Not(a: GBoolean) extends Expression[GBoolean]
-  
   
   case class ExtractScalar[V <: Vec[_] : Tag, S <: Scalar : Tag](a: V, i: Int32) extends Expression[S]
 
@@ -102,6 +101,7 @@ object Expression:
   object Const {
     def unapply[T <: Scalar](c: Const[T]): Option[Any] = Some(c.value)
   }
+  
   case class ConstFloat32(value: Float) extends Const[Float32]
   case class ConstInt32(value: Int) extends Const[Int32]
   case class ConstUInt32(value: Int) extends Const[UInt32]
@@ -110,8 +110,12 @@ object Expression:
   case class ComposeVec2[T <: Scalar: Tag](a: T, b: T) extends Expression[Vec2[T]]
   case class ComposeVec3[T <: Scalar: Tag](a: T, b: T, c: T) extends Expression[Vec3[T]]
   case class ComposeVec4[T <: Scalar: Tag](a: T, b: T, c: T, d: T) extends Expression[Vec4[T]]
+  
   case class ExtFunctionCall[R <: Value : Tag](fn: FunctionName, args: List[Value]) extends Expression[R]
-
+  case class FunctionCall[R <: Value : Tag](fn: FnIdentifier, body: Scope[R], args: List[Value]) extends E[R]
+  
   case class Pass[T <: Value : Tag](value: T) extends E[T]
 
   case class Dynamic[T <: Value : Tag](source: String) extends E[T]
+  
+

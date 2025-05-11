@@ -9,4 +9,4 @@ object Playground:
   def playground =
     val exampleFloat: Float32 = 3.14f
     println("HI")
-    println(s"Example float: ${exampleFloat.name}")
+    println(s"Example float: ${exampleFloat.source}")

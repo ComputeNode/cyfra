@@ -4,6 +4,7 @@ import io.computenode.cyfra.dsl.Algebra.{FromExpr, given_Conversion_Int_Int32}
 import io.computenode.cyfra.dsl.Expression.*
 import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.*
+import io.computenode.cyfra.dsl.macros.Source
 import izumi.reflect.Tag
 
 import scala.compiletime.*
@@ -17,13 +18,13 @@ abstract class GStruct[T <: GStruct[T] : Tag : GStructSchema] extends Value with
   lazy val tree: E[T] =
     schema.tree(self)
   override protected def init(): Unit = ()
-  private[dsl] var _name = sourcecode.Name("Unknown")
-  override def name: sourcecode.Name = _name
+  private[dsl] var _name = Source("Unknown")
+  override def source: Source = _name
 
 case class GStructSchema[T <: GStruct[T]: Tag](
   fields: List[(String, FromExpr[_], Tag[_])],
   dependsOn: Option[E[T]],
-  fromTuple: (Tuple, sourcecode.Name) => T
+  fromTuple: (Tuple, Source) => T
 ):
   given GStructSchema[T] = this
   val structTag = summon[Tag[T]]
@@ -34,18 +35,18 @@ case class GStructSchema[T <: GStruct[T]: Tag](
       case None =>
         ComposeStruct[T](t.productIterator.toList.asInstanceOf[List[Value]], this)
 
-  def create(values: List[Value], schema: GStructSchema[T])(using name: sourcecode.Name): T =
+  def create(values: List[Value], schema: GStructSchema[T])(using name: Source): T =
     val valuesTuple = Tuple.fromArray(values.toArray)
     val newStruct = fromTuple(valuesTuple, name)
     newStruct._schema = schema
     newStruct.tree.of = Some(newStruct)
     newStruct
 
-  def fromTree(e: E[T])(using sourcecode.Name): T =
+  def fromTree(e: E[T])(using Source): T =
     create(fields.zipWithIndex.map {
       case ((_, fromExpr, tag), i) =>
         fromExpr.asInstanceOf[FromExpr[Value]]
-          .fromExpr(GetField[T, Value](e, i)(
+          .fromExpr(GetField[T, Value](e, i)(using 
             this,
             tag.asInstanceOf[Tag[Value]]
           ).asInstanceOf[E[Value]])
@@ -53,14 +54,13 @@ case class GStructSchema[T <: GStruct[T]: Tag](
 
   val gStructTag = summon[Tag[GStruct[_]]]
 
-
 trait GStructConstructor[T <: GStruct[T]] extends FromExpr[T]:
   def schema: GStructSchema[T]
-  def fromExpr(expr: E[T])(using sourcecode.Name): T
+  def fromExpr(expr: E[T])(using Source): T
 
 given [T <: GStruct[T] : GStructSchema]: GStructConstructor[T] with
   def schema: GStructSchema[T] = summon[GStructSchema[T]]
-  def fromExpr(expr: E[T])(using sourcecode.Name): T = schema.fromTree(expr)
+  def fromExpr(expr: E[T])(using Source): T = schema.fromTree(expr)
 
 case class ComposeStruct[T <: GStruct[T] : Tag](
   fields: List[Value],

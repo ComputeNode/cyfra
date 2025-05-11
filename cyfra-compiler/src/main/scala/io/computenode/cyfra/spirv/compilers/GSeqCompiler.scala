@@ -3,13 +3,13 @@ package io.computenode.cyfra.spirv.compilers
 import io.computenode.cyfra.dsl.Expression.E
 import io.computenode.cyfra.dsl.GSeq.*
 import io.computenode.cyfra.spirv.Opcodes.*
-import io.computenode.cyfra.spirv.{Context, ScopeBuilder}
+import io.computenode.cyfra.spirv.{Context, BlockBuilder}
 import izumi.reflect.Tag
 import io.computenode.cyfra.spirv.SpirvConstants.*
 import io.computenode.cyfra.spirv.SpirvTypes.*
 
 private[cyfra] object GSeqCompiler:
-  
+
   def compileFold(fold: FoldSeq[_, _], ctx: Context): (List[Words], Context) =
     val loopBack = ctx.nextResultId
     val mergeBlock = ctx.nextResultId + 1
@@ -58,12 +58,13 @@ private[cyfra] object GSeqCompiler:
           ).copy(nextResultId = context.nextResultId + 1)
           val (reduceOps, reduceCtx) = ExpressionCompiler.compileBlock(foldFnExpr, forReduceCtx)
           val instructions = List(
-            Instruction(Op.OpLoad, List(
+            Instruction(Op.OpLoad, List( // val currentAcc = acc
               ResultRef(foldZeroType),
               ResultRef(resultRef),
               ResultRef(resultVar)
             ))
-          ) ::: reduceOps ::: List(
+          ) ::: reduceOps // val nextAcc = reduceFn(acc, elem)
+            ::: List( // acc = nextAcc
             Instruction(Op.OpStore, List(
               ResultRef(resultVar),
               ResultRef(reduceCtx.exprRefs(foldFnExpr.treeid))

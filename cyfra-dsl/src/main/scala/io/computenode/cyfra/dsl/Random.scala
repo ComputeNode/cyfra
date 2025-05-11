@@ -4,9 +4,10 @@ import io.computenode.cyfra.dsl.Algebra.{*, given}
 import io.computenode.cyfra.dsl.Functions.*
 import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.dsl.{GStruct, Value, *, given}
-
+import io.computenode.cyfra.dsl.Pure.pure
 
 case class Random(seed: UInt32) extends GStruct[Random]:
+
   def next[R <: Value : Random.Generator]: (Random, R) =
     val generator = summon[Random.Generator[R]]
     val (nextValue, nextSeed) = generator.gen(seed)
@@ -16,13 +17,13 @@ object Random:
   trait Generator[T <: Value]:
     def gen(seed: UInt32): (T, UInt32)
 
-    def wangHash(seed: UInt32): UInt32 = {
-      val s1 = (seed ^ 61) ^ (seed >> 16)
-      val s2 = s1 * 9
-      val s3 = s2 ^ (s2 >> 4)
-      val s4 = s3 * 0x27d4eb2d
-      s4 ^ (s4 >> 15)
-    }
+  private def wangHash(seed: UInt32): UInt32 = pure:
+    val s1 = (seed ^ 61) ^ (seed >> 16)
+    val s2 = s1 * 9
+    val s3 = s2 ^ (s2 >> 4)
+    val s4 = s3 * 0x27d4eb2d
+    s4 ^ (s4 >> 15)
+  
     
   given Generator[Float32] with
     def gen(seed: UInt32): (Float32, UInt32) =

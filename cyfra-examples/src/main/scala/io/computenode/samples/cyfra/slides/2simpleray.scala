@@ -24,6 +24,7 @@ import io.computenode.cyfra.dsl.Functions.*
 import io.computenode.cyfra.dsl.GStruct.Empty
 import io.computenode.cyfra.runtime.mem.Vec4FloatMem
 import io.computenode.cyfra.utility.ImageUtility
+import io.computenode.cyfra.runtime.mem.Vec4FloatMem
 
 @main
 def simpleray =
