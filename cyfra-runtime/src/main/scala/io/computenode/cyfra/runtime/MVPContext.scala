@@ -27,8 +27,8 @@ class MVPContext extends GContext {
   implicit val ec: ExecutionContextExecutor = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(16))
 
   override def compile[
-    G <: GStruct[G] : Tag : GStructSchema, 
-    H <: Value : Tag : FromExpr, 
+    G <: GStruct[G] : Tag : GStructSchema,
+    H <: Value : Tag : FromExpr,
     R <: Value : Tag : FromExpr
   ](function: GFunction[G, H, R]): ComputePipeline = {
     val uniformStructSchema = summon[GStructSchema[G]]
@@ -42,6 +42,12 @@ class MVPContext extends GContext {
       )
     val shaderCode = DSLCompiler.compile(tree, function.arrayInputs, function.arrayOutputs, uniformStructSchema)
     dumpSpvToFile(shaderCode, "program.spv")
+
+    if (SpirvValidator.isSpirvValidationEnabled)
+      SpirvValidator.validateSpirv(Paths.get("program.spv"))
+//      SpirvValidator.corruptSpirvFile(Paths.get("program.spv"), Paths.get("corrupted_program.spv"))
+//      SpirvValidator.validateSpirv(Paths.get("corrupted_program.spv"))
+
     val inOut = 0 to 1 map (Binding(_, InputBufferSize(typeStride(summon[Tag[H]]))))
     val uniform = Option.when(uniformStructSchema.fields.nonEmpty)(Binding(2, UniformSize(totalStride(uniformStructSchema))))
     val layoutInfo = LayoutInfo(Seq(LayoutSet(0, inOut ++ uniform)))
