@@ -1,5 +1,6 @@
 package io.computenode.cyfra.vulkan.core
 
+import io.computenode.cyfra.utility.Logger.logger
 import io.computenode.cyfra.vulkan.VulkanContext.{SyncLayer, ValidationLayer}
 import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import io.computenode.cyfra.vulkan.util.VulkanObject
@@ -10,6 +11,7 @@ import org.lwjgl.vulkan.EXTDebugReport.VK_EXT_DEBUG_REPORT_EXTENSION_NAME
 import org.lwjgl.vulkan.KHRPortabilityEnumeration.{VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR, VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME}
 import org.lwjgl.vulkan.VK10.*
 import org.lwjgl.vulkan.VK13.*
+import org.slf4j.LoggerFactory
 
 import scala.collection.mutable
 import scala.jdk.CollectionConverters.given
@@ -38,6 +40,7 @@ object Instance {
   }
 
   lazy val version: Int = VK.getInstanceVersionSupported
+
 }
 
 private[cyfra] class Instance(enableValidationLayers: Boolean) extends VulkanObject {
@@ -80,7 +83,7 @@ private[cyfra] class Instance(enableValidationLayers: Boolean) extends VulkanObj
     .pipe { x =>
       if (Instance.layers.contains(ValidationLayer) && enableValidationLayers) ValidationLayer +: x
       else if (enableValidationLayers)
-        println("Validation layers requested but not available")
+        logger.error("Validation layers requested but not available")
         x
       else x
     }

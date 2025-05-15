@@ -34,8 +34,14 @@ private[cyfra] class Device(instance: Instance) extends VulkanObject {
 
     val pPhysicalDevices = stack.callocPointer(deviceCount)
     check(vkEnumeratePhysicalDevices(instance.get, pPhysicalDeviceCount, pPhysicalDevices), "Failed to get physical devices")
-
+    
     new VkPhysicalDevice(pPhysicalDevices.get(), instance.get)
+  }
+  
+  val physicalDeviceName: String = pushStack { stack =>
+    val pProperties = VkPhysicalDeviceProperties.calloc(stack)
+    vkGetPhysicalDeviceProperties(physicalDevice, pProperties)
+    pProperties.deviceNameString()
   }
 
   val computeQueueFamily: Int = pushStack { stack =>
@@ -78,7 +84,6 @@ private[cyfra] class Device(instance: Instance) extends VulkanObject {
 
       val deviceExtensions = pProperties.iterator().asScala.map(_.extensionNameString())
       val deviceExtensionsSet = deviceExtensions.toSet
-      deviceExtensions.foreach(println(_))
 
       val vulkan12Features = VkPhysicalDeviceVulkan12Features
         .calloc(stack)

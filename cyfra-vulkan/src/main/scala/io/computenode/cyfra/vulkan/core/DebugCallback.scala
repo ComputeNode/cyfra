@@ -1,6 +1,7 @@
 package io.computenode.cyfra.vulkan.core
 
 import DebugCallback.DEBUG_REPORT
+import io.computenode.cyfra.utility.Logger.logger
 import io.computenode.cyfra.vulkan.util.Util.check
 import io.computenode.cyfra.vulkan.util.{VulkanAssertionError, VulkanObjectHandle}
 import org.lwjgl.BufferUtils
@@ -42,7 +43,6 @@ private[cyfra] class DebugCallback(instance: Instance) extends VulkanObjectHandl
     }
     setupDebugging(DEBUG_REPORT, debugCallback)
   }
-  private val logger = LoggerFactory.getLogger(this.getClass)
 
   override protected def close(): Unit =
     vkDestroyDebugReportCallbackEXT(instance.get, handle, null)
