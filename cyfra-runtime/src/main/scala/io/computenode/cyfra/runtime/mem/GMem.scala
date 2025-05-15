@@ -34,7 +34,7 @@ object GMem:
   }.sum
 
   def serializeUniform(g: GStruct[?]): ByteBuffer = {
-    val data = MemoryUtil.memAlloc(totalStride(g.schema))
+    val data = ByteBuffer.allocateDirect(totalStride(g.schema))
     g.productIterator.foreach {
       case Int32(ConstInt32(i)) => data.putInt(i)
       case Float32(ConstFloat32(f)) => data.putFloat(f)

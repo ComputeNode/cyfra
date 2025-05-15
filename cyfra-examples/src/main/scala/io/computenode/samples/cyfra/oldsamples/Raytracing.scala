@@ -22,7 +22,7 @@ import io.computenode.cyfra.runtime.mem.Vec4FloatMem
 import io.computenode.cyfra.utility.ImageUtility
 import io.computenode.cyfra.runtime.mem.Vec4FloatMem
 
-given GContext = new MVPContext()
+given GContext = new GContext()
 given ExecutionContext = Implicits.global
 
 

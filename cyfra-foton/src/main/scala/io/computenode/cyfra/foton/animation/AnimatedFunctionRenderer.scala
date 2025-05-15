@@ -11,7 +11,7 @@ import io.computenode.cyfra.foton.animation.AnimationRenderer
 import io.computenode.cyfra.foton.rt.ImageRtRenderer.RaytracingIteration
 import io.computenode.cyfra.foton.rt.animation.AnimationRtRenderer.RaytracingIteration
 import io.computenode.cyfra.foton.rt.RtRenderer
-import io.computenode.cyfra.runtime.{GFunction, GContext, MVPContext}
+import io.computenode.cyfra.runtime.{GFunction, GContext}
 import io.computenode.cyfra.utility.Units.Milliseconds
 import io.computenode.cyfra.utility.Utility.timed
 import io.computenode.cyfra.dsl.Algebra.{*, given}
@@ -26,7 +26,7 @@ import scala.concurrent.duration.DurationInt
 
 class AnimatedFunctionRenderer(params: AnimatedFunctionRenderer.Parameters) extends AnimationRenderer[AnimatedFunction, AnimatedFunctionRenderer.RenderFn](params):
 
-  given GContext = new MVPContext()
+  given GContext = new GContext()
 
   given ExecutionContext = Implicits.global
   

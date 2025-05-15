@@ -28,7 +28,7 @@ lazy val lwjglNatives = {
   }
 }
 
-val lwjglVersion = "3.3.3"
+val lwjglVersion = "3.3.6"
 val jomlVersion = "1.10.0"
 
 lazy val commonSettings = Seq(

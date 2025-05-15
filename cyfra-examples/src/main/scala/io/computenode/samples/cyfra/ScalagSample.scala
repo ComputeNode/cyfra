@@ -11,7 +11,7 @@ import io.computenode.cyfra.runtime.mem.FloatMem
 import scala.concurrent.Await
 import scala.concurrent.duration.given
 
-given GContext = new MVPContext
+given GContext = new GContext
 
 @main
 def sample =
