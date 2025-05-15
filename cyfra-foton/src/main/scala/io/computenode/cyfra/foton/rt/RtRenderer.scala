@@ -9,7 +9,7 @@ import io.computenode.cyfra.foton.rt.shapes.{Box, Sphere}
 import io.computenode.cyfra.dsl.Color.*
 import io.computenode.cyfra.dsl.Control.when
 import io.computenode.cyfra.dsl.Math3D.*
-import io.computenode.cyfra.runtime.{GContext, MVPContext}
+import io.computenode.cyfra.runtime.GContext
 import io.computenode.cyfra.dsl.Algebra.{*, given}
 import io.computenode.cyfra.dsl.Functions.*
 import io.computenode.cyfra.dsl.Pure.pure
@@ -23,7 +23,7 @@ import io.computenode.cyfra.dsl.Value.*
 
 class RtRenderer(params: RtRenderer.Parameters):
 
-  given GContext = new MVPContext()
+  given GContext = new GContext()
 
   given ExecutionContext = Implicits.global
   

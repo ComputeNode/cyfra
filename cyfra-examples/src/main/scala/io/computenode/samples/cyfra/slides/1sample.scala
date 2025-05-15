@@ -12,7 +12,7 @@ import io.computenode.cyfra.dsl.given
 import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.runtime.mem.FloatMem
 
-given GContext = new MVPContext()
+given GContext = new GContext()
 
 @main
 def sample =

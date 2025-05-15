@@ -28,7 +28,7 @@ lazy val lwjglNatives = {
   }
 }
 
-val lwjglVersion = "3.3.3"
+val lwjglVersion = "3.3.6"
 val jomlVersion = "1.10.0"
 
 lazy val commonSettings = Seq(
@@ -46,8 +46,13 @@ lazy val commonSettings = Seq(
     "org.slf4j" % "slf4j-api" % "1.7.30",
     "org.slf4j" % "slf4j-simple" % "1.7.30" % Test,
     "org.scalameta" % "munit_3" % "1.0.0" % Test,
-    "com.lihaoyi" %% "sourcecode" % "0.4.3-M5"
+    "com.lihaoyi" %% "sourcecode" % "0.4.3-M5",
+    "org.slf4j" % "slf4j-api" % "2.0.17"
   )
+)
+
+lazy val runnerSettings = Seq(
+  libraryDependencies += "org.apache.logging.log4j" % "log4j-slf4j2-impl" % "2.24.3"
 )
 
 lazy val utility = (project in file("cyfra-utility"))
@@ -74,7 +79,7 @@ lazy val foton = (project in file("cyfra-foton"))
   .dependsOn(compiler, dsl, runtime, utility)
 
 lazy val examples = (project in file("cyfra-examples"))
-  .settings(commonSettings)
+  .settings(commonSettings, runnerSettings)
   .dependsOn(foton)
 
 lazy val vscode = (project in file("cyfra-vscode"))
@@ -82,7 +87,7 @@ lazy val vscode = (project in file("cyfra-vscode"))
   .dependsOn(foton)
 
 lazy val e2eTest = (project in file("cyfra-e2e-test"))
-  .settings(commonSettings)
+  .settings(commonSettings, runnerSettings)
   .dependsOn(runtime)
 
 lazy val root = (project in file("."))

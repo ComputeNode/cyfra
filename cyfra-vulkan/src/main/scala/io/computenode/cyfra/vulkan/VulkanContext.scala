@@ -1,8 +1,10 @@
 package io.computenode.cyfra.vulkan
 
+import io.computenode.cyfra.utility.Logger.logger
 import io.computenode.cyfra.vulkan.command.{CommandPool, Queue, StandardCommandPool}
 import io.computenode.cyfra.vulkan.core.{DebugCallback, Device, Instance}
 import io.computenode.cyfra.vulkan.memory.{Allocator, DescriptorPool}
+import org.slf4j.LoggerFactory
 
 /** @author
   *   MarconZet Created 13.04.2020
@@ -23,6 +25,9 @@ private[cyfra] class VulkanContext(val enableValidationLayers: Boolean = false) 
   val allocator: Allocator = new Allocator(instance, device)
   val descriptorPool: DescriptorPool = new DescriptorPool(device)
   val commandPool: CommandPool = new StandardCommandPool(device, computeQueue)
+  
+  logger.debug("Vulkan context created")
+  logger.debug("Running on device: " + device.physicalDeviceName)
 
   def destroy(): Unit = {
     commandPool.destroy()
