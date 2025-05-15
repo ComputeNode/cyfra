@@ -79,34 +79,33 @@ private inline def constValueTuple[T <: Tuple]: T =
         case _: (t *: ts) => constValue[t] *: constValueTuple[ts]
       ).asInstanceOf[T]
 
+object GStructSchema:
+  type TagOf[T] = Tag[T]
+  type FromExprOf[T] = T match
+    case Value => FromExpr[T]
+    case _ => Nothing
 
-type TagOf[T] = Tag[T]
-type FromExprOf[T] = T match
-  case Value => FromExpr[T]
-  case _ => Nothing
-
-// todo quick solution for now, rewrite to iteration over Tuple / quotes macro
-inline given derived[T <: GStruct[T] : Tag](using m: Mirror.Of[T]): GStructSchema[T] =
+  inline given derived[T <: GStruct[T] : Tag](using m: Mirror.Of[T]): GStructSchema[T] =
     inline m match
-        case m: Mirror.ProductOf[T] =>
-          // quick prove that all fields <:< value
-          summonAll[Tuple.Map[m.MirroredElemTypes, [f] =>> f <:< Value]]
-          // get (name, tag) pairs for all fields
-          val elemTags: List[Tag[_]] = summonAll[Tuple.Map[m.MirroredElemTypes, TagOf]]
-            .toList.asInstanceOf[List[Tag[_]]]
-          val elemFromExpr: List[FromExpr[_]] = summonAll[Tuple.Map[m.MirroredElemTypes, [f] =>> FromExprOf[f]]]
-            .toList.asInstanceOf[List[FromExpr[_]]]
-          val elemNames: List[String] = constValueTuple[m.MirroredElemLabels].toList.asInstanceOf[List[String]]
-          val elements = elemNames.lazyZip(elemFromExpr).lazyZip(elemTags).toList
-          GStructSchema[T](elements, None, (tuple, name) => {
-            val inst = m.fromTuple.asInstanceOf[Tuple => T].apply(tuple)
-            inst._name = name
-            inst
-          })
-        case _ => error("Only case classes are supported as GStructs")
+      case m: Mirror.ProductOf[T] =>
+        // quick prove that all fields <:< value
+        summonAll[Tuple.Map[m.MirroredElemTypes, [f] =>> f <:< Value]]
+        // get (name, tag) pairs for all fields
+        val elemTags: List[Tag[_]] = summonAll[Tuple.Map[m.MirroredElemTypes, TagOf]]
+          .toList.asInstanceOf[List[Tag[_]]]
+        val elemFromExpr: List[FromExpr[_]] = summonAll[Tuple.Map[m.MirroredElemTypes, [f] =>> FromExprOf[f]]]
+          .toList.asInstanceOf[List[FromExpr[_]]]
+        val elemNames: List[String] = constValueTuple[m.MirroredElemLabels].toList.asInstanceOf[List[String]]
+        val elements = elemNames.lazyZip(elemFromExpr).lazyZip(elemTags).toList
+        GStructSchema[T](elements, None, (tuple, name) => {
+          val inst = m.fromTuple.asInstanceOf[Tuple => T].apply(tuple)
+          inst._name = name
+          inst
+        })
+      case _ => error("Only case classes are supported as GStructs")
 
 object GStruct:
   case class Empty() extends GStruct[Empty]
 
   object Empty:
-    given GStructSchema[Empty] = derived
+    given GStructSchema[Empty] = GStructSchema.derived

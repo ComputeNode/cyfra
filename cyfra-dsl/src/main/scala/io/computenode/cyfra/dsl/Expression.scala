@@ -1,7 +1,7 @@
 package io.computenode.cyfra.dsl
 import io.computenode.cyfra.dsl.Control.Scope
 import io.computenode.cyfra.dsl.Expression
-import Expression.Const
+import Expression.{Const, treeidState}
 import io.computenode.cyfra.dsl.Functions.*
 import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.dsl.macros.FnCall.FnIdentifier
@@ -9,7 +9,7 @@ import io.computenode.cyfra.dsl.macros.Source
 import izumi.reflect.Tag
 
 import java.util.concurrent.atomic.AtomicInteger
-private[cyfra] val treeidState: AtomicInteger = new AtomicInteger(0)
+  
 trait Expression[T <: Value : Tag] extends Product:
   def tag: Tag[T] = summon[Tag[T]]
   private[cyfra] val treeid: Int = treeidState.getAndIncrement()
@@ -36,13 +36,15 @@ trait Expression[T <: Value : Tag] extends Product:
   def exprDependencies: List[Expression[_]] = exploreDeps(this.productIterator.toList)._1
   def introducedScopes: List[Scope[_]] = exploreDeps(this.productIterator.toList)._2
 
-trait CustomTreeId:
-  self: Expression[_] =>
-  override val treeid: Int
-
-trait PhantomExpression[T <: Value : Tag] extends Expression[T]
-
 object Expression:
+  trait CustomTreeId:
+    self: Expression[_] =>
+    override val treeid: Int
+
+  trait PhantomExpression[T <: Value : Tag] extends Expression[T]
+  
+  private[cyfra] val treeidState: AtomicInteger = new AtomicInteger(0)
+
   type E[T <: Value] = Expression[T]
 
   case class Negate[T <: Value : Tag](a: T) extends Expression[T]

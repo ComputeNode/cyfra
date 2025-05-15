@@ -2,11 +2,11 @@ package io.computenode.cyfra.dsl
 
 import io.computenode.cyfra.dsl.Algebra.{*, given}
 import io.computenode.cyfra.dsl.Control.{Scope, when}
-import io.computenode.cyfra.dsl.Expression.{ConstInt32, E}
+import io.computenode.cyfra.dsl.Expression.{ConstInt32, CustomTreeId, E, PhantomExpression, treeidState}
 import GSeq.*
 import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.dsl.macros.Source
-import io.computenode.cyfra.dsl.{Expression, GSeq, PhantomExpression}
+import io.computenode.cyfra.dsl.{Expression, GSeq}
 import izumi.reflect.Tag
 
 import java.util.Base64
