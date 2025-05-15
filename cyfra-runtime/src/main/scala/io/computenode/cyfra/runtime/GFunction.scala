@@ -1,6 +1,5 @@
 package io.computenode.cyfra.runtime
 
-import io.computenode.cyfra.dsl.Algebra.{*, given}
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.dsl.Value.Int32
 import io.computenode.cyfra.vulkan.compute.ComputePipeline
