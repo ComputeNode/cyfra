@@ -1,6 +1,5 @@
 package io.computenode.cyfra.dsl
 
-import io.computenode.cyfra.dsl.FunctionName
 import io.computenode.cyfra.dsl.Algebra.{/, FromExpr, vec3}
 import io.computenode.cyfra.dsl.Expression.*
 import io.computenode.cyfra.dsl.Value.*
@@ -9,9 +8,9 @@ import izumi.reflect.Tag
 
 import scala.annotation.targetName
 
-sealed class FunctionName
-
 object Functions:
+  
+  sealed class FunctionName
 
   case object Sin extends FunctionName
   def sin(v: Float32)(using Source): Float32 = Float32(ExtFunctionCall(Sin, List(v)))

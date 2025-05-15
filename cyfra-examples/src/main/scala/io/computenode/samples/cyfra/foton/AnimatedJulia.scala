@@ -4,16 +4,13 @@ import io.computenode.cyfra
 import io.computenode.cyfra.*
 import io.computenode.cyfra.foton.animation.AnimatedFunctionRenderer.Parameters
 import io.computenode.cyfra.foton.animation.{AnimatedFunction, AnimatedFunctionRenderer}
-import io.computenode.cyfra.dsl.Color.*
-import io.computenode.cyfra.dsl.Algebra.{*, given}
 import io.computenode.cyfra.given
 import io.computenode.cyfra.runtime.*
 import io.computenode.cyfra.dsl.*
+import io.computenode.cyfra.dsl.Color.{InterpolationThemes, interpolate}
 import io.computenode.cyfra.dsl.Math3D.*
 import io.computenode.cyfra.dsl.given
-import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.foton.animation.AnimationFunctions.*
-import io.computenode.cyfra.dsl.Functions.*
 
 import java.nio.file.Paths
 import scala.concurrent.duration.DurationInt
