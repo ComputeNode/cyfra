@@ -18,12 +18,12 @@ object FloatMem {
 
   def apply(floats: Array[Float]): FloatMem =
     val size = floats.length
-    val data = MemoryUtil.memAlloc(size * FloatSize)
+    val data = ByteBuffer.allocateDirect(size * FloatSize)
     data.asFloatBuffer().put(floats)
     data.rewind()
     new FloatMem(size, data)
 
   def apply(size: Int): FloatMem = 
-    val data = MemoryUtil.memAlloc(size * FloatSize)
+    val data = ByteBuffer.allocateDirect(size * FloatSize)
     new FloatMem(size, data)
 }

@@ -1,16 +1,12 @@
 package io.computenode.cyfra.juliaset
 
-import io.computenode.cyfra.dsl.Algebra.{*, given}
+import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.*
-import io.computenode.cyfra.dsl.Control.when
 import io.computenode.cyfra.dsl.GStruct.Empty
-import io.computenode.cyfra.dsl.Value.*
-import io.computenode.cyfra.runtime.{GContext, GFunction, MVPContext}
+import io.computenode.cyfra.dsl.Pure.pure
+import io.computenode.cyfra.runtime.{GContext, GFunction}
 import org.apache.commons.io.IOUtils
 import org.junit.runner.RunWith
-import io.computenode.cyfra.dsl.Functions.*
-import io.computenode.cyfra.dsl.Pure.pure
-import io.computenode.cyfra.dsl.{GArray2D, GSeq}
 import io.computenode.cyfra.runtime.mem.Vec4FloatMem
 import io.computenode.cyfra.utility.ImageUtility
 import munit.FunSuite
@@ -22,7 +18,7 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext}
 
 class JuliaSet extends FunSuite:
-  given GContext = new MVPContext()
+  given GContext = new GContext()
   given ExecutionContext = Implicits.global
   
   test("Render julia set"):

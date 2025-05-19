@@ -1,8 +1,5 @@
 package io.computenode.samples.cyfra.slides
 
-import io.computenode.cyfra.dsl.Algebra.given
-import io.computenode.cyfra.dsl.Value.{Float32, Int32, Vec4}
-import io.computenode.cyfra.dsl.given
 
 import java.awt.image.BufferedImage
 import java.io.File
@@ -13,15 +10,11 @@ import scala.compiletime.error
 import scala.concurrent.ExecutionContext.Implicits
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext}
-import io.computenode.cyfra.dsl.Algebra.{*, given}
 import io.computenode.cyfra.given
 import io.computenode.cyfra.runtime.*
 import io.computenode.cyfra.dsl.*
-import io.computenode.cyfra.dsl.Control.when
-import io.computenode.cyfra.dsl.given
-import io.computenode.cyfra.dsl.Value.*
-import io.computenode.cyfra.dsl.Functions.*
 import io.computenode.cyfra.dsl.GStruct.Empty
+import io.computenode.cyfra.dsl.given
 import io.computenode.cyfra.runtime.mem.Vec4FloatMem
 import io.computenode.cyfra.utility.ImageUtility
 import io.computenode.cyfra.runtime.mem.Vec4FloatMem

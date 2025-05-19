@@ -1,8 +1,9 @@
 package io.computenode.cyfra.spirv.compilers
 
 import io.computenode.cyfra.dsl.Expression.E
+import io.computenode.cyfra.dsl.Functions.FunctionName
 import io.computenode.cyfra.spirv.Opcodes.*
-import io.computenode.cyfra.dsl.{Expression, FunctionName, Functions}
+import io.computenode.cyfra.dsl.{Expression, Functions}
 import io.computenode.cyfra.spirv.Context
 import io.computenode.cyfra.spirv.compilers.FunctionCompiler.SprivFunction
 import io.computenode.cyfra.spirv.SpirvConstants.GLSL_EXT_REF

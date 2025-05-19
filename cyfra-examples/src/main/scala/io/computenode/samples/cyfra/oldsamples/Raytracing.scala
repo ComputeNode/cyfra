@@ -10,19 +10,15 @@ import scala.compiletime.error
 import scala.concurrent.ExecutionContext.Implicits
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext}
-import io.computenode.cyfra.dsl.Algebra.{*, given}
 import io.computenode.cyfra.given
 import io.computenode.cyfra.runtime.*
 import io.computenode.cyfra.dsl.*
-import io.computenode.cyfra.dsl.Control.when
-import io.computenode.cyfra.dsl.Functions.*
 import io.computenode.cyfra.dsl.given
-import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.runtime.mem.Vec4FloatMem
 import io.computenode.cyfra.utility.ImageUtility
 import io.computenode.cyfra.runtime.mem.Vec4FloatMem
 
-given GContext = new MVPContext()
+given GContext = new GContext()
 given ExecutionContext = Implicits.global
 
 

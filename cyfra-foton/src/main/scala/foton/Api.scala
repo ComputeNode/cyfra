@@ -51,7 +51,7 @@ export io.computenode.cyfra.dsl.Math3D.{rotate, lessThan}
 //inline def f(fn: (Float32, Float32) => RGB)(using f: sourcecode.File, settings: RenderSettings = RenderAsImage()) =
 //  connection.send(RenderingStep.toMessage(RenderingStep.CompilingShader))
 //
-//  given GContext = new MVPContext
+//  given GContext = new GContext
 //  settings match
 //    case RenderAsImage() =>
 //

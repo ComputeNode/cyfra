@@ -1,10 +1,8 @@
 package io.computenode.cyfra.dsl
 
 import io.computenode.cyfra.dsl.Algebra.{*, given}
-import io.computenode.cyfra.dsl.Functions.*
-import io.computenode.cyfra.dsl.Value.*
-import io.computenode.cyfra.dsl.{GStruct, Value, *, given}
 import io.computenode.cyfra.dsl.Pure.pure
+
 
 case class Random(seed: UInt32) extends GStruct[Random]:
 

@@ -4,15 +4,13 @@ import io.computenode.cyfra.given
 
 import scala.concurrent.Await
 import scala.concurrent.duration.given
-import io.computenode.cyfra.dsl.Algebra.{*, given}
 import io.computenode.cyfra.given
 import io.computenode.cyfra.runtime.*
 import io.computenode.cyfra.dsl.*
 import io.computenode.cyfra.dsl.given
-import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.runtime.mem.FloatMem
 
-given GContext = new MVPContext()
+given GContext = new GContext()
 
 @main
 def sample =
