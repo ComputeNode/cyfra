@@ -1,23 +1,22 @@
 package io.computenode.cyfra.runtime
 
 import io.computenode.cyfra.dsl.Algebra.FromExpr
-import io.computenode.cyfra.dsl.{GStruct, GStructSchema, Value, UniformContext}
-import GStruct.Empty, Value.{Float32, Vec4}
+import io.computenode.cyfra.dsl.Value.{Float32, Vec4}
+import io.computenode.cyfra.dsl.{GStruct, GStructSchema, UniformContext, Value}
+import io.computenode.cyfra.runtime.mem.{FloatMem, GMem, Vec4FloatMem}
 import io.computenode.cyfra.vulkan.VulkanContext
 import io.computenode.cyfra.vulkan.compute.ComputePipeline
+import io.computenode.cyfra.vulkan.executor.SequenceExecutor.*
 import io.computenode.cyfra.vulkan.executor.{BufferAction, SequenceExecutor}
-import SequenceExecutor.*
-import mem.{GMem, FloatMem, Vec4FloatMem}
-import org.lwjgl.system.MemoryUtil
 import izumi.reflect.Tag
 
 
 trait GContext {
   val vkContext = new VulkanContext(enableValidationLayers = true)
-  def compile[G <: GStruct[G] : Tag: GStructSchema, H <: Value: Tag: FromExpr, R <: Value: Tag: FromExpr](function: GFunction[G, H, R]): ComputePipeline
+  def compile[G <: GStruct[G] : {Tag, GStructSchema}, H <: Value: {Tag, FromExpr}, R <: Value: {Tag, FromExpr}](function: GFunction[G, H, R], enableSpirvValidation: Boolean = true): ComputePipeline
 
   def execute[
-    G <: GStruct[G] : Tag : GStructSchema,
+    G <: GStruct[G] : {Tag, GStructSchema},
     H <: Value,
     R <: Value
   ](mem: GMem[H], fn: GFunction[?, H, R])(using uniformContext: UniformContext[_]): GMem[R] =
