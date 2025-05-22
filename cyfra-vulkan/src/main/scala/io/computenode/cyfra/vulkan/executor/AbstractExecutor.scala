@@ -7,10 +7,9 @@ import io.computenode.cyfra.vulkan.core.Device
 import io.computenode.cyfra.vulkan.memory.{Allocator, Buffer, DescriptorPool, DescriptorSet}
 import org.lwjgl.BufferUtils
 import org.lwjgl.util.vma.Vma.VMA_MEMORY_USAGE_UNKNOWN
+import org.lwjgl.util.vma.Vma.VMA_MEMORY_USAGE_GPU_TO_CPU
 import org.lwjgl.vulkan.*
 import org.lwjgl.vulkan.VK10.*
-
-import java.nio.ByteBuffer
 
 private[cyfra] abstract class AbstractExecutor(dataLength: Int, val bufferActions: Seq[BufferAction], context: VulkanContext) {
   protected val device: Device = context.device
@@ -37,18 +36,11 @@ private[cyfra] abstract class AbstractExecutor(dataLength: Int, val bufferAction
       commandBuffer
     }
 
-  def execute(input: Seq[ByteBuffer]): Seq[ByteBuffer] = {
-    val stagingBuffer = new Buffer(
-      getBiggestTransportData * dataLength,
-      VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
-      VMA_MEMORY_USAGE_UNKNOWN,
-      allocator
-    )
+  def execute(input: Seq[Buffer]): Seq[Buffer] = {
     for (i <- bufferActions.indices if bufferActions(i) == BufferAction.LoadTo) do {
-      val buffer = input(i)
-      Buffer.copyBuffer(buffer, stagingBuffer, buffer.remaining())
-      Buffer.copyBuffer(stagingBuffer, buffers(i), buffer.remaining(), commandPool).block().destroy()
+      val inputHostBuffer = input(i)
+      val gpuDeviceBuffer = buffers(i)
+      Buffer.copyBuffer(inputHostBuffer, gpuDeviceBuffer, inputHostBuffer.size, commandPool).block().destroy()
     }
 
     pushStack { stack =>
@@ -64,14 +56,17 @@ private[cyfra] abstract class AbstractExecutor(dataLength: Int, val bufferAction
     }
 
     val output = for (i <- bufferActions.indices if bufferActions(i) == BufferAction.LoadFrom) yield {
-      val fence = Buffer.copyBuffer(buffers(i), stagingBuffer, buffers(i).size, commandPool)
-      val outBuffer = BufferUtils.createByteBuffer(buffers(i).size)
-      fence.block().destroy()
-      Buffer.copyBuffer(stagingBuffer, outBuffer, outBuffer.remaining())
-      outBuffer
-
+      val gpuDeviceBuffer = buffers(i)
+      val outputHostBuffer = new Buffer(
+        gpuDeviceBuffer.size,
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        VMA_MEMORY_USAGE_GPU_TO_CPU,
+        allocator
+      )
+      Buffer.copyBuffer(gpuDeviceBuffer, outputHostBuffer, gpuDeviceBuffer.size, commandPool).block().destroy()
+      outputHostBuffer
     }
-    stagingBuffer.destroy()
     output
   }
 

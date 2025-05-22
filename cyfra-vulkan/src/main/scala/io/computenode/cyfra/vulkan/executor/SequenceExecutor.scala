@@ -149,7 +149,7 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
     setToBuffers
   }
 
-  def execute(inputs: Seq[ByteBuffer], dataLength: Int): Seq[ByteBuffer] = pushStack { stack =>
+  def execute(inputs: Seq[Buffer], dataLength: Int): Seq[Buffer] = pushStack { stack =>
     timed("Vulkan full execute"):
       val setToBuffers = createBuffers(dataLength)
 
@@ -160,17 +160,9 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
           }
         }.flatten
 
-      val stagingBuffer = new Buffer(
-        inputs.map(_.remaining()).max,
-        VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
-        VMA_MEMORY_USAGE_UNKNOWN,
-        allocator
-      )
-
-      buffersWithAction(BufferAction.LoadTo).zipWithIndex.foreach { case (buffer, i) =>
-        Buffer.copyBuffer(inputs(i), stagingBuffer, buffer.size)
-        Buffer.copyBuffer(stagingBuffer, buffer, buffer.size, commandPool).block().destroy()
+      buffersWithAction(BufferAction.LoadTo).zipWithIndex.foreach { case (gpuDeviceBuffer, i) =>
+        val inputHostBuffer = inputs(i)
+        Buffer.copyBuffer(inputHostBuffer, gpuDeviceBuffer, inputHostBuffer.size, commandPool).block().destroy()
       }
 
       val fence = new Fence(device)
@@ -185,14 +177,18 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
         check(vkQueueSubmit(queue.get, submitInfo, fence.get), "Failed to submit command buffer to queue")
         fence.block().destroy()
 
-      val output = buffersWithAction(BufferAction.LoadFrom).map { buffer =>
-        Buffer.copyBuffer(buffer, stagingBuffer, buffer.size, commandPool).block().destroy()
-        val out = BufferUtils.createByteBuffer(buffer.size)
-        Buffer.copyBuffer(stagingBuffer, out, buffer.size)
-        out
+      val output = buffersWithAction(BufferAction.LoadFrom).map { gpuDeviceBuffer =>
+        val outputHostBuffer = new Buffer(
+          gpuDeviceBuffer.size,
+          VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+          VMA_MEMORY_USAGE_GPU_TO_CPU, 
+          allocator
+        )
+        Buffer.copyBuffer(gpuDeviceBuffer, outputHostBuffer, gpuDeviceBuffer.size, commandPool).block().destroy()
+        outputHostBuffer
       }
 
-      stagingBuffer.destroy()
       commandPool.freeCommandBuffer(commandBuffer)
       setToBuffers.keys.foreach(_.update(Seq.empty))
       setToBuffers.flatMap(_._2).foreach(_.destroy())
