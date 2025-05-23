@@ -12,15 +12,18 @@ import izumi.reflect.Tag
 import org.lwjgl.system.MemoryUtil
 
 import java.nio.ByteBuffer
-
+import io.computenode.cyfra.vulkan.memory.Buffer
 trait GMem[H <: Value]:
   def size: Int
-  def toReadOnlyBuffer: ByteBuffer
+  def vulkanBuffer: Buffer
   def map[
     G <: GStruct[G] : Tag : GStructSchema,
     R <: Value : FromExpr : Tag
   ](fn: GFunction[G, H, R])(using context: GContext): GMem[R] =
     context.execute(this, fn)
+
+  def cleanup(): Unit
+end GMem
 
 object GMem:
   type fRGBA = (Float, Float, Float, Float)

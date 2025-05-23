@@ -40,6 +40,23 @@ private[cyfra] class Buffer(val size: Int, val usage: Int, flags: Int, memUsage:
     check(vmaCreateBuffer(allocator.get, bufferInfo, allocInfo, pBuffer, pAllocation, null), "Failed to create buffer")
     (pBuffer.get(), pAllocation.get())
   }
+  
+  def map(): ByteBuffer = {
+    pushStack { stack =>
+      val pData = stack.callocPointer(1)
+      check(vmaMapMemory(allocator.get, allocation, pData), s"Failed to map buffer memory for buffer handle $handle allocation $allocation")
+      val dataPtr = pData.get(0)
+      if (dataPtr == NULL) {
+        throw new VulkanAssertionError(s"vmaMapMemory returned NULL for buffer handle $handle, allocation $allocation", -1)
+      }
+      memByteBuffer(dataPtr, this.size)
+    }
+  }
+
+  def unmap(): Unit = {
+    org.lwjgl.util.vma.Vma.vmaFlushAllocation(allocator.get, allocation, 0, VK_WHOLE_SIZE)
+    org.lwjgl.util.vma.Vma.vmaUnmapMemory(allocator.get, allocation) 
+  }
 
   def get(dst: Array[Byte]): Unit = {
     val len = Math.min(dst.length, size)
