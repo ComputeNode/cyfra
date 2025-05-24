@@ -1,24 +1,21 @@
 package io.computenode.cyfra.juliaset
 
-import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.*
 import io.computenode.cyfra.dsl.GStruct.Empty
 import io.computenode.cyfra.dsl.Pure.pure
-import io.computenode.cyfra.runtime.{GContext, GFunction}
-import org.apache.commons.io.IOUtils
-import org.junit.runner.RunWith
+import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.runtime.SpirvOptimizer.{Enable, Os}
 import io.computenode.cyfra.runtime.mem.Vec4FloatMem
+import io.computenode.cyfra.runtime.{GContext, GFunction}
 import io.computenode.cyfra.utility.ImageUtility
 import munit.FunSuite
 
 import java.io.File
-import java.nio.file.Files
+import scala.concurrent.ExecutionContext
 import scala.concurrent.ExecutionContext.Implicits
-import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContext}
 
 class JuliaSet extends FunSuite:
-  given GContext = new GContext()
+  given GContext = new GContext(enableOptimization = Enable(Os()))
   given ExecutionContext = Implicits.global
   
   test("Render julia set"):
