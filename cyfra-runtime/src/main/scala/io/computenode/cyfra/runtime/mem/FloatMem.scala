@@ -1,6 +1,7 @@
 package io.computenode.cyfra.runtime.mem
 
 import io.computenode.cyfra.dsl.Value.Float32
+import org.lwjgl.BufferUtils
 
 import java.nio.ByteBuffer
 import org.lwjgl.system.MemoryUtil
@@ -18,7 +19,7 @@ object FloatMem {
 
   def apply(floats: Array[Float]): FloatMem =
     val size = floats.length
-    val data = ByteBuffer.allocateDirect(size * FloatSize)
+    val data = BufferUtils.createByteBuffer(size * FloatSize)
     data.asFloatBuffer().put(floats)
     data.rewind()
     new FloatMem(size, data)

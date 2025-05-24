@@ -89,7 +89,7 @@ private[cyfra] object GSeqCompiler:
                 context.joinNested(filterContext).copy(nextResultId = filterContext.nextResultId + 2),
                 elemRef
               )
-              val instructions = List(
+              val instructions = filterOps ::: List(
                 Instruction(Op.OpSelectionMerge, List(
                   ResultRef(mergeBlock),
                   SelectionControlMask.MaskNone
