@@ -294,11 +294,13 @@ private[cyfra]  object SpirvProgramCompiler:
         uniformPointerMap = ctx.uniformPointerMap + (uniformStructTypeRef -> uniformPointerUniformRef)
       ))
 
+  val predefinedConsts = List((Int32Tag, 0), (UInt32Tag, 0), (Int32Tag, 1))
+  
   def defineConstants(exprs: List[E[_]], ctx: Context): (List[Words], Context) = {
     val consts = (exprs.collect {
       case c @ Const(x) =>
         (c.tag, x)
-    } ::: List((Int32Tag, 0), (UInt32Tag, 0))).distinct.filterNot(_._1 == GBooleanTag)
+    } ::: predefinedConsts).distinct.filterNot(_._1 == GBooleanTag)
     val (insns, newC) = consts.foldLeft((List[Words](), ctx)) {
       case ((instructions, context), const) =>
         val insn = Instruction(Op.OpConstant, List(
