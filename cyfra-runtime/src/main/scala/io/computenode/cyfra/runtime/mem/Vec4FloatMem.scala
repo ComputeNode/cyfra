@@ -4,6 +4,7 @@ import io.computenode.cyfra.dsl.Value.{Float32, Vec4}
 import io.computenode.cyfra.runtime.mem.GMem.fRGBA
 
 import org.lwjgl.system.MemoryUtil
+import org.lwjgl.BufferUtils
 import java.nio.ByteBuffer
 
 class Vec4FloatMem(val size: Int, protected val data: ByteBuffer) extends RamGMem[Vec4[Float32], fRGBA]:
@@ -21,7 +22,7 @@ object Vec4FloatMem:
 
   def apply(vecs: Array[fRGBA]): Vec4FloatMem = {
     val size = vecs.length
-    val data = ByteBuffer.allocateDirect(size * Vec4FloatSize)
+    val data = BufferUtils.createByteBuffer(size * Vec4FloatSize)
     vecs.foreach { case (x, y, z, a) =>
       data.putFloat(x)
       data.putFloat(y)
