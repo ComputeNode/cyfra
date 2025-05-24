@@ -35,7 +35,7 @@ class GContext:
     G <: GStruct[G] : Tag : GStructSchema,
     H <: Value : Tag : FromExpr,
     R <: Value : Tag : FromExpr
-  ](function: GFunction[G, H, R]): ComputePipeline = {
+  ](function: GFunction[G, H, R], enableSpirvValidation: Boolean = true): ComputePipeline = {
     val uniformStructSchema = summon[GStructSchema[G]]
     val uniformStruct = uniformStructSchema.fromTree(UniformStructRef)
     val tree = function
@@ -46,6 +46,9 @@ class GContext:
         GArray[H](0)
       )
     val shaderCode = DSLCompiler.compile(tree, function.arrayInputs, function.arrayOutputs, uniformStructSchema)
+    if (enableSpirvValidation)
+      SpirvValidator.validateSpirv(shaderCode)
+
     dumpSpvToFile(shaderCode, "program.spv") // TODO remove before release
     val inOut = 0 to 1 map (Binding(_, InputBufferSize(typeStride(summon[Tag[H]]))))
     val uniform = Option.when(uniformStructSchema.fields.nonEmpty)(Binding(2, UniformSize(totalStride(uniformStructSchema))))
