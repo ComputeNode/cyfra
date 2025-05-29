@@ -155,9 +155,13 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
 
       def buffersWithAction(bufferAction: BufferAction): Seq[Buffer] =
         computeSequence.sequence.collect { case x: Compute =>
-          pipelineToDescriptorSets(x.pipeline).map(setToBuffers).zip(x.pumpLayoutLocations).flatMap(x => x._1.zip(x._2)).collect {
-            case (buffer, action) if (action.action & bufferAction.action) != 0 => buffer
-          }
+          pipelineToDescriptorSets(x.pipeline)
+            .map(setToBuffers)
+            .zip(x.pumpLayoutLocations)
+            .flatMap(x => x._1.zip(x._2))
+            .collect {
+              case (buffer, action) if (action.action & bufferAction.action) != 0 => buffer
+            }
         }.flatten
 
       val stagingBuffer = new Buffer(

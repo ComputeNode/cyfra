@@ -107,7 +107,7 @@ private[cyfra] object GSeqCompiler:
               (instructions, tailContext.copy(exprNames = tailContext.exprNames ++ Map(
                 condResultRef -> "filterCondResult",
               )))
-            case TakeUntilOp(_) =>
+            case TakeWhileOp(_) =>
               val (takeUntilOps, takeUntilContext) = ExpressionCompiler.compileBlock(dExpr, withElemRefCtx)
               val condResultRef = takeUntilContext.exprRefs(dExpr.treeid)
               val mergeBlock = takeUntilContext.nextResultId

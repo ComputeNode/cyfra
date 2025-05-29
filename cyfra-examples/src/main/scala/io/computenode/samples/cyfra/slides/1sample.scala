@@ -14,11 +14,12 @@ given GContext = new GContext()
 
 @main
 def sample =
+  val data = (0 to 256).map(_.toFloat).toArray
+  val mem = FloatMem(data)
+
   val gpuFunction = GFunction:
     (value: Float32) => value * 2f
 
-  val data = FloatMem((1 to 128).map(_.toFloat).toArray)
-
-  val result = data.map(gpuFunction).asInstanceOf[FloatMem].toArray
+  val result = mem.map(gpuFunction).toFloatArray
   println(result.mkString(", "))
   

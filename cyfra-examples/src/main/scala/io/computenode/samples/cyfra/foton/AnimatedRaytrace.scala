@@ -84,7 +84,7 @@ object AnimatedRaytrace:
     val scene = AnimatedScene(
       shapes = staticShapes ::: List(
         Sphere(
-          center = (3f, smooth(from = -5f, to = 1.5f, duration = 2.seconds), 10f),
+          center = (3f, smooth(from = 1.5f, to = 1.5f, duration = 2.seconds), 10f),
           2f,
           sphere2Material
         ),

@@ -22,6 +22,9 @@ trait GMem[H <: Value]:
   ](fn: GFunction[G, H, R])(using context: GContext): GMem[R] =
     context.execute(this, fn)
 
+  def toFloatArray: Array[Float] =
+    asInstanceOf[FloatMem].toArray
+
 object GMem:
   type fRGBA = (Float, Float, Float, Float)
 

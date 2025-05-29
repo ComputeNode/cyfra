@@ -24,7 +24,7 @@ object AnimatedJulia:
       val const = (p, p)
       GSeq.gen(uv, next = v => {
         ((v.x * v.x) - (v.y * v.y), 2.0f * v.x * v.y) + const
-      }).limit(1000).map(length).takeWhile(_ < 2.0f).count
+      }). limit(1000).map(length).takeWhile(_ < 2.0f).count
 
     def juliaColor(uv: Vec2[Float32])(using AnimationInstant): Vec4[Float32] =
       val rotatedUv = rotate(uv, Math.PI.toFloat / 3.0f)

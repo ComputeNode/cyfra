@@ -51,7 +51,7 @@ class GSeq[T <: Value : Tag : FromExpr](
     ))
 
   def takeWhile(fn: T => GBoolean): GSeq[T] =
-    this.copyWithDynamicTrees(elemOps = elemOps :+ GSeq.TakeUntilOp(
+    this.copyWithDynamicTrees(elemOps = elemOps :+ GSeq.TakeWhileOp(
       fn(currentElem).tree
     ))
 
@@ -93,6 +93,13 @@ object GSeq:
         }
       }).otherwise(xs.last)
     }.limit(xs.length)
+    
+  extension [T <: Scalar : Tag : FromExpr : Comparable](gs: GSeq[T])
+    def maxOr(t: T): T =
+      gs.fold(t, (acc: T, elem: T) => when(elem > acc)(elem).otherwise(acc))
+
+    def minOr(t: T): T =
+      gs.fold(t, (acc: T, elem: T) => when(elem < acc)(elem).otherwise(acc))
   
   case class CurrentElem[T <: Value : Tag](tid: Int) extends PhantomExpression[T] with CustomTreeId:
     override val treeid: Int = tid
@@ -106,7 +113,7 @@ object GSeq:
 
   case class MapOp[T <: Value: Tag, R <: Value: Tag](fn: Expression[_]) extends ElemOp[R]
   case class FilterOp[T <: Value: Tag](fn: Expression[GBoolean]) extends ElemOp[T]
-  case class TakeUntilOp[T <: Value: Tag](fn: Expression[GBoolean]) extends ElemOp[T]
+  case class TakeWhileOp[T <: Value: Tag](fn: Expression[GBoolean]) extends ElemOp[T]
 
   sealed trait GSeqSource[T <: Value: Tag]
   case class GSeqStream[T <: Value: Tag](init: T, next: Expression[_]) extends GSeqSource[T]
