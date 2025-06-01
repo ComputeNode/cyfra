@@ -64,7 +64,7 @@ class GContext:
     G <: GStruct[G] : Tag : GStructSchema,
     H <: Value,
     R <: Value
-  ](mem: GMem[H], fn: GFunction[?, H, R])(using uniformContext: UniformContext[_]): GMem[R] =
+  ](mem: GMem[H], fn: GFunction[?, H, R])(using uniformContext: UniformContext[G]): GMem[R] =
     val isUniformEmpty = uniformContext.uniform.schema.fields.isEmpty
     val actions = Map(
       LayoutLocation(0, 0) -> BufferAction.LoadTo,
