@@ -7,8 +7,8 @@ import io.computenode.cyfra.vulkan.VulkanContext
 import io.computenode.cyfra.vulkan.compute.{Binding, ComputePipeline, InputBufferSize, LayoutInfo, LayoutSet, Shader, UniformSize}
 import io.computenode.cyfra.vulkan.executor.{BufferAction, SequenceExecutor}
 import SequenceExecutor.*
-import io.computenode.cyfra.runtime.SpirvOptimizer.{Disable, EnableOptimization}
-import io.computenode.cyfra.runtime.SpirvValidator.{Enable, EnableValidation}
+import io.computenode.cyfra.runtime.SpirvOptimizer.{Optimization, O}
+import io.computenode.cyfra.runtime.SpirvValidator.Validation
 import io.computenode.cyfra.runtime.mem.GMem.totalStride
 import io.computenode.cyfra.spirv.SpirvTypes.typeStride
 import io.computenode.cyfra.spirv.compilers.DSLCompiler
@@ -25,11 +25,11 @@ import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 
 
-class GContext(enableSpirvValidation: EnableValidation = Enable(), enableOptimization: EnableOptimization = Disable):
+class GContext(spirvValidation: Validation = SpirvValidator.Enable(), spirvOptimization: Optimization = SpirvOptimizer.Disable):
 
   Configuration.STACK_SIZE.set(1024) // fix lwjgl stack size
 
-  val vkContext = new VulkanContext(enableValidationLayers = true)
+  private val vkContext = new VulkanContext(enableValidationLayers = true)
 
   implicit val ec: ExecutionContextExecutor = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(16))
 
@@ -48,7 +48,7 @@ class GContext(enableSpirvValidation: EnableValidation = Enable(), enableOptimiz
         GArray[H](0)
       )
     val shaderCode = DSLCompiler.compile(tree, function.arrayInputs, function.arrayOutputs, uniformStructSchema)
-    SpirvValidator.validateSpirv(shaderCode, enableSpirvValidation)
+    SpirvValidator.validateSpirv(shaderCode, spirvValidation)
 
     dumpSpvToFile(shaderCode, "program.spv") // TODO remove before release
 
@@ -56,13 +56,13 @@ class GContext(enableSpirvValidation: EnableValidation = Enable(), enableOptimiz
     val uniform = Option.when(uniformStructSchema.fields.nonEmpty)(Binding(2, UniformSize(totalStride(uniformStructSchema))))
     val layoutInfo = LayoutInfo(Seq(LayoutSet(0, inOut ++ uniform)))
 
-    val shader = SpirvOptimizer.getOptimizedSpirv(shaderCode, enableOptimization) match {
+    val shader = SpirvOptimizer.getOptimizedSpirv(shaderCode, spirvOptimization) match {
       case None =>
         new Shader(shaderCode, new org.joml.Vector3i(256, 1, 1), layoutInfo, "main", vkContext.device)
 
       case Some(optimizedShaderCode) =>
-        dumpSpvToFile(optimizedShaderCode, "optimized_program.spv")
-        SpirvValidator.validateSpirv(optimizedShaderCode, enableSpirvValidation)
+        dumpSpvToFile(optimizedShaderCode, "optimized_program.spv") // TODO remove before release
+        SpirvValidator.validateSpirv(optimizedShaderCode, spirvValidation)
         new Shader(optimizedShaderCode, new org.joml.Vector3i(256, 1, 1), layoutInfo, "main", vkContext.device)
     }
 
@@ -84,7 +84,7 @@ class GContext(enableSpirvValidation: EnableValidation = Enable(), enableOptimiz
     code.rewind()
 
   def execute[
-    G <: GStruct[G] : Tag : GStructSchema,
+    G <: GStruct[G] : {Tag, GStructSchema},
     H <: Value,
     R <: Value
   ](mem: GMem[H], fn: GFunction[?, H, R])(using uniformContext: UniformContext[_]): GMem[R] =

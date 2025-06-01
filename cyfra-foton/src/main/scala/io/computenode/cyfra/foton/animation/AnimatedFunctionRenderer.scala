@@ -11,10 +11,11 @@ import io.computenode.cyfra.foton.animation.AnimationRenderer
 import io.computenode.cyfra.foton.rt.ImageRtRenderer.RaytracingIteration
 import io.computenode.cyfra.foton.rt.animation.AnimationRtRenderer.RaytracingIteration
 import io.computenode.cyfra.foton.rt.RtRenderer
-import io.computenode.cyfra.runtime.{GFunction, GContext}
+import io.computenode.cyfra.runtime.{GContext, GFunction, SpirvValidator}
 import io.computenode.cyfra.utility.Units.Milliseconds
 import io.computenode.cyfra.utility.Utility.timed
 import io.computenode.cyfra.dsl.Algebra.{*, given}
+import io.computenode.cyfra.runtime.SpirvOptimizer.{Enable, O}
 import io.computenode.cyfra.runtime.mem.GMem.fRGBA
 import io.computenode.cyfra.runtime.mem.Vec4FloatMem
 
@@ -24,9 +25,7 @@ import scala.concurrent.{Await, ExecutionContext}
 import scala.concurrent.duration.DurationInt
 
 
-class AnimatedFunctionRenderer(params: AnimatedFunctionRenderer.Parameters) extends AnimationRenderer[AnimatedFunction, AnimatedFunctionRenderer.RenderFn](params):
-
-  given GContext = new GContext()
+class AnimatedFunctionRenderer(params: AnimatedFunctionRenderer.Parameters)(using GContext) extends AnimationRenderer[AnimatedFunction, AnimatedFunctionRenderer.RenderFn](params):
 
   given ExecutionContext = Implicits.global
   
@@ -36,7 +35,7 @@ class AnimatedFunctionRenderer(params: AnimatedFunctionRenderer.Parameters) exte
       val fmem = Vec4FloatMem(mem)
       fmem.map(fn).asInstanceOf[Vec4FloatMem].toArray
 
-  protected override def renderFunction(scene: AnimatedFunction): RenderFn = 
+  protected override def renderFunction(scene: AnimatedFunction): RenderFn =
     GFunction.from2D(params.width, {
       case (AnimationIteration(time), (xi: Int32, yi: Int32), lastFrame) =>
         val lastColor = lastFrame.at(xi, yi)
