@@ -2,18 +2,20 @@ package io.computenode.cyfra.runtime
 
 import io.computenode.cyfra.dsl.Algebra.FromExpr
 import io.computenode.cyfra.dsl.{GArray, GStruct, GStructSchema, UniformContext, Value}
-import GStruct.Empty
 import Value.{Float32, Vec4}
 import io.computenode.cyfra.vulkan.VulkanContext
 import io.computenode.cyfra.vulkan.compute.{Binding, ComputePipeline, InputBufferSize, LayoutInfo, LayoutSet, Shader, UniformSize}
 import io.computenode.cyfra.vulkan.executor.{BufferAction, SequenceExecutor}
 import SequenceExecutor.*
+import io.computenode.cyfra.runtime.SpirvOptimizer.{Optimization, O}
+import io.computenode.cyfra.runtime.SpirvValidator.Validation
 import io.computenode.cyfra.runtime.mem.GMem.totalStride
 import io.computenode.cyfra.spirv.SpirvTypes.typeStride
 import io.computenode.cyfra.spirv.compilers.DSLCompiler
 import io.computenode.cyfra.spirv.compilers.ExpressionCompiler.{UniformStructRef, WorkerIndex}
+import io.computenode.cyfra.utility.Logger.logger
 import mem.{FloatMem, GMem, Vec4FloatMem}
-import org.lwjgl.system.{Configuration, MemoryUtil}
+import org.lwjgl.system.Configuration
 import izumi.reflect.Tag
 
 import java.io.FileOutputStream
@@ -23,7 +25,7 @@ import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 
 
-class GContext:
+class GContext(spirvValidation: Validation = SpirvValidator.Enable(), spirvOptimization: Optimization = SpirvOptimizer.Disable):
 
   Configuration.STACK_SIZE.set(1024) // fix lwjgl stack size
 
@@ -32,9 +34,9 @@ class GContext:
   implicit val ec: ExecutionContextExecutor = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(16))
 
   def compile[
-    G <: GStruct[G] : Tag : GStructSchema,
-    H <: Value : Tag : FromExpr,
-    R <: Value : Tag : FromExpr
+    G <: GStruct[G] : {Tag, GStructSchema},
+    H <: Value : {Tag, FromExpr},
+    R <: Value : {Tag, FromExpr}
   ](function: GFunction[G, H, R]): ComputePipeline = {
     val uniformStructSchema = summon[GStructSchema[G]]
     val uniformStruct = uniformStructSchema.fromTree(UniformStructRef)
@@ -46,12 +48,33 @@ class GContext:
         GArray[H](0)
       )
     val shaderCode = DSLCompiler.compile(tree, function.arrayInputs, function.arrayOutputs, uniformStructSchema)
+    SpirvValidator.validateSpirv(shaderCode, spirvValidation)
+
     dumpSpvToFile(shaderCode, "program.spv") // TODO remove before release
+
     val inOut = 0 to 1 map (Binding(_, InputBufferSize(typeStride(summon[Tag[H]]))))
     val uniform = Option.when(uniformStructSchema.fields.nonEmpty)(Binding(2, UniformSize(totalStride(uniformStructSchema))))
     val layoutInfo = LayoutInfo(Seq(LayoutSet(0, inOut ++ uniform)))
-    val shader = new Shader(shaderCode, new org.joml.Vector3i(256, 1, 1), layoutInfo, "main", vkContext.device)
+
+    val shader = SpirvOptimizer.getOptimizedSpirv(shaderCode, spirvOptimization) match {
+      case None =>
+        new Shader(shaderCode, new org.joml.Vector3i(256, 1, 1), layoutInfo, "main", vkContext.device)
+
+      case Some(optimizedShaderCode) =>
+        dumpSpvToFile(optimizedShaderCode, "optimized_program.spv") // TODO remove before release
+        SpirvValidator.validateSpirv(optimizedShaderCode, spirvValidation)
+        new Shader(optimizedShaderCode, new org.joml.Vector3i(256, 1, 1), layoutInfo, "main", vkContext.device)
+    }
+
     new ComputePipeline(shader, vkContext)
+  }
+
+  def time[R](block: => R): R = {
+    val start = System.nanoTime()
+    val result = block
+    val end = System.nanoTime()
+    logger.debug(s"Elapsed time: ${(end - start) / 1e6} ms")
+    result
   }
 
   private def dumpSpvToFile(code: ByteBuffer, path: String): Unit =
@@ -61,7 +84,7 @@ class GContext:
     code.rewind()
 
   def execute[
-    G <: GStruct[G] : Tag : GStructSchema,
+    G <: GStruct[G] : {Tag, GStructSchema},
     H <: Value,
     R <: Value
   ](mem: GMem[H], fn: GFunction[?, H, R])(using uniformContext: UniformContext[_]): GMem[R] =
@@ -70,12 +93,12 @@ class GContext:
       LayoutLocation(0, 0) -> BufferAction.LoadTo,
       LayoutLocation(0, 1) -> BufferAction.LoadFrom
     ) ++ (
-      if isUniformEmpty then Map.empty 
+      if isUniformEmpty then Map.empty
       else Map(LayoutLocation(0, 2) -> BufferAction.LoadTo)
-    )
+      )
     val sequence = ComputationSequence(Seq(Compute(fn.pipeline, actions)), Seq.empty)
     val executor = new SequenceExecutor(sequence, vkContext)
-    
+
     val data = mem.toReadOnlyBuffer
     val inData =
       if isUniformEmpty then Seq(data)

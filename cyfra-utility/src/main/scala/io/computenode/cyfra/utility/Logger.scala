@@ -1,6 +1,6 @@
 package io.computenode.cyfra.utility
 
-import org.slf4j.LoggerFactory
+import org.slf4j.{Logger, LoggerFactory}
 
 object Logger:
-  val logger = LoggerFactory.getLogger("Cyfra")
+  val logger: Logger = LoggerFactory.getLogger("Cyfra")
