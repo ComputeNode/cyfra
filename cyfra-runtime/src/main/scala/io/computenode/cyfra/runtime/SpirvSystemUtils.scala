@@ -13,6 +13,7 @@ object SpirvSystemUtils {
   enum SupportedSpirVTools(val executableName: String):
     case Validator extends SupportedSpirVTools("spirv-val")
     case Optimizer extends SupportedSpirVTools("spirv-opt")
+    case Disassembler extends SupportedSpirVTools("spirv-dis")
 
   enum SupportedSystem:
     case Windows

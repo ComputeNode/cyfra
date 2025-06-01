@@ -35,6 +35,7 @@ object SpirvValidator {
         SpirvSystemUtils.getOS.flatMap { os =>
           SpirvSystemUtils.getToolExecutableFromPath(SpirvSystemUtils.SupportedSpirVTools.Validator, os)
         } match {
+          case None => logger.warn("Shader code will not be validated.")
           case Some(executable) =>
             val cmd = Seq(executable) ++ settings.flatMap(_.asStringParam.split(" ")) ++ Seq("-")
 
@@ -59,7 +60,7 @@ object SpirvValidator {
                     len = inputStream.read(buf)
                   }
                 } catch {
-                  case e: Exception => logger.error("Writing to stdin failed when shader code was being validated.", e)
+                  case e: Exception => throw SpirvValidationError("Writing to stdin failed when shader code was being validated.\n" + e)
                 } finally {
                   in.close()
                 }
@@ -74,7 +75,7 @@ object SpirvValidator {
                   }
                 } catch {
                   case e: Exception =>
-                    logger.error("Reading from stdout failed during shader validation.", e)
+                    throw SpirvValidationError("Reading from stdout failed during shader validation.\n" + e)
                 } finally {
                   out.close()
                 }
@@ -89,7 +90,7 @@ object SpirvValidator {
                   }
                 } catch {
                   case e: Exception =>
-                    logger.error("Reading from stderr failed during shader validation.", e)
+                    throw SpirvValidationError("Reading from stderr failed during shader validation.\n" + e)
                 } finally {
                   err.close()
                 }
@@ -102,13 +103,11 @@ object SpirvValidator {
             exitCode match {
               case 0 =>
                 logger.debug("SPIRV-Tools Validator succeeded.")
-                if (outputStream.toString().nonEmpty) println(outputStream.toString())
+                if (outputStream.toString().nonEmpty) logger.debug(outputStream.toString())
               case _ =>
                 throw new SpirvValidationError(s"SPIRV-Tools Validator failed with exit code $exitCode.\n" +
                   s"Validation errors:\n${errorStream.toString()}")
             }
-
-          case None => // Failed to find executable
         }
     }
   }

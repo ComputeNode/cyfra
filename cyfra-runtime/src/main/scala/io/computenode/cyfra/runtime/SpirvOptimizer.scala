@@ -6,6 +6,8 @@ import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
 import java.nio.ByteBuffer
 import scala.sys.process.*
 
+class SpirvOptimizationError(msg: String) extends RuntimeException(msg)
+
 object SpirvOptimizer {
 
   sealed trait Param:
@@ -35,6 +37,9 @@ object SpirvOptimizer {
           SpirvSystemUtils.getToolExecutableFromPath(
             SpirvSystemUtils.SupportedSpirVTools.Optimizer, os)
         } match {
+          case None =>
+            logger.warn("Shader code will not be optimized.")
+            None
           case Some(executable) =>
             try {
               val cmd = Seq(executable) ++ settings.flatMap(_.asStringParam.split(" ")) ++ Seq("-", "-o", "-")
@@ -59,7 +64,7 @@ object SpirvOptimizer {
                       len = inputStream.read(buf)
                     }
                   } catch {
-                    case e: Exception => logger.error("Writing to stdin failed when shader code was being optimized.", e)
+                    case e: Exception => throw SpirvOptimizationError("Writing to stdin failed when shader code was being optimized.\n" + e)
                   } finally {
                     in.close()
                   }
@@ -74,7 +79,7 @@ object SpirvOptimizer {
                     }
                   } catch {
                     case e: Exception =>
-                      logger.error("Reading from stdout failed during shader optimization.", e)
+                      throw SpirvOptimizationError("Reading from stdout failed during shader optimization.\n" + e)
                   } finally {
                     out.close()
                   }
@@ -89,7 +94,7 @@ object SpirvOptimizer {
                     }
                   } catch {
                     case e: Exception =>
-                      logger.error("Reading from stderr failed during shader optimization.", e)
+                      throw SpirvOptimizationError("Reading from stderr failed during shader optimization.\n" + e)
                   } finally {
                     err.close()
                   }
@@ -101,22 +106,14 @@ object SpirvOptimizer {
 
               if (exitCode == 0) {
                 logger.debug("SPIRV-Tools Optimizer succeeded.")
-                logger.warn("SPIRV-Tools Optimizer is not guaranteed to produce shader code that has the exact same output as original.")
-                logger.warn("SPIRV-Tools Optimizer is not guaranteed to produce shader code that is faster than original.")
                 Some(toDirectBuffer(ByteBuffer.wrap(outputStream.toByteArray)))
               } else {
-                logger.warn(s"SPIRV-Tools Optimizer failed with exit code $exitCode.")
-                val errMsg = errorStream.toString()
-                if (errMsg.nonEmpty) logger.warn(errMsg)
-                None
+                throw SpirvOptimizationError(s"SPIRV-Tools Optimizer failed with exit code $exitCode.\n${errorStream.toString()}")
               }
             } catch {
               case e: Exception =>
-                logger.error("Exception during shader optimization", e)
-                None
+                throw SpirvOptimizationError("Exception during shader optimization.\n" + e)
             }
-
-          case None => None // Failed to find executable
         }
     }
   }
