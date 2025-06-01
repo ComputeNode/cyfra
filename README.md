@@ -46,4 +46,11 @@ Included Foton library provides a clean and fun way to animate functions and ray
 
 <img src="https://github.com/scalag/scalag/assets/4761866/2791afd8-0b3e-4113-8e01-3f4efccab37f" width="750">
 
+## Development
 
+To enable validation layers for vulkan, you need to install vulkan SKD. After installing, set the following VM options:
+```
+-Dorg.lwjgl.vulkan.libname=libvulkan.1.dylib
+-Dio.computenode.cyfra.vulkan.validation=true
+-Djava.library.path=$VULKAN_SDK/lib
+```
