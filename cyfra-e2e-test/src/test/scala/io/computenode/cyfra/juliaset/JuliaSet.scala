@@ -27,7 +27,7 @@ class JuliaSet extends FunSuite:
     val RECURSION_LIMIT = 1000
     val const = (0.355f, 0.355f)
 
-    val function = GFunction.from2D[Empty, Vec4[Float32], Vec4[Float32]](dim, {
+    val function = GFunction.from2D[Empty, Vec4[Float32], Vec4[Float32]](dim):
       case (_, (xi: Int32, yi: Int32), _) =>
         val x = 3.0f * (xi - (dim / 2)).asFloat / dim.toFloat
         val y = 3.0f * (yi - (dim / 2)).asFloat / dim.toFloat
@@ -72,7 +72,6 @@ class JuliaSet extends FunSuite:
           )
         .otherwise:
           (8f / 255f, 22f / 255f, 104f / 255f, 1.0f)
-    })
 
     val r = Vec4FloatMem(dim * dim).map(function).asInstanceOf[Vec4FloatMem].toArray
     val outputTemp = File.createTempFile("julia", ".png")

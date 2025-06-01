@@ -37,14 +37,13 @@ class AnimatedFunctionRenderer(params: AnimatedFunctionRenderer.Parameters) exte
       fmem.map(fn).asInstanceOf[Vec4FloatMem].toArray
 
   protected override def renderFunction(scene: AnimatedFunction): RenderFn = 
-    GFunction.from2D(params.width, {
+    GFunction.from2D(params.width):
       case (AnimationIteration(time), (xi: Int32, yi: Int32), lastFrame) =>
         val lastColor = lastFrame.at(xi, yi)
         val x = (xi - (params.width / 2)).asFloat / params.width.toFloat
         val y = (yi - (params.height / 2)).asFloat / params.height.toFloat
         val uv = (x, y)
         scene.fn(AnimatedFunction.FunctionArguments(lastFrame, lastColor, uv))(using AnimationInstant(time))
-    })
 
 object AnimatedFunctionRenderer:
   type RenderFn = GFunction[AnimationIteration, Vec4[Float32], Vec4[Float32]]
