@@ -6,9 +6,9 @@ import io.computenode.cyfra.dsl.Expression.*
 import GStruct.Empty
 import io.computenode.cyfra.dsl.Algebra.FromExpr
 import io.computenode.cyfra.spirv.SpirvTypes.typeStride
-import io.computenode.cyfra.runtime.{GFunction, GContext}
-
+import io.computenode.cyfra.runtime.{GContext, GFunction}
 import izumi.reflect.Tag
+import org.lwjgl.BufferUtils
 import org.lwjgl.system.MemoryUtil
 
 import java.nio.ByteBuffer
@@ -34,7 +34,7 @@ object GMem:
   }.sum
 
   def serializeUniform(g: GStruct[?]): ByteBuffer = {
-    val data = MemoryUtil.memAlloc(totalStride(g.schema))
+    val data = BufferUtils.createByteBuffer(totalStride(g.schema))
     g.productIterator.foreach {
       case Int32(ConstInt32(i)) => data.putInt(i)
       case Float32(ConstFloat32(f)) => data.putFloat(f)
