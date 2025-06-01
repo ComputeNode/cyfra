@@ -27,7 +27,7 @@ class GContext:
 
   Configuration.STACK_SIZE.set(1024) // fix lwjgl stack size
 
-  val vkContext = new VulkanContext(enableValidationLayers = true)
+  val vkContext = new VulkanContext()
 
   implicit val ec: ExecutionContextExecutor = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(16))
 

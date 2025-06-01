@@ -13,6 +13,7 @@ import org.lwjgl.vulkan.VK10.*
 import org.lwjgl.vulkan.VK13.*
 import org.slf4j.LoggerFactory
 
+import java.nio.ByteBuffer
 import scala.collection.mutable
 import scala.jdk.CollectionConverters.given
 import scala.util.chaining.*
@@ -22,7 +23,7 @@ import scala.util.chaining.*
   */
 object Instance {
   val ValidationLayersExtensions: Seq[String] = List(VK_EXT_DEBUG_REPORT_EXTENSION_NAME)
-  val MacOsExtensions: Seq[String] = List(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME)
+  val MoltenVkExtensions: Seq[String] = List(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME)
 
   lazy val (extensions, layers): (Seq[String], Seq[String]) = pushStack { stack =>
     val ip = stack.ints(1)
@@ -94,12 +95,33 @@ private[cyfra] class Instance(enableValidationLayers: Boolean) extends VulkanObj
     vkDestroyInstance(instance, null)
 
   private def getInstanceExtensions(stack: MemoryStack) = {
-    val extensions = mutable.Buffer.from(Instance.MacOsExtensions)
+    val n = stack.callocInt(1)
+    check(vkEnumerateInstanceExtensionProperties(null.asInstanceOf[ByteBuffer], n, null))
+    val buffer = VkExtensionProperties.calloc(n.get(0), stack)
+    check(vkEnumerateInstanceExtensionProperties(null.asInstanceOf[ByteBuffer], n, buffer))
+
+    val availableExtensions = {
+      val buf = mutable.Buffer[String]()
+      buffer.forEach { ext =>
+        buf.addOne(ext.extensionNameString())
+      }
+      buf.toSet
+    }
+
+    val extensions = mutable.Buffer.from(Instance.MoltenVkExtensions)
     if (enableValidationLayers)
       extensions.addAll(Instance.ValidationLayersExtensions)
 
+
+    val filteredExtensions = extensions.filter(ext =>
+      availableExtensions.contains(ext).tap { x =>
+        if (!x)
+          logger.warn(s"Requested Vulkan instance extension '$ext' is not available")
+      }
+    )
+
     val ppEnabledExtensionNames = stack.callocPointer(extensions.size)
-    extensions.foreach(x => ppEnabledExtensionNames.put(stack.ASCII(x)))
+    filteredExtensions.foreach(x => ppEnabledExtensionNames.put(stack.ASCII(x)))
     ppEnabledExtensionNames.flip()
   }
 }

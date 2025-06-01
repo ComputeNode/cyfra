@@ -2,6 +2,9 @@ ThisBuild / organization := "com.computenode.cyfra"
 ThisBuild / scalaVersion := "3.6.4"
 ThisBuild / version      := "0.1.0-SNAPSHOT"
 
+val lwjglVersion = "3.3.6"
+val jomlVersion = "1.10.0"
+
 lazy val osName = System.getProperty("os.name").toLowerCase
 lazy val osArch = System.getProperty("os.arch")
 lazy val lwjglNatives = {
@@ -28,8 +31,10 @@ lazy val lwjglNatives = {
   }
 }
 
-val lwjglVersion = "3.3.6"
-val jomlVersion = "1.10.0"
+lazy val vulkanNatives =
+  if (osName.toLowerCase.contains("mac"))
+    Seq("org.lwjgl" % "lwjgl-vulkan" % lwjglVersion classifier lwjglNatives)
+  else Seq.empty
 
 lazy val commonSettings = Seq(
   libraryDependencies ++= Seq(
@@ -48,7 +53,7 @@ lazy val commonSettings = Seq(
     "org.scalameta" % "munit_3" % "1.0.0" % Test,
     "com.lihaoyi" %% "sourcecode" % "0.4.3-M5",
     "org.slf4j" % "slf4j-api" % "2.0.17"
-  )
+  ) ++ vulkanNatives
 )
 
 lazy val runnerSettings = Seq(
