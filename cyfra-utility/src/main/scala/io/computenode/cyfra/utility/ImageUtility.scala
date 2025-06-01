@@ -22,4 +22,20 @@ object ImageUtility {
     ImageIO.write(image, "png", outputFile)
   }
 
+  def loadImage(path: Path): Array[(Float, Float, Float, Float)] = {
+    val image = ImageIO.read(path.toFile)
+    val w = image.getWidth
+    val h = image.getHeight
+    val arr = Array.fill[(Float, Float, Float, Float)](w * h)((0f, 0f, 0f, 1f))
+    for (y <- 0 until h) {
+      for (x <- 0 until w) {
+        val rgb = image.getRGB(x, y)
+        val r = ((rgb >> 16) & 0xFF) / 255.0f
+        val g = ((rgb >> 8) & 0xFF) / 255.0f
+        val b = (rgb & 0xFF) / 255.0f
+        arr(y * w + x) = (r, g, b, 1.0f)
+      }
+    }
+    arr
+  }
 }

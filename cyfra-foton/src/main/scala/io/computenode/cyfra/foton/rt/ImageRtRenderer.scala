@@ -43,10 +43,10 @@ class ImageRtRenderer(params: ImageRtRenderer.Parameters) extends RtRenderer(par
     }.drop(1).map(_._1)
 
   private def renderFunction(scene: Scene): GFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]] =
-    GFunction.from2D(params.width, {
+    GFunction.from2D(params.width):
       case (RaytracingIteration(frame), (xi: Int32, yi: Int32), lastFrame) =>
         renderFrame(xi, yi, frame, lastFrame, scene)
-    })
+    
 
 object ImageRtRenderer:
 

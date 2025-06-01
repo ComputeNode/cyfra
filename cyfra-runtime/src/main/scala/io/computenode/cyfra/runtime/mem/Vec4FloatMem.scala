@@ -17,11 +17,11 @@ class Vec4FloatMem(val size: Int, protected val data: ByteBuffer) extends RamGMe
 
 
 object Vec4FloatMem:
-  val Vec4FloatSize = 16
+  val Vec4FloatSize = 4 * 4
 
   def apply(vecs: Array[fRGBA]): Vec4FloatMem = {
     val size = vecs.length
-    val data = ByteBuffer.allocateDirect(size * Vec4FloatSize)
+    val data = MemoryUtil.memAlloc(size * Vec4FloatSize)
     vecs.foreach { case (x, y, z, a) =>
       data.putFloat(x)
       data.putFloat(y)
@@ -35,3 +35,4 @@ object Vec4FloatMem:
   def apply(size: Int): Vec4FloatMem =
     val data = ByteBuffer.allocateDirect(size * Vec4FloatSize)
     new Vec4FloatMem(size, data)
+    

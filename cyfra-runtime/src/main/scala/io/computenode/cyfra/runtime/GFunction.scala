@@ -28,7 +28,7 @@ object GFunction:
     G <: GStruct[G] : GStructSchema : Tag,
     H <: Value : Tag : FromExpr,
     R <: Value : Tag : FromExpr
-  ](width: Int, fn: (G, (Int32, Int32), GArray2D[H]) => R)(using context: GContext): GFunction[G, H, R] =
+  ](width: Int)(fn: (G, (Int32, Int32), GArray2D[H]) => R)(using context: GContext): GFunction[G, H, R] =
     GFunction[G, H, R](
       (g: G, index: Int32, a: GArray[H]) =>
         val x: Int32 = index mod width
