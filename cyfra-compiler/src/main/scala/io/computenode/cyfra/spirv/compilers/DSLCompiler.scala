@@ -48,7 +48,7 @@ private[cyfra] object DSLCompiler:
           allScopesCache.update(e.treeid, result)
         }
         getAllScopesExprsAcc(newToVisit, result)
-    val result = getAllScopesExprsAcc(root :: Nil)
+    val result = root :: getAllScopesExprsAcc(root :: Nil)
     allScopesCache(root.treeid) = result
     result
 

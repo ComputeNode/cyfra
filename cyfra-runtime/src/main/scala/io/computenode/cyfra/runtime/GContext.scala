@@ -29,7 +29,7 @@ class GContext(spirvValidation: Validation = SpirvValidator.Enable(), spirvOptim
 
   Configuration.STACK_SIZE.set(1024) // fix lwjgl stack size
 
-  private val vkContext = new VulkanContext(enableValidationLayers = true)
+  val vkContext = new VulkanContext()
 
   implicit val ec: ExecutionContextExecutor = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(16))
 

@@ -1,31 +1,29 @@
 package io.computenode.cyfra.vulkan
 
 import io.computenode.cyfra.utility.Logger.logger
+import io.computenode.cyfra.vulkan.VulkanContext.ValidationLayers
 import io.computenode.cyfra.vulkan.command.{CommandPool, Queue, StandardCommandPool}
 import io.computenode.cyfra.vulkan.core.{DebugCallback, Device, Instance}
 import io.computenode.cyfra.vulkan.memory.{Allocator, DescriptorPool}
-import org.slf4j.LoggerFactory
 
 /** @author
   *   MarconZet Created 13.04.2020
   */
 private[cyfra] object VulkanContext {
-  final val ValidationLayer: String = "VK_LAYER_KHRONOS_validation"
-  final val SyncLayer: String = "VK_LAYER_KHRONOS_synchronization2"
+  val ValidationLayer: String = "VK_LAYER_KHRONOS_validation"
+  val SyncLayer: String = "VK_LAYER_KHRONOS_synchronization2"
+  private val ValidationLayers: Boolean = System.getProperty("io.computenode.cyfra.vulkan.validation", "false").toBoolean
 }
 
-private[cyfra] class VulkanContext(val enableValidationLayers: Boolean = false) {
-  private val sdkPresent = org.lwjgl.system.Configuration.VULKAN_LIBRARY_NAME.get() != null
-  private val validationLayers = enableValidationLayers && sdkPresent
-
-  val instance: Instance = new Instance(validationLayers)
-  val debugCallback: DebugCallback = if (validationLayers) new DebugCallback(instance) else null
+private[cyfra] class VulkanContext {
+  val instance: Instance = new Instance(ValidationLayers)
+  val debugCallback: Option[DebugCallback] = if (ValidationLayers) Some(new DebugCallback(instance)) else None
   val device: Device = new Device(instance)
   val computeQueue: Queue = new Queue(device.computeQueueFamily, 0, device)
   val allocator: Allocator = new Allocator(instance, device)
   val descriptorPool: DescriptorPool = new DescriptorPool(device)
   val commandPool: CommandPool = new StandardCommandPool(device, computeQueue)
-  
+
   logger.debug("Vulkan context created")
   logger.debug("Running on device: " + device.physicalDeviceName)
 
@@ -35,8 +33,7 @@ private[cyfra] class VulkanContext(val enableValidationLayers: Boolean = false) 
     allocator.destroy()
     computeQueue.destroy()
     device.destroy()
-    if (validationLayers)
-      debugCallback.destroy()
+    debugCallback.foreach(_.destroy())
     instance.destroy()
   }
 }

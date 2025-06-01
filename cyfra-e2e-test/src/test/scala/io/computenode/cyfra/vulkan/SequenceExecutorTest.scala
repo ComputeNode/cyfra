@@ -9,7 +9,7 @@ import munit.FunSuite
 import org.lwjgl.BufferUtils
 
 class SequenceExecutorTest extends FunSuite:
-  private val vulkanContext = VulkanContext(true)
+  private val vulkanContext = VulkanContext()
 
   test("Memory barrier"):
     val code = Shader.loadShader("copy_test.spv")
