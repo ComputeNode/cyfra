@@ -3,7 +3,7 @@ package io.computenode.cyfra.runtime
 import io.computenode.cyfra.dsl.Algebra.FromExpr
 import io.computenode.cyfra.dsl.{GArray, GStruct, GStructSchema, UniformContext, Value}
 import GStruct.Empty
-import Value.{Float32, Vec4}
+import Value.{Float32, Vec4, Int32}
 import io.computenode.cyfra.vulkan.VulkanContext
 import io.computenode.cyfra.vulkan.compute.{Binding, ComputePipeline, InputBufferSize, LayoutInfo, LayoutSet, Shader, UniformSize}
 import io.computenode.cyfra.vulkan.executor.{BufferAction, SequenceExecutor}
@@ -12,7 +12,7 @@ import io.computenode.cyfra.runtime.mem.GMem.totalStride
 import io.computenode.cyfra.spirv.SpirvTypes.typeStride
 import io.computenode.cyfra.spirv.compilers.DSLCompiler
 import io.computenode.cyfra.spirv.compilers.ExpressionCompiler.{UniformStructRef, WorkerIndex}
-import mem.{FloatMem, GMem, Vec4FloatMem}
+import mem.{FloatMem, GMem, Vec4FloatMem, IntMem}
 import org.lwjgl.system.{Configuration, MemoryUtil}
 import izumi.reflect.Tag
 
@@ -64,7 +64,7 @@ class GContext:
     G <: GStruct[G] : Tag : GStructSchema,
     H <: Value,
     R <: Value
-  ](mem: GMem[H], fn: GFunction[?, H, R])(using uniformContext: UniformContext[_]): GMem[R] =
+  ](mem: GMem[H], fn: GFunction[G, H, R])(using uniformContext: UniformContext[G]): GMem[R] =
     val isUniformEmpty = uniformContext.uniform.schema.fields.isEmpty
     val actions = Map(
       LayoutLocation(0, 0) -> BufferAction.LoadTo,
@@ -89,6 +89,8 @@ class GContext:
     outTags.head match
       case t if t == Tag[Float32] =>
         new FloatMem(mem.size, out.head).asInstanceOf[GMem[R]]
+      case t if t == Tag[Int32] =>
+        new IntMem(mem.size, out.head).asInstanceOf[GMem[R]]
       case t if t == Tag[Vec4[Float32]] =>
         new Vec4FloatMem(mem.size, out.head).asInstanceOf[GMem[R]]
       case _ => assert(false, "Supported output types are Float32 and Vec4[Float32]")
