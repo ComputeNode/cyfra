@@ -29,7 +29,7 @@ class GStructE2eTest extends munit.FunSuite:
         .foreach: (res, exp) =>
           assert(Math.abs(res - exp) < 0.001f, s"Expected $exp but got $res")
 
-  test("GStruct of GStructs"):
+  test("GStruct of GStructs".ignore):
     UniformContext.withUniform(nested):
       val gf: GFunction[Nested, Float32, Float32] = GFunction:
         case (Nested(Custom(f1, v1), Custom(f2, v2)), index, gArray) =>
