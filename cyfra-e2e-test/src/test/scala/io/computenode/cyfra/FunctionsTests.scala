@@ -30,13 +30,14 @@ class FunctionsE2eTest extends munit.FunSuite:
 
   test("smoothstep clamp mix reflect refract normalize"):
     val gf: GFunction[GStruct.Empty, Float32, Float32] = GFunction: f =>
-      val f1 = smoothstep(1.2f, 3.4f, f)
+      val f1 = smoothstep(f - 1.2f, f + 3.4f, f)
       val f2 = mix(f, f + 1f, f1)
       val v1: Vec4[Float32] = (f1, f2, f1 + 3.4f, f2 - 1.2f)
       val v2: Vec4[Float32] = (f1 * 3.4f, f1, f2, f2 / 1.2f)
       val v3 = mix(v1, v2, f2)
       val v4 = reflect(v3, v2)
-      val v5 = refract(normalize(v3), normalize(v4), f2)
+      val eta: Float32 = 0.01f
+      val v5 = refract(normalize(v3), normalize(v4), eta)
       v5.dot(v1)
 
     val inArr = (0 to 255).map(_.toFloat).toArray
@@ -67,16 +68,17 @@ class FunctionsE2eTest extends munit.FunSuite:
       t * t * (3 - 2 * t)
 
     val expected = inArr.map: f =>
-      val f1 = scalaSmooth(1.2f, 3.4f, f)
+      val f1 = scalaSmooth(f - 1.2f, f + 3.4f, f)
       val f2 = floatMix(f, f + 1f, f1)
       val v1 = (f1, f2, f1 + 3.4f, f2 - 1.2f)
       val v2 = (f1 * 3.4f, f1, f2, f2 / 1.2f)
       val v3 = vecMix(v1, v2, f2)
       val v4 = v3.reflected(v2)
-      val v5 = v3.normalized.refracted(v4.normalized, f2)
+      val eta = 0.01f
+      val v5 = v3.normalized.refracted(v4.normalized, eta)
       v5.pro(v1)
 
     result
       .zip(expected)
       .foreach: (res, exp) =>
-        assert(Math.abs(res - exp) < 0.001f, s"Expected $exp but got $res")
+        assert(Math.abs(res - exp) < 0.0001f, s"Expected $exp but got $res")
