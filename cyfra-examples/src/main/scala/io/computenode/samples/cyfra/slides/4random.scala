@@ -44,7 +44,7 @@ def randomRays =
   val superFar = 999f
   val maxBounces = 10
   val rayPosNudge = 0.001f
-  val pixelIterationsPerFrame = 20000
+  val pixelIterationsPerFrame = 30000
 
   def scalarTriple(u: Vec3[Float32], v: Vec3[Float32], w: Vec3[Float32]): Float32 = (u cross v) dot w
 
@@ -53,6 +53,7 @@ def randomRays =
     radius: Float32,
     color: Vec3[Float32],
     emissive: Vec3[Float32],
+    specular: Float32 = 0.5f
   ) extends GStruct[Sphere]
 
 
@@ -63,6 +64,7 @@ def randomRays =
     d: Vec3[Float32],
     color: Vec3[Float32],
     emissive: Vec3[Float32],
+    specular: Float32 = 0.5f
   ) extends GStruct[Quad]
 
   case class RayHitInfo(
@@ -70,6 +72,7 @@ def randomRays =
     normal: Vec3[Float32],
     albedo: Vec3[Float32],
     emissive: Vec3[Float32],
+    specular: Float32
   ) extends GStruct[RayHitInfo]
 
   case class RayTraceState(
@@ -102,7 +105,7 @@ def randomRays =
         val dist = when(fromInside)(-b + sqrt(discr)).otherwise(initDist)
         when(dist > minRayHitTime && dist < currentHit.dist) {
           val normal = normalize(rayPos + rayDir * dist - sphere.center)
-          RayHitInfo(dist, normal, sphere.color, sphere.emissive)
+          RayHitInfo(dist, normal, sphere.color, sphere.emissive, sphere.specular)
         } otherwise {
           notHit
         }
@@ -119,7 +122,7 @@ def randomRays =
   ): RayHitInfo =
     val normal = normalize((quad.c - quad.a) cross (quad.c - quad.b))
     val fixedQuad = when((normal dot rayDir) > 0f) {
-      Quad(quad.d, quad.c, quad.b, quad.a, quad.color, quad.emissive)
+      Quad(quad.d, quad.c, quad.b, quad.a, quad.color, quad.emissive, quad.specular)
     } otherwise {
       quad
     }
@@ -142,7 +145,7 @@ def randomRays =
         (intersectPoint.z - rayPos.z) / rayDir.z
       }
       when(dist > minRayHitTime && dist < currentHit.dist) {
-        RayHitInfo(dist, fixedNormal, quad.color, quad.emissive)
+        RayHitInfo(dist, fixedNormal, quad.color, quad.emissive, quad.specular)
       } otherwise {
         currentHit
       }
@@ -177,17 +180,10 @@ def randomRays =
       }
     }
 
-  val sphere = Sphere(
-    center = (0f, 1.5f, 2f),
-    radius = 0.5f,
-    color = (1f, 1f, 1f),
-    emissive = (30f, 30f, 30f),
-  )
-
   val sphereRed = Sphere(
     center = (0f, 0f, 4f),
     radius = 0.5f,
-    color = (1f, 1f, 1f),
+    color = (1f, 0f, 0f),
     emissive = (0f, 0f, 0f),
   )
 
@@ -202,17 +198,73 @@ def randomRays =
     center = (-1.5f, 0f, 4f),
     radius = 0.5f,
     color = (0f, 0f, 1f),
-    emissive = (0f, 0f, 5f),
+    emissive = (0f, 0f, 0f),
   )
 
   val backWall = Quad(
-    a = (-5f, -5f, 5f),
-    b = (5f, -5f, 5f),
-    c = (5f, 5f, 5f),
-    d = (-5f, 5f, 5f),
+    a = (-3f, -3f, 3f),
+    b = (3f, -3f, 3f),
+    c = (3f, 3f, 3f),
+    d = (-3f, 3f, 3f),
     color = (1f, 1f, 1f),
     emissive = (0f, 0f, 0f),
   )
+
+  val leftWall = Quad(
+    a = (-3f, -3f, 3f),
+    b = (-3f, -3f, -3f),
+    c = (-3f, 3f, -3f),
+    d = (-3f, 3f, 3f),
+    color = (0.5f, 0.5f, 0.5f),
+    emissive = (0f, 0f, 0f),
+  )
+
+  val rightWall = Quad(
+    a = (3f, -3f, 3f),
+    b = (3f, -3f, -3f),
+    c = (3f, 3f, -3f),
+    d = (3f, 3f, 3f),
+    color = (0.5f, 0.5f, 0.5f),
+    emissive = (0f, 0f, 0f),
+  )
+
+  val floor = Quad(
+    a = (-3f, -3f, -3f),
+    b = (3f, -3f, -3f),
+    c = (3f, -3f, 3f),
+    d = (-3f, -3f, 3f),
+    color = (0.5f, 0.5f, 0.5f),
+    emissive = (0f, 0f, 0f),
+  )
+
+  val ceiling = Quad(
+    a = (-3f, 3f, -3f),
+    b = (3f, 3f, -3f),
+    c = (3f, 3f, 3f),
+    d = (-3f, 3f, 3f),
+    color = (0.5f, 0.5f, 0.5f),
+    emissive = (0f, 0f, 0f),
+  )
+
+  val ceilingLamp = Quad(
+    a = (-0.5f, -2.97f, -0.5f),
+    b = (0.5f, -2.97f, -0.5f),
+    c = (0.5f, -2.97f, 0.5f),
+    d = (-0.5f, -2.97f, 0.5f),
+    color = (1f, 1f, 1f),
+    emissive = (10f, 10f, 10f),
+  )
+
+  val walls = List(
+    backWall,
+    leftWall,
+    rightWall,
+    floor,
+    ceiling,
+    ceilingLamp
+  )
+
+
 
   def getColorForRay(rayPos: Vec3[Float32], rayDirection: Vec3[Float32], rngState: UInt32): RayTraceState =
     val noHitState = RayTraceState(
@@ -226,21 +278,29 @@ def randomRays =
       first = noHitState,
       next = {
         case state @ RayTraceState(rayPos, rayDir, color, throughput, rngSeed, _) =>
-          val noHit = RayHitInfo(1000f, (0f, 0f, 0f), (0f, 0f, 0f), (0f, 0f, 0f))
-          val sphereHit = testSphereTrace(rayPos, rayDir, noHit, sphere)
-          val sphereRedHit = testSphereTrace(rayPos, rayDir, sphereHit, sphereRed)
+          val noHit = RayHitInfo(1000f, (0f, 0f, 0f), (0f, 0f, 0f), (0f, 0f, 0f), 0f)
+          val sphereRedHit = testSphereTrace(rayPos, rayDir, noHit, sphereRed)
           val sphereGreenHit = testSphereTrace(rayPos, rayDir, sphereRedHit, sphereGreen)
           val sphereBlueHit = testSphereTrace(rayPos, rayDir, sphereGreenHit, sphereBlue)
-          val wallHit = testQuadTrace(rayPos, rayDir, sphereBlueHit, backWall)
+          val wallsHit = GSeq.of(walls).fold(sphereBlueHit, (currentHit, wall) =>
+            testQuadTrace(rayPos, rayDir, currentHit, wall)
+          )
           val Random(rndVec, nextSeed) = randomVector(rngSeed)
-          val diffuseRayDir = normalize(wallHit.normal + rndVec)
+          val diffuseRayDir = normalize(wallsHit.normal + rndVec)
+          val specularRayDir = reflect(rayDir, wallsHit.normal)
+          val Random(specularDiceRoll, nextSeed2) = randomFloat(nextSeed)
+          val reflectedRayDir = when(specularDiceRoll < wallsHit.specular) {
+            specularRayDir
+          } otherwise {
+            diffuseRayDir
+          }
           RayTraceState(
-            rayPos = rayPos + rayDir * wallHit.dist + wallHit.normal * rayPosNudge,
-            rayDir = diffuseRayDir,
-            color = color + wallHit.emissive mulV throughput,
-            throughput = throughput mulV wallHit.albedo,
-            finished = wallHit.dist > superFar,
-            rngSeed = nextSeed
+            rayPos = rayPos + rayDir * wallsHit.dist + wallsHit.normal * rayPosNudge,
+            rayDir = reflectedRayDir,
+            color = color + wallsHit.emissive mulV throughput,
+            throughput = throughput mulV wallsHit.albedo,
+            finished = wallsHit.dist > superFar,
+            rngSeed = nextSeed2
           )
       })
       .limit(maxBounces)
@@ -258,7 +318,7 @@ def randomRays =
           val Random(wiggleY, rngState2) = randomFloat(rngState1)
           val x = ((xi.asFloat + wiggleX) / dim.toFloat) * 2f - 1f
           val y = ((yi.asFloat + wiggleY) / dim.toFloat) * 2f - 1f
-          val rayPosition = (0f, 0f, 0f)
+          val rayPosition = (0f, 0f, -0.5f)
           val cameraDist = 1.0f / tan(fovDeg * 0.6f * math.Pi.toFloat / 180.0f)
           val rayTarget = (x, y, cameraDist)
           val rayDir = normalize(rayTarget - rayPosition)

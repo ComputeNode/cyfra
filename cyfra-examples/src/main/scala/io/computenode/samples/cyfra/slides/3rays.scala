@@ -161,7 +161,7 @@ def rays =
     }
 
   val sphere = Sphere(
-    center = (1.5f, 1.5f, 4f),
+    center = (0f, 1.5f, 4f),
     radius = 0.5f,
     color = (1f, 1f, 1f),
     emissive = (3f, 3f, 3f)
@@ -176,43 +176,54 @@ def rays =
     emissive = (0f, 0f, 0f)
   )
 
-  def getColorForRay(rayPos: Vec3[Float32], rayDirection: Vec3[Float32]): Vec4[Float32] =
+  val NoHit = RayHitInfo(1000f, (0f, 0f, 0f), (0f, 0f, 0f), (0f, 0f, 0f))
+
+  def bounce(rayTraceState: RayTraceState): RayTraceState =
+    val RayTraceState(rayPos, rayDir, color, throughput, _) = rayTraceState
+    val sphereHit = testSphereTrace(rayPos, rayDir, NoHit, sphere)
+    val wallHit = testQuadTrace(rayPos, rayDir, sphereHit, backWall)
+    RayTraceState(
+      rayPos = rayPos + rayDir * wallHit.dist + wallHit.normal * rayPosNudge,
+      rayDir = reflect(rayDir, wallHit.normal),
+      color = color + wallHit.emissive mulV throughput,
+      throughput = throughput mulV wallHit.albedo,
+      finished = wallHit.dist > superFar
+    )
+
+  def getColorForRay(ray: Ray): Vec4[Float32] =
     GSeq.gen[RayTraceState](
       first = RayTraceState(
-        rayPos = rayPos,
-        rayDir = rayDirection,
+        rayPos = ray.position,
+        rayDir = ray.direction,
         color = (0f, 0f, 0f),
         throughput = (1f, 1f, 1f)
       ),
-      next = {
-        case state @ RayTraceState(rayPos, rayDir, color, throughput, _) =>
-          val noHit = RayHitInfo(1000f, (0f, 0f, 0f), (0f, 0f, 0f), (0f, 0f, 0f))
-          val sphereHit = testSphereTrace(rayPos, rayDir, noHit, sphere)
-          val wallHit = testQuadTrace(rayPos, rayDir, sphereHit, backWall)
-          RayTraceState(
-            rayPos = rayPos + rayDir * wallHit.dist + wallHit.normal * rayPosNudge,
-            rayDir = reflect(rayDir, wallHit.normal),
-            color = color + wallHit.emissive mulV throughput,
-            throughput = throughput mulV wallHit.albedo,
-            finished = wallHit.dist > superFar
-          )
-      })
-      .limit(maxBounces)
+      next = bounce
+    ).limit(maxBounces)
       .takeWhile(!_.finished)
       .map(state => (state.color, 1f))
       .lastOr((0f,0f,0f,1f))
 
+  case class Ray(
+    position: Vec3[Float32],
+    direction: Vec3[Float32],
+  ) extends GStruct[Ray]
+
+  def rayForPixel(xi: Int32, yi: Int32): Ray =
+    val x = (xi.asFloat / dim.toFloat) * 2f - 1f
+    val y = (yi.asFloat / dim.toFloat) * 2f - 1f
+
+    val rayPosition = (0f, 0f, 0f)
+    val cameraDist = 1.0f / tan(fovDeg * 0.6f * math.Pi.toFloat / 180.0f)
+    val rayTarget = (x, y, cameraDist)
+    val rayDir = normalize(rayTarget - rayPosition)
+
+    Ray(rayPosition, rayDir)
+
   val raytracing: GFunction[Empty, Vec4[Float32], Vec4[Float32]] = GFunction.from2D(dim):
     case (_, (xi: Int32, yi: Int32), _) =>
-      val x = (xi.asFloat / dim.toFloat) * 2f - 1f
-      val y = (yi.asFloat / dim.toFloat) * 2f - 1f
-
-      val rayPosition = (0f, 0f, 0f)
-      val cameraDist = 1.0f / tan(fovDeg * 0.6f * math.Pi.toFloat / 180.0f)
-      val rayTarget = (x, y, cameraDist)
-
-      val rayDir = normalize(rayTarget - rayPosition)
-      getColorForRay(rayPosition, rayDir)
+      val ray = rayForPixel(xi, yi)
+      getColorForRay(ray)
   
 
 

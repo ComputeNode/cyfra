@@ -6,8 +6,7 @@ import io.computenode.cyfra.dsl.Pure.pure
 
 case class Random(seed: UInt32) extends GStruct[Random]:
 
-  def next[R <: Value : Random.Generator]: (Random, R) =
-    val generator = summon[Random.Generator[R]]
+  def next[R <: Value](using generator: Random.Generator[R]): (Random, R) =
     val (nextValue, nextSeed) = generator.gen(seed)
     (Random(nextSeed), nextValue)
 
@@ -21,7 +20,6 @@ object Random:
     val s3 = s2 ^ (s2 >> 4)
     val s4 = s3 * 0x27d4eb2d
     s4 ^ (s4 >> 15)
-  
     
   given Generator[Float32] with
     def gen(seed: UInt32): (Float32, UInt32) =
