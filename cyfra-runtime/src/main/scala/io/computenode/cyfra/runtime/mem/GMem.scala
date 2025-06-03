@@ -1,6 +1,6 @@
 package io.computenode.cyfra.runtime.mem
 
-import io.computenode.cyfra.dsl.{GStruct, GStructConstructor, GStructSchema, Value}
+import io.computenode.cyfra.dsl.{UniformContext, GStruct, GStructConstructor, GStructSchema, Value}
 import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.dsl.Expression.*
 import GStruct.Empty
@@ -19,7 +19,7 @@ trait GMem[H <: Value]:
   def map[
     G <: GStruct[G] : Tag : GStructSchema,
     R <: Value : FromExpr : Tag
-  ](fn: GFunction[G, H, R])(using context: GContext): GMem[R] =
+  ](fn: GFunction[G, H, R])(using context: GContext, uc: UniformContext[G]): GMem[R] =
     context.execute(this, fn)
 
 object GMem:

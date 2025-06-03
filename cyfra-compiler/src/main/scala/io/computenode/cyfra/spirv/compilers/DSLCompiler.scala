@@ -41,7 +41,7 @@ private[cyfra] object DSLCompiler:
         val eScopes = e.introducedScopes
         val filteredScopes = if visitDetached then eScopes else eScopes.filterNot(_.isDetached)
         val newToVisit = toVisit ::: e.exprDependencies ::: filteredScopes.map(_.expr)
-        val result = e.exprDependencies ::: acc
+        val result = e.exprDependencies ::: filteredScopes.map(_.expr) ::: acc
         visited += e.treeid
         blockI += 1
         if (blockI % 100 == 0) {
