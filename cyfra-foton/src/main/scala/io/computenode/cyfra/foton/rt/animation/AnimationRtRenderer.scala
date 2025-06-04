@@ -29,9 +29,10 @@ class AnimationRtRenderer(params: AnimationRtRenderer.Parameters) extends RtRend
   ): Array[fRGBA] =
     val initialMem = Array.fill(params.width * params.height)((0.5f, 0.5f, 0.5f, 0.5f))
     List.iterate((initialMem, 0), params.iterations + 1) { case (mem, render) =>
-      UniformContext.withUniform(RaytracingIteration(render, time)):
+      val uniformStruct = RaytracingIteration(render, time) 
+      UniformContext.withUniform(uniformStruct): 
         val fmem = Vec4FloatMem(mem)
-        val result = fmem.map(fn).asInstanceOf[Vec4FloatMem].toArray
+        val result = fmem.map(uniformStruct, fn).asInstanceOf[Vec4FloatMem].toArray
         (result, render + 1)
     }.map(_._1).last
 

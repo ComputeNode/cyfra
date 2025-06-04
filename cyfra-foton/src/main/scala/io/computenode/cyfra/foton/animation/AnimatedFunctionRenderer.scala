@@ -32,9 +32,10 @@ class AnimatedFunctionRenderer(params: AnimatedFunctionRenderer.Parameters) exte
   
   protected override def renderFrame(scene: AnimatedFunction, time: Float32, fn: RenderFn): Array[fRGBA] =
     val mem = Array.fill(params.width * params.height)((0.5f, 0.5f, 0.5f, 0.5f))
-    UniformContext.withUniform(AnimationIteration(time)):
+    val uniformStruct = AnimationIteration(time) 
+    UniformContext.withUniform(uniformStruct): 
       val fmem = Vec4FloatMem(mem)
-      fmem.map(fn).asInstanceOf[Vec4FloatMem].toArray
+      fmem.map(uniformStruct, fn).asInstanceOf[Vec4FloatMem].toArray
 
   protected override def renderFunction(scene: AnimatedFunction): RenderFn = 
     GFunction.from2D(params.width, {

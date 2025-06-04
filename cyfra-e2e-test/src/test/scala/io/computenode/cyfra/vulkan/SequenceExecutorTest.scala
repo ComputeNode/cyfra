@@ -1,12 +1,14 @@
 package io.computenode.cyfra.vulkan
 
-
 import io.computenode.cyfra.vulkan.compute.{Binding, ComputePipeline, InputBufferSize, LayoutInfo, LayoutSet, Shader}
 import io.computenode.cyfra.vulkan.executor.BufferAction.{LoadFrom, LoadTo}
 import io.computenode.cyfra.vulkan.executor.SequenceExecutor
 import io.computenode.cyfra.vulkan.executor.SequenceExecutor.{ComputationSequence, Compute, Dependency, LayoutLocation}
+import io.computenode.cyfra.vulkan.memory.Buffer
 import munit.FunSuite
 import org.lwjgl.BufferUtils
+import org.lwjgl.vulkan.VK10.* 
+import org.lwjgl.util.vma.Vma.* 
 
 class SequenceExecutorTest extends FunSuite:
   private val vulkanContext = VulkanContext(true)
@@ -24,10 +26,31 @@ class SequenceExecutorTest extends FunSuite:
     )
     val sequenceExecutor = new SequenceExecutor(sequence, vulkanContext)
     val input = 0 until 1024
-    val buffer = BufferUtils.createByteBuffer(input.length * 4)
-    input.foreach(buffer.putInt)
-    buffer.flip()
-    val res = sequenceExecutor.execute(Seq(buffer), input.length)
-    val output = input.map(_ => res.head.getInt)
+    
+    val inputBuffer = new Buffer(
+      input.length * 4, // 4 bytes per int
+      VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+      VMA_MEMORY_USAGE_CPU_ONLY,
+      vulkanContext.allocator
+    )
+    
+    val mappedBuffer = inputBuffer.map()
+    input.foreach(mappedBuffer.putInt)
+    inputBuffer.unmap()
+    
+    val res = sequenceExecutor.execute(Seq(inputBuffer), input.length)
+    
+    val outputMappedBuffer = res.head.map()
+    val output = (0 until input.length).map(_ => outputMappedBuffer.getInt)
+    res.head.unmap()
 
     assertEquals(input.map(_ + 20000).toList, output.toList)
+    
+    // Clean up
+    inputBuffer.destroy()
+    res.foreach(_.destroy())
+    sequenceExecutor.destroy()
+    copy1.destroy()
+    copy2.destroy()
+    shader.destroy()

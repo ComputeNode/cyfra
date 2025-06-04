@@ -9,18 +9,22 @@ import io.computenode.cyfra.spirv.SpirvTypes.typeStride
 import io.computenode.cyfra.runtime.{GFunction, GContext}
 
 import izumi.reflect.Tag
-import org.lwjgl.system.MemoryUtil
-
 import java.nio.ByteBuffer
-import io.computenode.cyfra.vulkan.memory.Buffer
-trait GMem[H <: Value]:
+import io.computenode.cyfra.vulkan.memory.Buffer 
+
+trait GMem[H <: Value : Tag : FromExpr]: 
   def size: Int
   def vulkanBuffer: Buffer
+
   def map[
     G <: GStruct[G] : Tag : GStructSchema,
     R <: Value : FromExpr : Tag
-  ](fn: GFunction[G, H, R])(using context: GContext): GMem[R] =
-    context.execute(this, fn)
+  ](uniformStruct: G, fn: GFunction[G, H, R])(using context: GContext): GMem[R] =
+    context.execute(this, uniformStruct, fn)
+
+  def map[R <: Value : FromExpr : Tag]
+    (fn: GFunction[GStruct.Empty, H, R])(using context: GContext): GMem[R] =
+    context.execute(this, fn) 
 
   def cleanup(): Unit
 end GMem

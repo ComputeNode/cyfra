@@ -40,7 +40,7 @@ private[cyfra] class Buffer(val size: Int, val usage: Int, flags: Int, memUsage:
     check(vmaCreateBuffer(allocator.get, bufferInfo, allocInfo, pBuffer, pAllocation, null), "Failed to create buffer")
     (pBuffer.get(), pAllocation.get())
   }
-  
+
   def map(): ByteBuffer = {
     pushStack { stack =>
       val pData = stack.callocPointer(1)
@@ -54,8 +54,7 @@ private[cyfra] class Buffer(val size: Int, val usage: Int, flags: Int, memUsage:
   }
 
   def unmap(): Unit = {
-    org.lwjgl.util.vma.Vma.vmaFlushAllocation(allocator.get, allocation, 0, VK_WHOLE_SIZE)
-    org.lwjgl.util.vma.Vma.vmaUnmapMemory(allocator.get, allocation) 
+    vmaUnmapMemory(allocator.get, allocation)
   }
 
   def get(dst: Array[Byte]): Unit = {
