@@ -25,22 +25,22 @@ class ImageRtRenderer(params: ImageRtRenderer.Parameters) extends RtRenderer(par
 
   def renderToFile(scene: Scene, destinationPath: Path): Unit =
     val images = render(scene)
-    for image <- images do
-      ImageUtility.renderToImage(image, params.width, params.height, destinationPath)
+    for image <- images do ImageUtility.renderToImage(image, params.width, params.height, destinationPath)
 
   def render(scene: Scene): LazyList[Array[fRGBA]] =
     render(scene, renderFunction(scene))
 
   private def render(scene: Scene, fn: GFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]]): LazyList[Array[fRGBA]] =
     val initialMem = Array.fill(params.width * params.height)((0.5f, 0.5f, 0.5f, 0.5f))
-    LazyList.iterate((initialMem, 0), params.iterations + 1) { case (mem, render) =>
-      UniformContext.withUniform(RaytracingIteration(render)):
-        val fmem = Vec4FloatMem(mem)
-        val result = timed(s"Rendered iteration $render")(
-          fmem.map(fn).asInstanceOf[Vec4FloatMem].toArray
-        )
-        (result, render + 1)
-    }.drop(1).map(_._1)
+    LazyList
+      .iterate((initialMem, 0), params.iterations + 1) { case (mem, render) =>
+        UniformContext.withUniform(RaytracingIteration(render)):
+          val fmem = Vec4FloatMem(mem)
+          val result = timed(s"Rendered iteration $render")(fmem.map(fn).asInstanceOf[Vec4FloatMem].toArray)
+          (result, render + 1)
+      }
+      .drop(1)
+      .map(_._1)
 
   private def renderFunction(scene: Scene): GFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]] =
     GFunction.from2D(params.width):
@@ -59,5 +59,5 @@ object ImageRtRenderer:
     maxBounces: Int = 8,
     pixelIterations: Int = 1000,
     iterations: Int = 5,
-    bgColor: (Float, Float, Float) = (0.2f, 0.2f, 0.2f)
+    bgColor: (Float, Float, Float) = (0.2f, 0.2f, 0.2f),
   ) extends RtRenderer.Parameters

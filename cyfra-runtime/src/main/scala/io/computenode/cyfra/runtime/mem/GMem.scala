@@ -16,10 +16,7 @@ import java.nio.ByteBuffer
 trait GMem[H <: Value]:
   def size: Int
   def toReadOnlyBuffer: ByteBuffer
-  def map[
-    G <: GStruct[G] : Tag : GStructSchema,
-    R <: Value : FromExpr : Tag
-  ](fn: GFunction[G, H, R])(using context: GContext): GMem[R] =
+  def map[G <: GStruct[G]: Tag: GStructSchema, R <: Value: FromExpr: Tag](fn: GFunction[G, H, R])(using context: GContext): GMem[R] =
     context.execute(this, fn)
 
 object GMem:
@@ -36,7 +33,7 @@ object GMem:
   def serializeUniform(g: GStruct[?]): ByteBuffer = {
     val data = BufferUtils.createByteBuffer(totalStride(g.schema))
     g.productIterator.foreach {
-      case Int32(ConstInt32(i)) => data.putInt(i)
+      case Int32(ConstInt32(i))     => data.putInt(i)
       case Float32(ConstFloat32(f)) => data.putFloat(f)
       case Vec4(ComposeVec4(Float32(ConstFloat32(x)), Float32(ConstFloat32(y)), Float32(ConstFloat32(z)), Float32(ConstFloat32(a)))) =>
         data.putFloat(x)

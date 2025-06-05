@@ -20,21 +20,21 @@ import java.nio.file.{Path, Paths}
 import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
 
-class AnimationRtRenderer(params: AnimationRtRenderer.Parameters) extends RtRenderer(params) with AnimationRenderer[AnimatedScene, AnimationRtRenderer.RenderFn](params):
+class AnimationRtRenderer(params: AnimationRtRenderer.Parameters)
+    extends RtRenderer(params)
+    with AnimationRenderer[AnimatedScene, AnimationRtRenderer.RenderFn](params):
 
-  protected def renderFrame(
-    scene: AnimatedScene,
-    time: Float32,
-    fn: GFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]]
-  ): Array[fRGBA] =
+  protected def renderFrame(scene: AnimatedScene, time: Float32, fn: GFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]]): Array[fRGBA] =
     val initialMem = Array.fill(params.width * params.height)((0.5f, 0.5f, 0.5f, 0.5f))
-    List.iterate((initialMem, 0), params.iterations + 1) { case (mem, render) =>
-      UniformContext.withUniform(RaytracingIteration(render, time)):
-        val fmem = Vec4FloatMem(mem)
-        val result = fmem.map(fn).asInstanceOf[Vec4FloatMem].toArray
-        (result, render + 1)
-    }.map(_._1).last
-
+    List
+      .iterate((initialMem, 0), params.iterations + 1) { case (mem, render) =>
+        UniformContext.withUniform(RaytracingIteration(render, time)):
+          val fmem = Vec4FloatMem(mem)
+          val result = fmem.map(fn).asInstanceOf[Vec4FloatMem].toArray
+          (result, render + 1)
+      }
+      .map(_._1)
+      .last
 
   protected def renderFunction(scene: AnimatedScene): GFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]] =
     GFunction.from2D(params.width):
@@ -42,7 +42,7 @@ class AnimationRtRenderer(params: AnimationRtRenderer.Parameters) extends RtRend
         renderFrame(xi, yi, frame, lastFrame, scene.at(time))
 
 object AnimationRtRenderer:
-  
+
   type RenderFn = GFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]]
   case class RaytracingIteration(frame: Int32, time: Float32) extends GStruct[RaytracingIteration]
 
@@ -55,5 +55,6 @@ object AnimationRtRenderer:
     pixelIterations: Int = 1000,
     iterations: Int = 5,
     bgColor: (Float, Float, Float) = (0.2f, 0.2f, 0.2f),
-    framesPerSecond: Int = 20
-  ) extends RtRenderer.Parameters with AnimationRenderer.Parameters
+    framesPerSecond: Int = 20,
+  ) extends RtRenderer.Parameters
+      with AnimationRenderer.Parameters

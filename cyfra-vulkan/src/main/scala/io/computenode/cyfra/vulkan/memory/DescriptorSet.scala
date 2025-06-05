@@ -11,7 +11,8 @@ import org.lwjgl.vulkan.{VkDescriptorBufferInfo, VkDescriptorSetAllocateInfo, Vk
 /** @author
   *   MarconZet Created 15.04.2020
   */
-private[cyfra] class DescriptorSet(device: Device, descriptorSetLayout: Long, val bindings: Seq[Binding], descriptorPool: DescriptorPool) extends VulkanObjectHandle {
+private[cyfra] class DescriptorSet(device: Device, descriptorSetLayout: Long, val bindings: Seq[Binding], descriptorPool: DescriptorPool)
+    extends VulkanObjectHandle {
 
   protected val handle: Long = pushStack { stack =>
     val pSetLayout = stack.callocLong(1).put(0, descriptorSetLayout)
@@ -25,7 +26,7 @@ private[cyfra] class DescriptorSet(device: Device, descriptorSetLayout: Long, va
     check(vkAllocateDescriptorSets(device.get, descriptorSetAllocateInfo, pDescriptorSet), "Failed to allocate descriptor set")
     pDescriptorSet.get()
   }
-  
+
   def update(buffers: Seq[Buffer]): Unit = pushStack { stack =>
     val writeDescriptorSet = VkWriteDescriptorSet.calloc(buffers.length, stack)
     buffers.indices foreach { i =>

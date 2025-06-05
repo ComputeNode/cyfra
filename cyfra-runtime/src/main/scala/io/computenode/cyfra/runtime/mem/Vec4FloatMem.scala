@@ -16,7 +16,6 @@ class Vec4FloatMem(val size: Int, protected val data: ByteBuffer) extends RamGMe
     result
   }
 
-
 object Vec4FloatMem:
   val Vec4FloatSize = 16
 

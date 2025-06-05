@@ -24,8 +24,16 @@ object DebugCallback {
 private[cyfra] class DebugCallback(instance: Instance) extends VulkanObjectHandle {
   override protected val handle: Long = {
     val debugCallback = new VkDebugReportCallbackEXT() {
-      def invoke(flags: Int, objectType: Int, `object`: Long, location: Long, messageCode: Int, pLayerPrefix: Long, pMessage: Long, pUserData: Long)
-        : Int = {
+      def invoke(
+        flags: Int,
+        objectType: Int,
+        `object`: Long,
+        location: Long,
+        messageCode: Int,
+        pLayerPrefix: Long,
+        pMessage: Long,
+        pUserData: Long,
+      ): Int = {
         val decodedMessage = VkDebugReportCallbackEXT.getString(pMessage)
         highestOneBit(flags) match {
           case VK_DEBUG_REPORT_DEBUG_BIT_EXT =>

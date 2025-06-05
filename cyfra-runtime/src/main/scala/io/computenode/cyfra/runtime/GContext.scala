@@ -22,7 +22,6 @@ import java.nio.channels.FileChannel
 import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 
-
 class GContext:
 
   Configuration.STACK_SIZE.set(1024) // fix lwjgl stack size
@@ -31,20 +30,13 @@ class GContext:
 
   implicit val ec: ExecutionContextExecutor = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(16))
 
-  def compile[
-    G <: GStruct[G] : Tag : GStructSchema,
-    H <: Value : Tag : FromExpr,
-    R <: Value : Tag : FromExpr
-  ](function: GFunction[G, H, R]): ComputePipeline = {
+  def compile[G <: GStruct[G]: Tag: GStructSchema, H <: Value: Tag: FromExpr, R <: Value: Tag: FromExpr](
+    function: GFunction[G, H, R],
+  ): ComputePipeline = {
     val uniformStructSchema = summon[GStructSchema[G]]
     val uniformStruct = uniformStructSchema.fromTree(UniformStructRef)
-    val tree = function
-      .fn
-      .apply(
-        uniformStruct,
-        WorkerIndex,
-        GArray[H](0)
-      )
+    val tree = function.fn
+      .apply(uniformStruct, WorkerIndex, GArray[H](0))
     val shaderCode = DSLCompiler.compile(tree, function.arrayInputs, function.arrayOutputs, uniformStructSchema)
     dumpSpvToFile(shaderCode, "program.spv") // TODO remove before release
     val inOut = 0 to 1 map (Binding(_, InputBufferSize(typeStride(summon[Tag[H]]))))
@@ -60,22 +52,18 @@ class GContext:
     fc.close()
     code.rewind()
 
-  def execute[
-    G <: GStruct[G] : Tag : GStructSchema,
-    H <: Value,
-    R <: Value
-  ](mem: GMem[H], fn: GFunction[?, H, R])(using uniformContext: UniformContext[_]): GMem[R] =
+  def execute[G <: GStruct[G]: Tag: GStructSchema, H <: Value, R <: Value](mem: GMem[H], fn: GFunction[?, H, R])(using
+    uniformContext: UniformContext[_],
+  ): GMem[R] =
     val isUniformEmpty = uniformContext.uniform.schema.fields.isEmpty
-    val actions = Map(
-      LayoutLocation(0, 0) -> BufferAction.LoadTo,
-      LayoutLocation(0, 1) -> BufferAction.LoadFrom
-    ) ++ (
-      if isUniformEmpty then Map.empty 
-      else Map(LayoutLocation(0, 2) -> BufferAction.LoadTo)
-    )
+    val actions = Map(LayoutLocation(0, 0) -> BufferAction.LoadTo, LayoutLocation(0, 1) -> BufferAction.LoadFrom) ++
+      (
+        if isUniformEmpty then Map.empty
+        else Map(LayoutLocation(0, 2) -> BufferAction.LoadTo)
+      )
     val sequence = ComputationSequence(Seq(Compute(fn.pipeline, actions)), Seq.empty)
     val executor = new SequenceExecutor(sequence, vkContext)
-    
+
     val data = mem.toReadOnlyBuffer
     val inData =
       if isUniformEmpty then Seq(data)
@@ -92,4 +80,3 @@ class GContext:
       case t if t == Tag[Vec4[Float32]] =>
         new Vec4FloatMem(mem.size, out.head).asInstanceOf[GMem[R]]
       case _ => assert(false, "Supported output types are Float32 and Vec4[Float32]")
-

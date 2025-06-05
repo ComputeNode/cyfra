@@ -1,6 +1,5 @@
 package io.computenode.cyfra.vulkan
 
-
 import io.computenode.cyfra.vulkan.compute.{Binding, ComputePipeline, InputBufferSize, LayoutInfo, LayoutSet, Shader}
 import io.computenode.cyfra.vulkan.executor.BufferAction.{LoadFrom, LoadTo}
 import io.computenode.cyfra.vulkan.executor.SequenceExecutor
@@ -18,10 +17,11 @@ class SequenceExecutorTest extends FunSuite:
     val copy1 = new ComputePipeline(shader, vulkanContext)
     val copy2 = new ComputePipeline(shader, vulkanContext)
 
-    val sequence = ComputationSequence(
-      Seq(Compute(copy1, Map(LayoutLocation(0, 0) -> LoadTo)), Compute(copy2, Map(LayoutLocation(1, 0) -> LoadFrom))),
-      Seq(Dependency(copy1, 1, copy2, 0))
-    )
+    val sequence =
+      ComputationSequence(
+        Seq(Compute(copy1, Map(LayoutLocation(0, 0) -> LoadTo)), Compute(copy2, Map(LayoutLocation(1, 0) -> LoadFrom))),
+        Seq(Dependency(copy1, 1, copy2, 0)),
+      )
     val sequenceExecutor = new SequenceExecutor(sequence, vulkanContext)
     val input = 0 until 1024
     val buffer = BufferUtils.createByteBuffer(input.length * 4)

@@ -5,7 +5,8 @@ import io.computenode.cyfra.vscode.VscodeConnection.Message
 import java.net.http.{HttpClient, WebSocket}
 
 class VscodeConnection(host: String, port: Int) {
-  val ws = HttpClient.newHttpClient()
+  val ws = HttpClient
+    .newHttpClient()
     .newWebSocketBuilder()
     .buildAsync(java.net.URI.create(s"ws://$host:$port"), new WebSocket.Listener {})
     .join()
@@ -26,5 +27,3 @@ object VscodeConnection:
 
   private def escape(str: String): String =
     str.replace("\\", "\\\\").replace("\"", "\\\"")
-
-
