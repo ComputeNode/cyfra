@@ -18,6 +18,5 @@ jobs:
       - uses: coursier/setup-action@v1
         with:
           jvm: graalvm-java21
-      - name: Setup upterm session
-        uses: lhotari/action-upterm@v1
-      - run: sbtn "formatCheckAll"
+          apps: [ sbt ]
+      - run: sbt "formatCheckAll"
