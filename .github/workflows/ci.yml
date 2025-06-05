@@ -17,5 +17,5 @@ jobs:
       - uses: coursier/cache-action@v6
       - uses: coursier/setup-action@v1
         with:
-          jvm: graalvm-java21:21.0.1
-      - run: sbt "formatCheckAll"
+          jvm: graalvm-java21
+      - run: sbtn "formatCheckAll"
