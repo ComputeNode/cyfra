@@ -112,3 +112,16 @@ e2eTest / Test / javaOptions ++= Seq(
 )
 
 e2eTest / Test / fork := true
+
+lazy val formatAll = taskKey[Unit]("Rewrites and formats all of the code for passing in CI")
+lazy val formatCheckAll = taskKey[Unit]("Fails if a any code is mis-formatted. Does not write to files.")
+
+formatAll := {
+  (Compile / scalafmtSbt).value
+  scalafmtAll.all(ScopeFilter(inAnyProject)).value
+}
+
+formatCheckAll := {
+  (Compile / scalafmtSbtCheck).value
+  scalafmtCheckAll.all(ScopeFilter(inAnyProject)).value
+}
