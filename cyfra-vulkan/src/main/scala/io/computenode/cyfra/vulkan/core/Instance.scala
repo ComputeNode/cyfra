@@ -112,7 +112,6 @@ private[cyfra] class Instance(enableValidationLayers: Boolean) extends VulkanObj
     if (enableValidationLayers)
       extensions.addAll(Instance.ValidationLayersExtensions)
 
-
     val filteredExtensions = extensions.filter(ext =>
       availableExtensions.contains(ext).tap { x =>
         if (!x)

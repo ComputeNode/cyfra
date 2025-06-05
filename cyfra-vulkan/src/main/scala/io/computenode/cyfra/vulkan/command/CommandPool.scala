@@ -13,7 +13,7 @@ import scala.util.Using
 /** @author
   *   MarconZet Created 13.04.2020 Copied from Wrap
   */
-private[cyfra] abstract class CommandPool(device: Device, queue: Queue) extends VulkanObjectHandle {
+abstract private[cyfra] class CommandPool(device: Device, queue: Queue) extends VulkanObjectHandle {
   protected val handle: Long = pushStack { stack =>
     val createInfo = VkCommandPoolCreateInfo
       .calloc(stack)

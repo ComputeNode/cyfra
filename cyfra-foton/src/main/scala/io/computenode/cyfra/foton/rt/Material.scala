@@ -13,7 +13,7 @@ case class Material(
   indexOfRefraction: Float32 = 1f,
   refractionChance: Float32 = 0f,
   refractionRoughness: Float32 = 0f,
-  refractionColor: Vec3[Float32] = vec3(0f),
+  refractionColor: Vec3[Float32] = vec3(0f)
 ) extends GStruct[Material]
 
 object Material:

@@ -1,6 +1,5 @@
 package io.computenode.cyfra.vulkan
 
-
 import io.computenode.cyfra.vulkan.compute.{Binding, ComputePipeline, InputBufferSize, LayoutInfo, LayoutSet, Shader}
 import io.computenode.cyfra.vulkan.executor.BufferAction.{LoadFrom, LoadTo}
 import io.computenode.cyfra.vulkan.executor.SequenceExecutor

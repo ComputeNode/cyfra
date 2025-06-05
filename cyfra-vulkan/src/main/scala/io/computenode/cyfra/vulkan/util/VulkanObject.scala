@@ -3,7 +3,7 @@ package io.computenode.cyfra.vulkan.util
 /** @author
   *   MarconZet Created 13.04.2020
   */
-private[cyfra] abstract class VulkanObject {
+abstract private[cyfra] class VulkanObject {
   protected var alive: Boolean = true
 
   def destroy(): Unit = {
