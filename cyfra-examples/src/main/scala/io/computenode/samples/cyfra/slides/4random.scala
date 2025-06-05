@@ -7,33 +7,8 @@ import io.computenode.cyfra.dsl.given
 import io.computenode.cyfra.dsl.*
 import io.computenode.cyfra.runtime.mem.Vec4FloatMem
 import io.computenode.cyfra.utility.ImageUtility
+import izumi.reflect.macrortti.LightTypeTag
 
-def wangHash(seed: UInt32): UInt32 = {
-  val s1 = (seed ^ 61) ^ (seed >> 16)
-  val s2 = s1 * 9
-  val s3 = s2 ^ (s2 >> 4)
-  val s4 = s3 * 0x27d4eb2d
-  s4 ^ (s4 >> 15)
-}
-
-case class Random[T <: Value](value: T, nextSeed: UInt32)
-
-def randomFloat(seed: UInt32): Random[Float32] = {
-  val nextSeed = wangHash(seed)
-  val f = nextSeed.asFloat / 4294967296.0f
-  Random(f, nextSeed)
-}
-
-def randomVector(seed: UInt32): Random[Vec3[Float32]] = {
-  val Random(z, seed1) = randomFloat(seed)
-  val z2 = z * 2.0f - 1.0f
-  val Random(a, seed2) = randomFloat(seed1)
-  val a2 = a * 2.0f * math.Pi.toFloat
-  val r = sqrt(1.0f - z2 * z2)
-  val x = r * cos(a2)
-  val y = r * sin(a2)
-  Random((x, y, z2), seed2)
-}
 
 @main
 def randomRays =
@@ -42,9 +17,9 @@ def randomRays =
   val fovDeg = 80
   val minRayHitTime = 0.01f
   val superFar = 999f
-  val maxBounces = 10
+  val maxBounces = 100
   val rayPosNudge = 0.001f
-  val pixelIterationsPerFrame = 30000
+  val pixelIterationsPerFrame = 3000
 
   def scalarTriple(u: Vec3[Float32], v: Vec3[Float32], w: Vec3[Float32]): Float32 = (u cross v) dot w
 
@@ -53,7 +28,7 @@ def randomRays =
     radius: Float32,
     color: Vec3[Float32],
     emissive: Vec3[Float32],
-    specular: Float32 = 0.5f
+    specular: Float32 = 0.2f
   ) extends GStruct[Sphere]
 
 
@@ -64,7 +39,7 @@ def randomRays =
     d: Vec3[Float32],
     color: Vec3[Float32],
     emissive: Vec3[Float32],
-    specular: Float32 = 0.5f
+    specular: Float32 = 0.01f
   ) extends GStruct[Quad]
 
   case class RayHitInfo(
@@ -180,79 +155,84 @@ def randomRays =
       }
     }
 
+  val sphereBlue = Sphere(
+    center = (-1.5f, 0f, 4f),
+    radius = 0.5f,
+    color = (0.5f, 0.5f, 1f),
+    emissive = (0f, 0f, 0f),
+    specular = 0.6f
+  )
+
   val sphereRed = Sphere(
     center = (0f, 0f, 4f),
     radius = 0.5f,
-    color = (1f, 0f, 0f),
+    color = (1f, 0.5f, 0.5f),
     emissive = (0f, 0f, 0f),
+    specular = 0.2f
   )
 
   val sphereGreen = Sphere(
     center = (1.5f, 0f, 4f),
     radius = 0.5f,
     color = (0f, 1f, 0f),
-    emissive = (0f, 0f, 0f),
+    emissive = (0.5f, 0.5f, 0f),
+    specular = 0.08f
   )
 
-  val sphereBlue = Sphere(
-    center = (-1.5f, 0f, 4f),
-    radius = 0.5f,
-    color = (0f, 0f, 1f),
-    emissive = (0f, 0f, 0f),
-  )
+
 
   val backWall = Quad(
-    a = (-3f, -3f, 3f),
-    b = (3f, -3f, 3f),
-    c = (3f, 3f, 3f),
-    d = (-3f, 3f, 3f),
+    a = (-3f, -3f, 5f),
+    b = (3f, -3f, 5f),
+    c = (3f, 3f, 5f),
+    d = (-3f, 3f, 5f),
     color = (1f, 1f, 1f),
     emissive = (0f, 0f, 0f),
   )
 
   val leftWall = Quad(
-    a = (-3f, -3f, 3f),
+    a = (-3f, -3f, 5f),
     b = (-3f, -3f, -3f),
     c = (-3f, 3f, -3f),
-    d = (-3f, 3f, 3f),
-    color = (0.5f, 0.5f, 0.5f),
+    d = (-3f, 3f, 5f),
+    color = (1f, 0.5f, 0.5f),
     emissive = (0f, 0f, 0f),
   )
 
   val rightWall = Quad(
-    a = (3f, -3f, 3f),
+    a = (3f, -3f, 5f),
     b = (3f, -3f, -3f),
     c = (3f, 3f, -3f),
-    d = (3f, 3f, 3f),
+    d = (3f, 3f, 5f),
+    color = (0.5f, 1f, 0.5f),
+    emissive = (0f, 0f, 0f),
+  )
+
+  val ceiling = Quad(
+    a = (-3f, -3f, -3f),
+    b = (3f, -3f, -3f),
+    c = (3f, -3f, 5f),
+    d = (-3f, -3f, 5f),
     color = (0.5f, 0.5f, 0.5f),
     emissive = (0f, 0f, 0f),
   )
 
   val floor = Quad(
-    a = (-3f, -3f, -3f),
-    b = (3f, -3f, -3f),
-    c = (3f, -3f, 3f),
-    d = (-3f, -3f, 3f),
-    color = (0.5f, 0.5f, 0.5f),
-    emissive = (0f, 0f, 0f),
-  )
-
-  val ceiling = Quad(
     a = (-3f, 3f, -3f),
     b = (3f, 3f, -3f),
-    c = (3f, 3f, 3f),
-    d = (-3f, 3f, 3f),
+    c = (3f, 3f, 5f),
+    d = (-3f, 3f, 5f),
     color = (0.5f, 0.5f, 0.5f),
     emissive = (0f, 0f, 0f),
   )
 
   val ceilingLamp = Quad(
-    a = (-0.5f, -2.97f, -0.5f),
-    b = (0.5f, -2.97f, -0.5f),
-    c = (0.5f, -2.97f, 0.5f),
-    d = (-0.5f, -2.97f, 0.5f),
+    a = (-1f, -2.9f, 2f),
+    b = (1f, -2.9f, 2f),
+    c = (1f, -2.9f, 4f),
+    d = (-1f, -2.9f, 4f),
     color = (1f, 1f, 1f),
-    emissive = (10f, 10f, 10f),
+    emissive = (1f, 1f, 1f) * 32f,
   )
 
   val walls = List(
@@ -264,72 +244,96 @@ def randomRays =
     ceilingLamp
   )
 
+  val spheres = List(
+    sphereRed,
+    sphereGreen,
+    sphereBlue
+  )
 
+  val NoHit = RayHitInfo(1000f, (0f, 0f, 0f), (0f, 0f, 0f), (0f, 0f, 0f), 0f)
 
-  def getColorForRay(rayPos: Vec3[Float32], rayDirection: Vec3[Float32], rngState: UInt32): RayTraceState =
+  def testScene(rayPos: Vec3[Float32], rayDir: Vec3[Float32]): RayHitInfo =
+    val spheresHit = GSeq.of(spheres).fold(NoHit, (currentHit, sphere) =>
+      testSphereTrace(rayPos, rayDir, currentHit, sphere)
+    )
+    GSeq.of(walls).fold(spheresHit, (currentHit, wall) =>
+      testQuadTrace(rayPos, rayDir, currentHit, wall)
+    )
+
+  def bounce(rayTraceState: RayTraceState): RayTraceState =
+    val random = Random(rayTraceState.rngSeed)
+    val RayTraceState(rayPos, rayDir, color, throughput, rngSeed, _) = rayTraceState
+    val sceneHit = testScene(rayPos, rayDir)
+
+    val (random1, rndVec) = random.next[Vec3[Float32]]
+    val diffuseRayDir = normalize(sceneHit.normal + rndVec)
+    val specularRayDir = reflect(rayDir, sceneHit.normal)
+    val (random2, specularDiceRoll) = random1.next[Float32]
+    val reflectedRayDir = when(specularDiceRoll < sceneHit.specular):
+      specularRayDir
+    .otherwise:
+      diffuseRayDir
+
+    RayTraceState(
+      rayPos = rayPos + rayDir * sceneHit.dist + sceneHit.normal * rayPosNudge,
+      rayDir = reflectedRayDir,
+      color = color + sceneHit.emissive mulV throughput,
+      throughput = throughput mulV sceneHit.albedo,
+      finished = sceneHit.dist > superFar,
+      rngSeed = random2.seed
+    )
+
+  def getColorForRay(ray: Ray, rngState: UInt32): RayTraceState =
     val noHitState = RayTraceState(
-      rayPos = rayPos,
-      rayDir = rayDirection,
+      rayPos = ray.position,
+      rayDir = ray.direction,
       color = (0f, 0f, 0f),
       throughput = (1f, 1f, 1f),
       rngSeed = rngState,
     )
     GSeq.gen[RayTraceState](
       first = noHitState,
-      next = {
-        case state @ RayTraceState(rayPos, rayDir, color, throughput, rngSeed, _) =>
-          val noHit = RayHitInfo(1000f, (0f, 0f, 0f), (0f, 0f, 0f), (0f, 0f, 0f), 0f)
-          val sphereRedHit = testSphereTrace(rayPos, rayDir, noHit, sphereRed)
-          val sphereGreenHit = testSphereTrace(rayPos, rayDir, sphereRedHit, sphereGreen)
-          val sphereBlueHit = testSphereTrace(rayPos, rayDir, sphereGreenHit, sphereBlue)
-          val wallsHit = GSeq.of(walls).fold(sphereBlueHit, (currentHit, wall) =>
-            testQuadTrace(rayPos, rayDir, currentHit, wall)
-          )
-          val Random(rndVec, nextSeed) = randomVector(rngSeed)
-          val diffuseRayDir = normalize(wallsHit.normal + rndVec)
-          val specularRayDir = reflect(rayDir, wallsHit.normal)
-          val Random(specularDiceRoll, nextSeed2) = randomFloat(nextSeed)
-          val reflectedRayDir = when(specularDiceRoll < wallsHit.specular) {
-            specularRayDir
-          } otherwise {
-            diffuseRayDir
-          }
-          RayTraceState(
-            rayPos = rayPos + rayDir * wallsHit.dist + wallsHit.normal * rayPosNudge,
-            rayDir = reflectedRayDir,
-            color = color + wallsHit.emissive mulV throughput,
-            throughput = throughput mulV wallsHit.albedo,
-            finished = wallsHit.dist > superFar,
-            rngSeed = nextSeed2
-          )
-      })
+      next = bounce
+    )
       .limit(maxBounces)
       .takeWhile(!_.finished)
       .lastOr(noHitState)
 
   case class RenderIteration(color: Vec3[Float32], rngState: UInt32) extends GStruct[RenderIteration]
 
+  case class Ray(
+    position: Vec3[Float32],
+    direction: Vec3[Float32],
+  ) extends GStruct[Ray]
+
+  def rayForPixel(xi: Int32, yi: Int32, random: Random): Ray =
+    val (random1, wiggleX) = random.next[Float32]
+    val (random2, wiggleY) = random.next[Float32]
+    val x = ((xi.asFloat + wiggleX) / dim.toFloat) * 2f - 1f
+    val y = ((yi.asFloat + wiggleY) / dim.toFloat) * 2f - 1f
+
+    val rayPosition = (0f, 0f, -0.5f)
+    val cameraDist = 1.0f / tan(fovDeg * 0.6f * math.Pi.toFloat / 180.0f)
+    val rayTarget = (x, y, cameraDist)
+    val rayDir = normalize(rayTarget - rayPosition)
+
+    Ray(rayPosition, rayDir)
+
   val raytracing: GFunction[Empty, Vec4[Float32], Vec4[Float32]] = GFunction.from2D(dim):
     case (_, (xi: Int32, yi: Int32), _) =>
       val rngState = xi * 1973 + yi * 9277 + 2137 * 26699 | 1
-      val color = GSeq.gen(first = RenderIteration((0f,0f,0f), rngState.unsigned), next = {
-        case RenderIteration(_, rngState) =>
-          val Random(wiggleX, rngState1) = randomFloat(rngState)
-          val Random(wiggleY, rngState2) = randomFloat(rngState1)
-          val x = ((xi.asFloat + wiggleX) / dim.toFloat) * 2f - 1f
-          val y = ((yi.asFloat + wiggleY) / dim.toFloat) * 2f - 1f
-          val rayPosition = (0f, 0f, -0.5f)
-          val cameraDist = 1.0f / tan(fovDeg * 0.6f * math.Pi.toFloat / 180.0f)
-          val rayTarget = (x, y, cameraDist)
-          val rayDir = normalize(rayTarget - rayPosition)
-          val rtResult = getColorForRay(rayPosition, rayDir, rngState2)
-          RenderIteration(rtResult.color, rtResult.rngSeed)
-      }).limit(pixelIterationsPerFrame)
-        .fold((0f,0f,0f), {case (acc, RenderIteration(color, _)) => acc + (color * (1.0f / pixelIterationsPerFrame.toFloat))})
+      val startState = RenderIteration((0f, 0f, 0f), rngState.unsigned)
+      val color = GSeq.gen(first = startState, next = {
+          case RenderIteration(_, rngState) =>
+            val ray = rayForPixel(xi, yi, Random(rngState))
+            val rtResult = getColorForRay(ray, rngState + 1)
+            RenderIteration(rtResult.color, rtResult.rngSeed)
+        }).limit(pixelIterationsPerFrame)
+        .map(state => state.color * (1.0f / pixelIterationsPerFrame.toFloat))
+        .fold((0f, 0f, 0f), _ + _)
       (color, 1f)
-
-
 
   val mem = Vec4FloatMem(Array.fill(dim * dim)((0f,0f,0f,0f)))
   val result = mem.map(raytracing).asInstanceOf[Vec4FloatMem].toArray
   ImageUtility.renderToImage(result, dim, Paths.get(s"generated4.png"))
+
