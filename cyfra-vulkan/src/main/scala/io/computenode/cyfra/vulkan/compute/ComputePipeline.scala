@@ -71,7 +71,7 @@ private[cyfra] class ComputePipeline(val computeShader: Shader, context: VulkanC
         .binding(binding.id)
         .descriptorType(binding.size match
           case InputBufferSize(_) => VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-          case UniformSize(_)     => VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
+          case UniformSize(_) => VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
         )
         .descriptorCount(1)
         .stageFlags(VK_SHADER_STAGE_COMPUTE_BIT)

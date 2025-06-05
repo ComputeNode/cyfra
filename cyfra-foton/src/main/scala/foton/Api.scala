@@ -16,8 +16,10 @@ export Color.*
 export io.computenode.cyfra.dsl.{GSeq, GStruct}
 export io.computenode.cyfra.dsl.Math3D.{rotate, lessThan}
 
-/** Define function to be drawn
-  */
+
+/**
+ * Define function to be drawn
+ */
 
 //private[foton] val connection = new VscodeConnection("localhost", 3000)
 //private[foton] inline def outputPath(using f: sourcecode.FileName) =
@@ -61,19 +63,19 @@ export io.computenode.cyfra.dsl.Math3D.{rotate, lessThan}
 //          val res = fn(u, v)
 //          (res.x, res.y, res.z, 1f)
 //      })
-//
+//    
 //      val data = Vec4FloatMem(Array.fill(Width * Height)((0f,0f,0f,0f)))
 //      connection.send(RenderingStep.toMessage(RenderingStep.Rendering))
-//
+//      
 //      val result = Await.result(data.map(gpuFunction), 30.seconds)
 //      ImageUtility.renderToImage(result, Width, Height, outputPath)
 //      connection.send(RenderedMessage(outputPath.toString))
-//
+//      
 //    case RenderAsVideo(frames, duration) =>
 //      connection.send(RenderingStep.toMessage(RenderingStep.Rendering))
 //      val scene = new Scene:
 //        def duration = duration
-//
+//        
 //      val AnimationRenderer = new AnimationRenderer[Scene, GArray2DFunction[Empty, Vec4[Float32], Vec4[Float32]]](new Parameters:
 //        def width = Width
 //        def height = Height
@@ -82,7 +84,7 @@ export io.computenode.cyfra.dsl.Math3D.{rotate, lessThan}
 //        protected def renderFrame(scene: Empty, time: Float32, fn: GArray2DFunction[Empty, Vec4[Float32], Vec4[Float32]]): Array[RGBA] =
 //          val data = Vec4FloatMem(Array.fill(Width * Height)((0f,0f,0f,0f)))
 //          Await.result(data.map(fn), 30.seconds)
-//
+//          
 //        protected def renderFunction(scene: Empty): GArray2DFunction[Empty, Vec4[Float32], Vec4[Float32]] =
 //          GArray2DFunction(Width, Height, {
 //            case (_, (x, y), _) =>
@@ -91,3 +93,8 @@ export io.computenode.cyfra.dsl.Math3D.{rotate, lessThan}
 //              val res = fn(u, v)
 //              (res.x, res.y, res.z, 1f)
 //          })
+  
+
+
+
+

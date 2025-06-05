@@ -19,16 +19,33 @@ import scala.annotation.targetName
 import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
 
-case class AnimatedFunction(fn: FunctionArguments => AnimationInstant ?=> Vec4[Float32], duration: Milliseconds) extends AnimationRenderer.Scene
+case class AnimatedFunction(
+  fn: FunctionArguments => AnimationInstant ?=> Vec4[Float32],
+  duration: Milliseconds
+) extends AnimationRenderer.Scene
+
 
 object AnimatedFunction:
-  case class FunctionArguments(data: GArray2D[Vec4[Float32]], color: Vec4[Float32], uv: Vec2[Float32])
+  case class FunctionArguments(
+    data: GArray2D[Vec4[Float32]],
+    color: Vec4[Float32],
+    uv: Vec2[Float32]
+  )
 
   def fromCoord(fn: Vec2[Float32] => AnimationInstant ?=> Vec4[Float32], duration: Milliseconds): AnimatedFunction =
-    AnimatedFunction(args => fn(args.uv), duration)
-
+    AnimatedFunction(
+      args => fn(args.uv),
+      duration
+    )
+    
   def fromColor(fn: Vec4[Float32] => AnimationInstant ?=> Vec4[Float32], duration: Milliseconds): AnimatedFunction =
-    AnimatedFunction(args => fn(args.color), duration)
-
+    AnimatedFunction(
+      args => fn(args.color),
+      duration
+    )
+    
   def fromData(fn: (GArray2D[Vec4[Float32]], Vec2[Float32]) => AnimationInstant ?=> Vec4[Float32], duration: Milliseconds): AnimatedFunction =
-    AnimatedFunction(args => fn(args.data, args.uv), duration)
+    AnimatedFunction(
+      args => fn(args.data, args.uv),
+      duration
+    )

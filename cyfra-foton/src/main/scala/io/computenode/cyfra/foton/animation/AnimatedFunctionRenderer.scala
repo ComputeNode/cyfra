@@ -1,5 +1,6 @@
 package io.computenode.cyfra.foton.animation
 
+
 import io.computenode.cyfra.utility.Units.Milliseconds
 import io.computenode.cyfra
 import io.computenode.cyfra.dsl.{GStruct, UniformContext, given}
@@ -22,20 +23,20 @@ import scala.concurrent.ExecutionContext.Implicits
 import scala.concurrent.{Await, ExecutionContext}
 import scala.concurrent.duration.DurationInt
 
-class AnimatedFunctionRenderer(params: AnimatedFunctionRenderer.Parameters)
-    extends AnimationRenderer[AnimatedFunction, AnimatedFunctionRenderer.RenderFn](params):
+
+class AnimatedFunctionRenderer(params: AnimatedFunctionRenderer.Parameters) extends AnimationRenderer[AnimatedFunction, AnimatedFunctionRenderer.RenderFn](params):
 
   given GContext = new GContext()
 
   given ExecutionContext = Implicits.global
-
-  override protected def renderFrame(scene: AnimatedFunction, time: Float32, fn: RenderFn): Array[fRGBA] =
+  
+  protected override def renderFrame(scene: AnimatedFunction, time: Float32, fn: RenderFn): Array[fRGBA] =
     val mem = Array.fill(params.width * params.height)((0.5f, 0.5f, 0.5f, 0.5f))
     UniformContext.withUniform(AnimationIteration(time)):
       val fmem = Vec4FloatMem(mem)
       fmem.map(fn).asInstanceOf[Vec4FloatMem].toArray
 
-  override protected def renderFunction(scene: AnimatedFunction): RenderFn =
+  protected override def renderFunction(scene: AnimatedFunction): RenderFn = 
     GFunction.from2D(params.width):
       case (AnimationIteration(time), (xi: Int32, yi: Int32), lastFrame) =>
         val lastColor = lastFrame.at(xi, yi)
@@ -48,4 +49,8 @@ object AnimatedFunctionRenderer:
   type RenderFn = GFunction[AnimationIteration, Vec4[Float32], Vec4[Float32]]
   case class AnimationIteration(time: Float32) extends GStruct[AnimationIteration]
 
-  case class Parameters(width: Int, height: Int, framesPerSecond: Int) extends AnimationRenderer.Parameters
+  case class Parameters(
+    width: Int,
+    height: Int,
+    framesPerSecond: Int
+  ) extends AnimationRenderer.Parameters

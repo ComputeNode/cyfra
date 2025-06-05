@@ -1,5 +1,6 @@
 package io.computenode.samples.cyfra.slides
 
+
 import java.awt.image.BufferedImage
 import java.io.File
 import java.nio.file.Paths
@@ -23,7 +24,12 @@ def simpleray =
   val dim = 1024
   val fovDeg = 60
 
-  case class Sphere(center: Vec3[Float32], radius: Float32, color: Vec3[Float32], emissive: Vec3[Float32]) extends GStruct[Sphere]
+  case class Sphere(
+    center: Vec3[Float32],
+    radius: Float32,
+    color: Vec3[Float32],
+    emissive: Vec3[Float32],
+  ) extends GStruct[Sphere]
 
   def getColorForRay(rayPos: Vec3[Float32], rayDirection: Vec3[Float32]): Vec4[Float32] =
     val sphereCenter = (0f, 0.5f, 3f)
@@ -49,6 +55,7 @@ def simpleray =
       val rayDir = normalize(rayTarget - rayPosition)
       getColorForRay(rayPosition, rayDir)
 
-  val mem = Vec4FloatMem(Array.fill(dim * dim)((0f, 0f, 0f, 0f)))
+
+  val mem = Vec4FloatMem(Array.fill(dim * dim)((0f,0f,0f,0f)))
   val result = mem.map(raytracing).asInstanceOf[Vec4FloatMem].toArray
   ImageUtility.renderToImage(result, dim, Paths.get(s"generated2.png"))

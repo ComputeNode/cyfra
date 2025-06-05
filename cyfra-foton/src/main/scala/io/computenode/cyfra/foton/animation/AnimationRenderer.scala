@@ -37,12 +37,17 @@ trait AnimationRenderer[S <: AnimationRenderer.Scene, F <: GFunction[_, Vec4[Flo
     val function = renderFunction(scene)
     val totalFrames = Math.ceil(scene.duration.toFloat / msPerFrame).toInt
     val timestamps = LazyList.range(0, totalFrames).map(_ * msPerFrame)
-    timestamps.zipWithIndex.map { case (time, frame) =>
-      timed(s"Animated frame $frame/$totalFrames"):
-        renderFrame(scene, time, function)
+    timestamps.zipWithIndex.map {
+      case (time, frame) =>
+        timed(s"Animated frame ${frame}/${totalFrames}"):
+          renderFrame(scene, time, function)
     }
 
-  protected def renderFrame(scene: S, time: Float32, fn: F): Array[fRGBA]
+  protected def renderFrame(
+    scene: S,
+    time: Float32,
+    fn: F
+  ): Array[fRGBA]
 
   protected def renderFunction(scene: S): F
 

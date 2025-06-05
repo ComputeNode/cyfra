@@ -8,6 +8,7 @@ import io.computenode.cyfra.spirv.Context
 import io.computenode.cyfra.spirv.compilers.FunctionCompiler.SprivFunction
 import io.computenode.cyfra.spirv.SpirvConstants.GLSL_EXT_REF
 
+
 private[cyfra] object ExtFunctionCompiler:
   private val fnOpMap: Map[FunctionName, Code] = Map(
     Functions.Sin -> GlslOp.Sin,
@@ -32,7 +33,7 @@ private[cyfra] object ExtFunctionCompiler:
     Functions.Min -> GlslOp.FMin,
     Functions.Refract -> GlslOp.Refract,
     Functions.Normalize -> GlslOp.Normalize,
-    Functions.Log -> GlslOp.Log
+    Functions.Log -> GlslOp.Log,
   )
 
   def compileExtFunctionCall(call: Expression.ExtFunctionCall[_], ctx: Context): (List[Instruction], Context) =
@@ -40,11 +41,15 @@ private[cyfra] object ExtFunctionCompiler:
     val tp = call.tag
     val typeRef = ctx.valueTypeMap(tp.tag)
     val instructions = List(
-      Instruction(
-        Op.OpExtInst,
-        List(ResultRef(typeRef), ResultRef(ctx.nextResultId), ResultRef(GLSL_EXT_REF), fnOp) :::
-          call.exprDependencies.map(d => ResultRef(ctx.exprRefs(d.treeid)))
-      )
+      Instruction(Op.OpExtInst, List(
+        ResultRef(typeRef),
+        ResultRef(ctx.nextResultId),
+        ResultRef(GLSL_EXT_REF),
+        fnOp
+      ) ::: call.exprDependencies.map(d => ResultRef(ctx.exprRefs(d.treeid)))
+      ))
+    val updatedContext = ctx.copy(
+      exprRefs = ctx.exprRefs + (call.treeid -> ctx.nextResultId),
+      nextResultId = ctx.nextResultId + 1
     )
-    val updatedContext = ctx.copy(exprRefs = ctx.exprRefs + (call.treeid -> ctx.nextResultId), nextResultId = ctx.nextResultId + 1)
     (instructions, updatedContext)

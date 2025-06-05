@@ -19,13 +19,8 @@ import scala.util.Using
 /** @author
   *   MarconZet Created 25.04.2020
   */
-private[cyfra] class Shader(
-  shaderCode: ByteBuffer,
-  val workgroupDimensions: Vector3ic,
-  val layoutInfo: LayoutInfo,
-  val functionName: String,
-  device: Device
-) extends VulkanObjectHandle {
+private[cyfra] class Shader(shaderCode: ByteBuffer, val workgroupDimensions: Vector3ic, val layoutInfo: LayoutInfo, val functionName: String, device: Device)
+    extends VulkanObjectHandle {
 
   protected val handle: Long = pushStack { stack =>
     val shaderModuleCreateInfo = VkShaderModuleCreateInfo

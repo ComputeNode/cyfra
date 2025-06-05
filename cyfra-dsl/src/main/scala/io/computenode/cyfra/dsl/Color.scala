@@ -8,19 +8,33 @@ import io.computenode.cyfra.dsl.Math3D.lessThan
 import scala.annotation.targetName
 
 object Color:
-
+  
   def SRGBToLinear(rgb: Vec3[Float32]): Vec3[Float32] = {
     val clampedRgb = vclamp(rgb, 0.0f, 1.0f)
-    mix(pow((clampedRgb + vec3(0.055f)) * (1.0f / 1.055f), vec3(2.4f)), clampedRgb * (1.0f / 12.92f), lessThan(clampedRgb, 0.04045f))
+    mix(
+      pow((clampedRgb + vec3(0.055f)) * (1.0f / 1.055f), vec3(2.4f)),
+      clampedRgb * (1.0f / 12.92f),
+      lessThan(clampedRgb, 0.04045f)
+    )
   }
 
   // https://www.youtube.com/shorts/TH3OTy5fTog
-  def igPallette(brightness: Vec3[Float32], contrast: Vec3[Float32], freq: Vec3[Float32], offsets: Vec3[Float32], f: Float32): Vec3[Float32] =
+  def igPallette(
+    brightness: Vec3[Float32],
+    contrast: Vec3[Float32],
+    freq: Vec3[Float32],
+    offsets: Vec3[Float32],
+    f: Float32
+  ): Vec3[Float32] =
     brightness addV (contrast mulV cos(((freq * f) addV offsets) * 2f * math.Pi.toFloat))
 
   def linearToSRGB(rgb: Vec3[Float32]): Vec3[Float32] = {
     val clampedRgb = vclamp(rgb, 0.0f, 1.0f)
-    mix(pow(clampedRgb, vec3(1.0f / 2.4f)) * 1.055f - vec3(0.055f), clampedRgb * 12.92f, lessThan(clampedRgb, 0.0031308f))
+    mix(
+      pow(clampedRgb, vec3(1.0f / 2.4f)) * 1.055f - vec3(0.055f),
+      clampedRgb * 12.92f,
+      lessThan(clampedRgb, 0.0031308f)
+    )
   }
 
   type InterpolationTheme = (Vec3[Float32], Vec3[Float32], Vec3[Float32])
@@ -38,7 +52,7 @@ object Color:
   @targetName("interpolatePiped")
   def interpolate(theme: InterpolationTheme)(f: Float32): Vec3[Float32] = interpolate(theme, f)
 
-  transparent inline def hex(inline color: String): Any = ${ hexImpl('{ color }) }
+  transparent inline def hex(inline color: String): Any = ${hexImpl('{color})}
 
   import scala.quoted.*
   def hexImpl(color: Expr[String])(using Quotes): Expr[Any] =
@@ -48,7 +62,6 @@ object Color:
     def byteHexToFloat(hex: String): Float = Integer.parseInt(hex, 16) / 255f
     def byteHexToFloatExpr(hex: String): Expr[Float] = Expr(byteHexToFloat(hex))
     str match
-      case rgbPattern(r, g, b) => '{ (${ byteHexToFloatExpr(r) }, ${ byteHexToFloatExpr(g) }, ${ byteHexToFloatExpr(b) }) }
-      case rgbaPattern(r, g, b, a) =>
-        '{ (${ byteHexToFloatExpr(r) }, ${ byteHexToFloatExpr(g) }, ${ byteHexToFloatExpr(b) }, ${ byteHexToFloatExpr(a) }) }
+      case rgbPattern(r, g, b) => '{(${byteHexToFloatExpr(r)}, ${byteHexToFloatExpr(g)}, ${byteHexToFloatExpr(b)})}
+      case rgbaPattern(r, g, b, a) => '{(${byteHexToFloatExpr(r)}, ${byteHexToFloatExpr(g)}, ${byteHexToFloatExpr(b)}, ${byteHexToFloatExpr(a)})}
       case _ => quotes.reflect.report.errorAndAbort(s"Invalid color format: $str")

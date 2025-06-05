@@ -34,10 +34,10 @@ private[cyfra] class Device(instance: Instance) extends VulkanObject {
 
     val pPhysicalDevices = stack.callocPointer(deviceCount)
     check(vkEnumeratePhysicalDevices(instance.get, pPhysicalDeviceCount, pPhysicalDevices), "Failed to get physical devices")
-
+    
     new VkPhysicalDevice(pPhysicalDevices.get(), instance.get)
   }
-
+  
   val physicalDeviceName: String = pushStack { stack =>
     val pProperties = VkPhysicalDeviceProperties.calloc(stack)
     vkGetPhysicalDeviceProperties(physicalDevice, pProperties)

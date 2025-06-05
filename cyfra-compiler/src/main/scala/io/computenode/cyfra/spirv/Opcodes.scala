@@ -3,9 +3,15 @@ package io.computenode.cyfra.spirv
 import java.nio.charset.StandardCharsets
 
 private[cyfra] object Opcodes {
-
-  def intToBytes(i: Int): List[Byte] =
-    List[Byte]((i >>> 24).asInstanceOf[Byte], (i >>> 16).asInstanceOf[Byte], (i >>> 8).asInstanceOf[Byte], (i >>> 0).asInstanceOf[Byte])
+  
+  def intToBytes(i: Int): List[Byte] = {
+    List[Byte](
+      (i >>> 24).asInstanceOf[Byte],
+      (i >>> 16).asInstanceOf[Byte],
+      (i >>> 8).asInstanceOf[Byte],
+      (i >>> 0).asInstanceOf[Byte]
+    )
+  }
 
   private[cyfra] trait Words {
     def toWords: List[Byte]
@@ -18,27 +24,32 @@ private[cyfra] object Opcodes {
 
     def length = 1
 
-    override def toString = s"Word(${bytes.mkString(", ")}${if (bytes.length == 4) s" [i = ${BigInt(bytes).toInt}])" else ""}"
+    override def toString = s"Word(${bytes.mkString(", ")}${if(bytes.length == 4) s" [i = ${BigInt(bytes).toInt}])" else ""}"
   }
 
   private[cyfra] case class WordVariable(name: String) extends Words {
-    def toWords: List[Byte] =
+    def toWords: List[Byte] = {
       List(-1, -1, -1, -1)
+    }
 
     def length = 1
   }
 
+
   private[cyfra] case class Instruction(code: Code, operands: List[Words]) extends Words {
     override def toWords: List[Byte] =
-      code.toWords.take(2) ::: intToBytes(length).reverse.take(2) ::: operands.flatMap(_.toWords)
+      code.toWords.take(2) :::
+        intToBytes(length).reverse.take(2) :::
+        operands.flatMap(_.toWords)
 
     def length = 1 + operands.map(_.length).sum
 
-    def replaceVar(name: String, value: Int): Instruction =
+    def replaceVar(name: String, value: Int): Instruction = {
       this.copy(operands = operands.map {
         case WordVariable(varName) if name == varName => IntWord(value)
-        case any                                      => any
+        case any => any
       })
+    }
 
     override def toString: String = s"${code.mnemo} ${operands.mkString(", ")}"
   }
@@ -73,6 +84,7 @@ private[cyfra] object Opcodes {
 
     override def toString: String = s"%$result"
   }
+
 
   val MagicNumber = Code("MagicNumber", 0x07230203)
   val Version = Code("Version", 0x00010000)

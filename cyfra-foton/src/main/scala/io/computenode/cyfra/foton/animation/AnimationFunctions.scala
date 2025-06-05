@@ -27,7 +27,7 @@ object AnimationFunctions:
         from
       .otherwise:
         to
-
+  
 //  def freefall(from: Float32, to: Float32, g: Float32): Float32 => Vec3[Float32] =
 //    t =>
 //      val distance = to - from
@@ -46,3 +46,4 @@ object AnimationFunctions:
 //      val factor = 1f - sqrt(bounciness)
 //      val n = log((t * factor) / t0 + 1f, sqrt(bounciness)).asInt
 //      ???
+

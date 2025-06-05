@@ -25,26 +25,28 @@ import scala.util.Random
 
 private[cyfra] object DSLCompiler:
 
-  // TODO: Not traverse same fn scopes for each fn call
-  private def getAllExprsFlattened(root: E[_], visitDetached: Boolean): List[E[_]] =
+  // TODO: Not traverse same fn scopes for each fn call 
+  private def getAllExprsFlattened(root: E[_], visitDetached: Boolean): List[E[_]] = 
     var blockI = 0
     val allScopesCache = mutable.Map[Int, List[E[_]]]()
     val visited = mutable.Set[Int]()
     @tailrec
     def getAllScopesExprsAcc(toVisit: List[E[_]], acc: List[E[_]] = Nil): List[E[_]] = toVisit match
-      case Nil                                     => acc
+      case Nil => acc
       case e :: tail if visited.contains(e.treeid) => getAllScopesExprsAcc(tail, acc)
       case e :: tail =>
-        if (allScopesCache.contains(root.treeid))
+        if (allScopesCache.contains(root.treeid)) {
           return allScopesCache(root.treeid)
+        }
         val eScopes = e.introducedScopes
         val filteredScopes = if visitDetached then eScopes else eScopes.filterNot(_.isDetached)
         val newToVisit = toVisit ::: e.exprDependencies ::: filteredScopes.map(_.expr)
         val result = e.exprDependencies ::: acc
         visited += e.treeid
         blockI += 1
-        if (blockI % 100 == 0)
+        if (blockI % 100 == 0) {
           allScopesCache.update(e.treeid, result)
+        }
         getAllScopesExprsAcc(newToVisit, result)
     val result = root :: getAllScopesExprsAcc(root :: Nil)
     allScopesCache(root.treeid) = result
@@ -57,11 +59,10 @@ private[cyfra] object DSLCompiler:
     val allTypes = (typesInCode ::: inTypes ::: outTypes).distinct
     def scalarTypes = allTypes.filter(_.tag <:< summon[Tag[Scalar]].tag)
     val (typeDefs, typedContext) = defineScalarTypes(scalarTypes, Context.initialContext)
-    val structsInCode =
-      (allExprs.collect {
-        case cs: ComposeStruct[_] => cs.resultSchema
-        case gf: GetField[_, _]   => gf.resultSchema
-      } :+ uniformSchema).distinct
+    val structsInCode = (allExprs.collect {
+      case cs: ComposeStruct[_] => cs.resultSchema
+      case gf: GetField[_, _] => gf.resultSchema
+    } :+ uniformSchema).distinct
     val (structDefs, structCtx) = defineStructTypes(structsInCode, typedContext)
     val structNames = getStructNames(structsInCode, structCtx)
     val (decorations, uniformDefs, uniformContext) = initAndDecorateUniforms(inTypes, outTypes, structCtx)
@@ -76,14 +77,30 @@ private[cyfra] object DSLCompiler:
     val nameDecorations = getNameDecorations(ctxWithFnDefs)
 
     val code: List[Words] =
-      SpirvProgramCompiler.headers ::: blockNames ::: nameDecorations ::: structNames ::: SpirvProgramCompiler.workgroupDecorations :::
-        decorations ::: uniformStructDecorations ::: typeDefs ::: structDefs ::: fnTypeDefs ::: uniformDefs ::: uniformStructInsns ::: inputDefs :::
-        constDefs ::: varDefs ::: main ::: fnDefs
+      SpirvProgramCompiler.headers :::
+        blockNames :::
+        nameDecorations :::
+        structNames :::
+        SpirvProgramCompiler.workgroupDecorations :::
+        decorations :::
+        uniformStructDecorations :::
+        typeDefs :::
+        structDefs :::
+        fnTypeDefs :::
+        uniformDefs :::
+        uniformStructInsns :::
+        inputDefs :::
+        constDefs :::
+        varDefs :::
+        main :::
+        fnDefs
 
     val fullCode = code.map {
       case WordVariable(name) if name == BOUND_VARIABLE => IntWord(ctxWithFnDefs.nextResultId)
-      case x                                            => x
+      case x => x
     }
     val bytes = fullCode.flatMap(_.toWords).toArray
 
     BufferUtils.createByteBuffer(bytes.length).put(bytes).rewind()
+
+

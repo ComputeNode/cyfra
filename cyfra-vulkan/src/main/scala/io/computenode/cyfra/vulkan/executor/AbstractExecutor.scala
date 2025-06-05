@@ -12,7 +12,7 @@ import org.lwjgl.vulkan.VK10.*
 
 import java.nio.ByteBuffer
 
-abstract private[cyfra] class AbstractExecutor(dataLength: Int, val bufferActions: Seq[BufferAction], context: VulkanContext) {
+private[cyfra] abstract class AbstractExecutor(dataLength: Int, val bufferActions: Seq[BufferAction], context: VulkanContext) {
   protected val device: Device = context.device
   protected val queue: Queue = context.computeQueue
   protected val allocator: Allocator = context.allocator

@@ -3,9 +3,10 @@ package io.computenode.cyfra.dsl
 import io.computenode.cyfra.dsl.Algebra.{*, given}
 import io.computenode.cyfra.dsl.Pure.pure
 
+
 case class Random(seed: UInt32) extends GStruct[Random]:
 
-  def next[R <: Value: Random.Generator]: (Random, R) =
+  def next[R <: Value : Random.Generator]: (Random, R) =
     val generator = summon[Random.Generator[R]]
     val (nextValue, nextSeed) = generator.gen(seed)
     (Random(nextSeed), nextValue)
@@ -20,13 +21,14 @@ object Random:
     val s3 = s2 ^ (s2 >> 4)
     val s4 = s3 * 0x27d4eb2d
     s4 ^ (s4 >> 15)
-
+  
+    
   given Generator[Float32] with
     def gen(seed: UInt32): (Float32, UInt32) =
       val nextSeed = wangHash(seed)
       val f = nextSeed.asFloat / 4294967296.0f
       (f, nextSeed)
-
+      
   given Generator[Vec3[Float32]] with
     def gen(seed: UInt32): (Vec3[Float32], UInt32) =
       val floatGenerator = summon[Generator[Float32]]

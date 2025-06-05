@@ -12,10 +12,14 @@ object Util:
   }
   def isScala2Macro(using Quotes)(s: quotes.reflect.Symbol) = {
     import quotes.reflect._
-    (s.flags.is(Flags.Macro) && s.owner.flags.is(Flags.Scala2x)) || (s.flags.is(Flags.Macro) && !s.flags.is(Flags.Inline))
+    (s.flags.is(Flags.Macro) && s.owner.flags.is(Flags.Scala2x)) ||
+      (s.flags.is(Flags.Macro) && !s.flags.is(Flags.Inline))
   }
-  def isSyntheticName(name: String) =
+  def isSyntheticName(name: String) = {
     name == "<init>" || (name.startsWith("<local ") && name.endsWith(">")) || name == "$anonfun" || name == "macro"
-  def getName(using Quotes)(s: quotes.reflect.Symbol) =
+  }
+  def getName(using Quotes)(s: quotes.reflect.Symbol) = {
     s.name.trim
       .stripSuffix("$") // meh
+  }
+

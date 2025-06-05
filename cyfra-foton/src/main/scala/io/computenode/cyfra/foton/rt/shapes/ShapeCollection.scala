@@ -12,15 +12,20 @@ import io.computenode.cyfra.foton.rt.shapes.Shape.TestRay
 
 import scala.util.chaining.*
 
-class ShapeCollection(val boxes: List[Box], val spheres: List[Sphere], val quads: List[Quad], val planes: List[Plane]) extends Shape:
-
+class ShapeCollection(
+  val boxes: List[Box],
+  val spheres: List[Sphere],
+  val quads: List[Quad],
+  val planes: List[Plane]
+) extends Shape:
+  
   def this(shapes: List[Shape]) = this(
     shapes.collect { case box: Box => box },
     shapes.collect { case sphere: Sphere => sphere },
     shapes.collect { case quad: Quad => quad },
     shapes.collect { case plane: Plane => plane }
   )
-
+  
   def addShape(shape: Shape): ShapeCollection =
     shape match
       case box: Box =>
@@ -34,10 +39,12 @@ class ShapeCollection(val boxes: List[Box], val spheres: List[Sphere], val quads
       case _ => assert(false, "Unknown shape type: Broken sealed hierarchy")
 
   def testRay(rayPos: Vec3[Float32], rayDir: Vec3[Float32], noHit: RayHitInfo): RayHitInfo =
-    def testShapeType[T <: GStruct[T] with Shape: FromExpr: Tag: TestRay](shapes: List[T], currentHit: RayHitInfo): RayHitInfo =
+    def testShapeType[T <: GStruct[T] with Shape : FromExpr : Tag : TestRay](shapes: List[T], currentHit: RayHitInfo): RayHitInfo =
       val testRay = summon[TestRay[T]]
       if shapes.isEmpty then currentHit
-      else GSeq.of(shapes).fold(currentHit, (currentHit, shape) => testRay.testRay(shape, rayPos, rayDir, currentHit))
+      else GSeq.of(shapes).fold(currentHit, { (currentHit, shape) =>
+        testRay.testRay(shape, rayPos, rayDir, currentHit)
+      })
 
     testShapeType(quads, noHit)
       .pipe(testShapeType(spheres, _))

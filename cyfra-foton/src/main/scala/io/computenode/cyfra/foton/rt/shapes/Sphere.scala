@@ -17,11 +17,20 @@ import io.computenode.cyfra.dsl.Pure.pure
 import io.computenode.cyfra.dsl.given
 import io.computenode.cyfra.foton.rt.shapes.Shape.TestRay
 
-case class Sphere(center: Vec3[Float32], radius: Float32, material: Material) extends GStruct[Sphere] with Shape
+case class Sphere(
+  center: Vec3[Float32],
+  radius: Float32,
+  material: Material
+) extends GStruct[Sphere] with Shape
 
 object Sphere:
   given TestRay[Sphere] with
-    def testRay(sphere: Sphere, rayPos: Vec3[Float32], rayDir: Vec3[Float32], currentHit: RayHitInfo): RayHitInfo = pure:
+    def testRay(
+      sphere: Sphere,
+      rayPos: Vec3[Float32],
+      rayDir: Vec3[Float32],
+      currentHit: RayHitInfo,
+    ): RayHitInfo = pure:
       val toRay = rayPos - sphere.center
       val b = toRay dot rayDir
       val c = (toRay dot toRay) - (sphere.radius * sphere.radius)
@@ -37,6 +46,10 @@ object Sphere:
           when(dist > MinRayHitTime && dist < currentHit.dist) {
             val normal = normalize((rayPos + rayDir * dist - sphere.center) * (when(fromInside)(-1f).otherwise(1f)))
             RayHitInfo(dist, normal, sphere.material, fromInside)
-          } otherwise notHit
-        } otherwise notHit
+          } otherwise {
+            notHit
+          }
+        } otherwise {
+          notHit
+        }
       }

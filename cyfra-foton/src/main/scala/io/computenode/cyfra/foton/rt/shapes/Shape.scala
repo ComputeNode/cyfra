@@ -9,4 +9,9 @@ trait Shape
 
 object Shape:
   trait TestRay[S <: Shape]:
-    def testRay(shape: S, rayPos: Vec3[Float32], rayDir: Vec3[Float32], currentHit: RayHitInfo): RayHitInfo
+    def testRay(
+      shape: S,
+      rayPos: Vec3[Float32],
+      rayDir: Vec3[Float32],
+      currentHit: RayHitInfo,
+    ): RayHitInfo
