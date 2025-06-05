@@ -13,7 +13,6 @@ class FloatMem(val size: Int, protected val data: ByteBuffer) extends RamGMem[Fl
     res.get(result)
     result
 
-
 object FloatMem {
   val FloatSize = 4
 
@@ -24,7 +23,7 @@ object FloatMem {
     data.rewind()
     new FloatMem(size, data)
 
-  def apply(size: Int): FloatMem = 
+  def apply(size: Int): FloatMem =
     val data = BufferUtils.createByteBuffer(size * FloatSize)
     new FloatMem(size, data)
 }

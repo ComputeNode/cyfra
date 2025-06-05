@@ -18,28 +18,15 @@ import io.computenode.cyfra.dsl.given
 import io.computenode.cyfra.foton.rt.shapes.Shape.TestRay
 import io.computenode.cyfra.dsl.Pure.pure
 
-case class Quad(
-  a: Vec3[Float32],
-  b: Vec3[Float32],
-  c: Vec3[Float32],
-  d: Vec3[Float32],
-  material: Material
-) extends GStruct[Quad] with Shape
+case class Quad(a: Vec3[Float32], b: Vec3[Float32], c: Vec3[Float32], d: Vec3[Float32], material: Material) extends GStruct[Quad] with Shape
 
 object Quad:
   given TestRay[Quad] with
-    def testRay(
-      quad: Quad,
-      rayPos: Vec3[Float32],
-      rayDir: Vec3[Float32],
-      currentHit: RayHitInfo,
-    ): RayHitInfo = pure:
+    def testRay(quad: Quad, rayPos: Vec3[Float32], rayDir: Vec3[Float32], currentHit: RayHitInfo): RayHitInfo = pure:
       val normal = normalize((quad.c - quad.a) cross (quad.c - quad.b))
       val fixedQuad = when((normal dot rayDir) > 0f) {
         Quad(quad.d, quad.c, quad.b, quad.a, quad.material)
-      } otherwise {
-        quad
-      }
+      } otherwise quad
       val fixedNormal = when((normal dot rayDir) > 0f)(-normal).otherwise(normal)
       val p = rayPos
       val q = rayPos + rayDir
@@ -60,9 +47,7 @@ object Quad:
         }
         when(dist > MinRayHitTime && dist < currentHit.dist) {
           RayHitInfo(dist, fixedNormal, quad.material)
-        } otherwise {
-          currentHit
-        }
+        } otherwise currentHit
 
       when(v >= 0f) {
         val u = -(pb dot m)
@@ -74,9 +59,7 @@ object Quad:
           val ww = w * denom
           val intersectPos = fixedQuad.a * uu + fixedQuad.b * vv + fixedQuad.c * ww
           checkHit(intersectPos)
-        } otherwise {
-          currentHit
-        }
+        } otherwise currentHit
       } otherwise {
         val pd = fixedQuad.d - p
         val u = pd dot m
@@ -89,7 +72,5 @@ object Quad:
           val ww = w * denom
           val intersectPos = fixedQuad.a * uu + fixedQuad.d * vv + fixedQuad.c * ww
           checkHit(intersectPos)
-        } otherwise {
-          currentHit
-        }
+        } otherwise currentHit
       }
