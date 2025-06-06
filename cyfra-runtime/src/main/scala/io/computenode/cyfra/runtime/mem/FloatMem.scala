@@ -24,11 +24,13 @@ class FloatMem(val size: Int, val vulkanBuffer: Buffer) extends RamGMem[Float32,
 
     Buffer.copyBuffer(vulkanBuffer, stagingBuffer, bufferSize, commandPool).block().close()
     
-    val byteBuffer = stagingBuffer.map()
-    val floatBuffer = byteBuffer.asFloatBuffer()
-    val result = new Array[Float](size)
-    floatBuffer.get(result)
-    stagingBuffer.unmap()
+    val result = stagingBuffer.map { byteBuffer =>
+      val floatBuffer = byteBuffer.asFloatBuffer()
+      val arr = new Array[Float](size)
+      floatBuffer.get(arr)
+      arr
+    }
+
     stagingBuffer.destroy()
     result
 
@@ -52,9 +54,9 @@ object FloatMem {
       allocator
     )
 
-    val byteBuffer = stagingBuffer.map()
-    byteBuffer.asFloatBuffer().put(floats)
-    stagingBuffer.unmap()
+    stagingBuffer.map { byteBuffer =>
+      byteBuffer.asFloatBuffer().put(floats)
+    }
 
     val deviceBuffer = new Buffer(
       bufferSize.toInt,

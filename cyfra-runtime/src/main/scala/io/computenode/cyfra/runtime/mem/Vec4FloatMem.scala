@@ -25,13 +25,13 @@ class Vec4FloatMem(val size: Int, val vulkanBuffer: Buffer) extends RamGMem[Vec4
 
     Buffer.copyBuffer(vulkanBuffer, stagingBuffer, bufferSize, commandPool).block().close()
 
-    val byteBuffer = stagingBuffer.map()
-    val floatBuffer = byteBuffer.asFloatBuffer()
-    val result = new Array[fRGBA](size)
-    for (i <- 0 until size)
-      result(i) = (floatBuffer.get(), floatBuffer.get(), floatBuffer.get(), floatBuffer.get())
-    
-    stagingBuffer.unmap()
+    val result = stagingBuffer.map { byteBuffer =>
+      val floatBuffer = byteBuffer.asFloatBuffer()
+      val arr = new Array[fRGBA](size)
+      for (i <- 0 until size)
+        arr(i) = (floatBuffer.get(), floatBuffer.get(), floatBuffer.get(), floatBuffer.get())
+      arr
+    }
     stagingBuffer.destroy()
     result
   }
@@ -56,15 +56,15 @@ object Vec4FloatMem:
       allocator
     )
 
-    val byteBuffer = stagingBuffer.map()
-    val floatBuffer = byteBuffer.asFloatBuffer()
-    vecs.foreach { case (x, y, z, a) =>
-      floatBuffer.put(x)
-      floatBuffer.put(y)
-      floatBuffer.put(z)
-      floatBuffer.put(a)
+    stagingBuffer.map { byteBuffer =>
+      val floatBuffer = byteBuffer.asFloatBuffer()
+      vecs.foreach { case (x, y, z, a) =>
+        floatBuffer.put(x)
+        floatBuffer.put(y)
+        floatBuffer.put(z)
+        floatBuffer.put(a)
+      }
     }
-    stagingBuffer.unmap()
 
     val deviceBuffer = new Buffer(
       bufferSize.toInt,

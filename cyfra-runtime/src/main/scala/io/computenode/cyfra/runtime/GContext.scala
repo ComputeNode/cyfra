@@ -101,9 +101,9 @@ class GContext(debug: Boolean = false):
         VMA_MEMORY_USAGE_CPU_ONLY,
         vkContext.allocator
       )
-      val mappedUniform = uniformStagingVkBuffer.map()
-      mappedUniform.put(uniformCPUByteBuffer)
-      uniformStagingVkBuffer.unmap()
+      uniformStagingVkBuffer.map { mappedUniform =>
+        mappedUniform.put(uniformCPUByteBuffer)
+      }
       
       uniformStagingBufferOpt = Some(uniformStagingVkBuffer)
       bufferActions.put(LayoutLocation(0, 2), BufferAction.LoadTo)

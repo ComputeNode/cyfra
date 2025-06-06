@@ -41,28 +41,34 @@ private[cyfra] class Buffer(val size: Int, val usage: Int, flags: Int, memUsage:
     (pBuffer.get(), pAllocation.get())
   }
 
-  def map(): ByteBuffer = {
-    pushStack { stack =>
-      val pData = stack.callocPointer(1)
-      check(vmaMapMemory(allocator.get, allocation, pData), s"Failed to map buffer memory for buffer handle $handle allocation $allocation")
-      val dataPtr = pData.get(0)
-      if (dataPtr == NULL) {
-        throw new VulkanAssertionError(s"vmaMapMemory returned NULL for buffer handle $handle, allocation $allocation", -1)
+  def map[R](f: ByteBuffer => R): R = {
+    var dataPtr: Long = NULL
+    try {
+      dataPtr = pushStack { stack =>
+        val pData = stack.callocPointer(1)
+        check(vmaMapMemory(allocator.get, allocation, pData), s"Failed to map buffer memory for buffer handle $handle allocation $allocation")
+        val ptr = pData.get(0)
+        if (ptr == NULL) {
+          throw new VulkanAssertionError(s"vmaMapMemory returned NULL for buffer handle $handle, allocation $allocation", -1)
+        }
+        ptr
       }
-      memByteBuffer(dataPtr, this.size)
+      val byteBuffer = memByteBuffer(dataPtr, this.size)
+      f(byteBuffer)
+    } finally {
+      if (dataPtr != NULL) {
+        vmaUnmapMemory(allocator.get, allocation)
+      }
     }
-  }
-
-  def unmap(): Unit = {
-    vmaUnmapMemory(allocator.get, allocation)
   }
 
   def get(dst: Array[Byte]): Unit = {
     val len = Math.min(dst.length, size)
-    val byteBuffer = memCalloc(len)
-    Buffer.copyBuffer(this, byteBuffer, len)
-    byteBuffer.get(dst)
-    memFree(byteBuffer)
+    this.map { mappedBuffer =>
+      val bufferSlice = mappedBuffer.slice() 
+      bufferSlice.limit(len)
+      bufferSlice.get(dst, 0, len) 
+    }
   }
 
   protected def close(): Unit =
@@ -70,23 +76,20 @@ private[cyfra] class Buffer(val size: Int, val usage: Int, flags: Int, memUsage:
 }
 
 object Buffer {
-  def copyBuffer(src: ByteBuffer, dst: Buffer, bytes: Long): Unit =
-    pushStack { stack =>
-      val pData = stack.callocPointer(1)
-      check(vmaMapMemory(dst.allocator.get, dst.allocation, pData), "Failed to map destination buffer memory")
-      val data = pData.get()
-      memCopy(memAddress(src), data, bytes)
+  def copyBuffer(src: ByteBuffer, dst: Buffer, bytes: Long): Unit = {
+    dst.map { dstMappedBuffer =>
+      val srcSlice = src.slice()
+      srcSlice.limit(bytes.toInt) 
+      dstMappedBuffer.put(srcSlice)
       vmaFlushAllocation(dst.allocator.get, dst.allocation, 0, bytes)
-      vmaUnmapMemory(dst.allocator.get, dst.allocation)
     }
+  }
 
   def copyBuffer(src: Buffer, dst: ByteBuffer, bytes: Long): Unit =
-    pushStack { stack =>
-      val pData = stack.callocPointer(1)
-      check(vmaMapMemory(src.allocator.get, src.allocation, pData), "Failed to map destination buffer memory")
-      val data = pData.get()
-      memCopy(data, memAddress(dst), bytes)
-      vmaUnmapMemory(src.allocator.get, src.allocation)
+    src.map { srcMappedBuffer =>
+      val srcSlice = srcMappedBuffer.slice()
+      srcSlice.limit(bytes.toInt)
+      dst.put(srcSlice)
     }
 
   def copyBuffer(src: Buffer, dst: Buffer, bytes: Long, commandPool: CommandPool): Fence =
