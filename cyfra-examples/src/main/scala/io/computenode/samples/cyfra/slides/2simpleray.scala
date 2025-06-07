@@ -37,11 +37,10 @@ def simpleray =
     val toRay = ray.position - sphereCenter
     val b = toRay dot ray.direction
     val c = (toRay dot toRay) - (sphereRadius * sphereRadius)
-    when((c < 0f || b < 0f) && b * b - c > 0f) {
+    when((c < 0f || b < 0f) && b * b - c > 0f):
       (1f, 1f, 1f, 1f)
-    } otherwise {
+    .otherwise:
       (0f, 0f, 0f, 1f)
-    }
     
   case class Ray(
     position: Vec3[Float32],

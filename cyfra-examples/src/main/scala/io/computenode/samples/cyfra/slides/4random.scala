@@ -319,19 +319,23 @@ def randomRays =
 
     Ray(rayPosition, rayDir)
 
-  val raytracing: GFunction[Empty, Vec4[Float32], Vec4[Float32]] = GFunction.from2D(dim):
-    case (_, (xi: Int32, yi: Int32), _) =>
-      val rngState = xi * 1973 + yi * 9277 + 2137 * 26699 | 1
-      val startState = RenderIteration((0f, 0f, 0f), rngState.unsigned)
-      val color = GSeq.gen(first = startState, next = {
-          case RenderIteration(_, rngState) =>
-            val ray = rayForPixel(xi, yi, Random(rngState))
-            val rtResult = getColorForRay(ray, rngState + 1)
-            RenderIteration(rtResult.color, rtResult.rngSeed)
-        }).limit(pixelIterationsPerFrame)
-        .map(state => state.color * (1.0f / pixelIterationsPerFrame.toFloat))
-        .fold((0f, 0f, 0f), _ + _)
-      (color, 1f)
+  def initSeed(xi: Int32, yi: Int32): Int32 =
+    xi * 1973 + yi * 9277 + 2137 * 26699 | 1
+
+  val raytracing: GFunction[Empty, Vec4[Float32], Vec4[Float32]] =
+    GFunction.from2D(dim):
+      case (_, (xi: Int32, yi: Int32), _) =>
+        val rngState = initSeed(xi, yi)
+        val startState = RenderIteration((0f, 0f, 0f), rngState.unsigned)
+        val color = GSeq.gen(first = startState, next = {
+            case RenderIteration(_, rngState) =>
+              val ray = rayForPixel(xi, yi, Random(rngState))
+              val rtResult = getColorForRay(ray, rngState + 1)
+              RenderIteration(rtResult.color, rtResult.rngSeed)
+          }).limit(pixelIterationsPerFrame)
+          .map(state => state.color * (1.0f / pixelIterationsPerFrame.toFloat))
+          .fold((0f, 0f, 0f), _ + _)
+        (color, 1f)
 
   val mem = Vec4FloatMem(Array.fill(dim * dim)((0f,0f,0f,0f)))
   val result = mem.map(raytracing).asInstanceOf[Vec4FloatMem].toArray
