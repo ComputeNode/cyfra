@@ -16,14 +16,14 @@ object Blur:
 
   given GContext = GContext()
 
-  def blurFunction(radius: Int): GFunction[GStruct.Empty, Vec4[Float32], Vec4[Float32]] =
+  type BlurFunction = GFunction[GStruct.Empty, Vec4[Float32], Vec4[Float32]]
+
+  def blurFunction(radius: Int): BlurFunction =
     GFunction.from2D(width = dim):
-      case(_, (x, y), image) =>
+      case (_, (x, y), image) =>
 
         def sample(dx: Int, dy: Int): Vec4[Float32] =
-          val ix = x + dx
-          val iy = y + dy
-          image.at(ix, iy)
+          image.at(x + dx, y + dy)
 
         def blur(radius: Int): Vec4[Float32] =
           val samples = for
@@ -41,6 +41,6 @@ object Blur:
     val image = ImageUtility.loadImage(file)
     val data = Vec4FloatMem(image)
 
-    val output = data.map(blurFunction(radius = 5))
+    val output = data.map(blurFunction(radius = 20))
 
     saveImage(output, dim, dim, Paths.get("blurred_lambda_days.png"))
