@@ -1,6 +1,6 @@
 package io.computenode.cyfra.runtime.mem
 
-import io.computenode.cyfra.dsl.{GStruct, GStructConstructor, GStructSchema, Value}
+import io.computenode.cyfra.dsl.{GStruct, GStructConstructor, GStructSchema, UniformContext, Value}
 import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.dsl.Expression.*
 import GStruct.Empty
@@ -19,7 +19,7 @@ trait GMem[H <: Value]:
   def map[
     G <: GStruct[G] : Tag : GStructSchema,
     R <: Value : FromExpr : Tag
-  ](fn: GFunction[G, H, R])(using context: GContext): GMem[R] =
+  ](fn: GFunction[G, H, R])(using context: GContext, uc: UniformContext[G]): GMem[R] =
     context.execute(this, fn)
 
 object GMem:
@@ -56,3 +56,14 @@ object GMem:
     data.rewind()
     data
   }
+
+val inBuffer = GBuffer[Int32]()
+val outBuffer = GBuffer[Int32]()
+
+val program = GProgram.on(inBuffer, outBuffer):
+  case (in, out) => for
+    index <- GIO.workerIndex
+    a <- in.read(index)
+    _ <- out.write(index, a + 1)
+    _ <- out.write(index * 2, a * 2)
+  yield ()

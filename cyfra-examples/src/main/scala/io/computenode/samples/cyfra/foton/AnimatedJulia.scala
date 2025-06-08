@@ -20,7 +20,7 @@ object AnimatedJulia:
   def julia() =
 
     def julia(uv: Vec2[Float32])(using AnimationInstant): Int32 =
-      val p = smooth(from = 0.355f, to = 0.4f, duration = 3.seconds)
+      val p = smooth(from = 0.355f, to = 0.4f, duration = 5.seconds)
       val const = (p, p)
       GSeq.gen(uv, next = v => {
         ((v.x * v.x) - (v.y * v.y), 2.0f * v.x * v.y) + const
@@ -38,7 +38,7 @@ object AnimatedJulia:
         1.0f
       )
 
-    val animatedJulia = AnimatedFunction.fromCoord(juliaColor, 3.seconds)
+    val animatedJulia = AnimatedFunction.fromCoord(juliaColor, 5.seconds)
 
     val renderer = AnimatedFunctionRenderer(Parameters(1024, 1024, 30))
     renderer.renderFramesToDir(animatedJulia, Paths.get("julia"))
