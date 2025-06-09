@@ -14,7 +14,7 @@ class GStructE2eTest extends munit.FunSuite:
 
   given gc: GContext = GContext()
 
-  test("custom GStruct"):
+  test("GStruct passed as uniform"):
     UniformContext.withUniform(custom1):
       val gf: GFunction[Custom, Float32, Float32] = GFunction:
         case (Custom(f, v), index, gArray) => v.*(f).dot(v) + gArray.at(index) * f
