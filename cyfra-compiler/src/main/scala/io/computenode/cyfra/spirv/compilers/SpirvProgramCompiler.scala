@@ -3,7 +3,7 @@ package io.computenode.cyfra.spirv.compilers
 import io.computenode.cyfra.spirv.Opcodes.*
 import io.computenode.cyfra.dsl.Expression.{Const, E}
 import io.computenode.cyfra.dsl.Value.*
-import io.computenode.cyfra.dsl.{GStructSchema, Value}
+import io.computenode.cyfra.dsl.{GStructSchema, Value, GStructConstructor}
 import io.computenode.cyfra.spirv.Context
 import io.computenode.cyfra.spirv.SpirvConstants.*
 import io.computenode.cyfra.spirv.SpirvTypes.*
@@ -241,17 +241,31 @@ private[cyfra]  object SpirvProgramCompiler:
     context.inBufferBlocks.flatMap(namesForBlock(_, "In")) ::: context.outBufferBlocks.flatMap(namesForBlock(_, "Out"))
 
   def createAndInitUniformBlock(schema: GStructSchema[_], ctx: Context): (List[Words], List[Words], Context) =
+    def totalStride(gs: GStructSchema[_]): Int = gs
+      .fields
+      .map:
+        case (_, fromExpr, t) if t <:< gs.gStructTag =>
+          val constructor = fromExpr.asInstanceOf[GStructConstructor[_]]
+          totalStride(constructor.schema)
+        case (_, _, t) =>
+          typeStride(t)
+      .sum
     val uniformStructTypeRef = ctx.valueTypeMap(schema.structTag.tag)
 
     val (offsetDecorations, _) = schema.fields.zipWithIndex.foldLeft[(List[Words], Int)](List.empty[Word], 0):
-      case ((acc, offset), ((name, _, tag), idx)) =>
+      case ((acc, offset), ((name, fromExpr, tag), idx)) =>
+        val stride =
+          if tag <:< schema.gStructTag then 
+            val constructor = fromExpr.asInstanceOf[GStructConstructor[_]]
+            totalStride(constructor.schema)
+          else typeStride(tag)
         val offsetDecoration = Instruction(Op.OpMemberDecorate, List(
           ResultRef(uniformStructTypeRef),
           IntWord(idx),
           Decoration.Offset,
           IntWord(offset)
         ))
-        (acc :+ offsetDecoration, offset + typeStride(tag))
+        (acc :+ offsetDecoration, offset + stride)
 
     val uniformBlockDecoration = Instruction(Op.OpDecorate, List(
       ResultRef(uniformStructTypeRef),
@@ -294,11 +308,12 @@ private[cyfra]  object SpirvProgramCompiler:
         uniformPointerMap = ctx.uniformPointerMap + (uniformStructTypeRef -> uniformPointerUniformRef)
       ))
 
+  val predefinedConsts = List((Int32Tag, 0), (UInt32Tag, 0), (Int32Tag, 1))
   def defineConstants(exprs: List[E[_]], ctx: Context): (List[Words], Context) = {
     val consts = (exprs.collect {
       case c @ Const(x) =>
         (c.tag, x)
-    } ::: List((Int32Tag, 0), (UInt32Tag, 0))).distinct.filterNot(_._1 == GBooleanTag)
+    } ::: predefinedConsts).distinct.filterNot(_._1 == GBooleanTag)
     val (insns, newC) = consts.foldLeft((List[Words](), ctx)) {
       case ((instructions, context), const) =>
         val insn = Instruction(Op.OpConstant, List(
