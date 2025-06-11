@@ -1,6 +1,8 @@
 
 @main
 def sample =
+  given GContext = GContext()
+
   val data = (0 to 256).map(_.toFloat).toArray
   val mem = FloatMem(data)
   

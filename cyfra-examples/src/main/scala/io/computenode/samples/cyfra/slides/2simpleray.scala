@@ -32,7 +32,7 @@ def simpleray =
   ) extends GStruct[Sphere]
 
   def checkCollision(ray: Ray): Vec4[Float32] =
-    val sphereCenter = (0f, 0.5f, 3f)
+    val sphereCenter = (0f, 0f, 3f)
     val sphereRadius = 1f
     val toRay = ray.position - sphereCenter
     val b = toRay dot ray.direction
@@ -52,7 +52,7 @@ def simpleray =
     val y = (yi.asFloat / dim.toFloat) * 2f - 1f
 
     val rayPosition = (0f, 0f, 0f)
-    val cameraDist = 1.0f / tan(fovDeg * 0.6f * math.Pi.toFloat / 180.0f)
+    val cameraDist = 1.0f / tan(fovDeg * 0.5f * math.Pi.toFloat / 180.0f)
     val rayTarget = (x, y, cameraDist)
     val rayDir = normalize(rayTarget - rayPosition)
     

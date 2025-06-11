@@ -220,10 +220,11 @@ def rays =
 
     Ray(rayPosition, rayDir)
 
-  val raytracing: GFunction[Empty, Vec4[Float32], Vec4[Float32]] = GFunction.from2D(dim):
-    case (_, (xi: Int32, yi: Int32), _) =>
-      val ray = rayForPixel(xi, yi)
-      getColorForRay(ray)
+  val raytracing: GFunction[Empty, Vec4[Float32], Vec4[Float32]] = 
+    GFunction.from2D(dim):
+      case (_, (xi: Int32, yi: Int32), _) =>
+        val ray = rayForPixel(xi, yi)
+        getColorForRay(ray)
   
 
 
