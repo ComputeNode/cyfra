@@ -4,48 +4,48 @@ import io.computenode.cyfra.utility.Logger.logger
 
 import java.nio.ByteBuffer
 
-object SpirvDisassembler extends SpirvTool {
+object SpirvDisassembler extends SpirvTool("spirv-dis") {
 
-  override type SpirvError = SpirvDisassemblerError
-  protected override val toolName: SupportedSpirVTools = SupportedSpirVTools.Disassembler
-
-  def getDisassembledSpirv(shaderCode: ByteBuffer, options: Param*): Option[String] = {
-    getOS.flatMap { os =>
-      getToolExecutableFromPath(
-        toolName, os)
-    } match {
-      case None =>
-        logger.warn("Shader code will not be disassembled.")
-        None
-      case Some(executable) =>
-        val cmd = Seq(executable) ++ options.flatMap(_.asStringParam.split(" ")) ++ Seq("-")
-        val (outputStream, errorStream, exitCode) = executeSpirvCmd(shaderCode, cmd)
-
-        if (exitCode == 0) {
-          logger.debug("SPIRV-Tools Disassembler succeeded.")
-          Some(outputStream.toString)
-        } else {
-          throw SpirvDisassemblerError(s"SPIRV-Tools Disassembler failed with exit code $exitCode. ${errorStream.toString}")
+  def disassembleSpirv(shaderCode: ByteBuffer, disassembly: Disassembly): Option[String] = {
+    disassembly match {
+      case Enable(throwOnFail, params*) =>
+        val disassemblyResult = tryGetDisassembleSpirv(shaderCode, params)
+        disassemblyResult match {
+          case Left(err) if throwOnFail => throw err
+          case Left(err) => logger.warn(err.message)
+            None
+          case Right(value) => Some(value)
         }
+      case Disable => logger.debug("SPIR-V disassembly is disabled.")
+        None
     }
   }
 
-  override protected def createError(message: String): SpirvDisassemblerError =
-    SpirvDisassemblerError(message)
+  private def tryGetDisassembleSpirv(shaderCode: ByteBuffer, params: Seq[Param]): Either[SpirvError, String] = {
+    for
+      executable <- findToolExecutable()
+      cmd = Seq(executable.getAbsolutePath) ++ params.flatMap(_.asStringParam.split(" ")) ++ Seq("-")
+      (stdout, stderr, exitCode) <- executeSpirvCmd(shaderCode, cmd)
+      result <- Either.cond(exitCode == 0, {
+        logger.debug("SPIR-V disassembly succeeded.")
+        stdout.toString
+      }, SpirvDisassemblyFailed(exitCode, stderr.toString))
+    yield result
+  }
 
-  case class SpirvDisassemblerError(msg: String) extends RuntimeException(msg)
+  sealed trait Disassembly
 
-  case object NoIndent extends FlagParam("--no-indent")
+  case class Enable(throwOnFail: Boolean, settings: Param*) extends Disassembly
 
-  case object NoHeader extends FlagParam("--no-header")
+  private final case class SpirvDisassemblyFailed(exitCode: Int, stderr: String) extends SpirvError {
+    def message: String =
+      s"""SPIR-V disassembly failed with exit code $exitCode.
+         |Disassembly errors:
+         |$stderr""".stripMargin
+  }
 
-  case object RawId extends FlagParam("--raw-id")
+  case object Disable extends Disassembly
 
-  case object NestedIndent extends FlagParam("--nested-indent")
-
-  case object ReorderBlocks extends FlagParam("--reorder-blocks")
-
-  case object Offsets extends FlagParam("--offsets")
-
-  case object Comment extends FlagParam("--comment")
+  object Enable:
+    def apply(settings: Param*): Enable = Enable(false, settings *)
 }

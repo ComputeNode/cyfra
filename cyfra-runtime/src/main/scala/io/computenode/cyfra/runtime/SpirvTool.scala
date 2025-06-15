@@ -2,145 +2,119 @@ package io.computenode.cyfra.runtime
 
 import io.computenode.cyfra.utility.Logger.logger
 
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream, FileOutputStream}
+import java.io.*
 import java.nio.ByteBuffer
 import java.nio.file.Path
-import scala.sys.process.{ProcessIO, ProcessLogger, stringSeqToProcess, *}
-import scala.util.Using
+import scala.annotation.tailrec
+import scala.sys.process.{ProcessIO, stringSeqToProcess}
+import scala.util.{Try, Using}
 
-abstract class SpirvTool {
-  type SpirvError <: RuntimeException
-  protected val toolName: SupportedSpirVTools
+abstract class SpirvTool(protected val toolName: String) {
 
-  def dumpSpvToFile(code: ByteBuffer, path: Path): Unit = {
-    Using.resource(new FileOutputStream(path.toAbsolutePath.toString).getChannel) { fc =>
-      fc.write(code)
-    }
-    code.rewind()
-  }
+  protected def findToolExecutable(): Either[SpirvError, File] = {
+    val pathEnv = sys.env.getOrElse("PATH", "")
+    val pathSeparator = File.pathSeparator
+    val directories = pathEnv.split(pathSeparator)
 
-  protected def createError(msg: String): SpirvError
-
-  protected def getOS: Option[SupportedSystem] = {
-    val os = System.getProperty("os.name").toLowerCase
-    if (os.contains("win")) return Some(SupportedSystem.Windows)
-    if (os.contains("mac")) return Some(SupportedSystem.MacOS)
-    if (os.contains("linux")) return Some(SupportedSystem.Linux)
-    logger.warn("This system does not support SPIRV-Tools.")
-    None
-  }
-
-  protected def getToolExecutableFromPath(tool: SupportedSpirVTools, os: SupportedSystem): Option[String] = {
-    val checker = os match
-      case SupportedSystem.Windows => "where"
-      case _ => "which"
-
-    val validatorName = getToolExecutableName(tool, os)
-
-    val stdout = new StringBuilder
-    val stderr = new StringBuilder
-
-    val processLogger = ProcessLogger(
-      (out: String) => stdout.append(out + "\n"),
-      (err: String) => stderr.append(err + "\n")
-    )
-
-    val exitCode = Process(Seq(checker, validatorName)).!(processLogger)
-    exitCode match
-      case 0 => Some(validatorName)
-      case _ =>
-        logger.warn(s"SPIRV-Tools ${tool.executableName} wasn't found in system path.")
-        if (stderr.toString().nonEmpty) logger.warn(s"${stderr.toString()}")
-        None
-  }
-
-  private def getToolExecutableName(tool: SupportedSpirVTools, os: SupportedSystem): String = {
-    os match {
-      case SupportedSystem.Windows => tool.executableName + ".exe"
-      case _ => tool.executableName
+    directories.map(dir => new File(dir, toolName)).find(file => file.exists() && file.canExecute) match {
+      case Some(file) => logger.debug(s"Found SPIR-V tool: ${file.getAbsolutePath}")
+        Right(file)
+      case None =>
+        Left(SpirvToolNotFound(toolName))
     }
   }
 
-  protected def executeSpirvCmd(shaderCode: ByteBuffer, cmd: Seq[String]): (ByteArrayOutputStream, ByteArrayOutputStream, Int) = {
+  protected def executeSpirvCmd(shaderCode: ByteBuffer, cmd: Seq[String]): Either[SpirvError, (ByteArrayOutputStream, ByteArrayOutputStream, Int)] = {
+    logger.debug(s"SPIR-V cmd $cmd.")
     val inputBytes = {
       val arr = new Array[Byte](shaderCode.remaining())
       shaderCode.get(arr)
       shaderCode.rewind()
       arr
     }
-
     val inputStream = new ByteArrayInputStream(inputBytes)
     val outputStream = new ByteArrayOutputStream()
     val errorStream = new ByteArrayOutputStream()
 
-    val processIO = new ProcessIO(
-      in => {
-        try {
-          val buf = new Array[Byte](1024)
-          var len = inputStream.read(buf)
-          while (len != -1) {
-            in.write(buf, 0, len)
-            len = inputStream.read(buf)
-          }
-        } catch {
-          case e: Exception => throw createError("Writing to stdin failed.\n" + e)
-        } finally {
-          in.close()
-        }
-      },
-      out => {
-        try {
-          val buf = new Array[Byte](1024)
-          var len = out.read(buf)
-          while (len != -1) {
-            outputStream.write(buf, 0, len)
-            len = out.read(buf)
-          }
-        } catch {
-          case e: Exception =>
-            throw createError("Reading from stdout failed.\n" + e)
-        } finally {
-          out.close()
-        }
-      },
-      err => {
-        try {
-          val buf = new Array[Byte](1024)
-          var len = err.read(buf)
-          while (len != -1) {
-            errorStream.write(buf, 0, len)
-            len = err.read(buf)
-          }
-        } catch {
-          case e: Exception =>
-            throw createError("Reading from stderr failed.\n" + e)
-        } finally {
-          err.close()
+    def safeIOCopy(inStream: InputStream, outStream: OutputStream, description: String): Either[SpirvToolIOError, Unit] = {
+      @tailrec
+      def loopOverBuffer(buf: Array[Byte]): Unit = {
+        val len = inStream.read(buf)
+        if (len == -1) ()
+        else {
+          outStream.write(buf, 0, len)
+          loopOverBuffer(buf)
         }
       }
-    )
 
-    val process = cmd.run(processIO)
-    val exitCode = process.exitValue()
-    (outputStream, errorStream, exitCode)
+      Using.Manager { use =>
+        val in = use(inStream)
+        val out = use(outStream)
+        val buf = new Array[Byte](1024)
+        loopOverBuffer(buf)
+        out.flush()
+      }.toEither.left.map(e => SpirvToolIOError(s"$description failed: ${e.getMessage}"))
+    }
+
+    def createProcessIO(): Either[SpirvError, ProcessIO] = {
+      val inHandler: OutputStream => Unit =
+        in => safeIOCopy(inputStream, in, "Writing to stdin") match {
+        case Left(err) => SpirvToolIOError(s"Failed to create ProcessIO: ${err.getMessage}")
+        case Right(_) => ()
+      }
+
+      val outHandler: InputStream => Unit =
+        out => safeIOCopy(out, outputStream, "Reading stdout") match {
+        case Left(err) => SpirvToolIOError(s"Failed to create ProcessIO: ${err.getMessage}")
+        case Right(_) => ()
+      }
+
+      val errHandler: InputStream => Unit =
+        err => safeIOCopy(err, errorStream, "Reading stderr") match {
+        case Left(err) => SpirvToolIOError(s"Failed to create ProcessIO: ${err.getMessage}")
+        case Right(_) => ()
+      }
+
+      Try {
+        new ProcessIO(inHandler, outHandler, errHandler)
+      }.toEither.left.map(e => SpirvToolIOError(s"Failed to create ProcessIO: ${e.getMessage}"))
+    }
+
+    for {
+      processIO <- createProcessIO()
+      process <- Try(cmd.run(processIO)).toEither.left.map(ex => SpirvCommandExecutionFailed(s"Failed to execute SPIR-V command: ${ex.getMessage}"))}
+    yield {
+      (outputStream, errorStream, process.exitValue())
+    }
   }
 
-  trait Param:
-    def asStringParam: String
+  trait SpirvError extends RuntimeException {
+    def message: String
 
-  trait FlagParam(flag: String) extends Param:
-    override def asStringParam: String = flag
+    override def getMessage: String = message
+  }
 
-  trait ParamWithArgs(param: String, args: String*) extends Param:
-    override def asStringParam: String = param + args.mkString(" ", " ", "")
+  case class Param(value: String):
+    def asStringParam: String = value
 
-  protected enum SupportedSpirVTools(val executableName: String):
-    case Validator extends SupportedSpirVTools("spirv-val")
-    case Optimizer extends SupportedSpirVTools("spirv-opt")
-    case Disassembler extends SupportedSpirVTools("spirv-dis")
+  private final case class SpirvToolNotFound(toolName: String) extends SpirvError {
+    def message: String = s"Tool '$toolName' not found in PATH."
+  }
 
-  protected enum SupportedSystem:
-    case Windows
-    case Linux
-    case MacOS
+  private final case class SpirvCommandExecutionFailed(details: String) extends SpirvError {
+    def message: String = s"SPIR-V command execution failed: $details"
+  }
+
+  private final case class SpirvToolIOError(details: String) extends SpirvError {
+    def message: String = s"SPIR-V command encountered IO error: $details"
+  }
+}
+
+object SpirvTool {
+  def dumpSpvToFile(code: ByteBuffer, path: Path): Unit = {
+    Using.resource(new FileOutputStream(path.toAbsolutePath.toString).getChannel) { fc =>
+      fc.write(code)
+    }
+    code.rewind()
+  }
 }

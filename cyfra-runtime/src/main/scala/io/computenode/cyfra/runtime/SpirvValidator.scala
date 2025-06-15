@@ -1,48 +1,47 @@
 package io.computenode.cyfra.runtime
 
-import io.computenode.cyfra.runtime.SpirvDisassembler.executeSpirvCmd
+import io.computenode.cyfra.runtime.SpirvDisassembler.{executeSpirvCmd, findToolExecutable}
 import io.computenode.cyfra.utility.Logger.logger
 
 import java.nio.ByteBuffer
 
-object SpirvValidator extends SpirvTool {
+object SpirvValidator extends SpirvTool("spirv-val") {
 
-  override type SpirvError = SpirvValidationError
-  protected override val toolName: SupportedSpirVTools = SupportedSpirVTools.Validator
-
-  def validateSpirv(shaderCode: ByteBuffer, enableValidation: Validation): Unit = {
-    enableValidation match {
-      case Disable =>
-      case Enable(settings*) =>
-        getOS.flatMap { os =>
-          getToolExecutableFromPath(toolName, os)
-        } match {
-          case None => logger.warn("Shader code will not be validated.")
-          case Some(executable) =>
-            val cmd = Seq(executable) ++ settings.flatMap(_.asStringParam.split(" ")) ++ Seq("-")
-            val (outputStream, errorStream, exitCode) = executeSpirvCmd(shaderCode, cmd)
-
-            if (exitCode == 0) {
-              logger.debug("SPIRV-Tools Validator succeeded.")
-              if (outputStream.toString().nonEmpty) logger.debug(outputStream.toString())
-            } else {
-              throw SpirvValidationError(s"SPIRV-Tools Validator failed with exit code $exitCode.\n" +
-                s"Validation errors:\n${errorStream.toString()}")
-            }
+  def validateSpirv(shaderCode: ByteBuffer, validation: Validation): Unit = {
+    validation match {
+      case Enable(throwOnFail, params*) =>
+        val validationRes = tryValidateSpirv(shaderCode, params)
+        validationRes match {
+          case Left(err) if throwOnFail => throw err
+          case Left(err) => logger.warn(err.message)
+          case Right(_) => ()
         }
+      case Disable => logger.debug("SPIR-V validation is disabled.")
     }
   }
 
-  override protected def createError(message: String): SpirvValidationError =
-    SpirvValidationError(message)
+  private def tryValidateSpirv(shaderCode: ByteBuffer, params: Seq[Param]): Either[SpirvError, Unit] = {
+    for
+      executable <- findToolExecutable()
+      cmd = Seq(executable.getAbsolutePath) ++ params.flatMap(_.asStringParam.split(" ")) ++ Seq("-")
+      (stdout, stderr, exitCode) <- executeSpirvCmd(shaderCode, cmd)
+      _ <- Either.cond(exitCode == 0, logger.debug("SPIR-V validation succeeded."), SpirvValidationFailed(exitCode, stderr.toString()))
+    yield ()
+  }
 
   sealed trait Validation
 
-  case class SpirvValidationError(msg: String) extends RuntimeException(msg)
+  case class Enable(throwOnFail: Boolean, settings: Param*) extends Validation
 
-  case class TargetEnv(version: String) extends ParamWithArgs("--target-env", version)
+  private final case class SpirvValidationFailed(exitCode: Int, stderr: String) extends SpirvError {
+    def message: String =
+      s"""SPIR-V validation failed with exit code $exitCode.
+         |Validation errors:
+         |$stderr""".stripMargin
+  }
 
-  case class Enable(settings: Param*) extends Validation
+  object Enable:
+    def apply(settings: Param*): Enable = Enable(false, settings *)
 
   case object Disable extends Validation
 }

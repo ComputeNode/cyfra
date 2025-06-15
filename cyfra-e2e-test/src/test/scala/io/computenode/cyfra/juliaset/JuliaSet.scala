@@ -4,9 +4,9 @@ import io.computenode.cyfra.*
 import io.computenode.cyfra.dsl.GStruct.Empty
 import io.computenode.cyfra.dsl.Pure.pure
 import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.runtime.SpirvOptimizer.{Enable, O}
 import io.computenode.cyfra.runtime.mem.Vec4FloatMem
-import io.computenode.cyfra.runtime.{GContext, GFunction}
+import io.computenode.cyfra.runtime.{GContext, GFunction, SpirvDisassembler, SpirvOptimizer, SpirvValidator}
+import io.computenode.cyfra.runtime.GContext.SpirvToolsOptions
 import io.computenode.cyfra.utility.ImageUtility
 import munit.FunSuite
 
@@ -81,5 +81,8 @@ class JuliaSet extends FunSuite:
     runJuliaSet("julia.png")
 
   test("Render julia set optimized"):
-    given GContext = new GContext(spirvOptimization = Enable(O))
+    given GContext = new GContext(SpirvToolsOptions(
+                                  validator = SpirvValidator.Enable(throwOnFail = true),
+                                  optimizer = SpirvOptimizer.Enable(SpirvOptimizer.Param("-O")),
+                                  disassembler = SpirvDisassembler.Enable(throwOnFail = true)))
     runJuliaSet("julia_O_optimized.png")

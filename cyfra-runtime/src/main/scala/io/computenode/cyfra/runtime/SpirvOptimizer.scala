@@ -1,38 +1,39 @@
 package io.computenode.cyfra.runtime
 
 import io.computenode.cyfra.runtime.SpirvDisassembler.executeSpirvCmd
+import io.computenode.cyfra.runtime.SpirvValidator.findToolExecutable
 import io.computenode.cyfra.utility.Logger.logger
 
 import java.nio.ByteBuffer
 
-object SpirvOptimizer extends SpirvTool {
+object SpirvOptimizer extends SpirvTool("spirv-opt") {
 
-  override type SpirvError = SpirvOptimizationError
-  protected override val toolName: SupportedSpirVTools = SupportedSpirVTools.Optimizer
-
-  def getOptimizedSpirv(shaderCode: ByteBuffer, optimization: Optimization): Option[ByteBuffer] = {
+  def optimizeSpirv(shaderCode: ByteBuffer, optimization: Optimization): ByteBuffer = {
     optimization match {
-      case Disable => None
-      case Enable(settings*) =>
-        getOS.flatMap { os =>
-          getToolExecutableFromPath(
-            toolName, os)
-        } match {
-          case None =>
-            logger.warn("Shader code will not be optimized.")
-            None
-          case Some(executable) =>
-            val cmd = Seq(executable) ++ settings.flatMap(_.asStringParam.split(" ")) ++ Seq("-", "-o", "-")
-            val (outputStream, errorStream, exitCode) = executeSpirvCmd(shaderCode, cmd)
-
-            if (exitCode == 0) {
-              logger.debug("SPIRV-Tools Optimizer succeeded.")
-              Some(toDirectBuffer(ByteBuffer.wrap(outputStream.toByteArray)))
-            } else {
-              throw SpirvOptimizationError(s"SPIRV-Tools Optimizer failed with exit code $exitCode.\n${errorStream.toString()}")
-            }
+      case Enable(throwOnFail, params*) =>
+        val validationRes = tryGetOptimizeSpirv(shaderCode, params)
+        validationRes match {
+          case Left(err) if throwOnFail => throw err
+          case Left(err) => logger.warn(err.message)
+            shaderCode
+          case Right(optimizedShaderCode) => optimizedShaderCode
         }
+      case Disable => logger.debug("SPIR-V optimization is disabled.")
+        shaderCode
     }
+  }
+
+  private def tryGetOptimizeSpirv(shaderCode: ByteBuffer, params: Seq[Param]): Either[SpirvError, ByteBuffer] = {
+    for
+      executable <- findToolExecutable()
+      cmd = Seq(executable.getAbsolutePath) ++ params.flatMap(_.asStringParam.split(" ")) ++ Seq("-", "-o", "-")
+      (stdout, stderr, exitCode) <- executeSpirvCmd(shaderCode, cmd)
+      result <- Either.cond(exitCode == 0, {
+        logger.debug("SPIR-V optimization succeeded.")
+        val optimized = toDirectBuffer(ByteBuffer.wrap(stdout.toByteArray))
+        optimized
+      }, SpirvOptimizationFailed(exitCode, stderr.toString))
+    yield result
   }
 
   private def toDirectBuffer(buf: ByteBuffer): ByteBuffer = {
@@ -42,20 +43,19 @@ object SpirvOptimizer extends SpirvTool {
     direct
   }
 
-  override protected def createError(message: String): SpirvOptimizationError =
-    SpirvOptimizationError(message)
-
   sealed trait Optimization
 
-  case class SpirvOptimizationError(msg: String) extends RuntimeException(msg)
+  case class Enable(throwOnFail: Boolean, settings: Param*) extends Optimization
 
-  case class TargetEnv(version: String) extends ParamWithArgs("--target-env", version)
+  private final case class SpirvOptimizationFailed(exitCode: Int, stderr: String) extends SpirvError {
+    def message: String =
+      s"""SPIR-V optimization failed with exit code $exitCode.
+         |Optimizer errors:
+         |$stderr""".stripMargin
+  }
 
-  case class Enable(settings: Param*) extends Optimization
-
-  case object O extends FlagParam("-O")
-
-  case object Os extends FlagParam("-Os")
+  object Enable:
+    def apply(settings: Param*): Enable = Enable(false, settings *)
 
   case object Disable extends Optimization
 }

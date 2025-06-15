@@ -15,7 +15,6 @@ import io.computenode.cyfra.runtime.{GContext, GFunction, SpirvValidator}
 import io.computenode.cyfra.utility.Units.Milliseconds
 import io.computenode.cyfra.utility.Utility.timed
 import io.computenode.cyfra.dsl.Algebra.{*, given}
-import io.computenode.cyfra.runtime.SpirvOptimizer.{Enable, O}
 import io.computenode.cyfra.runtime.mem.GMem.fRGBA
 import io.computenode.cyfra.runtime.mem.Vec4FloatMem
 

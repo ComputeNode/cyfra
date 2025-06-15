@@ -1,32 +1,40 @@
 package io.computenode.cyfra.runtime
 
 import io.computenode.cyfra.dsl.Algebra.FromExpr
+import io.computenode.cyfra.dsl.Value.{Float32, Vec4}
 import io.computenode.cyfra.dsl.{GArray, GStruct, GStructSchema, UniformContext, Value}
-import Value.{Float32, Vec4}
-import io.computenode.cyfra.vulkan.VulkanContext
-import io.computenode.cyfra.vulkan.compute.{Binding, ComputePipeline, InputBufferSize, LayoutInfo, LayoutSet, Shader, UniformSize}
-import io.computenode.cyfra.vulkan.executor.{BufferAction, SequenceExecutor}
-import SequenceExecutor.*
-import io.computenode.cyfra.runtime.SpirvOptimizer.{Optimization, O}
-import io.computenode.cyfra.runtime.SpirvValidator.Validation
 import io.computenode.cyfra.runtime.mem.GMem.totalStride
+import io.computenode.cyfra.runtime.mem.{FloatMem, GMem, Vec4FloatMem}
 import io.computenode.cyfra.spirv.SpirvTypes.typeStride
 import io.computenode.cyfra.spirv.compilers.DSLCompiler
 import io.computenode.cyfra.spirv.compilers.ExpressionCompiler.{UniformStructRef, WorkerIndex}
 import io.computenode.cyfra.utility.Logger.logger
-import mem.{FloatMem, GMem, Vec4FloatMem}
-import org.lwjgl.system.Configuration
+import io.computenode.cyfra.vulkan.VulkanContext
+import io.computenode.cyfra.vulkan.compute.*
+import io.computenode.cyfra.vulkan.executor.SequenceExecutor.*
+import io.computenode.cyfra.vulkan.executor.{BufferAction, SequenceExecutor}
 import izumi.reflect.Tag
+import org.lwjgl.system.Configuration
 
-import java.io.FileOutputStream
 import java.nio.ByteBuffer
-import java.nio.channels.FileChannel
+import java.nio.charset.StandardCharsets
+import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 
 
-class GContext(spirvValidation: Validation = SpirvValidator.Enable(), spirvOptimization: Optimization = SpirvOptimizer.Disable):
+object GContext {
+  case class SpirvToolsOptions(validator: SpirvValidator.Validation = SpirvValidator.Enable(),
+                               optimizer: SpirvOptimizer.Optimization = SpirvOptimizer.Disable,
+                               disassembler: SpirvDisassembler.Disassembly = SpirvDisassembler.Disable,
+                               dumpSpvs: DumpSpvs = No)
+  trait DumpSpvs()
+  private case class ToFile(baseFilePath: Path) extends DumpSpvs
+  private case object ToLogger extends DumpSpvs
+  private case object No extends DumpSpvs
+}
 
+class GContext(spirvToolsOptions: GContext.SpirvToolsOptions = SpirvToolsOptions()):
   Configuration.STACK_SIZE.set(1024) // fix lwjgl stack size
 
   val vkContext = new VulkanContext()
@@ -47,41 +55,59 @@ class GContext(spirvValidation: Validation = SpirvValidator.Enable(), spirvOptim
         WorkerIndex,
         GArray[H](0)
       )
-    val shaderCode = DSLCompiler.compile(tree, function.arrayInputs, function.arrayOutputs, uniformStructSchema)
-    SpirvValidator.validateSpirv(shaderCode, spirvValidation)
 
-    dumpSpvToFile(shaderCode, "program.spv") // TODO remove before release
+    val optimizedShaderCode = processShaderCodeWithSpirvTools(DSLCompiler.compile(tree, function.arrayInputs, function.arrayOutputs, uniformStructSchema))
 
     val inOut = 0 to 1 map (Binding(_, InputBufferSize(typeStride(summon[Tag[H]]))))
     val uniform = Option.when(uniformStructSchema.fields.nonEmpty)(Binding(2, UniformSize(totalStride(uniformStructSchema))))
     val layoutInfo = LayoutInfo(Seq(LayoutSet(0, inOut ++ uniform)))
 
-    val shader = SpirvOptimizer.getOptimizedSpirv(shaderCode, spirvOptimization) match {
-      case None =>
-        new Shader(shaderCode, new org.joml.Vector3i(256, 1, 1), layoutInfo, "main", vkContext.device)
+    val shader = Shader(optimizedShaderCode, org.joml.Vector3i(256, 1, 1), layoutInfo, "main", vkContext.device)
+    ComputePipeline(shader, vkContext)
+  }
 
-      case Some(optimizedShaderCode) =>
-        dumpSpvToFile(optimizedShaderCode, "optimized_program.spv") // TODO remove before release
-        SpirvValidator.validateSpirv(optimizedShaderCode, spirvValidation)
-        new Shader(optimizedShaderCode, new org.joml.Vector3i(256, 1, 1), layoutInfo, "main", vkContext.device)
+  private def processShaderCodeWithSpirvTools(shaderCode: ByteBuffer): ByteBuffer = {
+    spirvToolsOptions.dumpSpvs match {
+      case GContext.ToFile(baseFilePath) =>
+        val filePath = baseFilePath.toString + ".spv"
+        SpirvTool.dumpSpvToFile(shaderCode, Paths.get(filePath))
+      case _ =>
     }
 
-    new ComputePipeline(shader, vkContext)
-  }
+    SpirvDisassembler.disassembleSpirv(shaderCode, spirvToolsOptions.disassembler).foreach {
+      disassemblyString =>
+        spirvToolsOptions.dumpSpvs match {
+          case GContext.ToFile(baseFilePath) =>
+            val filePath = baseFilePath.toString + "_assembly.spv"
+            Files.write(Paths.get(filePath), disassemblyString.getBytes(StandardCharsets.UTF_8))
+          case GContext.ToLogger => logger.debug(s"Original SPIR-V Assembly:\n$disassemblyString")
+          case GContext.No =>
+        }
+    }
 
-  def time[R](block: => R): R = {
-    val start = System.nanoTime()
-    val result = block
-    val end = System.nanoTime()
-    logger.debug(s"Elapsed time: ${(end - start) / 1e6} ms")
-    result
-  }
+    SpirvValidator.validateSpirv(shaderCode, spirvToolsOptions.validator)
 
-  private def dumpSpvToFile(code: ByteBuffer, path: String): Unit =
-    val fc: FileChannel = new FileOutputStream("program.spv").getChannel
-    fc.write(code)
-    fc.close()
-    code.rewind()
+    val optimizedShaderCode = SpirvOptimizer.optimizeSpirv(shaderCode, spirvToolsOptions.optimizer)
+    spirvToolsOptions.dumpSpvs match {
+      case GContext.ToFile(baseFilePath) =>
+        val filePath = baseFilePath.toString + "_optimized.spv"
+        SpirvTool.dumpSpvToFile (optimizedShaderCode, Paths.get (filePath) ) // TODO remove before release
+      case _ =>
+    }
+    SpirvDisassembler.disassembleSpirv(optimizedShaderCode, spirvToolsOptions.disassembler).foreach {
+      disassemblyString =>
+        spirvToolsOptions.dumpSpvs match {
+          case GContext.ToFile(baseFilePath) =>
+            val filePath = baseFilePath.toString + "_optimized_assembly.spv"
+            Files.write(Paths.get(filePath), disassemblyString.getBytes(StandardCharsets.UTF_8))
+          case GContext.ToLogger => logger.debug(s"Optimized SPIR-V Assembly:\n$disassemblyString")
+          case GContext.No =>
+        }
+    }
+    SpirvValidator.validateSpirv(optimizedShaderCode, spirvToolsOptions.validator)
+
+    optimizedShaderCode
+  }
 
   def execute[
     G <: GStruct[G] : {Tag, GStructSchema},
