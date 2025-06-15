@@ -26,7 +26,7 @@ class GContext(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()):
 
   implicit val ec: ExecutionContextExecutor = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(16))
 
-  def compile[G <: GStruct[G]: {Tag, GStructSchema}, H <: Value: {Tag, FromExpr}, R <: Value: {Tag, FromExpr}](
+  def compile[G <: GStruct[G]: Tag: GStructSchema, H <: Value: Tag: FromExpr, R <: Value: Tag: FromExpr](
     function: GFunction[G, H, R],
   ): ComputePipeline = {
     val uniformStructSchema = summon[GStructSchema[G]]

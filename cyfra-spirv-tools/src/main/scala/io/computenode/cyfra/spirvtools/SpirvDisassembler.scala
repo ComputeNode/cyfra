@@ -1,6 +1,6 @@
 package io.computenode.cyfra.spirvtools
 
-import io.computenode.cyfra.spirvtools.SpirvTool.Param
+import io.computenode.cyfra.spirvtools.SpirvTool.{Ignore, Param, ToFile, ToLogger}
 import io.computenode.cyfra.utility.Logger.logger
 
 import java.nio.ByteBuffer
@@ -11,7 +11,7 @@ object SpirvDisassembler extends SpirvTool("spirv-dis") {
 
   def disassembleSpirv(shaderCode: ByteBuffer, disassembly: Disassembly): Option[String] =
     disassembly match {
-      case Enable(throwOnFail, resultSaveSetting, params) =>
+      case Enable(throwOnFail, toolOutput, params) =>
         val disassemblyResult = tryGetDisassembleSpirv(shaderCode, params)
         disassemblyResult match {
           case Left(err) if throwOnFail => throw err
@@ -19,11 +19,11 @@ object SpirvDisassembler extends SpirvTool("spirv-dis") {
             logger.warn(err.message)
             None
           case Right(disassembledShader) =>
-            resultSaveSetting match {
-              case NoSaving         =>
-              case ToFile(filePath) =>
-                Files.write(filePath, disassembledShader.getBytes(StandardCharsets.UTF_8))
-                logger.debug(s"Saved disassembled shader code in $filePath.")
+            toolOutput match {
+              case Ignore                       =>
+              case toFile @ SpirvTool.ToFile(_) =>
+                toFile.write(disassembledShader)
+                logger.debug(s"Saved disassembled shader code in ${toFile.filePath}.")
               case ToLogger => logger.debug(s"SPIR-V Assembly:\n$disassembledShader")
             }
             Some(disassembledShader)
@@ -33,7 +33,7 @@ object SpirvDisassembler extends SpirvTool("spirv-dis") {
         None
     }
 
-  private def tryGetDisassembleSpirv(shaderCode: ByteBuffer, params: Seq[Param]): Either[SpirvError, String] =
+  private def tryGetDisassembleSpirv(shaderCode: ByteBuffer, params: Seq[Param]): Either[SpirvToolError, String] =
     for
       executable <- findToolExecutable()
       cmd = Seq(executable.getAbsolutePath) ++ params.flatMap(_.asStringParam.split(" ")) ++ Seq("-")
@@ -43,23 +43,21 @@ object SpirvDisassembler extends SpirvTool("spirv-dis") {
           logger.debug("SPIR-V disassembly succeeded.")
           stdout.toString
         },
-        SpirvDisassemblyFailed(exitCode, stderr.toString),
+        SpirvToolDisassemblyFailed(exitCode, stderr.toString),
       )
     yield result
 
   sealed trait Disassembly
 
-  final case class SpirvDisassemblyFailed(exitCode: Int, stderr: String) extends SpirvError {
+  final case class SpirvToolDisassemblyFailed(exitCode: Int, stderr: String) extends SpirvToolError {
     def message: String =
       s"""SPIR-V disassembly failed with exit code $exitCode.
          |Disassembly errors:
          |$stderr""".stripMargin
   }
 
-  case class Enable(throwOnFail: Boolean = false, resultSaveSetting: ResultSaveSetting = ToLogger, settings: Seq[Param] = Seq.empty)
+  case class Enable(throwOnFail: Boolean = false, toolOutput: ToFile | Ignore.type | ToLogger.type = ToLogger, settings: Seq[Param] = Seq.empty)
       extends Disassembly
-
-  case object ToLogger extends ResultSaveSetting
 
   case object Disable extends Disassembly
 }

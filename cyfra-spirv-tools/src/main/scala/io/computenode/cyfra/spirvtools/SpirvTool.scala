@@ -4,6 +4,7 @@ import io.computenode.cyfra.utility.Logger.logger
 
 import java.io.*
 import java.nio.ByteBuffer
+import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 import scala.annotation.tailrec
 import scala.sys.process.{ProcessIO, stringSeqToProcess}
@@ -11,7 +12,7 @@ import scala.util.{Try, Using}
 
 abstract class SpirvTool(protected val toolName: String) {
 
-  protected def findToolExecutable(): Either[SpirvError, File] = {
+  protected def findToolExecutable(): Either[SpirvToolError, File] = {
     val pathEnv = sys.env.getOrElse("PATH", "")
     val pathSeparator = File.pathSeparator
     val directories = pathEnv.split(pathSeparator)
@@ -25,7 +26,10 @@ abstract class SpirvTool(protected val toolName: String) {
     }
   }
 
-  protected def executeSpirvCmd(shaderCode: ByteBuffer, cmd: Seq[String]): Either[SpirvError, (ByteArrayOutputStream, ByteArrayOutputStream, Int)] = {
+  protected def executeSpirvCmd(
+    shaderCode: ByteBuffer,
+    cmd: Seq[String],
+  ): Either[SpirvToolError, (ByteArrayOutputStream, ByteArrayOutputStream, Int)] = {
     logger.debug(s"SPIR-V cmd $cmd.")
     val inputBytes = {
       val arr = new Array[Byte](shaderCode.remaining())
@@ -61,7 +65,7 @@ abstract class SpirvTool(protected val toolName: String) {
         .map(e => SpirvToolIOError(s"$description failed: ${e.getMessage}"))
     }
 
-    def createProcessIO(): Either[SpirvError, ProcessIO] = {
+    def createProcessIO(): Either[SpirvToolError, ProcessIO] = {
       val inHandler: OutputStream => Unit =
         in =>
           safeIOCopy(inputStream, in, "Writing to stdin") match {
@@ -90,51 +94,59 @@ abstract class SpirvTool(protected val toolName: String) {
 
     for {
       processIO <- createProcessIO()
-      process <- Try(cmd.run(processIO)).toEither.left.map(ex => SpirvCommandExecutionFailed(s"Failed to execute SPIR-V command: ${ex.getMessage}"))
+      process <- Try(cmd.run(processIO)).toEither.left.map(ex => SpirvToolCommandExecutionFailed(s"Failed to execute SPIR-V command: ${ex.getMessage}"))
     } yield (outputStream, errorStream, process.exitValue())
   }
 
-  trait SpirvError extends RuntimeException {
+  trait SpirvToolError extends RuntimeException {
     def message: String
 
     override def getMessage: String = message
   }
 
-  protected trait ResultSaveSetting
-
-  case class ToFile(filePath: Path) extends ResultSaveSetting {
-    require(filePath != null, "filePath must not be null")
-    Option(filePath.getParent).foreach { dir =>
-      if (!Files.exists(dir)) {
-        Files.createDirectories(dir)
-        logger.debug(s"Created output directory: $dir")
-      }
-    }
-  }
-
-  final case class SpirvToolNotFound(toolName: String) extends SpirvError {
+  final case class SpirvToolNotFound(toolName: String) extends SpirvToolError {
     def message: String = s"Tool '$toolName' not found in PATH."
   }
 
-  final case class SpirvCommandExecutionFailed(details: String) extends SpirvError {
+  final case class SpirvToolCommandExecutionFailed(details: String) extends SpirvToolError {
     def message: String = s"SPIR-V command execution failed: $details"
   }
 
-  final case class SpirvToolIOError(details: String) extends SpirvError {
+  final case class SpirvToolIOError(details: String) extends SpirvToolError {
     def message: String = s"SPIR-V command encountered IO error: $details"
   }
 
-  case object NoSaving extends ResultSaveSetting
 }
 
 object SpirvTool {
-  def dumpSpvToFile(code: ByteBuffer, path: Path): Unit = {
-    Using.resource(new FileOutputStream(path.toAbsolutePath.toString).getChannel) { fc =>
-      fc.write(code)
-    }
-    code.rewind()
-  }
+  sealed trait ToolOutput
 
   case class Param(value: String):
     def asStringParam: String = value
+
+  case class ToFile(filePath: Path) extends ToolOutput {
+    require(filePath != null, "filePath must not be null")
+
+    def write(outputToSave: String | ByteBuffer): Unit =
+      Option(filePath.getParent).foreach { dir =>
+        if (!Files.exists(dir)) {
+          Files.createDirectories(dir)
+          logger.debug(s"Created output directory: $dir")
+        }
+        outputToSave match
+          case stringOutput: String   => Files.write(filePath, stringOutput.getBytes(StandardCharsets.UTF_8))
+          case byteBuffer: ByteBuffer => dumpByteBufferToFile(byteBuffer, filePath)
+      }
+
+    private def dumpByteBufferToFile(code: ByteBuffer, path: Path): Unit = {
+      Using.resource(new FileOutputStream(path.toAbsolutePath.toString).getChannel) { fc =>
+        fc.write(code)
+      }
+      code.rewind()
+    }
+  }
+
+  case object ToLogger extends ToolOutput
+
+  case object Ignore extends ToolOutput
 }

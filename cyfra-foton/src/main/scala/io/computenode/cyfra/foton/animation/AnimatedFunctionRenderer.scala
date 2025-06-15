@@ -13,10 +13,11 @@ import io.computenode.cyfra.runtime.{GContext, GFunction}
 import scala.concurrent.ExecutionContext
 import scala.concurrent.ExecutionContext.Implicits
 
-class AnimatedFunctionRenderer(params: AnimatedFunctionRenderer.Parameters)(using GContext)
+class AnimatedFunctionRenderer(params: AnimatedFunctionRenderer.Parameters)
     extends AnimationRenderer[AnimatedFunction, AnimatedFunctionRenderer.RenderFn](params):
 
   given ExecutionContext = Implicits.global
+  given GContext = GContext()
 
   override protected def renderFrame(scene: AnimatedFunction, time: Float32, fn: RenderFn): Array[fRGBA] =
     val mem = Array.fill(params.width * params.height)((0.5f, 0.5f, 0.5f, 0.5f))

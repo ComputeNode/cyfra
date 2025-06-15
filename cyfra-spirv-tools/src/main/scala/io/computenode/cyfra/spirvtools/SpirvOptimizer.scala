@@ -1,7 +1,7 @@
 package io.computenode.cyfra.spirvtools
 
 import io.computenode.cyfra.spirvtools.SpirvDisassembler.executeSpirvCmd
-import io.computenode.cyfra.spirvtools.SpirvTool.Param
+import io.computenode.cyfra.spirvtools.SpirvTool.{Ignore, Param, ToFile}
 import io.computenode.cyfra.spirvtools.SpirvValidator.findToolExecutable
 import io.computenode.cyfra.utility.Logger.logger
 
@@ -11,7 +11,7 @@ object SpirvOptimizer extends SpirvTool("spirv-opt") {
 
   def optimizeSpirv(shaderCode: ByteBuffer, optimization: Optimization): Option[ByteBuffer] =
     optimization match {
-      case Enable(throwOnFail, resultSaveSetting, params) =>
+      case Enable(throwOnFail, toolOutput, params) =>
         val optimizationRes = tryGetOptimizeSpirv(shaderCode, params)
         optimizationRes match {
           case Left(err) if throwOnFail => throw err
@@ -19,11 +19,11 @@ object SpirvOptimizer extends SpirvTool("spirv-opt") {
             logger.warn(err.message)
             None
           case Right(optimizedShaderCode) =>
-            resultSaveSetting match {
-              case NoSaving         =>
-              case ToFile(filePath) =>
-                SpirvTool.dumpSpvToFile(optimizedShaderCode, filePath)
-                logger.debug(s"Saved optimized shader code in $filePath.")
+            toolOutput match {
+              case SpirvTool.Ignore             =>
+              case toFile @ SpirvTool.ToFile(_) =>
+                toFile.write(optimizedShaderCode)
+                logger.debug(s"Saved optimized shader code in ${toFile.filePath}.")
             }
             Some(optimizedShaderCode)
         }
@@ -32,7 +32,7 @@ object SpirvOptimizer extends SpirvTool("spirv-opt") {
         None
     }
 
-  private def tryGetOptimizeSpirv(shaderCode: ByteBuffer, params: Seq[Param]): Either[SpirvError, ByteBuffer] =
+  private def tryGetOptimizeSpirv(shaderCode: ByteBuffer, params: Seq[Param]): Either[SpirvToolError, ByteBuffer] =
     for
       executable <- findToolExecutable()
       cmd = Seq(executable.getAbsolutePath) ++ params.flatMap(_.asStringParam.split(" ")) ++ Seq("-", "-o", "-")
@@ -43,7 +43,7 @@ object SpirvOptimizer extends SpirvTool("spirv-opt") {
           val optimized = toDirectBuffer(ByteBuffer.wrap(stdout.toByteArray))
           optimized
         },
-        SpirvOptimizationFailed(exitCode, stderr.toString),
+        SpirvToolOptimizationFailed(exitCode, stderr.toString),
       )
     yield result
 
@@ -56,10 +56,9 @@ object SpirvOptimizer extends SpirvTool("spirv-opt") {
 
   sealed trait Optimization
 
-  case class Enable(throwOnFail: Boolean = false, resultSaveSetting: ResultSaveSetting = NoSaving, settings: Seq[Param] = Seq.empty)
-      extends Optimization
+  case class Enable(throwOnFail: Boolean = false, toolOutput: ToFile | Ignore.type = Ignore, settings: Seq[Param] = Seq.empty) extends Optimization
 
-  final case class SpirvOptimizationFailed(exitCode: Int, stderr: String) extends SpirvError {
+  final case class SpirvToolOptimizationFailed(exitCode: Int, stderr: String) extends SpirvToolError {
     def message: String =
       s"""SPIR-V optimization failed with exit code $exitCode.
          |Optimizer errors:

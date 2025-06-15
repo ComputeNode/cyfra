@@ -11,9 +11,9 @@ class SpirvToolTest extends FunSuite {
     System.getProperty("os.name").toLowerCase.contains("win")
 
   class TestSpirvTool(toolName: String) extends SpirvTool(toolName) {
-    def runFindTool(): Either[SpirvError, File] = findToolExecutable()
+    def runFindTool(): Either[SpirvToolError, File] = findToolExecutable()
 
-    def runExecuteCmd(input: ByteBuffer, cmd: Seq[String]): Either[SpirvError, (ByteArrayOutputStream, ByteArrayOutputStream, Int)] =
+    def runExecuteCmd(input: ByteBuffer, cmd: Seq[String]): Either[SpirvToolError, (ByteArrayOutputStream, ByteArrayOutputStream, Int)] =
       executeSpirvCmd(input, cmd)
   }
 
@@ -27,7 +27,7 @@ class SpirvToolTest extends FunSuite {
     val newPath = tmpDir.toAbsolutePath.toString + File.pathSeparator + originalPath
 
     val tool = new TestSpirvTool("fake-tool") {
-      override protected def findToolExecutable(): Either[SpirvError, File] = {
+      override protected def findToolExecutable(): Either[SpirvToolError, File] = {
         val directories = newPath.split(File.pathSeparator)
         directories.map(dir => new File(dir, toolName)).find(file => file.exists() && file.canExecute) match {
           case Some(file) => Right(file)
@@ -92,7 +92,8 @@ class SpirvToolTest extends FunSuite {
     val data = "SPIRV binary data".getBytes("UTF-8")
     val buffer = ByteBuffer.wrap(data)
 
-    SpirvTool.dumpSpvToFile(buffer, tmpFile)
+    val tmp = SpirvTool.ToFile(tmpFile)
+    tmp.write(buffer)
 
     val fileBytes = Files.readAllBytes(tmpFile)
     assert(java.util.Arrays.equals(data, fileBytes))

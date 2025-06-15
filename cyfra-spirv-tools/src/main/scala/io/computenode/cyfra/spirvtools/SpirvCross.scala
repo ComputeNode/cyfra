@@ -1,19 +1,17 @@
 package io.computenode.cyfra.spirvtools
 
 import io.computenode.cyfra.spirvtools.SpirvDisassembler.executeSpirvCmd
-import io.computenode.cyfra.spirvtools.SpirvTool.Param
+import io.computenode.cyfra.spirvtools.SpirvTool.{Ignore, Param, ToFile, ToLogger}
 import io.computenode.cyfra.spirvtools.SpirvValidator.findToolExecutable
 import io.computenode.cyfra.utility.Logger.logger
 
 import java.nio.ByteBuffer
-import java.nio.charset.StandardCharsets
-import java.nio.file.Files
 
 object SpirvCross extends SpirvTool("spirv-cross") {
 
   def crossCompileSpirv(shaderCode: ByteBuffer, crossCompilation: CrossCompilation): Option[String] =
     crossCompilation match {
-      case Enable(throwOnFail, resultSaveSetting, params) =>
+      case Enable(throwOnFail, toolOutput, params) =>
         val crossCompilationRes = tryCrossCompileSpirv(shaderCode, params)
         crossCompilationRes match {
           case Left(err) if throwOnFail => throw err
@@ -21,11 +19,11 @@ object SpirvCross extends SpirvTool("spirv-cross") {
             logger.warn(err.message)
             None
           case Right(crossCompiledCode) =>
-            resultSaveSetting match
-              case NoSaving         =>
-              case ToFile(filePath) =>
-                Files.write(filePath, crossCompiledCode.getBytes(StandardCharsets.UTF_8))
-                logger.debug(s"Saved cross compiled shader code in $filePath.")
+            toolOutput match
+              case Ignore                       =>
+              case toFile @ SpirvTool.ToFile(_) =>
+                toFile.write(crossCompiledCode)
+                logger.debug(s"Saved cross compiled shader code in ${toFile.filePath}.")
               case ToLogger => logger.debug(s"SPIR-V Cross Compilation result:\n$crossCompiledCode")
             Some(crossCompiledCode)
         }
@@ -34,7 +32,7 @@ object SpirvCross extends SpirvTool("spirv-cross") {
         None
     }
 
-  private def tryCrossCompileSpirv(shaderCode: ByteBuffer, params: Seq[Param]): Either[SpirvError, String] =
+  private def tryCrossCompileSpirv(shaderCode: ByteBuffer, params: Seq[Param]): Either[SpirvToolError, String] =
     for
       executable <- findToolExecutable()
       cmd = Seq(executable.getAbsolutePath) ++ Seq("-") ++ params.flatMap(_.asStringParam.split(" "))
@@ -44,23 +42,21 @@ object SpirvCross extends SpirvTool("spirv-cross") {
           logger.debug("SPIR-V cross compilation succeeded.")
           stdout.toString
         },
-        SpirvCrossCompilationFailed(exitCode, stderr.toString),
+        SpirvToolCrossCompilationFailed(exitCode, stderr.toString),
       )
     yield result
 
   sealed trait CrossCompilation
 
-  case class Enable(throwOnFail: Boolean = false, resultSaveSetting: ResultSaveSetting = ToLogger, settings: Seq[Param] = Seq.empty)
+  case class Enable(throwOnFail: Boolean = false, toolOutput: ToFile | Ignore.type | ToLogger.type = ToLogger, settings: Seq[Param] = Seq.empty)
       extends CrossCompilation
 
-  final case class SpirvCrossCompilationFailed(exitCode: Int, stderr: String) extends SpirvError {
+  final case class SpirvToolCrossCompilationFailed(exitCode: Int, stderr: String) extends SpirvToolError {
     def message: String =
       s"""SPIR-V cross compilation failed with exit code $exitCode.
          |Cross errors:
          |$stderr""".stripMargin
   }
-
-  case object ToLogger extends ResultSaveSetting
 
   case object Disable extends CrossCompilation
 }
