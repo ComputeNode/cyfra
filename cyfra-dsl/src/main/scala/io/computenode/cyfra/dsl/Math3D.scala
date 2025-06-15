@@ -10,14 +10,7 @@ import scala.concurrent.duration.DurationInt
 object Math3D:
   def scalarTriple(u: Vec3[Float32], v: Vec3[Float32], w: Vec3[Float32]): Float32 = (u cross v) dot w
 
-  def fresnelReflectAmount(
-    n1: Float32,
-    n2: Float32,
-    normal: Vec3[Float32],
-    incident: Vec3[Float32],
-    f0: Float32,
-    f90: Float32
-  ): Float32 =
+  def fresnelReflectAmount(n1: Float32, n2: Float32, normal: Vec3[Float32], incident: Vec3[Float32], f0: Float32, f90: Float32): Float32 =
     val r0 = ((n1 - n2) / (n1 + n2)) * ((n1 - n2) / (n1 + n2))
     val cosX = -(normal dot incident)
     when(n1 > n2) {
@@ -38,9 +31,7 @@ object Math3D:
     }
 
   def lessThan(f: Vec3[Float32], f2: Float32): Vec3[Float32] =
-    (when(f.x < f2)(1.0f).otherwise(0.0f),
-      when(f.y < f2)(1.0f).otherwise(0.0f),
-      when(f.z < f2)(1.0f).otherwise(0.0f))
+    (when(f.x < f2)(1.0f).otherwise(0.0f), when(f.y < f2)(1.0f).otherwise(0.0f), when(f.z < f2)(1.0f).otherwise(0.0f))
 
   def rotate(uv: Vec2[Float32], angle: Float32): Vec2[Float32] =
     val newXAxis = (cos(angle), sin(angle))

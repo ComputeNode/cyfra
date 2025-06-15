@@ -88,4 +88,3 @@ class GContext(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()):
       case t if t == Tag[Vec4[Float32]] =>
         new Vec4FloatMem(mem.size, out.head).asInstanceOf[GMem[R]]
       case _ => assert(false, "Supported output types are Float32 and Vec4[Float32]")
-

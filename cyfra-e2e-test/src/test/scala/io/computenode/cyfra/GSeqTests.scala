@@ -24,7 +24,7 @@ class GseqE2eTest extends munit.FunSuite:
       .zip(expected)
       .foreach: (res, exp) =>
         assert(Math.abs(res - exp) < 0.001f, s"Expected $exp but got $res")
-  
+
   test("GSeq of takeWhile filter count"):
     val gf: GFunction[GStruct.Empty, Int32, Int32] = GFunction: n =>
       GSeq

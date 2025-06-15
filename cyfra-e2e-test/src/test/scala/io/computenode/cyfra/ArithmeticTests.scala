@@ -32,7 +32,7 @@ class ArithmeticsE2eTest extends munit.FunSuite:
     val result = gmem.map(gf).asInstanceOf[IntMem].toArray
 
     // With negative values and mod, Scala and Vulkan behave differently
-    val expected = inArr.map: n => 
+    val expected = inArr.map: n =>
       val res = ((n + 2) * (n - 3) / 5) % 7
       res + (if res < 0 then 7 else 0)
 
@@ -51,8 +51,8 @@ class ArithmeticsE2eTest extends munit.FunSuite:
     val v2 = Algebra.vec4.tupled(f2)
     val v3 = Algebra.vec4.tupled(f3)
 
-    val gf: GFunction[GStruct.Empty, Vec4[Float32], Float32] = GFunction:
-      v4 => (-v4).*(sc).+(v1).-(v2).dot(v3)
+    val gf: GFunction[GStruct.Empty, Vec4[Float32], Float32] = GFunction: v4 =>
+      (-v4).*(sc).+(v1).-(v2).dot(v3)
 
     val inArr: Array[fRGBA] = (0 to 1023)
       .map(_.toFloat)

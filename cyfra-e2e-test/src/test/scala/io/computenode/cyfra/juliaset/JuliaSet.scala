@@ -33,15 +33,12 @@ class JuliaSet extends FunSuite:
         val len = length((x, y)) * 1000f
 
         def juliaSet(uv: Vec2[Float32]): Int32 = pure:
-          GSeq.gen(uv, next = v => {
-            ((v.x * v.x) - (v.y * v.y), 2.0f * v.x * v.y) + const
-          }).limit(RECURSION_LIMIT).map(length).takeWhile(_ < 2.0f).count
+          GSeq.gen(uv, next = v => ((v.x * v.x) - (v.y * v.y), 2.0f * v.x * v.y) + const).limit(RECURSION_LIMIT).map(length).takeWhile(_ < 2.0f).count
 
         def rotate(uv: Vec2[Float32], angle: Float32): Vec2[Float32] = pure:
           val newXAxis = (cos(angle), sin(angle))
           val newYAxis = (-newXAxis.y, newXAxis.x)
           (uv dot newXAxis, uv dot newYAxis) * 0.9f
-
 
         def interpolateColor(f: Float32): Vec3[Float32] = pure:
           val c1 = (8f, 22f, 104f) * (1 / 255f)
@@ -62,12 +59,7 @@ class JuliaSet extends FunSuite:
 
         when(recursionCount > 20):
           val color = interpolateColor(ff)
-          (
-            color.r,
-            color.g,
-            color.b,
-            1.0f
-          )
+          (color.r, color.g, color.b, 1.0f)
         .otherwise:
           (8f / 255f, 22f / 255f, 104f / 255f, 1.0f)
 

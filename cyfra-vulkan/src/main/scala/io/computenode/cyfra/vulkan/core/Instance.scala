@@ -112,12 +112,11 @@ private[cyfra] class Instance(enableValidationLayers: Boolean) extends VulkanObj
     if (enableValidationLayers)
       extensions.addAll(Instance.ValidationLayersExtensions)
 
-
     val filteredExtensions = extensions.filter(ext =>
       availableExtensions.contains(ext).tap { x =>
         if (!x)
           logger.warn(s"Requested Vulkan instance extension '$ext' is not available")
-      }
+      },
     )
 
     val ppEnabledExtensionNames = stack.callocPointer(extensions.size)

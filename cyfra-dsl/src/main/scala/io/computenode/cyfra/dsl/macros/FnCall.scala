@@ -6,13 +6,12 @@ import io.computenode.cyfra.dsl.macros.Source.{actualOwner, findOwner}
 import izumi.reflect.macrortti.LightTypeTag
 import scala.quoted.*
 
-
 case class FnCall(shortName: String, fullName: String, params: List[Value]):
   def identifier: FnIdentifier = FnIdentifier(shortName, fullName, params.map(_.tree.tag.tag))
 
 object FnCall:
 
-  inline implicit def generate: FnCall = ${ fnCallImpl }
+  implicit inline def generate: FnCall = ${ fnCallImpl }
 
   def fnCallImpl(using Quotes): Expr[FnCall] = {
     import quotes.reflect.*
@@ -41,7 +40,7 @@ object FnCall:
             val paramList = Expr.ofList(paramExprs)
             '{ FnCall(${ Expr(name) }, ${ Expr(ownerName) }, ${ paramList }) }
           case _ =>
-            quotes.reflect.report.errorAndAbort(s"Expected pure function. Found: ${ownerDef}")
+            quotes.reflect.report.errorAndAbort(s"Expected pure function. Found: $ownerDef")
         }
       case None => quotes.reflect.report.errorAndAbort(s"Expected pure function")
 
