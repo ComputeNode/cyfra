@@ -56,7 +56,7 @@ object SpirvOptimizer extends SpirvTool("spirv-opt") {
 
   case class Enable(throwOnFail: Boolean = false, resultSaveSetting: ResultSaveSetting = NoSaving, settings: Seq[Param] = Seq.empty) extends Optimization
 
-  private final case class SpirvOptimizationFailed(exitCode: Int, stderr: String) extends SpirvError {
+  final case class SpirvOptimizationFailed(exitCode: Int, stderr: String) extends SpirvError {
     def message: String =
       s"""SPIR-V optimization failed with exit code $exitCode.
          |Optimizer errors:

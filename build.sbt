@@ -48,11 +48,10 @@ lazy val commonSettings = Seq(
     "org.lwjgl" % "lwjgl-vma" % lwjglVersion classifier lwjglNatives,
     "org.joml" % "joml" % jomlVersion,
     "commons-io" % "commons-io" % "2.16.1",
-    "org.slf4j" % "slf4j-api" % "1.7.30",
-    "org.slf4j" % "slf4j-simple" % "1.7.30" % Test,
     "org.scalameta" % "munit_3" % "1.0.0" % Test,
     "com.lihaoyi" %% "sourcecode" % "0.4.3-M5",
-    "org.slf4j" % "slf4j-api" % "2.0.17"
+    "org.slf4j" % "slf4j-api" % "2.0.17",
+    "org.apache.logging.log4j" % "log4j-slf4j2-impl" % "2.24.3" % Test
   ) ++ vulkanNatives
 )
 

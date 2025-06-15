@@ -89,9 +89,8 @@ class JuliaSet extends FunSuite:
                                         settings = Seq(Param("-O"))),
       disassembler = SpirvDisassembler.Enable(resultSaveSetting = SpirvDisassembler.ToFile(Paths.get("output/optimized.spvasm")), throwOnFail = true),
       crossCompilation = SpirvCross.Enable(resultSaveSetting = SpirvCross.ToFile(Paths.get("output/optimized.glsl")),
-                                            throwOnFail = true))
+                                            throwOnFail = true),
+      dumpOriginalSpirvToFile = SpirvToolsRunner.Yes(Paths.get("output/original.spv")))
     )
-
-
 
     runJuliaSet("julia_O_optimized.png")

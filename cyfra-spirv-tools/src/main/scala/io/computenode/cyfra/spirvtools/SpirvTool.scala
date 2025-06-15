@@ -108,15 +108,15 @@ abstract class SpirvTool(protected val toolName: String) {
     override def getMessage: String = message
   }
 
-  private final case class SpirvToolNotFound(toolName: String) extends SpirvError {
+  final case class SpirvToolNotFound(toolName: String) extends SpirvError {
     def message: String = s"Tool '$toolName' not found in PATH."
   }
 
-  private final case class SpirvCommandExecutionFailed(details: String) extends SpirvError {
+  final case class SpirvCommandExecutionFailed(details: String) extends SpirvError {
     def message: String = s"SPIR-V command execution failed: $details"
   }
 
-  private final case class SpirvToolIOError(details: String) extends SpirvError {
+  final case class SpirvToolIOError(details: String) extends SpirvError {
     def message: String = s"SPIR-V command encountered IO error: $details"
   }
 }

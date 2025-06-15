@@ -34,7 +34,7 @@ object SpirvValidator extends SpirvTool("spirv-val") {
 
   case class Enable(throwOnFail: Boolean = false, settings: Seq[Param] = Seq.empty) extends Validation
 
-  private final case class SpirvValidationFailed(exitCode: Int, stderr: String) extends SpirvError {
+  final case class SpirvValidationFailed(exitCode: Int, stderr: String) extends SpirvError {
     def message: String =
       s"""SPIR-V validation failed with exit code $exitCode.
          |Validation errors:

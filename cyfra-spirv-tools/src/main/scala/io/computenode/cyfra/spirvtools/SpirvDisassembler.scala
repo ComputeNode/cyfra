@@ -44,7 +44,7 @@ object SpirvDisassembler extends SpirvTool("spirv-dis") {
     yield result
   }
 
-  private final case class SpirvDisassemblyFailed(exitCode: Int, stderr: String) extends SpirvError {
+  final case class SpirvDisassemblyFailed(exitCode: Int, stderr: String) extends SpirvError {
     def message: String =
       s"""SPIR-V disassembly failed with exit code $exitCode.
          |Disassembly errors:

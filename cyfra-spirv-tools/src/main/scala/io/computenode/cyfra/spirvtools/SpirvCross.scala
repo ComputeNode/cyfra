@@ -51,7 +51,7 @@ object SpirvCross extends SpirvTool("spirv-cross") {
 
   case class Enable(throwOnFail: Boolean = false, resultSaveSetting: ResultSaveSetting = ToLogger, settings: Seq[Param] = Seq.empty) extends CrossCompilation
 
-  private final case class SpirvCrossCompilationFailed(exitCode: Int, stderr: String) extends SpirvError {
+  final case class SpirvCrossCompilationFailed(exitCode: Int, stderr: String) extends SpirvError {
     def message: String =
       s"""SPIR-V cross compilation failed with exit code $exitCode.
          |Cross errors:
