@@ -25,6 +25,6 @@ object FloatMem {
     new FloatMem(size, data)
 
   def apply(size: Int): FloatMem = 
-    val data = MemoryUtil.memAlloc(size * FloatSize)
+    val data = BufferUtils.createByteBuffer(size * FloatSize)
     new FloatMem(size, data)
 }

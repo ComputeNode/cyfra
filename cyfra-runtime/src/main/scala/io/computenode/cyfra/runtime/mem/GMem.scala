@@ -1,14 +1,14 @@
 package io.computenode.cyfra.runtime.mem
 
-import io.computenode.cyfra.dsl.{GStruct, GStructConstructor, GStructSchema, Value}
+import io.computenode.cyfra.dsl.{UniformContext, GStruct, GStructConstructor, GStructSchema, Value}
 import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.dsl.Expression.*
 import GStruct.Empty
 import io.computenode.cyfra.dsl.Algebra.FromExpr
 import io.computenode.cyfra.spirv.SpirvTypes.typeStride
-import io.computenode.cyfra.runtime.{GFunction, GContext}
-
+import io.computenode.cyfra.runtime.{GContext, GFunction}
 import izumi.reflect.Tag
+import org.lwjgl.BufferUtils
 import org.lwjgl.system.MemoryUtil
 
 import java.nio.ByteBuffer
@@ -19,7 +19,7 @@ trait GMem[H <: Value]:
   def map[
     G <: GStruct[G] : Tag : GStructSchema,
     R <: Value : FromExpr : Tag
-  ](fn: GFunction[G, H, R])(using context: GContext): GMem[R] =
+  ](fn: GFunction[G, H, R])(using context: GContext, uc: UniformContext[G]): GMem[R] =
     context.execute(this, fn)
 
 object GMem:
@@ -34,7 +34,7 @@ object GMem:
   }.sum
 
   def serializeUniform(g: GStruct[?]): ByteBuffer = {
-    val data = MemoryUtil.memAlloc(totalStride(g.schema))
+    val data = BufferUtils.createByteBuffer(totalStride(g.schema))
     g.productIterator.foreach {
       case Int32(ConstInt32(i)) => data.putInt(i)
       case Float32(ConstFloat32(f)) => data.putFloat(f)
