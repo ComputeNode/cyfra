@@ -95,6 +95,16 @@ lazy val e2eTest = (project in file("cyfra-e2e-test"))
   .settings(commonSettings, runnerSettings)
   .dependsOn(runtime)
 
+lazy val rtrp = (project in file("cyfra-rtrp"))
+  .settings(commonSettings)
+  .dependsOn(utility, vulkan)
+  .settings(
+    libraryDependencies ++= Seq(
+      "org.lwjgl" % "lwjgl-glfw" % lwjglVersion,
+      "org.lwjgl" % "lwjgl-glfw" % lwjglVersion classifier lwjglNatives
+    )
+  )
+
 lazy val root = (project in file("."))
   .settings(name := "Cyfra")
   .aggregate(
@@ -103,7 +113,8 @@ lazy val root = (project in file("."))
     foton,
     runtime,
     vulkan,
-    examples
+    examples,
+    rtrp
   )
 
 e2eTest / Test / javaOptions ++= Seq(
