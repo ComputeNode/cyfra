@@ -10,20 +10,11 @@ import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.foton.rt.shapes.Shape.TestRay
 import io.computenode.cyfra.dsl.Pure.pure
 
-case class Plane(
-  point: Vec3[Float32],
-  normal: Vec3[Float32],
-  material: Material
-) extends GStruct[Plane] with Shape
+case class Plane(point: Vec3[Float32], normal: Vec3[Float32], material: Material) extends GStruct[Plane] with Shape
 
 object Plane:
   given TestRay[Plane] with
-    def testRay(
-      plane: Plane,
-      rayPos: Vec3[Float32],
-      rayDir: Vec3[Float32],
-      currentHit: RayHitInfo,
-    ): RayHitInfo = pure:
+    def testRay(plane: Plane, rayPos: Vec3[Float32], rayDir: Vec3[Float32], currentHit: RayHitInfo): RayHitInfo = pure:
       val denom = plane.normal dot rayDir
       given epsilon: Float32 = 0.1f
       when(denom =~= 0.0f) {

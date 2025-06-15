@@ -8,7 +8,6 @@ import io.computenode.cyfra.spirv.compilers.SpirvProgramCompiler.ArrayBufferBloc
 import izumi.reflect.Tag
 import izumi.reflect.macrortti.LightTypeTag
 
-
 private[cyfra] case class Context(
   valueTypeMap: Map[LightTypeTag, Int] = Map(),
   funPointerTypeMap: Map[Int, Int] = Map(),
@@ -33,5 +32,5 @@ private[cyfra] case class Context(
     this.copy(nextResultId = ctx.nextResultId, exprNames = ctx.exprNames ++ this.exprNames, functions = ctx.functions ++ this.functions)
 
 private[cyfra] object Context:
-  
+
   def initialContext: Context = Context()

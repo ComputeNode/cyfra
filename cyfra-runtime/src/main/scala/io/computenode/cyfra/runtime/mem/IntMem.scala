@@ -13,7 +13,6 @@ class IntMem(val size: Int, protected val data: ByteBuffer) extends RamGMem[Int3
     res.get(result)
     result
 
-
 object IntMem:
   val IntSize = 4
 
@@ -24,6 +23,6 @@ object IntMem:
     data.rewind()
     new IntMem(size, data)
 
-  def apply(size: Int): IntMem = 
+  def apply(size: Int): IntMem =
     val data = BufferUtils.createByteBuffer(size * IntSize)
     new IntMem(size, data)

@@ -38,13 +38,14 @@ private[cyfra] abstract class AbstractExecutor(dataLength: Int, val bufferAction
     }
 
   def execute(input: Seq[ByteBuffer]): Seq[ByteBuffer] = {
-    val stagingBuffer = new Buffer(
-      getBiggestTransportData * dataLength,
-      VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
-      VMA_MEMORY_USAGE_UNKNOWN,
-      allocator
-    )
+    val stagingBuffer =
+      new Buffer(
+        getBiggestTransportData * dataLength,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+        VMA_MEMORY_USAGE_UNKNOWN,
+        allocator,
+      )
     for (i <- bufferActions.indices if bufferActions(i) == BufferAction.LoadTo) do {
       val buffer = input(i)
       Buffer.copyBuffer(buffer, stagingBuffer, buffer.remaining())

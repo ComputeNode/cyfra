@@ -13,11 +13,14 @@ object ImageTests:
   def assertImagesEquals(result: File, expected: File) = {
     val expectedImage = ImageIO.read(expected)
     val resultImage = ImageIO.read(result)
-    //println("Got image:")
-    //println(renderAsText(resultImage, 50, 50))
+    // println("Got image:")
+    // println(renderAsText(resultImage, 50, 50))
     assertEquals(expectedImage.getWidth, resultImage.getWidth, "Width was different")
     assertEquals(expectedImage.getHeight, resultImage.getHeight, "Height was different")
-    for (x <- 0 until expectedImage.getWidth; y <- 0 until expectedImage.getHeight) {
+    for {
+      x <- 0 until expectedImage.getWidth
+      y <- 0 until expectedImage.getHeight
+    } {
       val equal = expectedImage.getRGB(x, y) == resultImage.getRGB(x, y)
       assert(equal, s"Pixel $x, $y was different. Output file: ${result.getAbsolutePath}")
     }
@@ -33,11 +36,11 @@ object ImageTests:
     val imageText = new StringBuilder
     for y <- 0 until h do
       for x <- 0 until w do
-        val rgb = scaledImage.getRGB(x,y)
-        val r = (rgb >> 16) & 0xFF
-        val g = (rgb >> 8) & 0xFF
-        val b = rgb & 0xFF
-        val pixel = colorize("   ", Attribute.BACK_COLOR(r,g,b))
+        val rgb = scaledImage.getRGB(x, y)
+        val r = (rgb >> 16) & 0xff
+        val g = (rgb >> 8) & 0xff
+        val b = rgb & 0xff
+        val pixel = colorize("   ", Attribute.BACK_COLOR(r, g, b))
         imageText.append(pixel)
       imageText.append("\n")
     imageText.toString

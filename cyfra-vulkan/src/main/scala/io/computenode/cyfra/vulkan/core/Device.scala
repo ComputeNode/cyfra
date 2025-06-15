@@ -34,10 +34,10 @@ private[cyfra] class Device(instance: Instance) extends VulkanObject {
 
     val pPhysicalDevices = stack.callocPointer(deviceCount)
     check(vkEnumeratePhysicalDevices(instance.get, pPhysicalDeviceCount, pPhysicalDevices), "Failed to get physical devices")
-    
+
     new VkPhysicalDevice(pPhysicalDevices.get(), instance.get)
   }
-  
+
   val physicalDeviceName: String = pushStack { stack =>
     val pProperties = VkPhysicalDeviceProperties.calloc(stack)
     vkGetPhysicalDeviceProperties(physicalDevice, pProperties)
@@ -56,12 +56,12 @@ private[cyfra] class Device(instance: Instance) extends VulkanObject {
     queues
       .find { i =>
         val queueFamily = pQueueFamilies.get(i)
-        val maskedFlags = (~(VK_QUEUE_TRANSFER_BIT | VK_QUEUE_SPARSE_BINDING_BIT) & queueFamily.queueFlags())
+        val maskedFlags = ~(VK_QUEUE_TRANSFER_BIT | VK_QUEUE_SPARSE_BINDING_BIT) & queueFamily.queueFlags()
         ~(VK_QUEUE_GRAPHICS_BIT & maskedFlags) > 0 && (VK_QUEUE_COMPUTE_BIT & maskedFlags) > 0
       }
       .orElse(queues.find { i =>
         val queueFamily = pQueueFamilies.get(i)
-        val maskedFlags = (~(VK_QUEUE_TRANSFER_BIT | VK_QUEUE_SPARSE_BINDING_BIT) & queueFamily.queueFlags())
+        val maskedFlags = ~(VK_QUEUE_TRANSFER_BIT | VK_QUEUE_SPARSE_BINDING_BIT) & queueFamily.queueFlags()
         (VK_QUEUE_COMPUTE_BIT & maskedFlags) > 0
       })
       .getOrElse(throw new AssertionError("No suitable queue family found for computing"))
@@ -72,14 +72,14 @@ private[cyfra] class Device(instance: Instance) extends VulkanObject {
       val pPropertiesCount = stack.callocInt(1)
       check(
         vkEnumerateDeviceExtensionProperties(physicalDevice, null.asInstanceOf[ByteBuffer], pPropertiesCount, null),
-        "Failed to get number of properties extension"
+        "Failed to get number of properties extension",
       )
       val propertiesCount = pPropertiesCount.get(0)
 
       val pProperties = VkExtensionProperties.calloc(propertiesCount, stack)
       check(
         vkEnumerateDeviceExtensionProperties(physicalDevice, null.asInstanceOf[ByteBuffer], pPropertiesCount, pProperties),
-        "Failed to get extension properties"
+        "Failed to get extension properties",
       )
 
       val deviceExtensions = pProperties.iterator().asScala.map(_.extensionNameString())
