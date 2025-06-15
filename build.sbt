@@ -50,8 +50,8 @@ lazy val commonSettings = Seq(
     "org.scalameta" % "munit_3" % "1.0.0" % Test,
     "com.lihaoyi" %% "sourcecode" % "0.4.3-M5",
     "org.slf4j" % "slf4j-api" % "2.0.17",
-    "org.apache.logging.log4j" % "log4j-slf4j2-impl" % "2.24.3" % Test
-  ) ++ vulkanNatives
+    "org.apache.logging.log4j" % "log4j-slf4j2-impl" % "2.24.3" % Test,
+  ) ++ vulkanNatives,
 )
 
 lazy val runnerSettings = Seq(libraryDependencies += "org.apache.logging.log4j" % "log4j-slf4j2-impl" % "2.24.3")
