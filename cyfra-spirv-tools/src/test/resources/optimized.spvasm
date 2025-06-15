@@ -1,0 +1,179 @@
+; SPIR-V
+; Version: 1.0
+; Generator: LunarG; 44
+; Bound: 337
+; Schema: 0
+               OpCapability Shader
+          %1 = OpExtInstImport "GLSL.std.450"
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint GLCompute %4 "main" %gl_GlobalInvocationID
+               OpExecutionMode %4 LocalSize 256 1 1
+               OpSource GLSL 450
+               OpName %BufferOut "BufferOut"
+               OpName %dataOut "dataOut"
+               OpName %ff "ff"
+               OpName %y "y"
+               OpName %function "function"
+               OpName %x "x"
+               OpName %function_0 "function"
+               OpName %function_1 "function"
+               OpName %y_0 "y"
+               OpName %f "f"
+               OpName %rotatedUv "rotatedUv"
+               OpName %function_2 "function"
+               OpName %function_3 "function"
+               OpName %x_0 "x"
+               OpName %y_1 "y"
+               OpName %rotatedUv_0 "rotatedUv"
+               OpName %x_1 "x"
+               OpName %function_4 "function"
+               OpName %y_2 "y"
+               OpName %ff_0 "ff"
+               OpName %y_3 "y"
+               OpDecorate %gl_GlobalInvocationID BuiltIn GlobalInvocationId
+               OpDecorate %gl_WorkGroupSize BuiltIn WorkgroupSize
+               OpDecorate %_runtimearr_v4float ArrayStride 16
+               OpMemberDecorate %BufferOut 0 Offset 0
+               OpDecorate %BufferOut BufferBlock
+               OpDecorate %dataOut DescriptorSet 0
+               OpDecorate %dataOut Binding 1
+       %bool = OpTypeBool
+       %uint = OpTypeInt 32 0
+     %v3uint = OpTypeVector %uint 3
+      %float = OpTypeFloat 32
+    %v2float = OpTypeVector %float 2
+    %v3float = OpTypeVector %float 3
+    %v4float = OpTypeVector %float 4
+%_ptr_Uniform_v4float = OpTypePointer Uniform %v4float
+        %int = OpTypeInt 32 1
+%_ptr_Input_int = OpTypePointer Input %int
+      %v3int = OpTypeVector %int 3
+%_ptr_Input_v3int = OpTypePointer Input %v3int
+       %void = OpTypeVoid
+          %3 = OpTypeFunction %void
+%_runtimearr_v4float = OpTypeRuntimeArray %v4float
+  %BufferOut = OpTypeStruct %_runtimearr_v4float
+%_ptr_Uniform_BufferOut = OpTypePointer Uniform %BufferOut
+    %dataOut = OpVariable %_ptr_Uniform_BufferOut Uniform
+   %uint_256 = OpConstant %uint 256
+     %uint_1 = OpConstant %uint 1
+   %uint_1_0 = OpConstant %uint 1
+%gl_WorkGroupSize = OpConstantComposite %v3uint %uint_256 %uint_1 %uint_1_0
+      %int_1 = OpConstant %int 1
+   %int_4096 = OpConstant %int 4096
+    %float_1 = OpConstant %float 1
+    %float_2 = OpConstant %float 2
+      %int_0 = OpConstant %int 0
+   %int_2048 = OpConstant %int 2048
+%float_0_354999989 = OpConstant %float 0.354999989
+%float_0_899999976 = OpConstant %float 0.899999976
+   %int_1000 = OpConstant %int 1000
+      %int_2 = OpConstant %int 2
+%float_0_0313725509 = OpConstant %float 0.0313725509
+%float_0_0862745121 = OpConstant %float 0.0862745121
+%float_0_407843143 = OpConstant %float 0.407843143
+     %int_20 = OpConstant %int 20
+       %true = OpConstantTrue %bool
+%gl_GlobalInvocationID = OpVariable %_ptr_Input_v3int Input
+%float_0_866025448 = OpConstant %float 0.866025448
+%float_0_49999997 = OpConstant %float 0.49999997
+        %318 = OpConstantComposite %v2float %float_0_49999997 %float_0_866025448
+        %319 = OpConstantComposite %v2float %float_0_354999989 %float_0_354999989
+        %320 = OpConstantComposite %v4float %float_0_0313725509 %float_0_0862745121 %float_0_407843143 %float_1
+%float_0_24313727 = OpConstant %float 0.24313727
+%float_0_321568638 = OpConstant %float 0.321568638
+%float_0_78039223 = OpConstant %float 0.78039223
+        %327 = OpConstantComposite %v3float %float_0_24313727 %float_0_321568638 %float_0_78039223
+%float_0_407843173 = OpConstant %float 0.407843173
+        %329 = OpConstantComposite %v3float %float_0_0313725509 %float_0_0862745121 %float_0_407843173
+%float_0_866666734 = OpConstant %float 0.866666734
+%float_0_913725555 = OpConstant %float 0.913725555
+        %332 = OpConstantComposite %v3float %float_0_866666734 %float_0_913725555 %float_1
+%float_0_000732421875 = OpConstant %float 0.000732421875
+%float_0_00999999978 = OpConstant %float 0.00999999978
+          %4 = OpFunction %void None %3
+        %115 = OpLabel
+        %116 = OpAccessChain %_ptr_Input_int %gl_GlobalInvocationID %int_0
+        %y_0 = OpLoad %int %116
+        %x_0 = OpSDiv %int %y_0 %int_4096
+        %x_1 = OpSMod %int %y_0 %int_4096
+          %y = OpISub %int %x_0 %int_2048
+          %x = OpISub %int %x_1 %int_2048
+        %y_3 = OpConvertSToF %float %y
+        %y_1 = OpConvertSToF %float %x
+        %y_2 = OpFMul %float %y_3 %float_0_000732421875
+%rotatedUv_0 = OpFMul %float %y_1 %float_0_000732421875
+  %rotatedUv = OpCompositeConstruct %v2float %rotatedUv_0 %y_2
+        %239 = OpVectorExtractDynamic %float %318 %int_1
+        %240 = OpVectorExtractDynamic %float %318 %int_0
+        %241 = OpFNegate %float %239
+        %242 = OpCompositeConstruct %v2float %241 %240
+        %244 = OpDot %float %rotatedUv %242
+        %245 = OpDot %float %rotatedUv %318
+        %246 = OpCompositeConstruct %v2float %245 %244
+        %247 = OpVectorTimesScalar %v2float %246 %float_0_899999976
+               OpBranch %254
+        %254 = OpLabel
+        %312 = OpPhi %v2float %247 %115 %281 %284
+        %309 = OpPhi %int %int_0 %115 %315 %284
+        %308 = OpPhi %int %int_0 %115 %283 %284
+        %307 = OpPhi %bool %true %115 %263 %284
+        %258 = OpSLessThan %bool %308 %int_1000
+        %259 = OpLogicalAnd %bool %307 %258
+               OpLoopMerge %285 %284 None
+               OpBranchConditional %259 %260 %285
+        %260 = OpLabel
+        %262 = OpExtInst %float %1 Length %312
+        %263 = OpFOrdLessThan %bool %262 %float_2
+               OpSelectionMerge %267 None
+               OpBranchConditional %263 %264 %267
+        %264 = OpLabel
+        %266 = OpIAdd %int %309 %int_1
+               OpBranch %267
+        %267 = OpLabel
+        %315 = OpPhi %int %309 %260 %266 %264
+        %268 = OpVectorExtractDynamic %float %312 %int_0
+        %269 = OpVectorExtractDynamic %float %312 %int_1
+        %274 = OpFMul %float %float_2 %268
+        %275 = OpFMul %float %269 %269
+        %276 = OpFMul %float %268 %268
+        %277 = OpFMul %float %274 %269
+        %278 = OpFSub %float %276 %275
+        %280 = OpCompositeConstruct %v2float %278 %277
+        %281 = OpFAdd %v2float %280 %319
+        %283 = OpIAdd %int %308 %int_1
+               OpBranch %284
+        %284 = OpLabel
+               OpBranch %254
+        %285 = OpLabel
+ %function_1 = OpSGreaterThan %bool %309 %int_20
+               OpSelectionMerge %150 None
+               OpBranchConditional %function_1 %151 %function
+        %151 = OpLabel
+       %ff_0 = OpConvertSToF %float %309
+          %f = OpFMul %float %ff_0 %float_0_00999999978
+         %ff = OpFOrdGreaterThan %bool %f %float_1
+        %336 = OpSelect %float %ff %float_1 %f
+        %289 = OpFSub %float %float_1 %336
+        %290 = OpFMul %float %float_2 %336
+        %296 = OpFMul %float %290 %289
+        %298 = OpFMul %float %289 %289
+        %300 = OpFMul %float %336 %336
+        %302 = OpVectorTimesScalar %v3float %327 %296
+        %303 = OpVectorTimesScalar %v3float %329 %298
+        %304 = OpVectorTimesScalar %v3float %332 %300
+        %305 = OpFAdd %v3float %303 %302
+        %306 = OpFAdd %v3float %305 %304
+ %function_4 = OpVectorExtractDynamic %float %306 %int_2
+ %function_0 = OpVectorExtractDynamic %float %306 %int_1
+ %function_2 = OpVectorExtractDynamic %float %306 %int_0
+ %function_3 = OpCompositeConstruct %v4float %function_2 %function_0 %function_4 %float_1
+               OpBranch %150
+   %function = OpLabel
+               OpBranch %150
+        %150 = OpLabel
+        %311 = OpPhi %v4float %function_3 %151 %320 %function
+        %154 = OpAccessChain %_ptr_Uniform_v4float %dataOut %int_0 %y_0
+               OpStore %154 %311
+               OpReturn
+               OpFunctionEnd

@@ -1,27 +1,25 @@
 package io.computenode.cyfra.juliaset
 
-import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.*
 import io.computenode.cyfra.dsl.GStruct.Empty
 import io.computenode.cyfra.dsl.Pure.pure
-import io.computenode.cyfra.runtime.{GContext, GFunction}
-import org.apache.commons.io.IOUtils
-import org.junit.runner.RunWith
+import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.runtime.mem.Vec4FloatMem
+import io.computenode.cyfra.runtime.{GContext, GFunction}
+import io.computenode.cyfra.spirvtools.*
+import io.computenode.cyfra.spirvtools.SpirvTool.{Param, ToFile}
 import io.computenode.cyfra.utility.ImageUtility
 import munit.FunSuite
 
 import java.io.File
-import java.nio.file.Files
+import java.nio.file.Paths
+import scala.concurrent.ExecutionContext
 import scala.concurrent.ExecutionContext.Implicits
-import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContext}
 
 class JuliaSet extends FunSuite:
-  given GContext = new GContext()
   given ExecutionContext = Implicits.global
 
-  test("Render julia set"):
+  def runJuliaSet(referenceImgName: String)(using GContext): Unit = {
     val dim = 4096
     val max = 1
     val RECURSION_LIMIT = 1000
@@ -68,5 +66,22 @@ class JuliaSet extends FunSuite:
     val r = Vec4FloatMem(dim * dim).map(function).asInstanceOf[Vec4FloatMem].toArray
     val outputTemp = File.createTempFile("julia", ".png")
     ImageUtility.renderToImage(r, dim, outputTemp.toPath)
-    val referenceImage = getClass.getResource("julia.png")
+    val referenceImage = getClass.getResource(referenceImgName)
     ImageTests.assertImagesEquals(outputTemp, new File(referenceImage.getPath))
+  }
+
+  test("Render julia set"):
+    given GContext = new GContext
+    runJuliaSet("julia.png")
+
+  test("Render julia set optimized"):
+    given GContext = new GContext(
+      SpirvToolsRunner(
+        validator = SpirvValidator.Enable(throwOnFail = true),
+        optimizer = SpirvOptimizer.Enable(toolOutput = ToFile(Paths.get("output/optimized.spv")), settings = Seq(Param("-O"))),
+        disassembler = SpirvDisassembler.Enable(toolOutput = ToFile(Paths.get("output/optimized.spvasm")), throwOnFail = true),
+        crossCompilation = SpirvCross.Enable(toolOutput = ToFile(Paths.get("output/optimized.glsl")), throwOnFail = true),
+        originalSpirvOutput = ToFile(Paths.get("output/original.spv")),
+      ),
+    )
+    runJuliaSet("julia_O_optimized.png")
