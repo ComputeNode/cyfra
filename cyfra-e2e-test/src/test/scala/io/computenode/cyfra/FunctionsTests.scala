@@ -58,10 +58,10 @@ class FunctionsE2eTest extends munit.FunSuite:
         val dotted = n.pro(f)
         val k = 1.0f - eta * eta * (1.0f - dotted * dotted)
         if k < 0.0 then (0f, 0f, 0f, 0f)
-        else f.scl(eta).sub(n.scl(eta * dotted + math.sqrt(k).toFloat)) 
+        else f.scl(eta).sub(n.scl(eta * dotted + math.sqrt(k).toFloat))
 
     def floatMix(a: Float, b: Float, t: Float): Float = a * (1 - t) + b * t
-    def vecMix(a: fRGBA, b: fRGBA, t: Float): fRGBA = (a.scl(1 - t)).add(b.scl(t))
+    def vecMix(a: fRGBA, b: fRGBA, t: Float): fRGBA = a.scl(1 - t).add(b.scl(t))
     def scalaClamp(f: Float, from: Float, to: Float) = math.min(math.max(f, from), to)
     def scalaSmooth(e0: Float, e1: Float, x: Float): Float =
       val t = scalaClamp((x - e0) / (e1 - e0), 0f, 1f)

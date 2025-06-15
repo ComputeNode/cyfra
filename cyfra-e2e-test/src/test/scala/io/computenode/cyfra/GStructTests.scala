@@ -50,8 +50,7 @@ class GStructE2eTest extends munit.FunSuite:
       GSeq
         .gen(custom1, c => Custom(c.f * 2f, c.v.*(2f)))
         .limit(3)
-        .fold[Float32](0f, (f, c) => f + c.f * (c.v.w + c.v.x + c.v.y + c.v.z))
-      + fl
+        .fold[Float32](0f, (f, c) => f + c.f * (c.v.w + c.v.x + c.v.y + c.v.z)) + fl
 
     val inArr = (0 to 255).map(_.toFloat).toArray
     val gmem = FloatMem(inArr)
