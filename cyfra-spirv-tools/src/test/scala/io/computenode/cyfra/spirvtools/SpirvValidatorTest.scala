@@ -1,7 +1,7 @@
 package io.computenode.cyfra.spirvtools
 
+import io.computenode.cyfra.spirvtools.SpirvValidator.Enable
 import munit.FunSuite
-import io.computenode.cyfra.spirvtools.SpirvValidator.{Enable, SpirvValidationFailed}
 
 class SpirvValidatorTest extends FunSuite {
 
@@ -31,5 +31,3 @@ class SpirvValidatorTest extends FunSuite {
     }
   }
 }
-
-

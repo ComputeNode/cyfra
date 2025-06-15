@@ -8,7 +8,7 @@ class SpirvCrossTest extends FunSuite {
   test("SPIR-V cross compilation succeeded") {
     val shaderCode = SpirvTestUtils.loadShaderFromResources("optimized.spv")
     val glslShader = SpirvCross.crossCompileSpirv(shaderCode, crossCompilation = Enable(throwOnFail = true)) match {
-      case None => fail("Failed to disassemble shader.")
+      case None           => fail("Failed to disassemble shader.")
       case Some(assembly) => assembly
     }
 
@@ -17,6 +17,3 @@ class SpirvCrossTest extends FunSuite {
     assertEquals(glslShader, referenceGlsl)
   }
 }
-
-
-

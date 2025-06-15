@@ -17,24 +17,11 @@ abstract class SpirvTool(protected val toolName: String) {
     val directories = pathEnv.split(pathSeparator)
 
     directories.map(dir => new File(dir, toolName)).find(file => file.exists() && file.canExecute) match {
-      case Some(file) => logger.debug(s"Found SPIR-V tool: ${file.getAbsolutePath}")
+      case Some(file) =>
+        logger.debug(s"Found SPIR-V tool: ${file.getAbsolutePath}")
         Right(file)
       case None =>
         Left(SpirvToolNotFound(toolName))
-    }
-  }
-
-  protected trait ResultSaveSetting
-
-  case object NoSaving extends ResultSaveSetting
-
-  case class ToFile(filePath: Path) extends ResultSaveSetting {
-    require(filePath != null, "filePath must not be null")
-    Option(filePath.getParent).foreach { dir =>
-      if (!Files.exists(dir)) {
-        Files.createDirectories(dir)
-        logger.debug(s"Created output directory: $dir")
-      }
     }
   }
 
@@ -61,33 +48,40 @@ abstract class SpirvTool(protected val toolName: String) {
         }
       }
 
-      Using.Manager { use =>
-        val in = use(inStream)
-        val out = use(outStream)
-        val buf = new Array[Byte](1024)
-        loopOverBuffer(buf)
-        out.flush()
-      }.toEither.left.map(e => SpirvToolIOError(s"$description failed: ${e.getMessage}"))
+      Using
+        .Manager { use =>
+          val in = use(inStream)
+          val out = use(outStream)
+          val buf = new Array[Byte](1024)
+          loopOverBuffer(buf)
+          out.flush()
+        }
+        .toEither
+        .left
+        .map(e => SpirvToolIOError(s"$description failed: ${e.getMessage}"))
     }
 
     def createProcessIO(): Either[SpirvError, ProcessIO] = {
       val inHandler: OutputStream => Unit =
-        in => safeIOCopy(inputStream, in, "Writing to stdin") match {
-        case Left(err) => SpirvToolIOError(s"Failed to create ProcessIO: ${err.getMessage}")
-        case Right(_) => ()
-      }
+        in =>
+          safeIOCopy(inputStream, in, "Writing to stdin") match {
+            case Left(err) => SpirvToolIOError(s"Failed to create ProcessIO: ${err.getMessage}")
+            case Right(_)  => ()
+          }
 
       val outHandler: InputStream => Unit =
-        out => safeIOCopy(out, outputStream, "Reading stdout") match {
-        case Left(err) => SpirvToolIOError(s"Failed to create ProcessIO: ${err.getMessage}")
-        case Right(_) => ()
-      }
+        out =>
+          safeIOCopy(out, outputStream, "Reading stdout") match {
+            case Left(err) => SpirvToolIOError(s"Failed to create ProcessIO: ${err.getMessage}")
+            case Right(_)  => ()
+          }
 
       val errHandler: InputStream => Unit =
-        err => safeIOCopy(err, errorStream, "Reading stderr") match {
-        case Left(err) => SpirvToolIOError(s"Failed to create ProcessIO: ${err.getMessage}")
-        case Right(_) => ()
-      }
+        err =>
+          safeIOCopy(err, errorStream, "Reading stderr") match {
+            case Left(err) => SpirvToolIOError(s"Failed to create ProcessIO: ${err.getMessage}")
+            case Right(_)  => ()
+          }
 
       Try {
         new ProcessIO(inHandler, outHandler, errHandler)
@@ -96,16 +90,26 @@ abstract class SpirvTool(protected val toolName: String) {
 
     for {
       processIO <- createProcessIO()
-      process <- Try(cmd.run(processIO)).toEither.left.map(ex => SpirvCommandExecutionFailed(s"Failed to execute SPIR-V command: ${ex.getMessage}"))}
-    yield {
-      (outputStream, errorStream, process.exitValue())
-    }
+      process <- Try(cmd.run(processIO)).toEither.left.map(ex => SpirvCommandExecutionFailed(s"Failed to execute SPIR-V command: ${ex.getMessage}"))
+    } yield (outputStream, errorStream, process.exitValue())
   }
 
   trait SpirvError extends RuntimeException {
     def message: String
 
     override def getMessage: String = message
+  }
+
+  protected trait ResultSaveSetting
+
+  case class ToFile(filePath: Path) extends ResultSaveSetting {
+    require(filePath != null, "filePath must not be null")
+    Option(filePath.getParent).foreach { dir =>
+      if (!Files.exists(dir)) {
+        Files.createDirectories(dir)
+        logger.debug(s"Created output directory: $dir")
+      }
+    }
   }
 
   final case class SpirvToolNotFound(toolName: String) extends SpirvError {
@@ -119,6 +123,8 @@ abstract class SpirvTool(protected val toolName: String) {
   final case class SpirvToolIOError(details: String) extends SpirvError {
     def message: String = s"SPIR-V command encountered IO error: $details"
   }
+
+  case object NoSaving extends ResultSaveSetting
 }
 
 object SpirvTool {

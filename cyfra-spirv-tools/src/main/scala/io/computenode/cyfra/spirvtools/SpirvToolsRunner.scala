@@ -14,11 +14,13 @@ object SpirvToolsRunner {
   case object No extends DumpOriginalSpirvToFile
 }
 
-class SpirvToolsRunner(val validator: SpirvValidator.Validation = SpirvValidator.Enable(),
-                       val optimizer: SpirvOptimizer.Optimization = SpirvOptimizer.Disable,
-                       val disassembler: SpirvDisassembler.Disassembly = SpirvDisassembler.Disable,
-                       val crossCompilation: SpirvCross.CrossCompilation = SpirvCross.Disable,
-                       val dumpOriginalSpirvToFile: DumpOriginalSpirvToFile = No) {
+class SpirvToolsRunner(
+  val validator: SpirvValidator.Validation = SpirvValidator.Enable(),
+  val optimizer: SpirvOptimizer.Optimization = SpirvOptimizer.Disable,
+  val disassembler: SpirvDisassembler.Disassembly = SpirvDisassembler.Disable,
+  val crossCompilation: SpirvCross.CrossCompilation = SpirvCross.Disable,
+  val dumpOriginalSpirvToFile: DumpOriginalSpirvToFile = No,
+) {
 
   def processShaderCodeWithSpirvTools(shaderCode: ByteBuffer): ByteBuffer = {
     def runTools(code: ByteBuffer): Unit = {

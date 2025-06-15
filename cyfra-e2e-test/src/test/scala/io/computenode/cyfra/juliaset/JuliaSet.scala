@@ -4,10 +4,10 @@ import io.computenode.cyfra.*
 import io.computenode.cyfra.dsl.GStruct.Empty
 import io.computenode.cyfra.dsl.Pure.pure
 import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.spirvtools.SpirvTool.Param
 import io.computenode.cyfra.runtime.mem.Vec4FloatMem
 import io.computenode.cyfra.runtime.{GContext, GFunction}
-import io.computenode.cyfra.spirvtools.{SpirvCross, SpirvDisassembler, SpirvOptimizer, SpirvToolsRunner, SpirvValidator}
+import io.computenode.cyfra.spirvtools.SpirvTool.Param
+import io.computenode.cyfra.spirvtools.*
 import io.computenode.cyfra.utility.ImageUtility
 import munit.FunSuite
 
@@ -75,14 +75,13 @@ class JuliaSet extends FunSuite:
     runJuliaSet("julia.png")
 
   test("Render julia set optimized"):
-    given GContext = new GContext(SpirvToolsRunner(
-      validator = SpirvValidator.Enable(throwOnFail = true),
-      optimizer = SpirvOptimizer.Enable(resultSaveSetting = SpirvOptimizer.ToFile(Paths.get("output/optimized.spv")),
-                                        settings = Seq(Param("-O"))),
-      disassembler = SpirvDisassembler.Enable(resultSaveSetting = SpirvDisassembler.ToFile(Paths.get("output/optimized.spvasm")), throwOnFail = true),
-      crossCompilation = SpirvCross.Enable(resultSaveSetting = SpirvCross.ToFile(Paths.get("output/optimized.glsl")),
-                                            throwOnFail = true),
-      dumpOriginalSpirvToFile = SpirvToolsRunner.Yes(Paths.get("output/original.spv")))
+    given GContext = new GContext(
+      SpirvToolsRunner(
+        validator = SpirvValidator.Enable(throwOnFail = true),
+        optimizer = SpirvOptimizer.Enable(resultSaveSetting = SpirvOptimizer.ToFile(Paths.get("output/optimized.spv")), settings = Seq(Param("-O"))),
+        disassembler = SpirvDisassembler.Enable(resultSaveSetting = SpirvDisassembler.ToFile(Paths.get("output/optimized.spvasm")), throwOnFail = true),
+        crossCompilation = SpirvCross.Enable(resultSaveSetting = SpirvCross.ToFile(Paths.get("output/optimized.glsl")), throwOnFail = true),
+        dumpOriginalSpirvToFile = SpirvToolsRunner.Yes(Paths.get("output/original.spv")),
+      ),
     )
-
     runJuliaSet("julia_O_optimized.png")

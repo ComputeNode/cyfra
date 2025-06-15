@@ -1,29 +1,20 @@
 package io.computenode.cyfra.foton.animation
 
-import io.computenode.cyfra.utility.Units.Milliseconds
 import io.computenode.cyfra
-import io.computenode.cyfra.dsl.{GStruct, UniformContext, given}
+import io.computenode.cyfra.dsl.Algebra.*
 import io.computenode.cyfra.dsl.Value.*
+import io.computenode.cyfra.dsl.{GStruct, UniformContext, given}
 import io.computenode.cyfra.foton.animation.AnimatedFunctionRenderer.{AnimationIteration, RenderFn}
 import io.computenode.cyfra.foton.animation.AnimationFunctions.AnimationInstant
-import io.computenode.cyfra.foton.animation.AnimationRenderer
-import io.computenode.cyfra.foton.rt.ImageRtRenderer.RaytracingIteration
-import io.computenode.cyfra.foton.rt.animation.AnimationRtRenderer.RaytracingIteration
-import io.computenode.cyfra.foton.rt.RtRenderer
-import io.computenode.cyfra.runtime.{GContext, GFunction}
-import io.computenode.cyfra.utility.Units.Milliseconds
-import io.computenode.cyfra.utility.Utility.timed
-import io.computenode.cyfra.dsl.Algebra.{*, given}
 import io.computenode.cyfra.runtime.mem.GMem.fRGBA
 import io.computenode.cyfra.runtime.mem.Vec4FloatMem
-import io.computenode.cyfra.spirvtools.SpirvValidator
+import io.computenode.cyfra.runtime.{GContext, GFunction}
 
-import java.nio.file.{Path, Paths}
+import scala.concurrent.ExecutionContext
 import scala.concurrent.ExecutionContext.Implicits
-import scala.concurrent.{Await, ExecutionContext}
-import scala.concurrent.duration.DurationInt
 
-class AnimatedFunctionRenderer(params: AnimatedFunctionRenderer.Parameters)(using GContext) extends AnimationRenderer[AnimatedFunction, AnimatedFunctionRenderer.RenderFn](params):
+class AnimatedFunctionRenderer(params: AnimatedFunctionRenderer.Parameters)(using GContext)
+    extends AnimationRenderer[AnimatedFunction, AnimatedFunctionRenderer.RenderFn](params):
 
   given ExecutionContext = Implicits.global
 

@@ -8,7 +8,7 @@ class SpirvDisassemblerTest extends FunSuite {
   test("SPIR-V disassembly succeeded") {
     val shaderCode = SpirvTestUtils.loadShaderFromResources("optimized.spv")
     val assembly = SpirvDisassembler.disassembleSpirv(shaderCode, disassembly = Enable(throwOnFail = true)) match {
-      case None => fail("Failed to disassemble shader.")
+      case None           => fail("Failed to disassemble shader.")
       case Some(assembly) => assembly
     }
 
@@ -17,6 +17,3 @@ class SpirvDisassemblerTest extends FunSuite {
     assertEquals(assembly, referenceAssembly)
   }
 }
-
-
-

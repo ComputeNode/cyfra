@@ -7,14 +7,15 @@ import java.nio.ByteBuffer
 import java.nio.file.Files
 
 class SpirvToolTest extends FunSuite {
+  private def isWindows: Boolean =
+    System.getProperty("os.name").toLowerCase.contains("win")
+
   class TestSpirvTool(toolName: String) extends SpirvTool(toolName) {
     def runFindTool(): Either[SpirvError, File] = findToolExecutable()
 
-    def runExecuteCmd(input: ByteBuffer, cmd: Seq[String]): Either[SpirvError, (ByteArrayOutputStream, ByteArrayOutputStream, Int)] = executeSpirvCmd(input, cmd)
+    def runExecuteCmd(input: ByteBuffer, cmd: Seq[String]): Either[SpirvError, (ByteArrayOutputStream, ByteArrayOutputStream, Int)] =
+      executeSpirvCmd(input, cmd)
   }
-
-  private def isWindows: Boolean =
-    System.getProperty("os.name").toLowerCase.contains("win")
 
   test("findToolExecutable returns Right when tool found in PATH") {
     val tmpDir = Files.createTempDirectory("spirvtooltest")
@@ -53,7 +54,7 @@ class SpirvToolTest extends FunSuite {
     assert(error.getMessage.contains("non-existent-tool"))
   }
 
-  if (!isWindows) {
+  if (!isWindows)
     test("executeSpirvCmd returns exit code and output streams on valid command") {
       val tool = new TestSpirvTool("cat")
 
@@ -72,7 +73,6 @@ class SpirvToolTest extends FunSuite {
       assert(outputString == "hello SPIR-V")
       assertEquals(errStream.size(), 0)
     }
-  }
 
   test("executeSpirvCmd returns non-zero exit code on invalid command") {
     val tool = new TestSpirvTool("invalid-cmd")
@@ -107,4 +107,3 @@ class SpirvToolTest extends FunSuite {
     assertEquals(param.asStringParam, "test-value")
   }
 }
-
