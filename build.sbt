@@ -63,6 +63,10 @@ lazy val runnerSettings = Seq(
 lazy val utility = (project in file("cyfra-utility"))
   .settings(commonSettings)
 
+lazy val spirvTools = (project in file("cyfra-spirv-tools"))
+  .settings(commonSettings)
+  .dependsOn(utility)
+
 lazy val vulkan = (project in file("cyfra-vulkan"))
   .settings(commonSettings)
   .dependsOn(utility)
@@ -77,7 +81,7 @@ lazy val compiler = (project in file("cyfra-compiler"))
 
 lazy val runtime = (project in file("cyfra-runtime"))
   .settings(commonSettings)
-  .dependsOn(compiler, dsl, vulkan, utility)
+  .dependsOn(compiler, dsl, vulkan, utility, spirvTools)
 
 lazy val foton = (project in file("cyfra-foton"))
   .settings(commonSettings)

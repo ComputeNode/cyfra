@@ -1,22 +1,32 @@
-package io.computenode.cyfra.runtime
+package io.computenode.cyfra.spirvtools
 
-import io.computenode.cyfra.runtime.SpirvDisassembler.executeSpirvCmd
-import io.computenode.cyfra.runtime.SpirvValidator.findToolExecutable
+import SpirvDisassembler.executeSpirvCmd
+import SpirvValidator.findToolExecutable
+import SpirvTool.Param
 import io.computenode.cyfra.utility.Logger.logger
 
 import java.nio.ByteBuffer
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
 
 object SpirvCross extends SpirvTool("spirv-cross") {
 
   def crossCompileSpirv(shaderCode: ByteBuffer, crossCompilation: CrossCompilation): Option[String] = {
     crossCompilation match {
-      case Enable(throwOnFail, params*) =>
+      case Enable(throwOnFail, resultSaveSetting, params) =>
         val crossCompilationRes = tryCrossCompileSpirv(shaderCode, params)
         crossCompilationRes match {
           case Left(err) if throwOnFail => throw err
           case Left(err) => logger.warn(err.message)
             None
-          case Right(crossCompiledCode) => Some(crossCompiledCode)
+          case Right(crossCompiledCode) =>
+            resultSaveSetting match
+              case NoSaving =>
+              case ToFile(filePath) =>
+                Files.write(filePath, crossCompiledCode.getBytes(StandardCharsets.UTF_8))
+                logger.debug(s"Saved cross compiled shader code in $filePath.")
+              case ToLogger => logger.debug(s"SPIR-V Cross Compilation result:\n$crossCompiledCode")
+            Some(crossCompiledCode)
         }
       case Disable => logger.debug("SPIR-V cross compilation is disabled.")
         None
@@ -37,7 +47,9 @@ object SpirvCross extends SpirvTool("spirv-cross") {
 
   sealed trait CrossCompilation
 
-  case class Enable(throwOnFail: Boolean, settings: Param*) extends CrossCompilation
+  case object ToLogger extends ResultSaveSetting
+
+  case class Enable(throwOnFail: Boolean = false, resultSaveSetting: ResultSaveSetting = ToLogger, settings: Seq[Param] = Seq.empty) extends CrossCompilation
 
   private final case class SpirvCrossCompilationFailed(exitCode: Int, stderr: String) extends SpirvError {
     def message: String =
@@ -45,9 +57,6 @@ object SpirvCross extends SpirvTool("spirv-cross") {
          |Cross errors:
          |$stderr""".stripMargin
   }
-
-  object Enable:
-    def apply(settings: Param*): Enable = Enable(false, settings *)
 
   case object Disable extends CrossCompilation
 }

@@ -1,10 +1,10 @@
-package io.computenode.cyfra.runtime
+package io.computenode.cyfra.spirvtools
 
 import io.computenode.cyfra.utility.Logger.logger
 
 import java.io.*
 import java.nio.ByteBuffer
-import java.nio.file.Path
+import java.nio.file.{Files, Path}
 import scala.annotation.tailrec
 import scala.sys.process.{ProcessIO, stringSeqToProcess}
 import scala.util.{Try, Using}
@@ -21,6 +21,20 @@ abstract class SpirvTool(protected val toolName: String) {
         Right(file)
       case None =>
         Left(SpirvToolNotFound(toolName))
+    }
+  }
+
+  protected trait ResultSaveSetting
+
+  case object NoSaving extends ResultSaveSetting
+
+  case class ToFile(filePath: Path) extends ResultSaveSetting {
+    require(filePath != null, "filePath must not be null")
+    Option(filePath.getParent).foreach { dir =>
+      if (!Files.exists(dir)) {
+        Files.createDirectories(dir)
+        logger.debug(s"Created output directory: $dir")
+      }
     }
   }
 
@@ -94,9 +108,6 @@ abstract class SpirvTool(protected val toolName: String) {
     override def getMessage: String = message
   }
 
-  case class Param(value: String):
-    def asStringParam: String = value
-
   private final case class SpirvToolNotFound(toolName: String) extends SpirvError {
     def message: String = s"Tool '$toolName' not found in PATH."
   }
@@ -117,4 +128,7 @@ object SpirvTool {
     }
     code.rewind()
   }
+
+  case class Param(value: String):
+    def asStringParam: String = value
 }

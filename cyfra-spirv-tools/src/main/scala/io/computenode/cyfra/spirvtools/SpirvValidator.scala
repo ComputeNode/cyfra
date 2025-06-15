@@ -1,6 +1,7 @@
-package io.computenode.cyfra.runtime
+package io.computenode.cyfra.spirvtools
 
-import io.computenode.cyfra.runtime.SpirvDisassembler.{executeSpirvCmd, findToolExecutable}
+import SpirvDisassembler.{executeSpirvCmd, findToolExecutable}
+import SpirvTool.Param
 import io.computenode.cyfra.utility.Logger.logger
 
 import java.nio.ByteBuffer
@@ -9,7 +10,7 @@ object SpirvValidator extends SpirvTool("spirv-val") {
 
   def validateSpirv(shaderCode: ByteBuffer, validation: Validation): Unit = {
     validation match {
-      case Enable(throwOnFail, params*) =>
+      case Enable(throwOnFail, params) =>
         val validationRes = tryValidateSpirv(shaderCode, params)
         validationRes match {
           case Left(err) if throwOnFail => throw err
@@ -31,7 +32,7 @@ object SpirvValidator extends SpirvTool("spirv-val") {
 
   sealed trait Validation
 
-  case class Enable(throwOnFail: Boolean, settings: Param*) extends Validation
+  case class Enable(throwOnFail: Boolean = false, settings: Seq[Param] = Seq.empty) extends Validation
 
   private final case class SpirvValidationFailed(exitCode: Int, stderr: String) extends SpirvError {
     def message: String =
@@ -39,9 +40,6 @@ object SpirvValidator extends SpirvTool("spirv-val") {
          |Validation errors:
          |$stderr""".stripMargin
   }
-
-  object Enable:
-    def apply(settings: Param*): Enable = Enable(false, settings *)
 
   case object Disable extends Validation
 }

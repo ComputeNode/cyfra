@@ -4,13 +4,15 @@ import io.computenode.cyfra.*
 import io.computenode.cyfra.dsl.GStruct.Empty
 import io.computenode.cyfra.dsl.Pure.pure
 import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.spirvtools.SpirvTool.Param
 import io.computenode.cyfra.runtime.mem.Vec4FloatMem
-import io.computenode.cyfra.runtime.{GContext, GFunction, SpirvDisassembler, SpirvOptimizer, SpirvValidator}
-import io.computenode.cyfra.runtime.GContext.SpirvToolsOptions
+import io.computenode.cyfra.runtime.{GContext, GFunction}
+import io.computenode.cyfra.spirvtools.{SpirvCross, SpirvDisassembler, SpirvOptimizer, SpirvToolsRunner, SpirvValidator}
 import io.computenode.cyfra.utility.ImageUtility
 import munit.FunSuite
 
 import java.io.File
+import java.nio.file.Paths
 import scala.concurrent.ExecutionContext
 import scala.concurrent.ExecutionContext.Implicits
 
@@ -77,12 +79,19 @@ class JuliaSet extends FunSuite:
   }
 
   test("Render julia set"):
-    given GContext = new GContext()
+    given GContext = new GContext
     runJuliaSet("julia.png")
 
   test("Render julia set optimized"):
-    given GContext = new GContext(SpirvToolsOptions(
-                                  validator = SpirvValidator.Enable(throwOnFail = true),
-                                  optimizer = SpirvOptimizer.Enable(SpirvOptimizer.Param("-O")),
-                                  disassembler = SpirvDisassembler.Enable(throwOnFail = true)))
+    given GContext = new GContext(SpirvToolsRunner(
+      validator = SpirvValidator.Enable(throwOnFail = true),
+      optimizer = SpirvOptimizer.Enable(resultSaveSetting = SpirvOptimizer.ToFile(Paths.get("output/optimized.spv")),
+                                        settings = Seq(Param("-O"))),
+      disassembler = SpirvDisassembler.Enable(resultSaveSetting = SpirvDisassembler.ToFile(Paths.get("output/optimized.spvasm")), throwOnFail = true),
+      crossCompilation = SpirvCross.Enable(resultSaveSetting = SpirvCross.ToFile(Paths.get("output/optimized.glsl")),
+                                            throwOnFail = true))
+    )
+
+
+
     runJuliaSet("julia_O_optimized.png")

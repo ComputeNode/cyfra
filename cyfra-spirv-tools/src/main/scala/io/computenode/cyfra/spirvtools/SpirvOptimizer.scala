@@ -1,25 +1,34 @@
-package io.computenode.cyfra.runtime
+package io.computenode.cyfra.spirvtools
 
-import io.computenode.cyfra.runtime.SpirvDisassembler.executeSpirvCmd
-import io.computenode.cyfra.runtime.SpirvValidator.findToolExecutable
+import SpirvDisassembler.executeSpirvCmd
+import SpirvTool.Param
+import SpirvValidator.findToolExecutable
 import io.computenode.cyfra.utility.Logger.logger
 
 import java.nio.ByteBuffer
 
 object SpirvOptimizer extends SpirvTool("spirv-opt") {
 
-  def optimizeSpirv(shaderCode: ByteBuffer, optimization: Optimization): ByteBuffer = {
+  def optimizeSpirv(shaderCode: ByteBuffer, optimization: Optimization): Option[ByteBuffer] = {
     optimization match {
-      case Enable(throwOnFail, params*) =>
-        val validationRes = tryGetOptimizeSpirv(shaderCode, params)
-        validationRes match {
+      case Enable(throwOnFail, resultSaveSetting, params) =>
+        val optimizationRes = tryGetOptimizeSpirv(shaderCode, params)
+        optimizationRes match {
           case Left(err) if throwOnFail => throw err
-          case Left(err) => logger.warn(err.message)
-            shaderCode
-          case Right(optimizedShaderCode) => optimizedShaderCode
+          case Left(err) =>
+            logger.warn(err.message)
+            None
+          case Right(optimizedShaderCode) =>
+            resultSaveSetting match {
+              case NoSaving =>
+              case ToFile(filePath) =>
+                SpirvTool.dumpSpvToFile(optimizedShaderCode, filePath)
+                logger.debug(s"Saved optimized shader code in $filePath.")
+            }
+            Some(optimizedShaderCode)
         }
       case Disable => logger.debug("SPIR-V optimization is disabled.")
-        shaderCode
+        None
     }
   }
 
@@ -45,7 +54,7 @@ object SpirvOptimizer extends SpirvTool("spirv-opt") {
 
   sealed trait Optimization
 
-  case class Enable(throwOnFail: Boolean, settings: Param*) extends Optimization
+  case class Enable(throwOnFail: Boolean = false, resultSaveSetting: ResultSaveSetting = NoSaving, settings: Seq[Param] = Seq.empty) extends Optimization
 
   private final case class SpirvOptimizationFailed(exitCode: Int, stderr: String) extends SpirvError {
     def message: String =
@@ -53,9 +62,6 @@ object SpirvOptimizer extends SpirvTool("spirv-opt") {
          |Optimizer errors:
          |$stderr""".stripMargin
   }
-
-  object Enable:
-    def apply(settings: Param*): Enable = Enable(false, settings *)
 
   case object Disable extends Optimization
 }

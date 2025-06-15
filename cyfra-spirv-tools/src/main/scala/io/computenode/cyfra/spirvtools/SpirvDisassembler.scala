@@ -1,20 +1,31 @@
-package io.computenode.cyfra.runtime
+package io.computenode.cyfra.spirvtools
 
+import SpirvTool.Param
 import io.computenode.cyfra.utility.Logger.logger
 
 import java.nio.ByteBuffer
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
 
 object SpirvDisassembler extends SpirvTool("spirv-dis") {
 
   def disassembleSpirv(shaderCode: ByteBuffer, disassembly: Disassembly): Option[String] = {
     disassembly match {
-      case Enable(throwOnFail, params*) =>
+      case Enable(throwOnFail, resultSaveSetting, params) =>
         val disassemblyResult = tryGetDisassembleSpirv(shaderCode, params)
         disassemblyResult match {
           case Left(err) if throwOnFail => throw err
           case Left(err) => logger.warn(err.message)
             None
-          case Right(value) => Some(value)
+          case Right(disassembledShader) =>
+            resultSaveSetting match {
+              case NoSaving =>
+              case ToFile(filePath) =>
+                Files.write(filePath, disassembledShader.getBytes(StandardCharsets.UTF_8))
+                logger.debug(s"Saved disassembled shader code in $filePath.")
+              case ToLogger => logger.debug(s"SPIR-V Assembly:\n$disassembledShader")
+            }
+            Some(disassembledShader)
         }
       case Disable => logger.debug("SPIR-V disassembly is disabled.")
         None
@@ -33,10 +44,6 @@ object SpirvDisassembler extends SpirvTool("spirv-dis") {
     yield result
   }
 
-  sealed trait Disassembly
-
-  case class Enable(throwOnFail: Boolean, settings: Param*) extends Disassembly
-
   private final case class SpirvDisassemblyFailed(exitCode: Int, stderr: String) extends SpirvError {
     def message: String =
       s"""SPIR-V disassembly failed with exit code $exitCode.
@@ -44,8 +51,11 @@ object SpirvDisassembler extends SpirvTool("spirv-dis") {
          |$stderr""".stripMargin
   }
 
-  case object Disable extends Disassembly
+  case object ToLogger extends ResultSaveSetting
 
-  object Enable:
-    def apply(settings: Param*): Enable = Enable(false, settings *)
+  sealed trait Disassembly
+
+  case class Enable(throwOnFail: Boolean = false, resultSaveSetting: ResultSaveSetting = ToLogger, settings: Seq[Param] = Seq.empty) extends Disassembly
+
+  case object Disable extends Disassembly
 }
