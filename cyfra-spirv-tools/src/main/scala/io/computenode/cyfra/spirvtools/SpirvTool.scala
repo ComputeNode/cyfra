@@ -45,7 +45,7 @@ abstract class SpirvTool(protected val toolName: String) {
       @tailrec
       def loopOverBuffer(buf: Array[Byte]): Unit = {
         val len = inStream.read(buf)
-        if (len == -1) ()
+        if len == -1 then ()
         else {
           outStream.write(buf, 0, len)
           loopOverBuffer(buf)
@@ -129,7 +129,7 @@ object SpirvTool {
 
     def write(outputToSave: String | ByteBuffer): Unit =
       Option(filePath.getParent).foreach { dir =>
-        if (!Files.exists(dir)) {
+        if !Files.exists(dir) then {
           Files.createDirectories(dir)
           logger.debug(s"Created output directory: $dir")
         }

@@ -54,7 +54,7 @@ class SpirvToolTest extends FunSuite {
     assert(error.getMessage.contains("non-existent-tool"))
   }
 
-  if (!isWindows)
+  if !isWindows then
     test("executeSpirvCmd returns exit code and output streams on valid command") {
       val tool = new TestSpirvTool("cat")
 
