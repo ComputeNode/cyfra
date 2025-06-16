@@ -19,4 +19,4 @@ jobs:
         with:
           jvm: graalvm-java21
           apps: sbt
-      - run: sbt "formatCheckAll"
+      - run: sbt "formatCheckAll; compile"
