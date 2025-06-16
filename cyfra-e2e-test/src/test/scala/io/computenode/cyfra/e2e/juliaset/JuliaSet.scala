@@ -4,7 +4,7 @@ import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.*
 import io.computenode.cyfra.dsl.GStruct.Empty
 import io.computenode.cyfra.dsl.Pure.pure
-import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.e2e.ImageTests
 import io.computenode.cyfra.runtime.mem.Vec4FloatMem
 import io.computenode.cyfra.runtime.{GContext, GFunction}
 import io.computenode.cyfra.spirvtools.*
@@ -73,7 +73,7 @@ class JuliaSet extends FunSuite:
 
   test("Render julia set"):
     given GContext = new GContext
-    runJuliaSet("julia.png")
+    runJuliaSet("/julia.png")
 
   test("Render julia set optimized"):
     given GContext = new GContext(
@@ -85,4 +85,4 @@ class JuliaSet extends FunSuite:
         originalSpirvOutput = ToFile(Paths.get("output/original.spv")),
       ),
     )
-    runJuliaSet("julia_O_optimized.png")
+    runJuliaSet("/julia_O_optimized.png")
