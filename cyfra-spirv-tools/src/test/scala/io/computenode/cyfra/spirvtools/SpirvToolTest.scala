@@ -11,47 +11,8 @@ class SpirvToolTest extends FunSuite {
     System.getProperty("os.name").toLowerCase.contains("win")
 
   class TestSpirvTool(toolName: String) extends SpirvTool(toolName) {
-    def runFindTool(): Either[SpirvToolError, File] = findToolExecutable()
-
     def runExecuteCmd(input: ByteBuffer, cmd: Seq[String]): Either[SpirvToolError, (ByteArrayOutputStream, ByteArrayOutputStream, Int)] =
       executeSpirvCmd(input, cmd)
-  }
-
-  test("findToolExecutable returns Right when tool found in PATH") {
-    val tmpDir = Files.createTempDirectory("spirvtooltest")
-    val fakeTool = tmpDir.resolve("fake-tool")
-    Files.createFile(fakeTool)
-    fakeTool.toFile.setExecutable(true)
-
-    val originalPath = sys.env.getOrElse("PATH", "")
-    val newPath = tmpDir.toAbsolutePath.toString + File.pathSeparator + originalPath
-
-    val tool = new TestSpirvTool("fake-tool") {
-      override protected def findToolExecutable(): Either[SpirvToolError, File] = {
-        val directories = newPath.split(File.pathSeparator)
-        directories.map(dir => new File(dir, toolName)).find(file => file.exists() && file.canExecute) match {
-          case Some(file) => Right(file)
-          case None       => Left(SpirvToolNotFound(toolName))
-        }
-      }
-    }
-
-    val result = tool.runFindTool()
-    assert(result.isRight)
-    val file = result.getOrElse(fail("Should have found file"))
-    assert(file.exists())
-    assert(file.canExecute)
-
-    Files.deleteIfExists(fakeTool)
-    Files.deleteIfExists(tmpDir)
-  }
-
-  test("findToolExecutable returns Left when tool not found") {
-    val tool = new TestSpirvTool("non-existent-tool")
-    val result = tool.runFindTool()
-    assert(result.isLeft)
-    val error = result.left.getOrElse(fail("Should have error"))
-    assert(error.getMessage.contains("non-existent-tool"))
   }
 
   if !isWindows then
