@@ -13,8 +13,8 @@ import java.util.Base64
 import scala.util.Random
 
 class GSeq[T <: Value: Tag: FromExpr](
-  val uninitSource: Expression[_] => GSeqStream[_],
-  val elemOps: List[GSeq.ElemOp[_]],
+  val uninitSource: Expression[?] => GSeqStream[?],
+  val elemOps: List[GSeq.ElemOp[?]],
   val limit: Option[Int],
   val name: Source,
   val currentElemExprTreeId: Int = treeidState.getAndIncrement(),
@@ -22,7 +22,7 @@ class GSeq[T <: Value: Tag: FromExpr](
 ):
 
   def copyWithDynamicTrees[R <: Value: Tag: FromExpr](
-    elemOps: List[GSeq.ElemOp[_]] = elemOps,
+    elemOps: List[GSeq.ElemOp[?]] = elemOps,
     limit: Option[Int] = limit,
     currentElemExprTreeId: Int = currentElemExprTreeId,
     aggregateElemExprTreeId: Int = aggregateElemExprTreeId,
@@ -67,14 +67,14 @@ object GSeq:
         val first = when(i === 0) {
           xs(0)
         }
-        (if (xs.length == 1)
-           first
+        (if xs.length == 1 then first
          else
            xs.init.zipWithIndex.tail.foldLeft(first) { case (acc, (x, j)) =>
              acc.elseWhen(i === j) {
                x
              }
-           }).otherwise(xs.last)
+           }
+        ).otherwise(xs.last)
       }
       .limit(xs.length)
 
@@ -86,16 +86,16 @@ object GSeq:
 
   sealed trait ElemOp[T <: Value: Tag]:
     def tag: Tag[T] = summon[Tag[T]]
-    def fn: Expression[_]
+    def fn: Expression[?]
 
-  case class MapOp[T <: Value: Tag, R <: Value: Tag](fn: Expression[_]) extends ElemOp[R]
+  case class MapOp[T <: Value: Tag, R <: Value: Tag](fn: Expression[?]) extends ElemOp[R]
   case class FilterOp[T <: Value: Tag](fn: Expression[GBoolean]) extends ElemOp[T]
   case class TakeUntilOp[T <: Value: Tag](fn: Expression[GBoolean]) extends ElemOp[T]
 
   sealed trait GSeqSource[T <: Value: Tag]
-  case class GSeqStream[T <: Value: Tag](init: T, next: Expression[_]) extends GSeqSource[T]
+  case class GSeqStream[T <: Value: Tag](init: T, next: Expression[?]) extends GSeqSource[T]
 
-  case class FoldSeq[R <: Value: Tag, T <: Value: Tag](zero: R, fn: Expression[_], seq: GSeq[T]) extends Expression[R]:
+  case class FoldSeq[R <: Value: Tag, T <: Value: Tag](zero: R, fn: Expression[?], seq: GSeq[T]) extends Expression[R]:
     val zeroExpr = zero.tree
     val fnExpr = fn
     val streamInitExpr = seq.source.init.tree
@@ -104,6 +104,6 @@ object GSeq:
 
     val limitExpr = ConstInt32(seq.limit.getOrElse(throw new IllegalArgumentException("Reduce on infinite stream is not supported")))
 
-    override val exprDependencies: List[E[_]] = List(zeroExpr, streamInitExpr, limitExpr)
-    override val introducedScopes: List[Scope[_]] = Scope(fnExpr)(using fnExpr.tag) :: Scope(streamNextExpr)(using streamNextExpr.tag) ::
+    override val exprDependencies: List[E[?]] = List(zeroExpr, streamInitExpr, limitExpr)
+    override val introducedScopes: List[Scope[?]] = Scope(fnExpr)(using fnExpr.tag) :: Scope(streamNextExpr)(using streamNextExpr.tag) ::
       seqExprs.map(e => Scope(e)(using e.tag))

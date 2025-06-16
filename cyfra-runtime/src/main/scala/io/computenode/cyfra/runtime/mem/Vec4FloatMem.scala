@@ -11,8 +11,7 @@ class Vec4FloatMem(val size: Int, protected val data: ByteBuffer) extends RamGMe
   def toArray: Array[fRGBA] = {
     val res = data.asFloatBuffer()
     val result = new Array[fRGBA](size)
-    for (i <- 0 until size)
-      result(i) = (res.get(), res.get(), res.get(), res.get())
+    for i <- 0 until size do result(i) = (res.get(), res.get(), res.get(), res.get())
     result
   }
 

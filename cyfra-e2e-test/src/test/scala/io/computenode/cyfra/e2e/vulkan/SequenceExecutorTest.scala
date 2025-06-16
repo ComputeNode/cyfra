@@ -1,9 +1,10 @@
-package io.computenode.cyfra.vulkan
+package io.computenode.cyfra.e2e.vulkan
 
 import io.computenode.cyfra.vulkan.compute.{Binding, ComputePipeline, InputBufferSize, LayoutInfo, LayoutSet, Shader}
 import io.computenode.cyfra.vulkan.executor.BufferAction.{LoadFrom, LoadTo}
 import io.computenode.cyfra.vulkan.executor.SequenceExecutor
 import io.computenode.cyfra.vulkan.executor.SequenceExecutor.{ComputationSequence, Compute, Dependency, LayoutLocation}
+import io.computenode.cyfra.vulkan.VulkanContext
 import munit.FunSuite
 import org.lwjgl.BufferUtils
 

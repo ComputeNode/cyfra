@@ -46,7 +46,7 @@ private[cyfra] abstract class AbstractExecutor(dataLength: Int, val bufferAction
         VMA_MEMORY_USAGE_UNKNOWN,
         allocator,
       )
-    for (i <- bufferActions.indices if bufferActions(i) == BufferAction.LoadTo) do {
+    for i <- bufferActions.indices if bufferActions(i) == BufferAction.LoadTo do {
       val buffer = input(i)
       Buffer.copyBuffer(buffer, stagingBuffer, buffer.remaining())
       Buffer.copyBuffer(stagingBuffer, buffers(i), buffer.remaining(), commandPool).block().destroy()

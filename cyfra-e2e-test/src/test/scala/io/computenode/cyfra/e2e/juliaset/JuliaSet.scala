@@ -1,4 +1,4 @@
-package io.computenode.cyfra.juliaset
+package io.computenode.cyfra.e2e.juliaset
 
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.*
@@ -16,6 +16,7 @@ import java.nio.file.Files
 import scala.concurrent.ExecutionContext.Implicits
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext}
+import io.computenode.cyfra.e2e.ImageTests
 
 class JuliaSet extends FunSuite:
   given GContext = new GContext()

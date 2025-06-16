@@ -44,7 +44,7 @@ object Functions:
   case object Pow extends FunctionName
   def pow(v: Float32, p: Float32)(using Source): Float32 =
     Float32(ExtFunctionCall(Pow, List(v, p)))
-  def pow[V <: Vec[_]: Tag: FromExpr](v: V, p: V)(using Source): V =
+  def pow[V <: Vec[?]: Tag: FromExpr](v: V, p: V)(using Source): V =
     summon[FromExpr[V]].fromExpr(ExtFunctionCall(Pow, List(v, p)))
 
   case object Smoothstep extends FunctionName
