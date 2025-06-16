@@ -66,8 +66,7 @@ private[cyfra] class DebugCallback(instance: Instance) extends VulkanObjectHandl
     val pCallback = BufferUtils.createLongBuffer(1)
     val err = vkCreateDebugReportCallbackEXT(instance.get, dbgCreateInfo, null, pCallback)
     val callbackHandle = pCallback.get(0)
-    if (err != VK_SUCCESS)
-      throw new VulkanAssertionError("Failed to create DebugCallback", err)
+    if err != VK_SUCCESS then throw new VulkanAssertionError("Failed to create DebugCallback", err)
     callbackHandle
   }
 }

@@ -1,5 +1,6 @@
-package io.computenode.cyfra.juliaset
+package io.computenode.cyfra.e2e.juliaset
 
+import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.*
 import io.computenode.cyfra.dsl.GStruct.Empty
 import io.computenode.cyfra.dsl.Pure.pure

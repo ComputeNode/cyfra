@@ -34,8 +34,7 @@ private[cyfra] class Fence(device: Device, flags: Int = 0, onDestroy: () => Unit
 
   def isSignaled: Boolean = {
     val result = vkGetFenceStatus(device.get, handle)
-    if (!(result == VK_SUCCESS || result == VK_NOT_READY))
-      throw new VulkanAssertionError("Failed to get fence status", result)
+    if !(result == VK_SUCCESS || result == VK_NOT_READY) then throw new VulkanAssertionError("Failed to get fence status", result)
     result == VK_SUCCESS
   }
 
@@ -51,8 +50,7 @@ private[cyfra] class Fence(device: Device, flags: Int = 0, onDestroy: () => Unit
 
   def block(timeout: Long): Boolean = {
     val err = vkWaitForFences(device.get, handle, true, timeout);
-    if (err != VK_SUCCESS && err != VK_TIMEOUT)
-      throw new VulkanAssertionError("Failed to wait for fences", err);
+    if err != VK_SUCCESS && err != VK_TIMEOUT then throw new VulkanAssertionError("Failed to wait for fences", err);
     err == VK_SUCCESS;
   }
 }

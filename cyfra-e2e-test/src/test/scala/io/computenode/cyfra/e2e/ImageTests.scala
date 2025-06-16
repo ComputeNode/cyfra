@@ -1,4 +1,4 @@
-package io.computenode.cyfra
+package io.computenode.cyfra.e2e
 
 import com.diogonunes.jcolor.Ansi.colorize
 import com.diogonunes.jcolor.Attribute

@@ -35,7 +35,7 @@ class ShapeCollection(val boxes: List[Box], val spheres: List[Sphere], val quads
       case _ => assert(false, "Unknown shape type: Broken sealed hierarchy")
 
   def testRay(rayPos: Vec3[Float32], rayDir: Vec3[Float32], noHit: RayHitInfo): RayHitInfo =
-    def testShapeType[T <: GStruct[T] with Shape: FromExpr: Tag: TestRay](shapes: List[T], currentHit: RayHitInfo): RayHitInfo =
+    def testShapeType[T <: GStruct[T] & Shape: FromExpr: Tag: TestRay](shapes: List[T], currentHit: RayHitInfo): RayHitInfo =
       val testRay = summon[TestRay[T]]
       if shapes.isEmpty then currentHit
       else GSeq.of(shapes).fold(currentHit, (currentHit, shape) => testRay.testRay(shape, rayPos, rayDir, currentHit))

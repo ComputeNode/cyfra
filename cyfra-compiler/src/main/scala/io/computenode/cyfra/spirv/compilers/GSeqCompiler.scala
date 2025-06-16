@@ -10,7 +10,7 @@ import io.computenode.cyfra.spirv.SpirvTypes.*
 
 private[cyfra] object GSeqCompiler:
 
-  def compileFold(fold: FoldSeq[_, _], ctx: Context): (List[Words], Context) =
+  def compileFold(fold: FoldSeq[?, ?], ctx: Context): (List[Words], Context) =
     val loopBack = ctx.nextResultId
     val mergeBlock = ctx.nextResultId + 1
     val continueTarget = ctx.nextResultId + 2
@@ -46,7 +46,7 @@ private[cyfra] object GSeqCompiler:
     val foldZeroPointerType = ctx.funPointerTypeMap(foldZeroType)
     val foldFnExpr = fold.fnExpr
 
-    def generateSeqOps(seqExprs: List[(ElemOp[_], E[_])], context: Context, elemRef: Int): (List[Words], Context) =
+    def generateSeqOps(seqExprs: List[(ElemOp[?], E[?])], context: Context, elemRef: Int): (List[Words], Context) =
       val withElemRefCtx = context.copy(exprRefs = context.exprRefs + (fold.seq.currentElemExprTreeId -> elemRef))
       seqExprs match {
         case Nil => // No more transformations, so reduce ops now

@@ -29,8 +29,7 @@ private[cyfra] class Device(instance: Instance) extends VulkanObject {
     val pPhysicalDeviceCount = stack.callocInt(1)
     check(vkEnumeratePhysicalDevices(instance.get, pPhysicalDeviceCount, null), "Failed to get number of physical devices")
     val deviceCount = pPhysicalDeviceCount.get(0)
-    if (deviceCount == 0)
-      throw new AssertionError("Failed to find GPUs with Vulkan support")
+    if deviceCount == 0 then throw new AssertionError("Failed to find GPUs with Vulkan support")
 
     val pPhysicalDevices = stack.callocPointer(deviceCount)
     check(vkEnumeratePhysicalDevices(instance.get, pPhysicalDeviceCount, pPhysicalDevices), "Failed to get physical devices")
@@ -132,7 +131,7 @@ private[cyfra] class Device(instance: Instance) extends VulkanObject {
         .pQueueCreateInfos(pQueueCreateInfo)
         .ppEnabledExtensionNames(ppExtensionNames)
 
-      if (instance.enabledLayers.contains(ValidationLayer)) {
+      if instance.enabledLayers.contains(ValidationLayer) then {
         val ppValidationLayers = stack.callocPointer(1).put(stack.ASCII(ValidationLayer))
         pCreateInfo.ppEnabledLayerNames(ppValidationLayers.flip())
       }

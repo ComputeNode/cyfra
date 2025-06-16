@@ -131,16 +131,14 @@ def main =
 
   val existingSpheres = mutable.Set.empty[((Float, Float, Float), Float)]
   def randomSphere(iter: Int = 0): Sphere = {
-    if (iter > 1000)
-      throw new Exception("Could not find a non-intersecting sphere")
+    if iter > 1000 then throw new Exception("Could not find a non-intersecting sphere")
     def nextFloatAny = rd.nextFloat() * 2f - 1f
 
     def nextFloatPos = rd.nextFloat()
 
     val center = (nextFloatAny * 10, nextFloatAny * 10, nextFloatPos * 10 + 8f)
     val radius = nextFloatPos + 1.5f
-    if (existingSpheres.exists(s => scalaTwoSpheresIntersect(s._1, s._2, center, radius)))
-      randomSphere(iter + 1)
+    if existingSpheres.exists(s => scalaTwoSpheresIntersect(s._1, s._2, center, radius)) then randomSphere(iter + 1)
     else {
       existingSpheres.add((center, radius))
       def color = (nextFloatPos * 0.5f + 0.5f, nextFloatPos * 0.5f + 0.5f, nextFloatPos * 0.5f + 0.5f)

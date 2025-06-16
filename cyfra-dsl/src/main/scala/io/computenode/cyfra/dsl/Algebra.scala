@@ -49,7 +49,7 @@ object Algebra:
 
   trait ScalarModable[T <: Scalar: FromExpr: Tag]:
     def mod(a: T, b: T)(using Source): T = summon[FromExpr[T]].fromExpr(Mod(a, b))
-  extension [T <: Scalar: ScalarModable: Tag](a: T) inline def mod(b: T)(using Source): T = summon[ScalarModable[T]].mod(a, b)
+  extension [T <: Scalar: ScalarModable: Tag](a: T) inline infix def mod(b: T)(using Source): T = summon[ScalarModable[T]].mod(a, b)
 
   trait Comparable[T <: Scalar: FromExpr: Tag]:
     def greaterThan(a: T, b: T)(using Source): GBoolean = GBoolean(GreaterThan(a, b))
@@ -80,26 +80,26 @@ object Algebra:
     inline def asFloat(using Source): Float32 = Float32(ToFloat32(u32))
     inline def signed(using Source): Int32 = Int32(ToInt32(u32))
 
-  trait VectorSummable[V <: Vec[_]: FromExpr: Tag]:
+  trait VectorSummable[V <: Vec[?]: FromExpr: Tag]:
     def sum(a: V, b: V)(using Source): V = summon[FromExpr[V]].fromExpr(Sum(a, b))
-  extension [V <: Vec[_]: VectorSummable: Tag](a: V)
+  extension [V <: Vec[?]: VectorSummable: Tag](a: V)
     @targetName("addVector")
     inline def +(b: V)(using Source): V = summon[VectorSummable[V]].sum(a, b)
 
-  trait VectorDiffable[V <: Vec[_]: FromExpr: Tag]:
+  trait VectorDiffable[V <: Vec[?]: FromExpr: Tag]:
     def diff(a: V, b: V)(using Source): V = summon[FromExpr[V]].fromExpr(Diff(a, b))
-  extension [V <: Vec[_]: VectorDiffable: Tag](a: V)
+  extension [V <: Vec[?]: VectorDiffable: Tag](a: V)
     @targetName("subVector")
     inline def -(b: V)(using Source): V = summon[VectorDiffable[V]].diff(a, b)
 
   trait VectorDotable[S <: Scalar: FromExpr: Tag, V <: Vec[S]: Tag]:
     def dot(a: V, b: V)(using Source): S = summon[FromExpr[S]].fromExpr(DotProd[S, V](a, b))
   extension [S <: Scalar: Tag, V <: Vec[S]: Tag](a: V)(using VectorDotable[S, V])
-    def dot(b: V)(using Source): S = summon[VectorDotable[S, V]].dot(a, b)
+    infix def dot(b: V)(using Source): S = summon[VectorDotable[S, V]].dot(a, b)
 
-  trait VectorCrossable[V <: Vec[_]: FromExpr: Tag]:
+  trait VectorCrossable[V <: Vec[?]: FromExpr: Tag]:
     def cross(a: V, b: V)(using Source): V = summon[FromExpr[V]].fromExpr(ExtFunctionCall(Cross, List(a, b)))
-  extension [V <: Vec[_]: VectorCrossable: Tag](a: V) def cross(b: V)(using Source): V = summon[VectorCrossable[V]].cross(a, b)
+  extension [V <: Vec[?]: VectorCrossable: Tag](a: V) infix def cross(b: V)(using Source): V = summon[VectorCrossable[V]].cross(a, b)
 
   trait VectorScalarMulable[S <: Scalar: Tag, V <: Vec[S]: FromExpr: Tag]:
     def mul(a: V, b: S)(using Source): V = summon[FromExpr[V]].fromExpr(ScalarProd[S, V](a, b))
@@ -108,9 +108,9 @@ object Algebra:
   extension [S <: Scalar: Tag, V <: Vec[S]: Tag](s: S)(using VectorScalarMulable[S, V])
     def *(v: V)(using Source): V = summon[VectorScalarMulable[S, V]].mul(v, s)
 
-  trait VectorNegatable[V <: Vec[_]: FromExpr: Tag]:
+  trait VectorNegatable[V <: Vec[?]: FromExpr: Tag]:
     def negate(a: V)(using Source): V = summon[FromExpr[V]].fromExpr(Negate(a))
-  extension [V <: Vec[_]: VectorNegatable: Tag](a: V)
+  extension [V <: Vec[?]: VectorNegatable: Tag](a: V)
     @targetName("negateVector")
     def unary_-(using Source): V = summon[VectorNegatable[V]].negate(a)
 

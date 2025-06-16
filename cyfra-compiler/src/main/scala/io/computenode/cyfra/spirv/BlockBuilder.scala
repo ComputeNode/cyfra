@@ -11,10 +11,10 @@ import scala.quoted.Expr
 
 private[cyfra] object BlockBuilder:
 
-  def buildBlock(tree: E[_], providedExprIds: Set[Int] = Set.empty): List[E[_]] =
-    val allVisited = mutable.Map[Int, E[_]]()
+  def buildBlock(tree: E[?], providedExprIds: Set[Int] = Set.empty): List[E[?]] =
+    val allVisited = mutable.Map[Int, E[?]]()
     val inDegrees = mutable.Map[Int, Int]().withDefaultValue(0)
-    val q = mutable.Queue[E[_]]()
+    val q = mutable.Queue[E[?]]()
     q.enqueue(tree)
     allVisited(tree.treeid) = tree
 
@@ -28,8 +28,8 @@ private[cyfra] object BlockBuilder:
           allVisited(childId) = child
           q.enqueue(child)
 
-    val l = mutable.ListBuffer[E[_]]()
-    val roots = mutable.Queue[E[_]]()
+    val l = mutable.ListBuffer[E[?]]()
+    val roots = mutable.Queue[E[?]]()
     allVisited.values.foreach: node =>
       if inDegrees(node.treeid) == 0 then roots.enqueue(node)
 

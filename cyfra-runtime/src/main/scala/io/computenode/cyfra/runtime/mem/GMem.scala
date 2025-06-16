@@ -24,9 +24,9 @@ trait GMem[H <: Value]:
 object GMem:
   type fRGBA = (Float, Float, Float, Float)
 
-  def totalStride(gs: GStructSchema[_]): Int = gs.fields.map {
+  def totalStride(gs: GStructSchema[?]): Int = gs.fields.map {
     case (_, fromExpr, t) if t <:< gs.gStructTag =>
-      val constructor = fromExpr.asInstanceOf[GStructConstructor[_]]
+      val constructor = fromExpr.asInstanceOf[GStructConstructor[?]]
       totalStride(constructor.schema)
     case (_, _, t) =>
       typeStride(t)

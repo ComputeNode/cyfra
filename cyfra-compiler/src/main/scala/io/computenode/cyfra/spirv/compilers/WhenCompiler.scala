@@ -11,8 +11,8 @@ import io.computenode.cyfra.spirv.SpirvTypes.*
 
 private[cyfra] object WhenCompiler:
 
-  def compileWhen(when: WhenExpr[_], ctx: Context): (List[Words], Context) = {
-    def compileCases(ctx: Context, resultVar: Int, conditions: List[E[_]], thenCodes: List[E[_]], elseCode: E[_]): (List[Words], Context) =
+  def compileWhen(when: WhenExpr[?], ctx: Context): (List[Words], Context) = {
+    def compileCases(ctx: Context, resultVar: Int, conditions: List[E[?]], thenCodes: List[E[?]], elseCode: E[?]): (List[Words], Context) =
       (conditions, thenCodes) match {
         case (Nil, Nil) =>
           val (elseInstructions, elseCtx) = compileBlock(elseCode, ctx)
