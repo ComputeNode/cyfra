@@ -2,8 +2,8 @@ package io.computenode.cyfra.foton.animation
 
 import io.computenode.cyfra.utility.Units.Milliseconds
 import io.computenode.cyfra
-import io.computenode.cyfra.dsl.GArray2D
 import io.computenode.cyfra.dsl.Value.*
+import io.computenode.cyfra.dsl.collections.GArray2D
 import io.computenode.cyfra.foton.animation.AnimatedFunction.FunctionArguments
 import io.computenode.cyfra.foton.animation.AnimationFunctions.AnimationInstant
 import io.computenode.cyfra.foton.animation.AnimationRenderer

@@ -1,9 +1,11 @@
 package io.computenode.cyfra.e2e
 
-import io.computenode.cyfra.runtime.*, mem.*
+import io.computenode.cyfra.runtime.*
+import mem.*
 import GMem.fRGBA
+import io.computenode.cyfra.dsl.algebra.VectorAlgebra
+import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.dsl.{*, given}
-import GStruct.Empty.given
 
 class ArithmeticsE2eTest extends munit.FunSuite:
   given gc: GContext = GContext()
@@ -47,9 +49,9 @@ class ArithmeticsE2eTest extends munit.FunSuite:
     val f3 = (-5.3f, 6.2f, -4.7f, 9.1f)
     val sc = -2.1f
 
-    val v1 = Algebra.vec4.tupled(f1)
-    val v2 = Algebra.vec4.tupled(f2)
-    val v3 = Algebra.vec4.tupled(f3)
+    val v1 = VectorAlgebra.vec4.tupled(f1)
+    val v2 = VectorAlgebra.vec4.tupled(f2)
+    val v3 = VectorAlgebra.vec4.tupled(f3)
 
     val gf: GFunction[GStruct.Empty, Vec4[Float32], Float32] = GFunction: v4 =>
       (-v4).*(sc).+(v1).-(v2).dot(v3)

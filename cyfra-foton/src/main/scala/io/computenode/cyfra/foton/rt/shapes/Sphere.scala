@@ -9,12 +9,9 @@ import scala.concurrent.ExecutionContext.Implicits
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext}
 import io.computenode.cyfra.dsl.Value.*
-import io.computenode.cyfra.dsl.Algebra.{*, given}
-import io.computenode.cyfra.dsl.Control.when
-import io.computenode.cyfra.dsl.Functions.*
-import io.computenode.cyfra.dsl.GStruct
-import io.computenode.cyfra.dsl.Pure.pure
-import io.computenode.cyfra.dsl.given
+import io.computenode.cyfra.dsl.control.Pure.pure
+import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.foton.rt.shapes.Shape.TestRay
 
 case class Sphere(center: Vec3[Float32], radius: Float32, material: Material) extends GStruct[Sphere] with Shape

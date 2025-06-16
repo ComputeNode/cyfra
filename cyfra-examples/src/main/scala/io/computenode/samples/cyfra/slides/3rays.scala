@@ -3,7 +3,9 @@ package io.computenode.samples.cyfra.slides
 import io.computenode.cyfra.*
 import io.computenode.cyfra.dsl.given
 import io.computenode.cyfra.dsl.*
-import io.computenode.cyfra.dsl.GStruct.Empty
+import io.computenode.cyfra.dsl.collections.GSeq
+import io.computenode.cyfra.dsl.struct.GStruct
+import io.computenode.cyfra.dsl.struct.GStruct.Empty
 
 import java.awt.image.BufferedImage
 import java.io.File
