@@ -7,8 +7,7 @@ private[cyfra] abstract class VulkanObject {
   protected var alive: Boolean = true
 
   def destroy(): Unit = {
-    if (!alive)
-      throw new IllegalStateException()
+    if !alive then throw new IllegalStateException()
     close()
     alive = false
   }

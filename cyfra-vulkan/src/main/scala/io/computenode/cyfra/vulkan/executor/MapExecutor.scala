@@ -54,7 +54,7 @@ private[cyfra] class MapExecutor(dataLength: Int, bufferActions: Seq[BufferActio
     pushStack { stack =>
       vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline.get)
 
-      val pDescriptorSets = stack.longs(descriptorSets.map(_.get): _*)
+      val pDescriptorSets = stack.longs(descriptorSets.map(_.get)*)
       vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline.pipelineLayout, 0, pDescriptorSets, null)
 
       val workgroup = shader.workgroupDimensions

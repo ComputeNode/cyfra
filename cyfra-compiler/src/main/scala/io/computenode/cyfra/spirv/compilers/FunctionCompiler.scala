@@ -17,10 +17,10 @@ import izumi.reflect.macrortti.LightTypeTag
 
 private[cyfra] object FunctionCompiler:
 
-  case class SprivFunction(sourceFn: FnIdentifier, functionId: Int, body: Expression[_], inputArgs: List[Expression[_]]):
+  case class SprivFunction(sourceFn: FnIdentifier, functionId: Int, body: Expression[?], inputArgs: List[Expression[?]]):
     def returnType: LightTypeTag = body.tag.tag
 
-  def compileFunctionCall(call: Expression.FunctionCall[_], ctx: Context): (List[Instruction], Context) =
+  def compileFunctionCall(call: Expression.FunctionCall[?], ctx: Context): (List[Instruction], Context) =
     val (ctxWithFn, fn) = if ctx.functions.contains(call.fn) then
       val fn = ctx.functions(call.fn)
       (ctx, fn)

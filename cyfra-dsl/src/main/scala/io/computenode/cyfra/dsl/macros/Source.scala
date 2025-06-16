@@ -20,7 +20,7 @@ object Source:
   }
 
   def valueName(using Quotes): Expr[String] =
-    import quotes.reflect._
+    import quotes.reflect.*
     val ownerOpt = actualOwner(Symbol.spliceOwner)
     ownerOpt match
       case Some(owner) =>
@@ -32,7 +32,7 @@ object Source:
   def findOwner(using Quotes)(owner: quotes.reflect.Symbol, skipIf: quotes.reflect.Symbol => Boolean): Option[quotes.reflect.Symbol] = {
     import quotes.reflect.*
     var owner0 = owner
-    while (skipIf(owner0))
+    while skipIf(owner0) do
       if owner0 == Symbol.noSymbol then return None
       owner0 = owner0.owner
     Some(owner0)
@@ -46,10 +46,8 @@ object Source:
 
   private def adjustName(s: String): String =
     // Required to get the same name from dotty
-    if (s.startsWith("<local ") && s.endsWith("$>"))
-      s.stripSuffix("$>") + ">"
-    else
-      s
+    if s.startsWith("<local ") && s.endsWith("$>") then s.stripSuffix("$>") + ">"
+    else s
 
   sealed trait Chunk
   object Chunk:

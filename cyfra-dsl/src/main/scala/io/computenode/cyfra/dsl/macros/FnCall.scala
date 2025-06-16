@@ -45,7 +45,7 @@ object FnCall:
       case None => quotes.reflect.report.errorAndAbort(s"Expected pure function")
 
   def isPure(using Quotes)(defdef: quotes.reflect.DefDef): Boolean =
-    import quotes.reflect._
+    import quotes.reflect.*
     val returnType = defdef.returnTpt.tpe
     val paramSets = defdef.termParamss
     if paramSets.length > 1 then return false

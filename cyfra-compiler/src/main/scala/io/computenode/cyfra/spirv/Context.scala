@@ -18,7 +18,7 @@ private[cyfra] case class Context(
   voidFuncTypeRef: Int = -1,
   workerIndexRef: Int = -1,
   uniformVarRef: Int = -1,
-  constRefs: Map[(Tag[_], Any), Int] = Map(),
+  constRefs: Map[(Tag[?], Any), Int] = Map(),
   exprRefs: Map[Int, Int] = Map(),
   inBufferBlocks: List[ArrayBufferBlock] = List(),
   outBufferBlocks: List[ArrayBufferBlock] = List(),

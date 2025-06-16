@@ -17,7 +17,7 @@ private[cyfra] object VulkanContext {
 
 private[cyfra] class VulkanContext {
   val instance: Instance = new Instance(ValidationLayers)
-  val debugCallback: Option[DebugCallback] = if (ValidationLayers) Some(new DebugCallback(instance)) else None
+  val debugCallback: Option[DebugCallback] = if ValidationLayers then Some(new DebugCallback(instance)) else None
   val device: Device = new Device(instance)
   val computeQueue: Queue = new Queue(device.computeQueueFamily, 0, device)
   val allocator: Allocator = new Allocator(instance, device)

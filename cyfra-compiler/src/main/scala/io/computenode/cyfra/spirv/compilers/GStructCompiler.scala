@@ -10,7 +10,7 @@ import scala.collection.mutable
 
 private[cyfra] object GStructCompiler:
 
-  def defineStructTypes(schemas: List[GStructSchema[_]], context: Context): (List[Words], Context) =
+  def defineStructTypes(schemas: List[GStructSchema[?]], context: Context): (List[Words], Context) =
     val sortedSchemas = sortSchemasDag(schemas.distinctBy(_.structTag))
     sortedSchemas.foldLeft((List[Words](), context)) { case ((words, ctx), schema) =>
       (
@@ -29,7 +29,7 @@ private[cyfra] object GStructCompiler:
       )
     }
 
-  def getStructNames(schemas: List[GStructSchema[_]], context: Context): List[Words] =
+  def getStructNames(schemas: List[GStructSchema[?]], context: Context): List[Words] =
     schemas.flatMap { schema =>
       val structName = schema.structTag.tag.shortName
       val structType = context.valueTypeMap(schema.structTag.tag)
@@ -38,14 +38,14 @@ private[cyfra] object GStructCompiler:
       }
     }
 
-  private def sortSchemasDag(schemas: List[GStructSchema[_]]): List[GStructSchema[_]] =
+  private def sortSchemasDag(schemas: List[GStructSchema[?]]): List[GStructSchema[?]] =
     val schemaMap = schemas.map(s => s.structTag.tag -> s).toMap
     val visited = mutable.Set[LightTypeTag]()
     val stack = mutable.Stack[LightTypeTag]()
-    val sorted = mutable.ListBuffer[GStructSchema[_]]()
+    val sorted = mutable.ListBuffer[GStructSchema[?]]()
 
     def visit(tag: LightTypeTag): Unit =
-      if !visited.contains(tag) && tag <:< summon[Tag[GStruct[_]]].tag then
+      if !visited.contains(tag) && tag <:< summon[Tag[GStruct[?]]].tag then
         visited += tag
         stack.push(tag)
         schemaMap(tag).fields.map(_._3.tag).foreach(visit)

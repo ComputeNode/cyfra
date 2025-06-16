@@ -87,7 +87,7 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
     check(vkBeginCommandBuffer(commandBuffer, commandBufferBeginInfo), "Failed to begin recording command buffer")
 
     computeSequence.sequence.foreach { case Compute(pipeline, _) =>
-      if (pipelinesHasDependencies(pipeline))
+      if pipelinesHasDependencies(pipeline) then
         val memoryBarrier = VkMemoryBarrier2
           .calloc(1, stack)
           .sType$Default()
@@ -105,7 +105,7 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
 
       vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.get)
 
-      val pDescriptorSets = stack.longs(pipelineToDescriptorSets(pipeline).map(_.get): _*)
+      val pDescriptorSets = stack.longs(pipelineToDescriptorSets(pipeline).map(_.get)*)
       vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.pipelineLayout, 0, pDescriptorSets, null)
 
       val workgroup = pipeline.computeShader.workgroupDimensions

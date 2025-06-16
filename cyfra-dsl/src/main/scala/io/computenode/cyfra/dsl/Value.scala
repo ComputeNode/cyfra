@@ -7,7 +7,7 @@ import io.computenode.cyfra.dsl.macros.Source
 import izumi.reflect.Tag
 
 trait Value:
-  def tree: E[_]
+  def tree: E[?]
   def source: Source
   private[cyfra] def treeid: Int = tree.treeid
   protected def init() =

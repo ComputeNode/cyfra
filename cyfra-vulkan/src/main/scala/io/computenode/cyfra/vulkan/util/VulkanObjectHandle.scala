@@ -7,8 +7,6 @@ private[cyfra] abstract class VulkanObjectHandle extends VulkanObject {
   protected val handle: Long
 
   def get: Long =
-    if (!alive)
-      throw new IllegalStateException()
-    else
-      handle
+    if !alive then throw new IllegalStateException()
+    else handle
 }
