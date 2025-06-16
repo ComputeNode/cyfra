@@ -89,7 +89,6 @@ abstract class SpirvTool(protected val toolName: String):
   final case class SpirvToolIOError(details: String) extends SpirvToolError:
     def message: String = s"SPIR-V command encountered IO error: $details"
 
-
 object SpirvTool:
   sealed trait ToolOutput
 
