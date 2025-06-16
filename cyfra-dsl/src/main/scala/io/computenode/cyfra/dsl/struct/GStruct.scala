@@ -26,12 +26,12 @@ object GStruct:
   object Empty:
     given GStructSchema[Empty] = GStructSchema.derived
 
-  case class ComposeStruct[T <: GStruct[T] : Tag](fields: List[Value], resultSchema: GStructSchema[T]) extends Expression[T]
+  case class ComposeStruct[T <: GStruct[T]: Tag](fields: List[Value], resultSchema: GStructSchema[T]) extends Expression[T]
 
-  case class GetField[S <: GStruct[S] : GStructSchema, T <: Value : Tag](struct: E[S], fieldIndex: Int) extends Expression[T]:
+  case class GetField[S <: GStruct[S]: GStructSchema, T <: Value: Tag](struct: E[S], fieldIndex: Int) extends Expression[T]:
     val resultSchema: GStructSchema[S] = summon[GStructSchema[S]]
 
-  given [T <: GStruct[T] : GStructSchema]: GStructConstructor[T] with
+  given [T <: GStruct[T]: GStructSchema]: GStructConstructor[T] with
     def schema: GStructSchema[T] = summon[GStructSchema[T]]
 
     def fromExpr(expr: E[T])(using Source): T = schema.fromTree(expr)

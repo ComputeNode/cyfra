@@ -69,5 +69,5 @@ object GStructSchema:
   private inline def constValueTuple[T <: Tuple]: T =
     (inline erasedValue[T] match
       case _: EmptyTuple => EmptyTuple
-      case _: (t *: ts) => constValue[t] *: constValueTuple[ts]
-      ).asInstanceOf[T]
+      case _: (t *: ts)  => constValue[t] *: constValueTuple[ts]
+    ).asInstanceOf[T]

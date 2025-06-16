@@ -14,7 +14,7 @@ trait Value:
   init()
 
 object Value:
-  
+
   trait FromExpr[T <: Value]:
     def fromExpr(expr: E[T])(using name: Source): T
 
