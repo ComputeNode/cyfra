@@ -2,9 +2,11 @@ package io.computenode.samples.cyfra.slides
 
 import java.nio.file.Paths
 import io.computenode.cyfra.runtime.*
-import io.computenode.cyfra.dsl.GStruct.Empty
 import io.computenode.cyfra.dsl.given
 import io.computenode.cyfra.dsl.*
+import io.computenode.cyfra.dsl.collections.GSeq
+import io.computenode.cyfra.dsl.struct.GStruct
+import io.computenode.cyfra.dsl.struct.GStruct.Empty
 import io.computenode.cyfra.runtime.mem.Vec4FloatMem
 import io.computenode.cyfra.utility.ImageUtility
 

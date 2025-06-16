@@ -1,25 +1,14 @@
-package io.computenode.cyfra.dsl
+package io.computenode.cyfra.dsl.struct
 
-import io.computenode.cyfra.dsl.Algebra.{FromExpr, given_Conversion_Int_Int32}
-import io.computenode.cyfra.dsl.Expression.*
-import io.computenode.cyfra.dsl.Value.*
-import io.computenode.cyfra.*
+import io.computenode.cyfra.dsl.Expression.E
+import io.computenode.cyfra.dsl.Value
+import io.computenode.cyfra.dsl.Value.FromExpr
 import io.computenode.cyfra.dsl.macros.Source
+import io.computenode.cyfra.dsl.struct.GStruct.*
 import izumi.reflect.Tag
 
-import scala.compiletime.*
+import scala.compiletime.{constValue, erasedValue, error, summonAll}
 import scala.deriving.Mirror
-
-type SomeGStruct[T <: GStruct[T]] = GStruct[T]
-abstract class GStruct[T <: GStruct[T]: Tag: GStructSchema] extends Value with Product:
-  self: T =>
-  private[cyfra] var _schema: GStructSchema[T] = summon[GStructSchema[T]] // a nasty hack
-  def schema: GStructSchema[T] = _schema
-  lazy val tree: E[T] =
-    schema.tree(self)
-  override protected def init(): Unit = ()
-  private[dsl] var _name = Source("Unknown")
-  override def source: Source = _name
 
 case class GStructSchema[T <: GStruct[T]: Tag](fields: List[(String, FromExpr[?], Tag[?])], dependsOn: Option[E[T]], fromTuple: (Tuple, Source) => T):
   given GStructSchema[T] = this
@@ -50,25 +39,6 @@ case class GStructSchema[T <: GStruct[T]: Tag](fields: List[(String, FromExpr[?]
 
   val gStructTag = summon[Tag[GStruct[?]]]
 
-trait GStructConstructor[T <: GStruct[T]] extends FromExpr[T]:
-  def schema: GStructSchema[T]
-  def fromExpr(expr: E[T])(using Source): T
-
-given [T <: GStruct[T]: GStructSchema]: GStructConstructor[T] with
-  def schema: GStructSchema[T] = summon[GStructSchema[T]]
-  def fromExpr(expr: E[T])(using Source): T = schema.fromTree(expr)
-
-case class ComposeStruct[T <: GStruct[T]: Tag](fields: List[Value], resultSchema: GStructSchema[T]) extends Expression[T]
-
-case class GetField[S <: GStruct[S]: GStructSchema, T <: Value: Tag](struct: E[S], fieldIndex: Int) extends Expression[T]:
-  val resultSchema: GStructSchema[S] = summon[GStructSchema[S]]
-
-private inline def constValueTuple[T <: Tuple]: T =
-  (inline erasedValue[T] match
-    case _: EmptyTuple => EmptyTuple
-    case _: (t *: ts)  => constValue[t] *: constValueTuple[ts]
-  ).asInstanceOf[T]
-
 object GStructSchema:
   type TagOf[T] = Tag[T]
   type FromExprOf[T] = T match
@@ -96,8 +66,8 @@ object GStructSchema:
         )
       case _ => error("Only case classes are supported as GStructs")
 
-object GStruct:
-  case class Empty() extends GStruct[Empty]
-
-  object Empty:
-    given GStructSchema[Empty] = GStructSchema.derived
+  private inline def constValueTuple[T <: Tuple]: T =
+    (inline erasedValue[T] match
+      case _: EmptyTuple => EmptyTuple
+      case _: (t *: ts)  => constValue[t] *: constValueTuple[ts]
+    ).asInstanceOf[T]

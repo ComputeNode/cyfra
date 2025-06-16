@@ -1,13 +1,9 @@
 package io.computenode.cyfra.foton.rt.shapes
 
 import io.computenode.cyfra.foton.rt.Material
-import io.computenode.cyfra.dsl.Functions.*
-import io.computenode.cyfra.dsl.Algebra.{*, given}
-import io.computenode.cyfra.dsl.Control.when
-import io.computenode.cyfra.dsl.GStruct
-import io.computenode.cyfra.dsl.Math3D.scalarTriple
+import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.dsl.library.Math3D.scalarTriple
 import io.computenode.cyfra.foton.rt.RtRenderer.{MinRayHitTime, RayHitInfo}
-import io.computenode.cyfra.dsl.Value.*
 
 import java.nio.file.Paths
 import scala.collection.mutable
@@ -16,7 +12,8 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext}
 import io.computenode.cyfra.dsl.given
 import io.computenode.cyfra.foton.rt.shapes.Shape.TestRay
-import io.computenode.cyfra.dsl.Pure.pure
+import io.computenode.cyfra.dsl.control.Pure.pure
+import io.computenode.cyfra.dsl.struct.GStruct
 
 case class Quad(a: Vec3[Float32], b: Vec3[Float32], c: Vec3[Float32], d: Vec3[Float32], material: Material) extends GStruct[Quad] with Shape
 

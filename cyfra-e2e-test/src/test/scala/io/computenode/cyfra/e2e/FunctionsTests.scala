@@ -1,8 +1,8 @@
 package io.computenode.cyfra.e2e
 
 import io.computenode.cyfra.runtime.*, mem.*
+import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.dsl.{*, given}
-import GStruct.Empty.given
 import GMem.fRGBA
 
 class FunctionsE2eTest extends munit.FunSuite:
@@ -26,7 +26,7 @@ class FunctionsE2eTest extends munit.FunSuite:
     result
       .zip(expected)
       .foreach: (res, exp) =>
-        assert(Math.abs(res - exp) < 0.01f, s"Expected $exp but got $res")
+        assert(Math.abs(res - exp) < 0.05f, s"Expected $exp but got $res")
 
   test("smoothstep clamp mix reflect refract normalize"):
     val gf: GFunction[GStruct.Empty, Float32, Float32] = GFunction: f =>

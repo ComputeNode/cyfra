@@ -1,8 +1,10 @@
 package io.computenode.cyfra.e2e
 
-import io.computenode.cyfra.runtime.*, mem.*
+import io.computenode.cyfra.dsl.collections.GSeq
+import io.computenode.cyfra.dsl.struct.GStruct
+import io.computenode.cyfra.runtime.*
+import mem.*
 import io.computenode.cyfra.dsl.{*, given}
-import GStruct.Empty.given
 
 class GStructE2eTest extends munit.FunSuite:
   case class Custom(f: Float32, v: Vec4[Float32]) extends GStruct[Custom]

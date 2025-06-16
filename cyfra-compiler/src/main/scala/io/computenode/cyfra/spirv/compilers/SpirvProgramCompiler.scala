@@ -2,8 +2,9 @@ package io.computenode.cyfra.spirv.compilers
 
 import io.computenode.cyfra.spirv.Opcodes.*
 import io.computenode.cyfra.dsl.Expression.{Const, E}
+import io.computenode.cyfra.dsl.Value
 import io.computenode.cyfra.dsl.Value.*
-import io.computenode.cyfra.dsl.{GStructSchema, Value, GStructConstructor}
+import io.computenode.cyfra.dsl.struct.{GStructConstructor, GStructSchema}
 import io.computenode.cyfra.spirv.Context
 import io.computenode.cyfra.spirv.SpirvConstants.*
 import io.computenode.cyfra.spirv.SpirvTypes.*

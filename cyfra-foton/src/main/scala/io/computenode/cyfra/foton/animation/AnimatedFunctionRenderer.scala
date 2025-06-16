@@ -1,23 +1,33 @@
 package io.computenode.cyfra.foton.animation
 
+import io.computenode.cyfra.utility.Units.Milliseconds
 import io.computenode.cyfra
-import io.computenode.cyfra.dsl.Algebra.*
+import io.computenode.cyfra.dsl.struct.GStruct
+import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.dsl.Value.*
-import io.computenode.cyfra.dsl.{GStruct, UniformContext, given}
 import io.computenode.cyfra.foton.animation.AnimatedFunctionRenderer.{AnimationIteration, RenderFn}
 import io.computenode.cyfra.foton.animation.AnimationFunctions.AnimationInstant
+import io.computenode.cyfra.foton.animation.AnimationRenderer
+import io.computenode.cyfra.foton.rt.ImageRtRenderer.RaytracingIteration
+import io.computenode.cyfra.foton.rt.animation.AnimationRtRenderer.RaytracingIteration
+import io.computenode.cyfra.foton.rt.RtRenderer
+import io.computenode.cyfra.runtime.{GContext, GFunction, UniformContext}
+import io.computenode.cyfra.utility.Units.Milliseconds
+import io.computenode.cyfra.utility.Utility.timed
 import io.computenode.cyfra.runtime.mem.GMem.fRGBA
 import io.computenode.cyfra.runtime.mem.Vec4FloatMem
-import io.computenode.cyfra.runtime.{GContext, GFunction}
 
-import scala.concurrent.ExecutionContext
+import java.nio.file.{Path, Paths}
 import scala.concurrent.ExecutionContext.Implicits
+import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.duration.DurationInt
 
 class AnimatedFunctionRenderer(params: AnimatedFunctionRenderer.Parameters)
     extends AnimationRenderer[AnimatedFunction, AnimatedFunctionRenderer.RenderFn](params):
 
+  given GContext = new GContext()
+
   given ExecutionContext = Implicits.global
-  given GContext = GContext()
 
   override protected def renderFrame(scene: AnimatedFunction, time: Float32, fn: RenderFn): Array[fRGBA] =
     val mem = Array.fill(params.width * params.height)((0.5f, 0.5f, 0.5f, 0.5f))

@@ -4,12 +4,15 @@ import io.computenode.cyfra.spirv.Opcodes.*
 import ExtFunctionCompiler.compileExtFunctionCall
 import FunctionCompiler.compileFunctionCall
 import WhenCompiler.compileWhen
-import io.computenode.cyfra.dsl.Control.WhenExpr
 import io.computenode.cyfra.dsl.Expression.*
 import io.computenode.cyfra.dsl.*
 import io.computenode.cyfra.dsl.Value.*
+import io.computenode.cyfra.dsl.collections.GSeq
 import io.computenode.cyfra.dsl.macros.Source
+import io.computenode.cyfra.dsl.struct.GStruct.{ComposeStruct, GetField}
+import io.computenode.cyfra.dsl.struct.GStructSchema
 import io.computenode.cyfra.spirv.{BlockBuilder, Context}
+import io.computenode.cyfra.dsl.collections.GArray.GArrayElem
 import izumi.reflect.Tag
 import io.computenode.cyfra.spirv.SpirvConstants.*
 import io.computenode.cyfra.spirv.SpirvTypes.*

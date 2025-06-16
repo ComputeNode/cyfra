@@ -2,19 +2,23 @@ package io.computenode.samples.cyfra.foton
 
 import io.computenode.cyfra
 import io.computenode.cyfra.*
-import io.computenode.cyfra.dsl.Color.{InterpolationThemes, interpolate}
-import io.computenode.cyfra.dsl.Math3D.*
-import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.dsl.collections.GSeq
 import io.computenode.cyfra.foton.animation.AnimatedFunctionRenderer.Parameters
-import io.computenode.cyfra.foton.animation.AnimationFunctions.*
 import io.computenode.cyfra.foton.animation.{AnimatedFunction, AnimatedFunctionRenderer}
+import io.computenode.cyfra.given
+import io.computenode.cyfra.runtime.*
+import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.dsl.library.Color.{InterpolationThemes, interpolate}
+import io.computenode.cyfra.dsl.library.Math3D.*
+import io.computenode.cyfra.dsl.given
+import io.computenode.cyfra.foton.animation.AnimationFunctions.*
 
 import java.nio.file.Paths
 import scala.concurrent.duration.DurationInt
 
 object AnimatedJulia:
   @main
-  def julia(): Unit =
+  def julia() =
 
     def julia(uv: Vec2[Float32])(using AnimationInstant): Int32 =
       val p = smooth(from = 0.355f, to = 0.4f, duration = 3.seconds)

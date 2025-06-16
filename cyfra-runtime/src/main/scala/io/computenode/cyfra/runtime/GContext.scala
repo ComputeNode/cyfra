@@ -1,8 +1,9 @@
 package io.computenode.cyfra.runtime
 
-import io.computenode.cyfra.dsl.Algebra.FromExpr
-import io.computenode.cyfra.dsl.Value.{Float32, Int32, Vec4}
-import io.computenode.cyfra.dsl.{GArray, GStruct, GStructSchema, UniformContext, Value}
+import io.computenode.cyfra.dsl.Value
+import io.computenode.cyfra.dsl.Value.{Float32, FromExpr, Int32, Vec4}
+import io.computenode.cyfra.dsl.collections.GArray
+import io.computenode.cyfra.dsl.struct.*
 import io.computenode.cyfra.runtime.mem.GMem.totalStride
 import io.computenode.cyfra.runtime.mem.{FloatMem, GMem, IntMem, Vec4FloatMem}
 import io.computenode.cyfra.spirv.SpirvTypes.typeStride
@@ -45,7 +46,7 @@ class GContext(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()):
     ComputePipeline(shader, vkContext)
   }
 
-  def execute[G <: GStruct[G]: {Tag, GStructSchema}, H <: Value, R <: Value](mem: GMem[H], fn: GFunction[G, H, R])(using
+  def execute[G <: GStruct[G]: Tag: GStructSchema, H <: Value, R <: Value](mem: GMem[H], fn: GFunction[G, H, R])(using
     uniformContext: UniformContext[G],
   ): GMem[R] =
     val isUniformEmpty = uniformContext.uniform.schema.fields.isEmpty

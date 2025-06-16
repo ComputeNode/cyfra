@@ -2,8 +2,9 @@ package io.computenode.cyfra.e2e.juliaset
 
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.*
-import io.computenode.cyfra.dsl.GStruct.Empty
-import io.computenode.cyfra.dsl.Pure.pure
+import io.computenode.cyfra.dsl.collections.GSeq
+import io.computenode.cyfra.dsl.control.Pure.pure
+import io.computenode.cyfra.dsl.struct.GStruct.Empty
 import io.computenode.cyfra.e2e.ImageTests
 import io.computenode.cyfra.runtime.mem.Vec4FloatMem
 import io.computenode.cyfra.runtime.{GContext, GFunction}

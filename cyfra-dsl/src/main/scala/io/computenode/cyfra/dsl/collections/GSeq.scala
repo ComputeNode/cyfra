@@ -1,12 +1,13 @@
-package io.computenode.cyfra.dsl
+package io.computenode.cyfra.dsl.collections
 
-import io.computenode.cyfra.dsl.Algebra.{*, given}
-import io.computenode.cyfra.dsl.Control.{Scope, when}
-import io.computenode.cyfra.dsl.Expression.{ConstInt32, CustomTreeId, E, PhantomExpression, treeidState}
-import GSeq.*
+import io.computenode.cyfra.dsl.Expression.*
 import io.computenode.cyfra.dsl.Value.*
+import io.computenode.cyfra.dsl.algebra.ScalarAlgebra.{*, given}
+import io.computenode.cyfra.dsl.collections.GSeq.*
+import io.computenode.cyfra.dsl.control.Scope
+import io.computenode.cyfra.dsl.control.When.*
 import io.computenode.cyfra.dsl.macros.Source
-import io.computenode.cyfra.dsl.{Expression, GSeq}
+import io.computenode.cyfra.dsl.{Expression, Value}
 import izumi.reflect.Tag
 
 import java.util.Base64

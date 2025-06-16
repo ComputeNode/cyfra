@@ -9,7 +9,7 @@ import io.computenode.cyfra.utility.Units.Milliseconds
 import io.computenode.cyfra.given
 import io.computenode.cyfra.runtime.*
 import io.computenode.cyfra.dsl.*
-import io.computenode.cyfra.dsl.Color.hex
+import io.computenode.cyfra.dsl.library.Color.hex
 import io.computenode.cyfra.dsl.given
 
 import java.nio.file.Paths
@@ -62,8 +62,8 @@ object AnimatedRaytrace:
 
     val parameters =
       AnimationRtRenderer.Parameters(
-        width = 1920,
-        height = 1080,
+        width = 512,
+        height = 512,
         superFar = 300f,
         pixelIterations = 10000,
         iterations = 2,

@@ -1,8 +1,10 @@
 package io.computenode.cyfra.e2e
 
-import io.computenode.cyfra.runtime.*, mem.*
+import io.computenode.cyfra.dsl.collections.GSeq
+import io.computenode.cyfra.dsl.struct.GStruct
+import io.computenode.cyfra.runtime.*
+import mem.*
 import io.computenode.cyfra.dsl.{*, given}
-import GStruct.Empty.given
 
 class GseqE2eTest extends munit.FunSuite:
   given gc: GContext = GContext()

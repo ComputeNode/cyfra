@@ -1,8 +1,8 @@
 package foton
 
 import io.computenode.cyfra.dsl.Value.*
+import io.computenode.cyfra.dsl.library.{Color, Math3D}
 import io.computenode.cyfra.utility.ImageUtility
-import io.computenode.cyfra.dsl.{Algebra, Color}
 import io.computenode.cyfra.foton.animation.AnimationRenderer
 import io.computenode.cyfra.foton.animation.AnimationRenderer.{Parameters, Scene}
 import io.computenode.cyfra.utility.Units.Milliseconds
@@ -11,10 +11,10 @@ import java.nio.file.{Path, Paths}
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.Await
 
-export Algebra.given
+export io.computenode.cyfra.dsl.algebra.ScalarAlgebra.{*, given}
+export io.computenode.cyfra.dsl.algebra.VectorAlgebra.{*, given}
 export Color.*
-export io.computenode.cyfra.dsl.{GSeq, GStruct}
-export io.computenode.cyfra.dsl.Math3D.{rotate, lessThan}
+export Math3D.{rotate, lessThan}
 
 /** Define function to be drawn
   */

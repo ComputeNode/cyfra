@@ -1,8 +1,7 @@
 package io.computenode.cyfra.dsl
 
 import io.computenode.cyfra.dsl.Value
-import io.computenode.cyfra.dsl.Algebra.*
-import io.computenode.cyfra.dsl.Expression.E
+import io.computenode.cyfra.dsl.Expression.{E, E as T}
 import io.computenode.cyfra.dsl.macros.Source
 import izumi.reflect.Tag
 
@@ -14,7 +13,11 @@ trait Value:
     tree.of = Some(this)
   init()
 
-object Value {
+object Value:
+
+  trait FromExpr[T <: Value]:
+    def fromExpr(expr: E[T])(using name: Source): T
+
   sealed trait Scalar extends Value
 
   trait FloatType extends Scalar
@@ -49,5 +52,3 @@ object Value {
   case class Vec4[T <: Value](tree: E[Vec4[T]])(using val source: Source) extends Vec[T]
   given [T <: Scalar]: FromExpr[Vec4[T]] with
     def fromExpr(f: E[Vec4[T]])(using Source) = Vec4(f)
-
-}

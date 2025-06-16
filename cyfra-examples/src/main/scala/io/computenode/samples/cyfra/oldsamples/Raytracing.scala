@@ -12,7 +12,9 @@ import scala.concurrent.{Await, ExecutionContext}
 import io.computenode.cyfra.given
 import io.computenode.cyfra.runtime.*
 import io.computenode.cyfra.dsl.*
+import io.computenode.cyfra.dsl.collections.GSeq
 import io.computenode.cyfra.dsl.given
+import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.runtime.mem.Vec4FloatMem
 import io.computenode.cyfra.utility.ImageUtility
 import io.computenode.cyfra.runtime.mem.Vec4FloatMem
