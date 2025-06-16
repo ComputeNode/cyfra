@@ -13,13 +13,13 @@ private[cyfra] object SpirvTypes:
   val UInt32Tag = summon[Tag[UInt32]]
   val Float32Tag = summon[Tag[Float32]]
   val GBooleanTag = summon[Tag[GBoolean]]
-  val Vec2TagWithoutArgs = summon[Tag[Vec2[_]]].tag.withoutArgs
-  val Vec3TagWithoutArgs = summon[Tag[Vec3[_]]].tag.withoutArgs
-  val Vec4TagWithoutArgs = summon[Tag[Vec4[_]]].tag.withoutArgs
-  val Vec2Tag = summon[Tag[Vec2[_]]]
-  val Vec3Tag = summon[Tag[Vec3[_]]]
-  val Vec4Tag = summon[Tag[Vec4[_]]]
-  val VecTag = summon[Tag[Vec[_]]]
+  val Vec2TagWithoutArgs = summon[Tag[Vec2[?]]].tag.withoutArgs
+  val Vec3TagWithoutArgs = summon[Tag[Vec3[?]]].tag.withoutArgs
+  val Vec4TagWithoutArgs = summon[Tag[Vec4[?]]].tag.withoutArgs
+  val Vec2Tag = summon[Tag[Vec2[?]]]
+  val Vec3Tag = summon[Tag[Vec3[?]]]
+  val Vec4Tag = summon[Tag[Vec4[?]]]
+  val VecTag = summon[Tag[Vec[?]]]
 
   val LInt32Tag = Int32Tag.tag
   val LUInt32Tag = UInt32Tag.tag
@@ -37,7 +37,7 @@ private[cyfra] object SpirvTypes:
   type Vec3C[T <: Value] = Vec3[T]
   type Vec4C[T <: Value] = Vec4[T]
 
-  def scalarTypeDefInsn(tag: Tag[_], typeDefIndex: Int) = tag match {
+  def scalarTypeDefInsn(tag: Tag[?], typeDefIndex: Int) = tag match {
     case Int32Tag    => Instruction(Op.OpTypeInt, List(ResultRef(typeDefIndex), IntWord(32), IntWord(1)))
     case UInt32Tag   => Instruction(Op.OpTypeInt, List(ResultRef(typeDefIndex), IntWord(32), IntWord(0)))
     case Float32Tag  => Instruction(Op.OpTypeFloat, List(ResultRef(typeDefIndex), IntWord(32)))
@@ -57,9 +57,9 @@ private[cyfra] object SpirvTypes:
     case v if v <:< LVecTag =>
       vecSize(v) * typeStride(v.typeArgs.head)
 
-  def typeStride(tag: Tag[_]): Int = typeStride(tag.tag)
+  def typeStride(tag: Tag[?]): Int = typeStride(tag.tag)
 
-  def toWord(tpe: Tag[_], value: Any): Words = tpe match {
+  def toWord(tpe: Tag[?], value: Any): Words = tpe match {
     case t if t == Int32Tag =>
       IntWord(value.asInstanceOf[Int])
     case t if t == UInt32Tag =>
@@ -73,7 +73,7 @@ private[cyfra] object SpirvTypes:
       Word(intToBytes(java.lang.Float.floatToIntBits(fl)).reverse.toArray)
   }
 
-  def defineScalarTypes(types: List[Tag[_]], context: Context): (List[Words], Context) =
+  def defineScalarTypes(types: List[Tag[?]], context: Context): (List[Words], Context) =
     val basicTypes = List(Int32Tag, Float32Tag, UInt32Tag, GBooleanTag)
     (basicTypes ::: types).distinct.foldLeft((List[Words](), context)) { case ((words, ctx), valType) =>
       val typeDefIndex = ctx.nextResultId

@@ -22,7 +22,7 @@ object Control:
   ):
     def elseWhen(cond: GBoolean)(t: T): When[T] =
       When(when, thenCode, otherConds :+ Scope(cond.tree), otherCases :+ Scope(t.tree.asInstanceOf[E[T]]), name)
-    def otherwise(t: T): T =
+    infix def otherwise(t: T): T =
       summon[FromExpr[T]]
         .fromExpr(WhenExpr(when, Scope(thenCode.tree.asInstanceOf[E[T]]), otherConds, otherCases, Scope(t.tree.asInstanceOf[E[T]])))(using name)
 

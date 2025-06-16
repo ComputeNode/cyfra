@@ -25,22 +25,22 @@ private[cyfra] object ExpressionCompiler:
   val UniformStructRefTag = "uniform_struct"
   def UniformStructRef[G <: Value: Tag] = Dynamic(UniformStructRefTag)
 
-  private def binaryOpOpcode(expr: BinaryOpExpression[_]) = expr match
-    case _: Sum[_]  => (Op.OpIAdd, Op.OpFAdd)
-    case _: Diff[_] => (Op.OpISub, Op.OpFSub)
-    case _: Mul[_]  => (Op.OpIMul, Op.OpFMul)
-    case _: Div[_]  => (Op.OpSDiv, Op.OpFDiv)
-    case _: Mod[_]  => (Op.OpSMod, Op.OpFMod)
+  private def binaryOpOpcode(expr: BinaryOpExpression[?]) = expr match
+    case _: Sum[?]  => (Op.OpIAdd, Op.OpFAdd)
+    case _: Diff[?] => (Op.OpISub, Op.OpFSub)
+    case _: Mul[?]  => (Op.OpIMul, Op.OpFMul)
+    case _: Div[?]  => (Op.OpSDiv, Op.OpFDiv)
+    case _: Mod[?]  => (Op.OpSMod, Op.OpFMod)
 
-  private def compileBinaryOpExpression(bexpr: BinaryOpExpression[_], ctx: Context): (List[Instruction], Context) =
+  private def compileBinaryOpExpression(bexpr: BinaryOpExpression[?], ctx: Context): (List[Instruction], Context) =
     val tpe = bexpr.tag
     val typeRef = ctx.valueTypeMap(tpe.tag)
     val subOpcode = tpe match {
       case i
           if i.tag <:< summon[Tag[IntType]].tag || i.tag <:< summon[Tag[UIntType]].tag ||
-            (i.tag <:< summon[Tag[Vec[_]]].tag && i.tag.typeArgs.head <:< summon[Tag[IntType]].tag) =>
+            (i.tag <:< summon[Tag[Vec[?]]].tag && i.tag.typeArgs.head <:< summon[Tag[IntType]].tag) =>
         binaryOpOpcode(bexpr)._1
-      case f if f.tag <:< summon[Tag[FloatType]].tag || (f.tag <:< summon[Tag[Vec[_]]].tag && f.tag.typeArgs.head <:< summon[Tag[FloatType]].tag) =>
+      case f if f.tag <:< summon[Tag[FloatType]].tag || (f.tag <:< summon[Tag[Vec[?]]].tag && f.tag.typeArgs.head <:< summon[Tag[FloatType]].tag) =>
         binaryOpOpcode(bexpr)._2
     }
     val instructions = List(
@@ -52,39 +52,39 @@ private[cyfra] object ExpressionCompiler:
     val updatedContext = ctx.copy(exprRefs = ctx.exprRefs + (bexpr.treeid -> ctx.nextResultId), nextResultId = ctx.nextResultId + 1)
     (instructions, updatedContext)
 
-  private def compileConvertExpression(cexpr: ConvertExpression[_, _], ctx: Context): (List[Instruction], Context) =
+  private def compileConvertExpression(cexpr: ConvertExpression[?, ?], ctx: Context): (List[Instruction], Context) =
     val tpe = cexpr.tag
     val typeRef = ctx.valueTypeMap(tpe.tag)
     val tfOpcode = (cexpr.fromTag, cexpr) match {
-      case (from, _: ToFloat32[_]) if from.tag =:= Int32Tag.tag  => Op.OpConvertSToF
-      case (from, _: ToFloat32[_]) if from.tag =:= UInt32Tag.tag => Op.OpConvertUToF
-      case (from, _: ToInt32[_]) if from.tag =:= Float32Tag.tag  => Op.OpConvertFToS
-      case (from, _: ToUInt32[_]) if from.tag =:= Float32Tag.tag => Op.OpConvertFToU
-      case (from, _: ToInt32[_]) if from.tag =:= UInt32Tag.tag   => Op.OpBitcast
-      case (from, _: ToUInt32[_]) if from.tag =:= Int32Tag.tag   => Op.OpBitcast
+      case (from, _: ToFloat32[?]) if from.tag =:= Int32Tag.tag  => Op.OpConvertSToF
+      case (from, _: ToFloat32[?]) if from.tag =:= UInt32Tag.tag => Op.OpConvertUToF
+      case (from, _: ToInt32[?]) if from.tag =:= Float32Tag.tag  => Op.OpConvertFToS
+      case (from, _: ToUInt32[?]) if from.tag =:= Float32Tag.tag => Op.OpConvertFToU
+      case (from, _: ToInt32[?]) if from.tag =:= UInt32Tag.tag   => Op.OpBitcast
+      case (from, _: ToUInt32[?]) if from.tag =:= Int32Tag.tag   => Op.OpBitcast
     }
     val instructions = List(Instruction(tfOpcode, List(ResultRef(typeRef), ResultRef(ctx.nextResultId), ResultRef(ctx.exprRefs(cexpr.a.treeid)))))
     val updatedContext = ctx.copy(exprRefs = ctx.exprRefs + (cexpr.treeid -> ctx.nextResultId), nextResultId = ctx.nextResultId + 1)
     (instructions, updatedContext)
 
-  def comparisonOp(comparisonOpExpression: ComparisonOpExpression[_]) =
+  def comparisonOp(comparisonOpExpression: ComparisonOpExpression[?]) =
     comparisonOpExpression match
-      case _: GreaterThan[_]      => (Op.OpSGreaterThan, Op.OpFOrdGreaterThan)
-      case _: LessThan[_]         => (Op.OpSLessThan, Op.OpFOrdLessThan)
-      case _: GreaterThanEqual[_] => (Op.OpSGreaterThanEqual, Op.OpFOrdGreaterThanEqual)
-      case _: LessThanEqual[_]    => (Op.OpSLessThanEqual, Op.OpFOrdLessThanEqual)
-      case _: Equal[_]            => (Op.OpIEqual, Op.OpFOrdEqual)
+      case _: GreaterThan[?]      => (Op.OpSGreaterThan, Op.OpFOrdGreaterThan)
+      case _: LessThan[?]         => (Op.OpSLessThan, Op.OpFOrdLessThan)
+      case _: GreaterThanEqual[?] => (Op.OpSGreaterThanEqual, Op.OpFOrdGreaterThanEqual)
+      case _: LessThanEqual[?]    => (Op.OpSLessThanEqual, Op.OpFOrdLessThanEqual)
+      case _: Equal[?]            => (Op.OpIEqual, Op.OpFOrdEqual)
 
-  private def compileBitwiseExpression(bexpr: BitwiseOpExpression[_], ctx: Context): (List[Instruction], Context) =
+  private def compileBitwiseExpression(bexpr: BitwiseOpExpression[?], ctx: Context): (List[Instruction], Context) =
     val tpe = bexpr.tag
     val typeRef = ctx.valueTypeMap(tpe.tag)
     val subOpcode = bexpr match {
-      case _: BitwiseAnd[_] => Op.OpBitwiseAnd
-      case _: BitwiseOr[_]  => Op.OpBitwiseOr
-      case _: BitwiseXor[_] => Op.OpBitwiseXor
-      case _: BitwiseNot[_] => Op.OpNot
-      case _: ShiftLeft[_]  => Op.OpShiftLeftLogical
-      case _: ShiftRight[_] => Op.OpShiftRightLogical
+      case _: BitwiseAnd[?] => Op.OpBitwiseAnd
+      case _: BitwiseOr[?]  => Op.OpBitwiseOr
+      case _: BitwiseXor[?] => Op.OpBitwiseXor
+      case _: BitwiseNot[?] => Op.OpNot
+      case _: ShiftLeft[?]  => Op.OpShiftLeftLogical
+      case _: ShiftRight[?] => Op.OpShiftRightLogical
     }
     val instructions = List(
       Instruction(subOpcode, List(ResultRef(typeRef), ResultRef(ctx.nextResultId)) ::: bexpr.exprDependencies.map(d => ResultRef(ctx.exprRefs(d.treeid)))),
@@ -92,15 +92,14 @@ private[cyfra] object ExpressionCompiler:
     val updatedContext = ctx.copy(exprRefs = ctx.exprRefs + (bexpr.treeid -> ctx.nextResultId), nextResultId = ctx.nextResultId + 1)
     (instructions, updatedContext)
 
-  def compileBlock(tree: E[_], ctx: Context): (List[Words], Context) = {
+  def compileBlock(tree: E[?], ctx: Context): (List[Words], Context) = {
 
     @tailrec
-    def compileExpressions(exprs: List[E[_]], ctx: Context, acc: List[Words]): (List[Words], Context) = {
-      if (exprs.isEmpty) (acc, ctx)
+    def compileExpressions(exprs: List[E[?]], ctx: Context, acc: List[Words]): (List[Words], Context) = {
+      if exprs.isEmpty then (acc, ctx)
       else {
         val expr = exprs.head
-        if (ctx.exprRefs.contains(expr.treeid))
-          compileExpressions(exprs.tail, ctx, acc)
+        if ctx.exprRefs.contains(expr.treeid) then compileExpressions(exprs.tail, ctx, acc)
         else {
 
           val name: Option[String] = expr.of match
@@ -119,17 +118,16 @@ private[cyfra] object ExpressionCompiler:
             case d @ Dynamic(UniformStructRefTag) =>
               (Nil, ctx.copy(exprRefs = ctx.exprRefs + (d.treeid -> ctx.uniformVarRef)))
 
-            case c: ConvertExpression[_, _] =>
+            case c: ConvertExpression[?, ?] =>
               compileConvertExpression(c, ctx)
 
-            case b: BinaryOpExpression[_] =>
+            case b: BinaryOpExpression[?] =>
               compileBinaryOpExpression(b, ctx)
 
-            case negate: Negate[_] =>
+            case negate: Negate[?] =>
               val op =
-                if (negate.tag.tag <:< summon[Tag[FloatType]].tag ||
-                  (negate.tag.tag <:< summon[Tag[Vec[_]]].tag && negate.tag.tag.typeArgs.head <:< summon[Tag[FloatType]].tag))
-                  Op.OpFNegate
+                if negate.tag.tag <:< summon[Tag[FloatType]].tag ||
+                  (negate.tag.tag <:< summon[Tag[Vec[?]]].tag && negate.tag.tag.typeArgs.head <:< summon[Tag[FloatType]].tag) then Op.OpFNegate
                 else Op.OpSNegate
               val instructions = List(
                 Instruction(op, List(ResultRef(ctx.valueTypeMap(negate.tag.tag)), ResultRef(ctx.nextResultId), ResultRef(ctx.exprRefs(negate.a.treeid)))),
@@ -137,7 +135,7 @@ private[cyfra] object ExpressionCompiler:
               val updatedContext = ctx.copy(exprRefs = ctx.exprRefs + (negate.treeid -> ctx.nextResultId), nextResultId = ctx.nextResultId + 1)
               (instructions, updatedContext)
 
-            case bo: BitwiseOpExpression[_] =>
+            case bo: BitwiseOpExpression[?] =>
               compileBitwiseExpression(bo, ctx)
 
             case and: And =>
@@ -180,7 +178,7 @@ private[cyfra] object ExpressionCompiler:
               val updatedContext = ctx.copy(exprRefs = ctx.exprRefs + (expr.treeid -> ctx.nextResultId), nextResultId = ctx.nextResultId + 1)
               (instructions, updatedContext)
 
-            case sp: ScalarProd[_, _] =>
+            case sp: ScalarProd[?, ?] =>
               val instructions = List(
                 Instruction(
                   Op.OpVectorTimesScalar,
@@ -195,7 +193,7 @@ private[cyfra] object ExpressionCompiler:
               val updatedContext = ctx.copy(exprRefs = ctx.exprRefs + (expr.treeid -> ctx.nextResultId), nextResultId = ctx.nextResultId + 1)
               (instructions, updatedContext)
 
-            case dp: DotProd[_, _] =>
+            case dp: DotProd[?, ?] =>
               val instructions = List(
                 Instruction(
                   Op.OpDot,
@@ -210,9 +208,9 @@ private[cyfra] object ExpressionCompiler:
               val updatedContext = ctx.copy(exprRefs = ctx.exprRefs + (dp.treeid -> ctx.nextResultId), nextResultId = ctx.nextResultId + 1)
               (instructions, updatedContext)
 
-            case co: ComparisonOpExpression[_] =>
+            case co: ComparisonOpExpression[?] =>
               val (intOp, floatOp) = comparisonOp(co)
-              val op = if (co.operandTag.tag <:< summon[Tag[FloatType]].tag) floatOp else intOp
+              val op = if co.operandTag.tag <:< summon[Tag[FloatType]].tag then floatOp else intOp
               val instructions = List(
                 Instruction(
                   op,
@@ -227,7 +225,7 @@ private[cyfra] object ExpressionCompiler:
               val updatedContext = ctx.copy(exprRefs = ctx.exprRefs + (expr.treeid -> ctx.nextResultId), nextResultId = ctx.nextResultId + 1)
               (instructions, updatedContext)
 
-            case e: ExtractScalar[_, _] =>
+            case e: ExtractScalar[?, ?] =>
               val instructions = List(
                 Instruction(
                   Op.OpVectorExtractDynamic,
@@ -243,7 +241,7 @@ private[cyfra] object ExpressionCompiler:
               val updatedContext = ctx.copy(exprRefs = ctx.exprRefs + (expr.treeid -> ctx.nextResultId), nextResultId = ctx.nextResultId + 1)
               (instructions, updatedContext)
 
-            case composeVec2: ComposeVec2[_] =>
+            case composeVec2: ComposeVec2[?] =>
               val instructions = List(
                 Instruction(
                   Op.OpCompositeConstruct,
@@ -258,7 +256,7 @@ private[cyfra] object ExpressionCompiler:
               val updatedContext = ctx.copy(exprRefs = ctx.exprRefs + (expr.treeid -> ctx.nextResultId), nextResultId = ctx.nextResultId + 1)
               (instructions, updatedContext)
 
-            case composeVec3: ComposeVec3[_] =>
+            case composeVec3: ComposeVec3[?] =>
               val instructions = List(
                 Instruction(
                   Op.OpCompositeConstruct,
@@ -274,7 +272,7 @@ private[cyfra] object ExpressionCompiler:
               val updatedContext = ctx.copy(exprRefs = ctx.exprRefs + (expr.treeid -> ctx.nextResultId), nextResultId = ctx.nextResultId + 1)
               (instructions, updatedContext)
 
-            case composeVec4: ComposeVec4[_] =>
+            case composeVec4: ComposeVec4[?] =>
               val instructions = List(
                 Instruction(
                   Op.OpCompositeConstruct,
@@ -291,10 +289,10 @@ private[cyfra] object ExpressionCompiler:
               val updatedContext = ctx.copy(exprRefs = ctx.exprRefs + (expr.treeid -> ctx.nextResultId), nextResultId = ctx.nextResultId + 1)
               (instructions, updatedContext)
 
-            case fc: ExtFunctionCall[_] =>
+            case fc: ExtFunctionCall[?] =>
               compileExtFunctionCall(fc, ctx)
 
-            case fc: FunctionCall[_] =>
+            case fc: FunctionCall[?] =>
               compileFunctionCall(fc, ctx)
 
             case ga @ GArrayElem(index, i) =>
@@ -314,14 +312,14 @@ private[cyfra] object ExpressionCompiler:
               val updatedContext = ctx.copy(exprRefs = ctx.exprRefs + (expr.treeid -> (ctx.nextResultId + 1)), nextResultId = ctx.nextResultId + 2)
               (instructions, updatedContext)
 
-            case when: WhenExpr[_] =>
+            case when: WhenExpr[?] =>
               compileWhen(when, ctx)
 
-            case fd: GSeq.FoldSeq[_, _] =>
+            case fd: GSeq.FoldSeq[?, ?] =>
               GSeqCompiler.compileFold(fd, ctx)
 
-            case cs: ComposeStruct[_] =>
-              val schema = cs.resultSchema.asInstanceOf[GStructSchema[_]]
+            case cs: ComposeStruct[?] =>
+              val schema = cs.resultSchema.asInstanceOf[GStructSchema[?]]
               val fields = cs.fields
               val insns: List[Instruction] = List(
                 Instruction(
@@ -348,7 +346,7 @@ private[cyfra] object ExpressionCompiler:
               )
               val updatedContext = ctx.copy(exprRefs = ctx.exprRefs + (expr.treeid -> (ctx.nextResultId + 1)), nextResultId = ctx.nextResultId + 2)
               (insns, updatedContext)
-            case gf: GetField[_, _] =>
+            case gf: GetField[?, ?] =>
               val insns: List[Instruction] = List(
                 Instruction(
                   Op.OpCompositeExtract,
@@ -363,7 +361,7 @@ private[cyfra] object ExpressionCompiler:
               val updatedContext = ctx.copy(exprRefs = ctx.exprRefs + (expr.treeid -> ctx.nextResultId), nextResultId = ctx.nextResultId + 1)
               (insns, updatedContext)
 
-            case ph: PhantomExpression[_] => (List(), ctx)
+            case ph: PhantomExpression[?] => (List(), ctx)
           }
           val ctxWithName = updatedCtx.copy(exprNames = updatedCtx.exprNames ++ name.map(n => (updatedCtx.nextResultId - 1, n)).toMap)
           compileExpressions(exprs.tail, ctxWithName, acc ::: instructions)

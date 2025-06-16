@@ -24,7 +24,7 @@ private[cyfra] class ComputePipeline(val computeShader: Shader, context: VulkanC
       .sType$Default()
       .pNext(0)
       .flags(0)
-      .pSetLayouts(stack.longs(descriptorSetLayouts.map(_._1): _*))
+      .pSetLayouts(stack.longs(descriptorSetLayouts.map(_._1)*))
       .pPushConstantRanges(null)
 
     val pPipelineLayout = stack.callocLong(1)

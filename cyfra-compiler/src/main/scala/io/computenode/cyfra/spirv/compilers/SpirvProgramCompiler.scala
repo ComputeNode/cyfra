@@ -18,7 +18,7 @@ private[cyfra] object SpirvProgramCompiler:
       case _                             => false
     }
 
-  def compileMain(tree: Value, resultType: Tag[_], ctx: Context): (List[Words], Context) = {
+  def compileMain(tree: Value, resultType: Tag[?], ctx: Context): (List[Words], Context) = {
 
     val init = List(
       Instruction(Op.OpFunction, List(ResultRef(ctx.voidTypeRef), ResultRef(MAIN_FUNC_REF), SamplerAddressingMode.None, ResultRef(VOID_FUNC_TYPE_REF))),
@@ -104,7 +104,7 @@ private[cyfra] object SpirvProgramCompiler:
     (voidDef, ctxWithVoid)
   }
 
-  def initAndDecorateUniforms(ins: List[Tag[_]], outs: List[Tag[_]], context: Context): (List[Words], List[Words], Context) = {
+  def initAndDecorateUniforms(ins: List[Tag[?]], outs: List[Tag[?]], context: Context): (List[Words], List[Words], Context) = {
     val (inDecor, inDef, inCtx) = createAndInitBlocks(ins, in = true, context)
     val (outDecor, outDef, outCtx) = createAndInitBlocks(outs, in = false, inCtx)
     val (voidsDef, voidCtx) = defineVoids(outCtx)
@@ -130,7 +130,7 @@ private[cyfra] object SpirvProgramCompiler:
     (definitionInstructions, context.copy(nextResultId = context.nextResultId + 3))
   }
 
-  def createAndInitBlocks(blocks: List[Tag[_]], in: Boolean, context: Context): (List[Words], List[Words], Context) = {
+  def createAndInitBlocks(blocks: List[Tag[?]], in: Boolean, context: Context): (List[Words], List[Words], Context) = {
     val (decoration, definition, newContext) = blocks.foldLeft((List[Words](), List[Words](), context)) { case ((decAcc, insnAcc, ctx), tpe) =>
       val block = ArrayBufferBlock(ctx.nextResultId, ctx.nextResultId + 1, ctx.nextResultId + 2, ctx.nextResultId + 3, ctx.nextBinding)
 
@@ -150,7 +150,7 @@ private[cyfra] object SpirvProgramCompiler:
       )
 
       val contextWithBlock =
-        if (in) ctx.copy(inBufferBlocks = block :: ctx.inBufferBlocks) else ctx.copy(outBufferBlocks = block :: ctx.outBufferBlocks)
+        if in then ctx.copy(inBufferBlocks = block :: ctx.inBufferBlocks) else ctx.copy(outBufferBlocks = block :: ctx.outBufferBlocks)
       (
         decAcc ::: decorationInstructions,
         insnAcc ::: definitionInstructions,
@@ -160,18 +160,18 @@ private[cyfra] object SpirvProgramCompiler:
     (decoration, definition, newContext)
   }
 
-  def getBlockNames(context: Context, uniformSchema: GStructSchema[_]): List[Words] =
+  def getBlockNames(context: Context, uniformSchema: GStructSchema[?]): List[Words] =
     def namesForBlock(block: ArrayBufferBlock, tpe: String): List[Words] =
       Instruction(Op.OpName, List(ResultRef(block.structTypeRef), Text(s"Buffer$tpe"))) ::
         Instruction(Op.OpName, List(ResultRef(block.blockVarRef), Text(s"data$tpe"))) :: Nil
     // todo name uniform
     context.inBufferBlocks.flatMap(namesForBlock(_, "In")) ::: context.outBufferBlocks.flatMap(namesForBlock(_, "Out"))
 
-  def createAndInitUniformBlock(schema: GStructSchema[_], ctx: Context): (List[Words], List[Words], Context) =
-    def totalStride(gs: GStructSchema[_]): Int = gs.fields
+  def createAndInitUniformBlock(schema: GStructSchema[?], ctx: Context): (List[Words], List[Words], Context) =
+    def totalStride(gs: GStructSchema[?]): Int = gs.fields
       .map:
         case (_, fromExpr, t) if t <:< gs.gStructTag =>
-          val constructor = fromExpr.asInstanceOf[GStructConstructor[_]]
+          val constructor = fromExpr.asInstanceOf[GStructConstructor[?]]
           totalStride(constructor.schema)
         case (_, _, t) =>
           typeStride(t)
@@ -182,7 +182,7 @@ private[cyfra] object SpirvProgramCompiler:
       case ((acc, offset), ((name, fromExpr, tag), idx)) =>
         val stride =
           if tag <:< schema.gStructTag then
-            val constructor = fromExpr.asInstanceOf[GStructConstructor[_]]
+            val constructor = fromExpr.asInstanceOf[GStructConstructor[?]]
             totalStride(constructor.schema)
           else typeStride(tag)
         val offsetDecoration = Instruction(Op.OpMemberDecorate, List(ResultRef(uniformStructTypeRef), IntWord(idx), Decoration.Offset, IntWord(offset)))
@@ -214,7 +214,7 @@ private[cyfra] object SpirvProgramCompiler:
     )
 
   val predefinedConsts = List((Int32Tag, 0), (UInt32Tag, 0), (Int32Tag, 1))
-  def defineConstants(exprs: List[E[_]], ctx: Context): (List[Words], Context) = {
+  def defineConstants(exprs: List[E[?]], ctx: Context): (List[Words], Context) = {
     val consts =
       (exprs.collect { case c @ Const(x) =>
         (c.tag, x)

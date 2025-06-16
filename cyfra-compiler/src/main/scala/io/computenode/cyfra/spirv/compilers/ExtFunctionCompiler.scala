@@ -35,7 +35,7 @@ private[cyfra] object ExtFunctionCompiler:
     Functions.Log -> GlslOp.Log,
   )
 
-  def compileExtFunctionCall(call: Expression.ExtFunctionCall[_], ctx: Context): (List[Instruction], Context) =
+  def compileExtFunctionCall(call: Expression.ExtFunctionCall[?], ctx: Context): (List[Instruction], Context) =
     val fnOp = fnOpMap(call.fn)
     val tp = call.tag
     val typeRef = ctx.valueTypeMap(tp.tag)

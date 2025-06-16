@@ -26,31 +26,29 @@ import scala.util.Random
 private[cyfra] object DSLCompiler:
 
   // TODO: Not traverse same fn scopes for each fn call
-  private def getAllExprsFlattened(root: E[_], visitDetached: Boolean): List[E[_]] =
+  private def getAllExprsFlattened(root: E[?], visitDetached: Boolean): List[E[?]] =
     var blockI = 0
-    val allScopesCache = mutable.Map[Int, List[E[_]]]()
+    val allScopesCache = mutable.Map[Int, List[E[?]]]()
     val visited = mutable.Set[Int]()
     @tailrec
-    def getAllScopesExprsAcc(toVisit: List[E[_]], acc: List[E[_]] = Nil): List[E[_]] = toVisit match
+    def getAllScopesExprsAcc(toVisit: List[E[?]], acc: List[E[?]] = Nil): List[E[?]] = toVisit match
       case Nil                                     => acc
       case e :: tail if visited.contains(e.treeid) => getAllScopesExprsAcc(tail, acc)
       case e :: tail                               =>
-        if (allScopesCache.contains(root.treeid))
-          return allScopesCache(root.treeid)
+        if allScopesCache.contains(root.treeid) then return allScopesCache(root.treeid)
         val eScopes = e.introducedScopes
         val filteredScopes = if visitDetached then eScopes else eScopes.filterNot(_.isDetached)
         val newToVisit = toVisit ::: e.exprDependencies ::: filteredScopes.map(_.expr)
         val result = e.exprDependencies ::: filteredScopes.map(_.expr) ::: acc
         visited += e.treeid
         blockI += 1
-        if (blockI % 100 == 0)
-          allScopesCache.update(e.treeid, result)
+        if blockI % 100 == 0 then allScopesCache.update(e.treeid, result)
         getAllScopesExprsAcc(newToVisit, result)
     val result = root :: getAllScopesExprsAcc(root :: Nil)
     allScopesCache(root.treeid) = result
     result
 
-  def compile(tree: Value, inTypes: List[Tag[_]], outTypes: List[Tag[_]], uniformSchema: GStructSchema[_]): ByteBuffer =
+  def compile(tree: Value, inTypes: List[Tag[?]], outTypes: List[Tag[?]], uniformSchema: GStructSchema[?]): ByteBuffer =
     val treeExpr = tree.tree
     val allExprs = getAllExprsFlattened(treeExpr, visitDetached = true)
     val typesInCode = allExprs.map(_.tag).distinct
@@ -59,8 +57,8 @@ private[cyfra] object DSLCompiler:
     val (typeDefs, typedContext) = defineScalarTypes(scalarTypes, Context.initialContext)
     val structsInCode =
       (allExprs.collect {
-        case cs: ComposeStruct[_] => cs.resultSchema
-        case gf: GetField[_, _]   => gf.resultSchema
+        case cs: ComposeStruct[?] => cs.resultSchema
+        case gf: GetField[?, ?]   => gf.resultSchema
       } :+ uniformSchema).distinct
     val (structDefs, structCtx) = defineStructTypes(structsInCode, typedContext)
     val structNames = getStructNames(structsInCode, structCtx)

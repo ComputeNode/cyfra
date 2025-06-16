@@ -21,7 +21,7 @@ abstract class GStruct[T <: GStruct[T]: Tag: GStructSchema] extends Value with P
   private[dsl] var _name = Source("Unknown")
   override def source: Source = _name
 
-case class GStructSchema[T <: GStruct[T]: Tag](fields: List[(String, FromExpr[_], Tag[_])], dependsOn: Option[E[T]], fromTuple: (Tuple, Source) => T):
+case class GStructSchema[T <: GStruct[T]: Tag](fields: List[(String, FromExpr[?], Tag[?])], dependsOn: Option[E[T]], fromTuple: (Tuple, Source) => T):
   given GStructSchema[T] = this
   val structTag = summon[Tag[T]]
 
@@ -48,7 +48,7 @@ case class GStructSchema[T <: GStruct[T]: Tag](fields: List[(String, FromExpr[_]
       this.copy(dependsOn = Some(e)),
     )
 
-  val gStructTag = summon[Tag[GStruct[_]]]
+  val gStructTag = summon[Tag[GStruct[?]]]
 
 trait GStructConstructor[T <: GStruct[T]] extends FromExpr[T]:
   def schema: GStructSchema[T]
@@ -81,8 +81,8 @@ object GStructSchema:
         // quick prove that all fields <:< value
         summonAll[Tuple.Map[m.MirroredElemTypes, [f] =>> f <:< Value]]
         // get (name, tag) pairs for all fields
-        val elemTags: List[Tag[_]] = summonAll[Tuple.Map[m.MirroredElemTypes, TagOf]].toList.asInstanceOf[List[Tag[_]]]
-        val elemFromExpr: List[FromExpr[_]] = summonAll[Tuple.Map[m.MirroredElemTypes, [f] =>> FromExprOf[f]]].toList.asInstanceOf[List[FromExpr[_]]]
+        val elemTags: List[Tag[?]] = summonAll[Tuple.Map[m.MirroredElemTypes, TagOf]].toList.asInstanceOf[List[Tag[?]]]
+        val elemFromExpr: List[FromExpr[?]] = summonAll[Tuple.Map[m.MirroredElemTypes, [f] =>> FromExprOf[f]]].toList.asInstanceOf[List[FromExpr[?]]]
         val elemNames: List[String] = constValueTuple[m.MirroredElemLabels].toList.asInstanceOf[List[String]]
         val elements = elemNames.lazyZip(elemFromExpr).lazyZip(elemTags).toList
         GStructSchema[T](

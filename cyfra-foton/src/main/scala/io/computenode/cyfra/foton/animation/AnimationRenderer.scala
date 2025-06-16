@@ -18,7 +18,7 @@ import java.nio.file.{Path, Paths}
 import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
 
-trait AnimationRenderer[S <: AnimationRenderer.Scene, F <: GFunction[_, Vec4[Float32], Vec4[Float32]]](params: AnimationRenderer.Parameters):
+trait AnimationRenderer[S <: AnimationRenderer.Scene, F <: GFunction[?, Vec4[Float32], Vec4[Float32]]](params: AnimationRenderer.Parameters):
 
   private val msPerFrame = 1000.0f / params.framesPerSecond
 

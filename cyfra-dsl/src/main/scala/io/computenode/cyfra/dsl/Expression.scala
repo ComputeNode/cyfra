@@ -18,25 +18,25 @@ trait Expression[T <: Value: Tag] extends Product:
     .map(e => s"#${e.treeid}")
     .mkString("[", ", ", "]")
   override def toString: String = s"${this.productPrefix}(${of.fold("")(v => s"name = ${v.source}, ")}children=$childrenStrings, id=$treeid)"
-  private def exploreDeps(children: List[Any]): (List[Expression[_]], List[Scope[_]]) = (for (elem <- children) yield elem match {
-    case b: Scope[_] =>
+  private def exploreDeps(children: List[Any]): (List[Expression[?]], List[Scope[?]]) = (for (elem <- children) yield elem match {
+    case b: Scope[?] =>
       (None, Some(b))
-    case x: Expression[_] =>
+    case x: Expression[?] =>
       (Some(x), None)
     case x: Value =>
       (Some(x.tree), None)
     case list: List[Any] =>
-      (exploreDeps(list.collect { case v: Value => v })._1, exploreDeps(list.collect { case s: Scope[_] => s })._2)
+      (exploreDeps(list.collect { case v: Value => v })._1, exploreDeps(list.collect { case s: Scope[?] => s })._2)
     case _ => (None, None)
-  }).foldLeft((List.empty[Expression[_]], List.empty[Scope[_]])) { case ((acc, blockAcc), (newExprs, newBlocks)) =>
+  }).foldLeft((List.empty[Expression[?]], List.empty[Scope[?]])) { case ((acc, blockAcc), (newExprs, newBlocks)) =>
     (acc ::: newExprs.iterator.toList, blockAcc ::: newBlocks.iterator.toList)
   }
-  def exprDependencies: List[Expression[_]] = exploreDeps(this.productIterator.toList)._1
-  def introducedScopes: List[Scope[_]] = exploreDeps(this.productIterator.toList)._2
+  def exprDependencies: List[Expression[?]] = exploreDeps(this.productIterator.toList)._1
+  def introducedScopes: List[Scope[?]] = exploreDeps(this.productIterator.toList)._2
 
 object Expression:
   trait CustomTreeId:
-    self: Expression[_] =>
+    self: Expression[?] =>
     override val treeid: Int
 
   trait PhantomExpression[T <: Value: Tag] extends Expression[T]
@@ -85,7 +85,7 @@ object Expression:
   case class Or(a: GBoolean, b: GBoolean) extends Expression[GBoolean]
   case class Not(a: GBoolean) extends Expression[GBoolean]
 
-  case class ExtractScalar[V <: Vec[_]: Tag, S <: Scalar: Tag](a: V, i: Int32) extends Expression[S]
+  case class ExtractScalar[V <: Vec[?]: Tag, S <: Scalar: Tag](a: V, i: Int32) extends Expression[S]
 
   sealed trait ConvertExpression[F <: Scalar: Tag, T <: Scalar: Tag] extends Expression[T] {
     def fromTag: Tag[F] = summon[Tag[F]]
