@@ -1,6 +1,5 @@
 package io.computenode.cyfra.spirv
 
-import io.computenode.cyfra.dsl.Control.Scope
 import io.computenode.cyfra.dsl.Expression.{E, FunctionCall}
 import io.computenode.cyfra.dsl.Value
 import io.computenode.cyfra.dsl.macros.Source

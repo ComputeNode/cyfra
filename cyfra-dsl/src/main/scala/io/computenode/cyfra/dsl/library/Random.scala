@@ -1,7 +1,12 @@
-package io.computenode.cyfra.dsl
+package io.computenode.cyfra.dsl.library
 
-import io.computenode.cyfra.dsl.Algebra.{*, given}
-import io.computenode.cyfra.dsl.Pure.pure
+import io.computenode.cyfra.dsl.algebra.VectorAlgebra.{*, given}
+import io.computenode.cyfra.dsl.algebra.ScalarAlgebra.{*, given}
+import Functions.{cos, sin, sqrt}
+import io.computenode.cyfra.dsl.control.Pure.pure
+import io.computenode.cyfra.dsl.Value
+import io.computenode.cyfra.dsl.Value.{Float32, UInt32, Vec3}
+import io.computenode.cyfra.dsl.struct.GStruct
 
 case class Random(seed: UInt32) extends GStruct[Random]:
 

@@ -2,10 +2,9 @@ package io.computenode.cyfra.foton.animation
 
 import io.computenode.cyfra.given
 import io.computenode.cyfra
-import io.computenode.cyfra.dsl.Algebra.{*, given}
+import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.foton.rt.animation.AnimationRtRenderer.RaytracingIteration
 import io.computenode.cyfra.*
-import io.computenode.cyfra.dsl.Control.when
 import io.computenode.cyfra.dsl.Value.Float32
 import io.computenode.cyfra.foton.rt.ImageRtRenderer.RaytracingIteration
 import io.computenode.cyfra.utility.Units.Milliseconds

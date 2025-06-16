@@ -1,15 +1,14 @@
 package io.computenode.cyfra.runtime.mem
 
-import io.computenode.cyfra.dsl.{UniformContext, GStruct, GStructConstructor, GStructSchema, Value}
-import io.computenode.cyfra.dsl.Value.*
-import io.computenode.cyfra.dsl.Expression.*
-import GStruct.Empty
-import io.computenode.cyfra.dsl.Algebra.FromExpr
+import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.dsl.Value.FromExpr
 import io.computenode.cyfra.spirv.SpirvTypes.typeStride
 import io.computenode.cyfra.runtime.{GContext, GFunction}
+import io.computenode.cyfra.dsl.struct.*
 import izumi.reflect.Tag
 import org.lwjgl.BufferUtils
 import org.lwjgl.system.MemoryUtil
+import io.computenode.cyfra.runtime.UniformContext
 
 import java.nio.ByteBuffer
 

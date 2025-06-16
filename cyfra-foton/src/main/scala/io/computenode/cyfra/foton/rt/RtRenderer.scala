@@ -4,15 +4,12 @@ import io.computenode.cyfra
 import io.computenode.cyfra.foton.rt.RtRenderer.RayHitInfo
 import io.computenode.cyfra.utility.Utility.timed
 import io.computenode.cyfra.foton.rt.RtRenderer
-import io.computenode.cyfra.dsl.{GArray2D, GSeq, GStruct, Random, given}
+import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.foton.rt.shapes.{Box, Sphere}
-import io.computenode.cyfra.dsl.Color.*
-import io.computenode.cyfra.dsl.Control.when
-import io.computenode.cyfra.dsl.Math3D.*
+import io.computenode.cyfra.dsl.library.Color.*
+import io.computenode.cyfra.dsl.library.Math3D.*
 import io.computenode.cyfra.runtime.GContext
-import io.computenode.cyfra.dsl.Algebra.{*, given}
-import io.computenode.cyfra.dsl.Functions.*
-import io.computenode.cyfra.dsl.Pure.pure
+import io.computenode.cyfra.dsl.control.Pure.pure
 
 import java.nio.file.{Path, Paths}
 import scala.collection.mutable
@@ -20,6 +17,9 @@ import scala.concurrent.ExecutionContext.Implicits
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext}
 import io.computenode.cyfra.dsl.Value.*
+import io.computenode.cyfra.dsl.collections.{GArray2D, GSeq}
+import io.computenode.cyfra.dsl.library.Random
+import io.computenode.cyfra.dsl.struct.GStruct
 
 class RtRenderer(params: RtRenderer.Parameters):
 

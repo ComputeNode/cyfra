@@ -1,9 +1,9 @@
 package io.computenode.cyfra.dsl
-import io.computenode.cyfra.dsl.Control.Scope
 import io.computenode.cyfra.dsl.Expression
 import Expression.{Const, treeidState}
-import io.computenode.cyfra.dsl.Functions.*
+import io.computenode.cyfra.dsl.library.Functions.*
 import io.computenode.cyfra.dsl.Value.*
+import io.computenode.cyfra.dsl.control.Scope
 import io.computenode.cyfra.dsl.macros.FnCall.FnIdentifier
 import io.computenode.cyfra.dsl.macros.Source
 import izumi.reflect.Tag

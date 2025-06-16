@@ -1,8 +1,9 @@
-package io.computenode.cyfra.dsl
+package io.computenode.cyfra.dsl.library
 
-import io.computenode.cyfra.dsl.Algebra.{/, FromExpr, vec3}
 import io.computenode.cyfra.dsl.Expression.*
 import io.computenode.cyfra.dsl.Value.*
+import io.computenode.cyfra.dsl.algebra.VectorAlgebra.{*, given}
+import io.computenode.cyfra.dsl.algebra.ScalarAlgebra.{*, given}
 import io.computenode.cyfra.dsl.macros.Source
 import izumi.reflect.Tag
 

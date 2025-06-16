@@ -1,7 +1,9 @@
 package io.computenode.cyfra.runtime
 
 import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.dsl.Value.Int32
+import io.computenode.cyfra.dsl.Value.*
+import io.computenode.cyfra.dsl.struct.*
+import io.computenode.cyfra.dsl.collections.{GArray, GArray2D}
 import io.computenode.cyfra.vulkan.compute.ComputePipeline
 import izumi.reflect.Tag
 

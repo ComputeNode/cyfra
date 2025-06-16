@@ -1,9 +1,9 @@
-package io.computenode.cyfra.dsl
+package io.computenode.cyfra.dsl.control
 
-import io.computenode.cyfra.dsl.Algebra.FromExpr
-import io.computenode.cyfra.dsl.Control.Scope
 import io.computenode.cyfra.dsl.Expression.FunctionCall
+import io.computenode.cyfra.dsl.Value.FromExpr
 import io.computenode.cyfra.dsl.macros.FnCall
+import io.computenode.cyfra.dsl.{Expression, Value}
 import izumi.reflect.Tag
 
 object Pure:

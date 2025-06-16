@@ -1,18 +1,19 @@
 package io.computenode.cyfra.runtime
 
-import io.computenode.cyfra.dsl.Algebra.FromExpr
-import io.computenode.cyfra.dsl.{GArray, GStruct, GStructSchema, UniformContext, Value}
-import GStruct.Empty
-import Value.{Float32, Vec4, Int32}
+import io.computenode.cyfra.dsl.{*, given}
+import Value.{Float32, Int32, Vec4}
 import io.computenode.cyfra.vulkan.VulkanContext
 import io.computenode.cyfra.vulkan.compute.{Binding, ComputePipeline, InputBufferSize, LayoutInfo, LayoutSet, Shader, UniformSize}
 import io.computenode.cyfra.vulkan.executor.{BufferAction, SequenceExecutor}
 import SequenceExecutor.*
+import io.computenode.cyfra.dsl.collections.GArray
+import io.computenode.cyfra.dsl.struct.*
+import io.computenode.cyfra.dsl.struct.GStruct.*
 import io.computenode.cyfra.runtime.mem.GMem.totalStride
 import io.computenode.cyfra.spirv.SpirvTypes.typeStride
 import io.computenode.cyfra.spirv.compilers.DSLCompiler
 import io.computenode.cyfra.spirv.compilers.ExpressionCompiler.{UniformStructRef, WorkerIndex}
-import mem.{FloatMem, GMem, Vec4FloatMem, IntMem}
+import mem.{FloatMem, GMem, IntMem, Vec4FloatMem}
 import org.lwjgl.system.{Configuration, MemoryUtil}
 import izumi.reflect.Tag
 

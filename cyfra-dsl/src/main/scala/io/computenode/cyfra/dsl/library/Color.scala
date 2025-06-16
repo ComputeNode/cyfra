@@ -1,9 +1,10 @@
-package io.computenode.cyfra.dsl
+package io.computenode.cyfra.dsl.library
 
-import io.computenode.cyfra.dsl.Algebra.{*, given}
-import io.computenode.cyfra.dsl.Functions.{cos, mix, pow}
+import io.computenode.cyfra.dsl.algebra.ScalarAlgebra.{*, given}
+import io.computenode.cyfra.dsl.algebra.VectorAlgebra.{*, given}
+import Functions.{cos, mix, pow}
 import io.computenode.cyfra.dsl.Value.{Float32, Vec3}
-import io.computenode.cyfra.dsl.Math3D.lessThan
+import io.computenode.cyfra.dsl.library.Math3D.lessThan
 
 import scala.annotation.targetName
 

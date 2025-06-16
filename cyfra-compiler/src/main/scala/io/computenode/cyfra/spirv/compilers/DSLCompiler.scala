@@ -9,6 +9,8 @@ import SpirvProgramCompiler.*
 import io.computenode.cyfra.dsl.Expression.E
 import io.computenode.cyfra.dsl.*
 import io.computenode.cyfra.dsl.Value.Scalar
+import io.computenode.cyfra.dsl.struct.GStruct.*
+import io.computenode.cyfra.dsl.struct.GStructSchema
 import io.computenode.cyfra.spirv.SpirvConstants.*
 import io.computenode.cyfra.spirv.SpirvTypes.*
 import io.computenode.cyfra.spirv.compilers.ExpressionCompiler.compileBlock

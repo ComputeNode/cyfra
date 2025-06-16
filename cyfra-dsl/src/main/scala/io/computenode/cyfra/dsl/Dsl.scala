@@ -4,8 +4,7 @@ package io.computenode.cyfra.dsl
 
 export io.computenode.cyfra.dsl.Value.*
 export io.computenode.cyfra.dsl.Expression.*
-export io.computenode.cyfra.dsl.Algebra.*
-export io.computenode.cyfra.dsl.Control.*
-export io.computenode.cyfra.dsl.Functions.*
-
-export io.computenode.cyfra.dsl.Algebra.given
+export io.computenode.cyfra.dsl.algebra.VectorAlgebra.{*, given}
+export io.computenode.cyfra.dsl.algebra.ScalarAlgebra.{*, given}
+export io.computenode.cyfra.dsl.control.When.*
+export io.computenode.cyfra.dsl.library.Functions.*
