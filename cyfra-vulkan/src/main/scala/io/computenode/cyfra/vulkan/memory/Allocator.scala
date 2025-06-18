@@ -3,7 +3,6 @@ package io.computenode.cyfra.vulkan.memory
 import io.computenode.cyfra.vulkan.core.{Device, Instance}
 import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import io.computenode.cyfra.vulkan.util.VulkanObjectHandle
-import org.lwjgl.system.MemoryStack
 import org.lwjgl.util.vma.Vma.{vmaCreateAllocator, vmaDestroyAllocator}
 import org.lwjgl.util.vma.{VmaAllocatorCreateInfo, VmaVulkanFunctions}
 

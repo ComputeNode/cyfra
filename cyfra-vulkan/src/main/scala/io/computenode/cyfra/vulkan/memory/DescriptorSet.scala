@@ -1,10 +1,9 @@
 package io.computenode.cyfra.vulkan.memory
 
-import io.computenode.cyfra.vulkan.compute.{Binding, LayoutSet}
-import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
+import io.computenode.cyfra.vulkan.compute.Binding
 import io.computenode.cyfra.vulkan.core.Device
+import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import io.computenode.cyfra.vulkan.util.VulkanObjectHandle
-import org.lwjgl.system.MemoryStack
 import org.lwjgl.vulkan.VK10.*
 import org.lwjgl.vulkan.{VkDescriptorBufferInfo, VkDescriptorSetAllocateInfo, VkWriteDescriptorSet}
 

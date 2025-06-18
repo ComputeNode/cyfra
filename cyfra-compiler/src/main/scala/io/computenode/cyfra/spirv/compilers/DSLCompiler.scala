@@ -1,29 +1,26 @@
 package io.computenode.cyfra.spirv.compilers
 
 import io.computenode.cyfra.*
-import io.computenode.cyfra.spirv.Opcodes.*
-import izumi.reflect.Tag
-import izumi.reflect.macrortti.{LTag, LTagK, LightTypeTag}
-import org.lwjgl.BufferUtils
-import SpirvProgramCompiler.*
-import io.computenode.cyfra.dsl.Expression.E
 import io.computenode.cyfra.dsl.*
+import io.computenode.cyfra.dsl.Expression.E
 import io.computenode.cyfra.dsl.Value.Scalar
 import io.computenode.cyfra.dsl.struct.GStruct.*
 import io.computenode.cyfra.dsl.struct.GStructSchema
+import io.computenode.cyfra.spirv.Context
+import io.computenode.cyfra.spirv.Opcodes.*
 import io.computenode.cyfra.spirv.SpirvConstants.*
 import io.computenode.cyfra.spirv.SpirvTypes.*
-import io.computenode.cyfra.spirv.compilers.ExpressionCompiler.compileBlock
+import io.computenode.cyfra.spirv.compilers.FunctionCompiler.compileFunctions
 import io.computenode.cyfra.spirv.compilers.GStructCompiler.*
-import io.computenode.cyfra.spirv.Context
-import io.computenode.cyfra.spirv.compilers.FunctionCompiler.{compileFunctions, defineFunctionTypes}
+import io.computenode.cyfra.spirv.compilers.SpirvProgramCompiler.*
+import izumi.reflect.Tag
+import izumi.reflect.macrortti.LightTypeTag
+import org.lwjgl.BufferUtils
 
 import java.nio.ByteBuffer
 import scala.annotation.tailrec
 import scala.collection.mutable
-import scala.math.random
 import scala.runtime.stdLibPatches.Predef.summon
-import scala.util.Random
 
 private[cyfra] object DSLCompiler:
 

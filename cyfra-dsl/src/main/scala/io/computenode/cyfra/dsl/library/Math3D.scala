@@ -1,12 +1,10 @@
 package io.computenode.cyfra.dsl.library
 
-import io.computenode.cyfra.dsl.algebra.VectorAlgebra.{*, given}
-import io.computenode.cyfra.dsl.algebra.ScalarAlgebra.{*, given}
-import Functions.*
 import io.computenode.cyfra.dsl.Value.*
+import io.computenode.cyfra.dsl.algebra.ScalarAlgebra.{*, given}
+import io.computenode.cyfra.dsl.algebra.VectorAlgebra.{*, given}
 import io.computenode.cyfra.dsl.control.When.when
-
-import scala.concurrent.duration.DurationInt
+import io.computenode.cyfra.dsl.library.Functions.*
 
 object Math3D:
   def scalarTriple(u: Vec3[Float32], v: Vec3[Float32], w: Vec3[Float32]): Float32 = (u cross v) dot w

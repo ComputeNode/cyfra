@@ -1,17 +1,13 @@
 package io.computenode.cyfra.vulkan.executor
 
+import io.computenode.cyfra.utility.Utility.timed
+import io.computenode.cyfra.vulkan.VulkanContext
 import io.computenode.cyfra.vulkan.command.*
 import io.computenode.cyfra.vulkan.compute.*
 import io.computenode.cyfra.vulkan.core.*
-import SequenceExecutor.*
-import io.computenode.cyfra.utility.Utility.timed
+import io.computenode.cyfra.vulkan.executor.SequenceExecutor.*
 import io.computenode.cyfra.vulkan.memory.*
-import io.computenode.cyfra.vulkan.VulkanContext
-import io.computenode.cyfra.vulkan.command.{CommandPool, Fence, Queue}
-import io.computenode.cyfra.vulkan.compute.{ComputePipeline, InputBufferSize, LayoutSet, UniformSize}
 import io.computenode.cyfra.vulkan.util.Util.*
-import io.computenode.cyfra.vulkan.core.Device
-import io.computenode.cyfra.vulkan.memory.{Allocator, Buffer, DescriptorPool, DescriptorSet}
 import org.lwjgl.BufferUtils
 import org.lwjgl.util.vma.Vma.*
 import org.lwjgl.vulkan.*

@@ -1,15 +1,10 @@
 package io.computenode.cyfra.vulkan.command
 
-import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import io.computenode.cyfra.vulkan.core.Device
+import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import io.computenode.cyfra.vulkan.util.{VulkanAssertionError, VulkanObjectHandle}
-import org.lwjgl.system.MemoryStack
-import org.lwjgl.system.MemoryStack.stackPush
 import org.lwjgl.vulkan.VK10.*
 import org.lwjgl.vulkan.VkFenceCreateInfo
-
-import java.nio.LongBuffer
-import scala.util.Using
 
 /** @author
   *   MarconZet Created 13.04.2020
@@ -45,6 +40,6 @@ private[cyfra] class Fence(device: Device, flags: Int = 0, onDestroy: () => Unit
     this
 
   def block(timeout: Long): Boolean =
-    val err = vkWaitForFences(device.get, handle, true, timeout);
-    if err != VK_SUCCESS && err != VK_TIMEOUT then throw new VulkanAssertionError("Failed to wait for fences", err);
+    val err = vkWaitForFences(device.get, handle, true, timeout)
+    if err != VK_SUCCESS && err != VK_TIMEOUT then throw new VulkanAssertionError("Failed to wait for fences", err)
     err == VK_SUCCESS;

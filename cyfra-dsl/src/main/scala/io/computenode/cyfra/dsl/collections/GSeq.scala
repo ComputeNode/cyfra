@@ -10,9 +10,6 @@ import io.computenode.cyfra.dsl.macros.Source
 import io.computenode.cyfra.dsl.{Expression, Value}
 import izumi.reflect.Tag
 
-import java.util.Base64
-import scala.util.Random
-
 class GSeq[T <: Value: Tag: FromExpr](
   val uninitSource: Expression[?] => GSeqStream[?],
   val elemOps: List[GSeq.ElemOp[?]],
@@ -66,7 +63,7 @@ object GSeq:
       .gen[Int32](0, _ + 1)
       .map { i =>
         val first = when(i === 0):
-          xs(0)
+          xs.head
         (if xs.length == 1 then first
          else
            xs.init.zipWithIndex.tail.foldLeft(first) { case (acc, (x, j)) =>

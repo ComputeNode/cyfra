@@ -43,8 +43,7 @@ class GseqE2eTest extends munit.FunSuite:
       List
         .iterate(n, 10)(_ + 1)
         .takeWhile(_ <= 200)
-        .filter(_ % 2 == 0)
-        .size
+        .count(_ % 2 == 0)
 
     result
       .zip(expected)

@@ -1,18 +1,14 @@
 package io.computenode.cyfra.vulkan.executor
 
-import io.computenode.cyfra.vulkan.compute.*
 import io.computenode.cyfra.vulkan.VulkanContext
-import io.computenode.cyfra.vulkan.compute.{Binding, ComputePipeline, InputBufferSize, Shader, UniformSize}
+import io.computenode.cyfra.vulkan.compute.*
 import io.computenode.cyfra.vulkan.memory.{Buffer, DescriptorSet}
-import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
-import org.lwjgl.system.MemoryStack
-import org.lwjgl.system.MemoryStack.stackPush
+import io.computenode.cyfra.vulkan.util.Util.pushStack
 import org.lwjgl.util.vma.Vma.*
 import org.lwjgl.vulkan.*
 import org.lwjgl.vulkan.VK10.*
 
 import scala.collection.mutable
-import scala.util.Using
 
 /** @author
   *   MarconZet Created 15.04.2020

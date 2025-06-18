@@ -3,11 +3,10 @@ package io.computenode.cyfra.spirv.compilers
 import io.computenode.cyfra.dsl.Expression.E
 import io.computenode.cyfra.dsl.collections.GSeq
 import io.computenode.cyfra.dsl.collections.GSeq.*
+import io.computenode.cyfra.spirv.Context
 import io.computenode.cyfra.spirv.Opcodes.*
-import io.computenode.cyfra.spirv.{BlockBuilder, Context}
-import izumi.reflect.Tag
-import io.computenode.cyfra.spirv.SpirvConstants.*
 import io.computenode.cyfra.spirv.SpirvTypes.*
+import izumi.reflect.Tag
 
 private[cyfra] object GSeqCompiler:
 

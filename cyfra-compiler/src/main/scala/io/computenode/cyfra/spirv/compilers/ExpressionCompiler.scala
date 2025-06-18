@@ -1,24 +1,22 @@
 package io.computenode.cyfra.spirv.compilers
 
-import io.computenode.cyfra.spirv.Opcodes.*
-import ExtFunctionCompiler.compileExtFunctionCall
-import FunctionCompiler.compileFunctionCall
-import WhenCompiler.compileWhen
-import io.computenode.cyfra.dsl.Expression.*
 import io.computenode.cyfra.dsl.*
+import io.computenode.cyfra.dsl.Expression.*
 import io.computenode.cyfra.dsl.Value.*
+import io.computenode.cyfra.dsl.collections.GArray.GArrayElem
 import io.computenode.cyfra.dsl.collections.GSeq
 import io.computenode.cyfra.dsl.macros.Source
 import io.computenode.cyfra.dsl.struct.GStruct.{ComposeStruct, GetField}
 import io.computenode.cyfra.dsl.struct.GStructSchema
-import io.computenode.cyfra.spirv.{BlockBuilder, Context}
-import io.computenode.cyfra.dsl.collections.GArray.GArrayElem
-import izumi.reflect.Tag
-import io.computenode.cyfra.spirv.SpirvConstants.*
+import io.computenode.cyfra.spirv.Opcodes.*
 import io.computenode.cyfra.spirv.SpirvTypes.*
+import io.computenode.cyfra.spirv.compilers.ExtFunctionCompiler.compileExtFunctionCall
+import io.computenode.cyfra.spirv.compilers.FunctionCompiler.compileFunctionCall
+import io.computenode.cyfra.spirv.compilers.WhenCompiler.compileWhen
+import io.computenode.cyfra.spirv.{BlockBuilder, Context}
+import izumi.reflect.Tag
 
 import scala.annotation.tailrec
-import scala.collection.immutable.List as expr
 
 private[cyfra] object ExpressionCompiler:
 
@@ -319,6 +317,7 @@ private[cyfra] object ExpressionCompiler:
               GSeqCompiler.compileFold(fd, ctx)
 
             case cs: ComposeStruct[?] =>
+              // noinspection ScalaRedundantCast
               val schema = cs.resultSchema.asInstanceOf[GStructSchema[?]]
               val fields = cs.fields
               val insns: List[Instruction] = List(

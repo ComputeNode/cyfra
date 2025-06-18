@@ -1,14 +1,14 @@
 package io.computenode.samples.cyfra.slides
 
-import java.nio.file.Paths
-import io.computenode.cyfra.runtime.*
-import io.computenode.cyfra.dsl.given
-import io.computenode.cyfra.dsl.*
 import io.computenode.cyfra.dsl.collections.GSeq
+import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.dsl.struct.GStruct.Empty
+import io.computenode.cyfra.runtime.*
 import io.computenode.cyfra.runtime.mem.Vec4FloatMem
 import io.computenode.cyfra.utility.ImageUtility
+
+import java.nio.file.Paths
 
 def wangHash(seed: UInt32): UInt32 =
   val s1 = (seed ^ 61) ^ (seed >> 16)
@@ -35,7 +35,7 @@ def randomVector(seed: UInt32): Random[Vec3[Float32]] =
   Random((x, y, z2), seed2)
 
 @main
-def randomRays =
+def randomRays() =
   val raysPerPixel = 10
   val dim = 1024
   val fovDeg = 80

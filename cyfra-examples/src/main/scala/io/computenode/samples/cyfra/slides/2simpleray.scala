@@ -1,26 +1,16 @@
 package io.computenode.samples.cyfra.slides
 
-import java.awt.image.BufferedImage
-import java.io.File
-import java.nio.file.Paths
-import javax.imageio.ImageIO
-import scala.collection.mutable
-import scala.compiletime.error
-import scala.concurrent.ExecutionContext.Implicits
-import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContext}
-import io.computenode.cyfra.given
-import io.computenode.cyfra.runtime.*
-import io.computenode.cyfra.dsl.*
+import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.dsl.struct.GStruct
-import io.computenode.cyfra.dsl.given
 import io.computenode.cyfra.dsl.struct.GStruct.Empty
+import io.computenode.cyfra.runtime.*
 import io.computenode.cyfra.runtime.mem.Vec4FloatMem
 import io.computenode.cyfra.utility.ImageUtility
-import io.computenode.cyfra.runtime.mem.Vec4FloatMem
+
+import java.nio.file.Paths
 
 @main
-def simpleray =
+def simpleRay() =
   val dim = 1024
   val fovDeg = 60
 

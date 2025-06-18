@@ -1,9 +1,8 @@
 package io.computenode.cyfra.spirv.compilers
 
 import io.computenode.cyfra.dsl.struct.{GStruct, GStructSchema}
-import io.computenode.cyfra.dsl.struct.GStructSchema.*
-import io.computenode.cyfra.spirv.Opcodes.*
 import io.computenode.cyfra.spirv.Context
+import io.computenode.cyfra.spirv.Opcodes.*
 import izumi.reflect.Tag
 import izumi.reflect.macrortti.LightTypeTag
 

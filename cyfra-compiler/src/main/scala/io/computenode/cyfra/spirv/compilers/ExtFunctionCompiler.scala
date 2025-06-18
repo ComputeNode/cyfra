@@ -1,13 +1,12 @@
 package io.computenode.cyfra.spirv.compilers
 
-import io.computenode.cyfra.dsl.Expression.E
-import io.computenode.cyfra.dsl.library.Functions.FunctionName
-import io.computenode.cyfra.spirv.Opcodes.*
 import io.computenode.cyfra.dsl.Expression
 import io.computenode.cyfra.dsl.library.Functions
+import io.computenode.cyfra.dsl.library.Functions.FunctionName
 import io.computenode.cyfra.spirv.Context
-import io.computenode.cyfra.spirv.compilers.FunctionCompiler.SprivFunction
+import io.computenode.cyfra.spirv.Opcodes.*
 import io.computenode.cyfra.spirv.SpirvConstants.GLSL_EXT_REF
+import io.computenode.cyfra.spirv.compilers.FunctionCompiler.SprivFunction
 
 private[cyfra] object ExtFunctionCompiler:
   private val fnOpMap: Map[FunctionName, Code] = Map(

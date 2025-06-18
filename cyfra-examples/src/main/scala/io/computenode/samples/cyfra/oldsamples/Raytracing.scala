@@ -1,23 +1,17 @@
 package io.computenode.samples.cyfra.oldsamples
 
-import java.awt.image.BufferedImage
-import java.io.File
-import java.nio.file.Paths
-import javax.imageio.ImageIO
-import scala.collection.mutable
-import scala.compiletime.error
-import scala.concurrent.ExecutionContext.Implicits
-import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContext}
-import io.computenode.cyfra.given
-import io.computenode.cyfra.runtime.*
-import io.computenode.cyfra.dsl.*
 import io.computenode.cyfra.dsl.collections.GSeq
-import io.computenode.cyfra.dsl.given
+import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.dsl.struct.GStruct
+import io.computenode.cyfra.runtime.*
 import io.computenode.cyfra.runtime.mem.Vec4FloatMem
 import io.computenode.cyfra.utility.ImageUtility
-import io.computenode.cyfra.runtime.mem.Vec4FloatMem
+
+import java.nio.file.Paths
+import scala.annotation.tailrec
+import scala.collection.mutable
+import scala.concurrent.ExecutionContext
+import scala.concurrent.ExecutionContext.Implicits
 
 given GContext = new GContext()
 given ExecutionContext = Implicits.global
@@ -130,6 +124,7 @@ def main =
     dist < radiusA + radiusB
 
   val existingSpheres = mutable.Set.empty[((Float, Float, Float), Float)]
+  @tailrec
   def randomSphere(iter: Int = 0): Sphere =
     if iter > 1000 then throw new Exception("Could not find a non-intersecting sphere")
     def nextFloatAny = rd.nextFloat() * 2f - 1f
@@ -339,7 +334,7 @@ def main =
             val fromInside = initDist < 0f
             val dist = when(fromInside)(-b + sqrt(discr)).otherwise(initDist)
             when(dist > minRayHitTime && dist < currentHit.dist) {
-              val normal = normalize((rayPos + rayDir * dist - sphere.center) * (when(fromInside)(-1f).otherwise(1f)))
+              val normal = normalize((rayPos + rayDir * dist - sphere.center) * when(fromInside)(-1f).otherwise(1f))
               RayHitInfo(
                 dist,
                 normal,
@@ -475,7 +470,7 @@ def main =
                 val nextColor = (throughput2 mulV testResult.emissive) addV color
 
                 val nextThroughput = when(doRefraction === 0.0f) {
-                  throughput2 mulV mix[Vec3[Float32]](testResult.albedo, testResult.specularColor, doSpecular);
+                  throughput2 mulV mix[Vec3[Float32]](testResult.albedo, testResult.specularColor, doSpecular)
                 }.otherwise(throughput2)
 
                 val throughputRayProb = nextThroughput * (1.0f / rayProbabilityCorrected)

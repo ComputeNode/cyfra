@@ -1,14 +1,10 @@
 package io.computenode.cyfra.vulkan.command
 
-import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import io.computenode.cyfra.vulkan.core.Device
-import io.computenode.cyfra.vulkan.util.{VulkanAssertionError, VulkanObjectHandle}
-import org.lwjgl.system.MemoryStack
-import org.lwjgl.system.MemoryStack.stackPush
+import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
+import io.computenode.cyfra.vulkan.util.VulkanObjectHandle
 import org.lwjgl.vulkan.VK10.*
 import org.lwjgl.vulkan.VkSemaphoreCreateInfo
-
-import scala.util.Using
 
 /** @author
   *   MarconZet Created 30.10.2019

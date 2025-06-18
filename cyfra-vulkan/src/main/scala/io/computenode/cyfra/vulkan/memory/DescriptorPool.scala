@@ -1,16 +1,11 @@
 package io.computenode.cyfra.vulkan.memory
 
-import DescriptorPool.MAX_SETS
-import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import io.computenode.cyfra.vulkan.core.Device
-import io.computenode.cyfra.vulkan.util.{VulkanAssertionError, VulkanObjectHandle}
-import org.lwjgl.system.MemoryStack
-import org.lwjgl.system.MemoryStack.stackPush
+import io.computenode.cyfra.vulkan.memory.DescriptorPool.MAX_SETS
+import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
+import io.computenode.cyfra.vulkan.util.VulkanObjectHandle
 import org.lwjgl.vulkan.VK10.*
 import org.lwjgl.vulkan.{VkDescriptorPoolCreateInfo, VkDescriptorPoolSize}
-
-import java.nio.LongBuffer
-import scala.util.Using
 
 /** @author
   *   MarconZet Created 14.04.2019

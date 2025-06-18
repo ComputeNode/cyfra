@@ -1,23 +1,11 @@
 package io.computenode.cyfra.foton.animation
 
-import io.computenode.cyfra.utility.Units.Milliseconds
 import io.computenode.cyfra
 import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.dsl.collections.GArray2D
 import io.computenode.cyfra.foton.animation.AnimatedFunction.FunctionArguments
 import io.computenode.cyfra.foton.animation.AnimationFunctions.AnimationInstant
-import io.computenode.cyfra.foton.animation.AnimationRenderer
-import io.computenode.cyfra.foton.rt.ImageRtRenderer.RaytracingIteration
-import io.computenode.cyfra.foton.rt.animation.AnimationRtRenderer.RaytracingIteration
-import io.computenode.cyfra.foton.rt.RtRenderer
 import io.computenode.cyfra.utility.Units.Milliseconds
-import io.computenode.cyfra.utility.Utility.timed
-import io.computenode.cyfra.{*, given}
-
-import java.nio.file.{Path, Paths}
-import scala.annotation.targetName
-import scala.concurrent.Await
-import scala.concurrent.duration.DurationInt
 
 case class AnimatedFunction(fn: FunctionArguments => AnimationInstant ?=> Vec4[Float32], duration: Milliseconds) extends AnimationRenderer.Scene
 

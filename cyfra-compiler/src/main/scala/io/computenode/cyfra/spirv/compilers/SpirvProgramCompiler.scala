@@ -48,7 +48,7 @@ private[cyfra] object SpirvProgramCompiler:
         List(
           ResultRef(codeCtx.uniformPointerMap(codeCtx.valueTypeMap(resultType.tag))),
           ResultRef(codeCtx.nextResultId),
-          ResultRef(codeCtx.outBufferBlocks(0).blockVarRef),
+          ResultRef(codeCtx.outBufferBlocks.head.blockVarRef),
           ResultRef(codeCtx.constRefs((Int32Tag, 0))),
           ResultRef(codeCtx.workerIndexRef),
         ),
@@ -228,7 +228,7 @@ private[cyfra] object SpirvProgramCompiler:
       withBool,
       newC.copy(
         nextResultId = newC.nextResultId + 2,
-        constRefs = newC.constRefs ++ Map((GBooleanTag, true) -> (newC.nextResultId), (GBooleanTag, false) -> (newC.nextResultId + 1)),
+        constRefs = newC.constRefs ++ Map((GBooleanTag, true) -> newC.nextResultId, (GBooleanTag, false) -> (newC.nextResultId + 1)),
       ),
     )
 

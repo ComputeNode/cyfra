@@ -1,16 +1,13 @@
 package io.computenode.samples.cyfra.foton
 
+import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.dsl.library.Color.hex
 import io.computenode.cyfra.foton.*
 import io.computenode.cyfra.foton.animation.AnimationFunctions.smooth
 import io.computenode.cyfra.foton.rt.animation.{AnimatedScene, AnimationRtRenderer}
 import io.computenode.cyfra.foton.rt.shapes.{Plane, Shape, Sphere}
 import io.computenode.cyfra.foton.rt.{Camera, Material}
 import io.computenode.cyfra.utility.Units.Milliseconds
-import io.computenode.cyfra.given
-import io.computenode.cyfra.runtime.*
-import io.computenode.cyfra.dsl.*
-import io.computenode.cyfra.dsl.library.Color.hex
-import io.computenode.cyfra.dsl.given
 
 import java.nio.file.Paths
 import scala.concurrent.duration.DurationInt

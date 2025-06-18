@@ -1,20 +1,16 @@
 package io.computenode.cyfra.vulkan.compute
 
-import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import io.computenode.cyfra.vulkan.core.Device
-import io.computenode.cyfra.vulkan.util.{VulkanAssertionError, VulkanObjectHandle}
+import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
+import io.computenode.cyfra.vulkan.util.VulkanObjectHandle
 import org.joml.Vector3ic
-import org.lwjgl.system.MemoryStack
-import org.lwjgl.system.MemoryStack.stackPush
 import org.lwjgl.vulkan.VK10.*
 import org.lwjgl.vulkan.VkShaderModuleCreateInfo
 
 import java.io.{File, FileInputStream, IOException}
+import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
-import java.nio.{ByteBuffer, LongBuffer}
-import java.util.stream.Collectors
-import java.util.{List, Objects}
-import scala.util.Using
+import java.util.Objects
 
 /** @author
   *   MarconZet Created 25.04.2020

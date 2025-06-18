@@ -3,7 +3,6 @@ package io.computenode.cyfra.runtime.mem
 import io.computenode.cyfra.dsl.Value.{Float32, Vec4}
 import io.computenode.cyfra.runtime.mem.GMem.fRGBA
 import org.lwjgl.BufferUtils
-import org.lwjgl.system.MemoryUtil
 
 import java.nio.ByteBuffer
 

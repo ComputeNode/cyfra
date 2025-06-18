@@ -4,8 +4,6 @@ import io.computenode.cyfra.spirvtools.SpirvTool.{Ignore, Param, ToFile, ToLogge
 import io.computenode.cyfra.utility.Logger.logger
 
 import java.nio.ByteBuffer
-import java.nio.charset.StandardCharsets
-import java.nio.file.Files
 
 object SpirvDisassembler extends SpirvTool("spirv-dis"):
 

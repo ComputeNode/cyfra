@@ -1,18 +1,15 @@
 package io.computenode.cyfra.vulkan.core
 
-import DebugCallback.DEBUG_REPORT
 import io.computenode.cyfra.utility.Logger.logger
-import io.computenode.cyfra.vulkan.util.Util.check
+import io.computenode.cyfra.vulkan.core.DebugCallback.DEBUG_REPORT
 import io.computenode.cyfra.vulkan.util.{VulkanAssertionError, VulkanObjectHandle}
 import org.lwjgl.BufferUtils
 import org.lwjgl.system.MemoryUtil.NULL
 import org.lwjgl.vulkan.EXTDebugReport.*
 import org.lwjgl.vulkan.VK10.VK_SUCCESS
 import org.lwjgl.vulkan.{VkDebugReportCallbackCreateInfoEXT, VkDebugReportCallbackEXT}
-import org.slf4j.{Logger, LoggerFactory}
 
 import java.lang.Integer.highestOneBit
-import java.nio.LongBuffer
 
 /** @author
   *   MarconZet Created 13.04.2020

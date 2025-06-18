@@ -1,25 +1,19 @@
 package io.computenode.cyfra.foton.rt
 
 import io.computenode.cyfra
-import io.computenode.cyfra.foton.rt.RtRenderer.RayHitInfo
-import io.computenode.cyfra.utility.Utility.timed
-import io.computenode.cyfra.foton.rt.RtRenderer
-import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.foton.rt.shapes.{Box, Sphere}
-import io.computenode.cyfra.dsl.library.Color.*
-import io.computenode.cyfra.dsl.library.Math3D.*
-import io.computenode.cyfra.runtime.GContext
-import io.computenode.cyfra.dsl.control.Pure.pure
-
-import java.nio.file.{Path, Paths}
-import scala.collection.mutable
-import scala.concurrent.ExecutionContext.Implicits
-import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContext}
 import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.dsl.collections.{GArray2D, GSeq}
+import io.computenode.cyfra.dsl.control.Pure.pure
+import io.computenode.cyfra.dsl.library.Color.*
+import io.computenode.cyfra.dsl.library.Math3D.*
 import io.computenode.cyfra.dsl.library.Random
 import io.computenode.cyfra.dsl.struct.GStruct
+import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.foton.rt.RtRenderer.RayHitInfo
+import io.computenode.cyfra.runtime.GContext
+
+import scala.concurrent.ExecutionContext
+import scala.concurrent.ExecutionContext.Implicits
 
 class RtRenderer(params: RtRenderer.Parameters):
 
@@ -114,7 +108,7 @@ class RtRenderer(params: RtRenderer.Parameters):
     refractedThroughput: Vec3[Float32],
   ) = pure:
     val nextThroughput = when(doRefraction === 0.0f) {
-      refractedThroughput mulV mix[Vec3[Float32]](testResult.material.color, testResult.material.specularColor, doSpecular);
+      refractedThroughput mulV mix[Vec3[Float32]](testResult.material.color, testResult.material.specularColor, doSpecular)
     }.otherwise(refractedThroughput)
     nextThroughput * (1.0f / rayProbability)
 

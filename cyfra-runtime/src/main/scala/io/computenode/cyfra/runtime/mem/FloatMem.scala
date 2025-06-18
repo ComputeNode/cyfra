@@ -4,7 +4,6 @@ import io.computenode.cyfra.dsl.Value.Float32
 import org.lwjgl.BufferUtils
 
 import java.nio.ByteBuffer
-import org.lwjgl.system.MemoryUtil
 
 class FloatMem(val size: Int, protected val data: ByteBuffer) extends RamGMem[Float32, Float]:
   def toArray: Array[Float] =

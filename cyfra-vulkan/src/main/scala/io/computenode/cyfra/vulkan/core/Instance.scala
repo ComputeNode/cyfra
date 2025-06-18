@@ -1,7 +1,7 @@
 package io.computenode.cyfra.vulkan.core
 
 import io.computenode.cyfra.utility.Logger.logger
-import io.computenode.cyfra.vulkan.VulkanContext.{SyncLayer, ValidationLayer}
+import io.computenode.cyfra.vulkan.VulkanContext.ValidationLayer
 import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import io.computenode.cyfra.vulkan.util.VulkanObject
 import org.lwjgl.system.MemoryStack
@@ -10,8 +10,6 @@ import org.lwjgl.vulkan.*
 import org.lwjgl.vulkan.EXTDebugReport.VK_EXT_DEBUG_REPORT_EXTENSION_NAME
 import org.lwjgl.vulkan.KHRPortabilityEnumeration.{VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR, VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME}
 import org.lwjgl.vulkan.VK10.*
-import org.lwjgl.vulkan.VK13.*
-import org.slf4j.LoggerFactory
 
 import java.nio.ByteBuffer
 import scala.collection.mutable

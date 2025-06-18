@@ -2,7 +2,6 @@ package io.computenode.cyfra.spirv
 
 import io.computenode.cyfra.dsl.Value
 import io.computenode.cyfra.dsl.Value.*
-import io.computenode.cyfra.spirv.Context.initialContext
 import io.computenode.cyfra.spirv.Opcodes.*
 import izumi.reflect.Tag
 import izumi.reflect.macrortti.{LTag, LightTypeTag}
@@ -96,9 +95,9 @@ private[cyfra] object SpirvTypes:
         ctx.copy(
           valueTypeMap = ctx.valueTypeMap ++ Map(
             valType.tag -> typeDefIndex,
-            (summon[LTag[Vec2C]].tag.combine(valType.tag)) -> (typeDefIndex + 4),
-            (summon[LTag[Vec3C]].tag.combine(valType.tag)) -> (typeDefIndex + 5),
-            (summon[LTag[Vec4C]].tag.combine(valType.tag)) -> (typeDefIndex + 11),
+            summon[LTag[Vec2C]].tag.combine(valType.tag) -> (typeDefIndex + 4),
+            summon[LTag[Vec3C]].tag.combine(valType.tag) -> (typeDefIndex + 5),
+            summon[LTag[Vec4C]].tag.combine(valType.tag) -> (typeDefIndex + 11),
           ),
           funPointerTypeMap = ctx.funPointerTypeMap ++ Map(
             typeDefIndex -> (typeDefIndex + 1),

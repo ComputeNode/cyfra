@@ -1,7 +1,6 @@
 package io.computenode.cyfra.utility
 
 import io.computenode.cyfra.utility.Logger.logger
-import org.slf4j.LoggerFactory
 
 object Utility:
 
