@@ -40,7 +40,7 @@ private[cyfra] class MapExecutor(dataLength: Int, bufferActions: Seq[BufferActio
 
     val bufferDeque = mutable.ArrayDeque.from(buffers)
     val descriptorSetLayouts = computePipeline.descriptorSetLayouts
-    val descriptorSets = for (i <- descriptorSetLayouts.indices) yield {
+    val descriptorSets = for i <- descriptorSetLayouts.indices yield {
       val descriptorSet = new DescriptorSet(device, descriptorSetLayouts(i)._1, descriptorSetLayouts(i)._2.bindings, descriptorPool)
       val size = descriptorSetLayouts(i)._2.bindings.size
       descriptorSet.update(bufferDeque.take(size).toSeq)

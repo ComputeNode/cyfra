@@ -64,7 +64,7 @@ private[cyfra] abstract class AbstractExecutor(dataLength: Int, val bufferAction
       fence.block().destroy()
     }
 
-    val output = for (i <- bufferActions.indices if bufferActions(i) == BufferAction.LoadFrom) yield {
+    val output = for i <- bufferActions.indices if bufferActions(i) == BufferAction.LoadFrom yield {
       val fence = Buffer.copyBuffer(buffers(i), stagingBuffer, buffers(i).size, commandPool)
       val outBuffer = BufferUtils.createByteBuffer(buffers(i).size)
       fence.block().destroy()

@@ -32,10 +32,10 @@ object FnCall:
         val ownerName = ddOwner.map(d => d.fullName).getOrElse("unknown")
         ownerDef.tree match {
           case dd: DefDef if isPure(dd) =>
-            val paramTerms: List[Term] = for {
+            val paramTerms: List[Term] = for
               paramGroup <- dd.paramss
               param <- paramGroup.params
-            } yield Ref(param.symbol)
+            yield Ref(param.symbol)
             val paramExprs: List[Expr[Value]] = paramTerms.map(_.asExpr.asInstanceOf[Expr[Value]])
             val paramList = Expr.ofList(paramExprs)
             '{ FnCall(${ Expr(name) }, ${ Expr(ownerName) }, ${ paramList }) }

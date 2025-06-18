@@ -18,7 +18,7 @@ trait Expression[T <: Value: Tag] extends Product:
     .map(e => s"#${e.treeid}")
     .mkString("[", ", ", "]")
   override def toString: String = s"${this.productPrefix}(${of.fold("")(v => s"name = ${v.source}, ")}children=$childrenStrings, id=$treeid)"
-  private def exploreDeps(children: List[Any]): (List[Expression[?]], List[Scope[?]]) = (for (elem <- children) yield elem match {
+  private def exploreDeps(children: List[Any]): (List[Expression[?]], List[Scope[?]]) = (for elem <- children yield elem match {
     case b: Scope[?] =>
       (None, Some(b))
     case x: Expression[?] =>
