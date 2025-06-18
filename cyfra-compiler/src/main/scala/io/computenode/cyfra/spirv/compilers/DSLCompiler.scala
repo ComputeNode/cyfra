@@ -80,10 +80,9 @@ private[cyfra] object DSLCompiler:
         decorations ::: uniformStructDecorations ::: typeDefs ::: structDefs ::: fnTypeDefs ::: uniformDefs ::: uniformStructInsns ::: inputDefs :::
         constDefs ::: varDefs ::: main ::: fnDefs
 
-    val fullCode = code.map {
+    val fullCode = code.map:
       case WordVariable(name) if name == BOUND_VARIABLE => IntWord(ctxWithFnDefs.nextResultId)
       case x                                            => x
-    }
     val bytes = fullCode.flatMap(_.toWords).toArray
 
     BufferUtils.createByteBuffer(bytes.length).put(bytes).rewind()

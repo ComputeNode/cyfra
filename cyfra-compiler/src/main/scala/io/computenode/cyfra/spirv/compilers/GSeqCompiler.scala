@@ -49,7 +49,7 @@ private[cyfra] object GSeqCompiler:
 
     def generateSeqOps(seqExprs: List[(ElemOp[?], E[?])], context: Context, elemRef: Int): (List[Words], Context) =
       val withElemRefCtx = context.copy(exprRefs = context.exprRefs + (fold.seq.currentElemExprTreeId -> elemRef))
-      seqExprs match {
+      seqExprs match
         case Nil => // No more transformations, so reduce ops now
           val resultRef = context.nextResultId
           val forReduceCtx = withElemRefCtx
@@ -72,7 +72,7 @@ private[cyfra] object GSeqCompiler:
           (instructions, ctx.joinNested(reduceCtx))
         case (op, dExpr) :: tail =>
 
-          op match {
+          op match
             case MapOp(_) =>
               val (mapOps, mapContext) = ExpressionCompiler.compileBlock(dExpr, withElemRefCtx)
               val newElemRef = mapContext.exprRefs(dExpr.treeid)
@@ -105,8 +105,6 @@ private[cyfra] object GSeqCompiler:
                 Instruction(Op.OpLabel, List(ResultRef(trueLabel))),
               ) ::: tailOps ::: List(Instruction(Op.OpBranch, List(ResultRef(mergeBlock))), Instruction(Op.OpLabel, List(ResultRef(mergeBlock))))
               (instructions, tailContext.copy(exprNames = tailContext.exprNames ++ Map(condResultRef -> "takeUntilCondResult")))
-          }
-      }
 
     val seqExprs = fold.seq.elemOps.zip(fold.seqExprs)
 

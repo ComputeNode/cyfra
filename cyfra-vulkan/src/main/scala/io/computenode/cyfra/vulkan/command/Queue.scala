@@ -14,18 +14,16 @@ import scala.util.Using
 /** @author
   *   MarconZet Created 13.04.2020
   */
-private[cyfra] class Queue(val familyIndex: Int, queueIndex: Int, device: Device) extends VulkanObject {
+private[cyfra] class Queue(val familyIndex: Int, queueIndex: Int, device: Device) extends VulkanObject:
   private val queue: VkQueue = pushStack { stack =>
     val pQueue = stack.callocPointer(1)
     vkGetDeviceQueue(device.get, familyIndex, queueIndex, pQueue)
     new VkQueue(pQueue.get(0), device.get)
   }
 
-  def submit(submitInfo: VkSubmitInfo, fence: Fence): Int = this.synchronized {
+  def submit(submitInfo: VkSubmitInfo, fence: Fence): Int = this.synchronized:
     vkQueueSubmit(queue, submitInfo, fence.get)
-  }
 
   def get: VkQueue = queue
 
   protected def close(): Unit = ()
-}

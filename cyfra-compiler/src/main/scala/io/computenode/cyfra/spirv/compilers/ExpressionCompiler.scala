@@ -38,14 +38,13 @@ private[cyfra] object ExpressionCompiler:
   private def compileBinaryOpExpression(bexpr: BinaryOpExpression[?], ctx: Context): (List[Instruction], Context) =
     val tpe = bexpr.tag
     val typeRef = ctx.valueTypeMap(tpe.tag)
-    val subOpcode = tpe match {
+    val subOpcode = tpe match
       case i
           if i.tag <:< summon[Tag[IntType]].tag || i.tag <:< summon[Tag[UIntType]].tag ||
             (i.tag <:< summon[Tag[Vec[?]]].tag && i.tag.typeArgs.head <:< summon[Tag[IntType]].tag) =>
         binaryOpOpcode(bexpr)._1
       case f if f.tag <:< summon[Tag[FloatType]].tag || (f.tag <:< summon[Tag[Vec[?]]].tag && f.tag.typeArgs.head <:< summon[Tag[FloatType]].tag) =>
         binaryOpOpcode(bexpr)._2
-    }
     val instructions = List(
       Instruction(
         subOpcode,
@@ -58,14 +57,13 @@ private[cyfra] object ExpressionCompiler:
   private def compileConvertExpression(cexpr: ConvertExpression[?, ?], ctx: Context): (List[Instruction], Context) =
     val tpe = cexpr.tag
     val typeRef = ctx.valueTypeMap(tpe.tag)
-    val tfOpcode = (cexpr.fromTag, cexpr) match {
+    val tfOpcode = (cexpr.fromTag, cexpr) match
       case (from, _: ToFloat32[?]) if from.tag =:= Int32Tag.tag  => Op.OpConvertSToF
       case (from, _: ToFloat32[?]) if from.tag =:= UInt32Tag.tag => Op.OpConvertUToF
       case (from, _: ToInt32[?]) if from.tag =:= Float32Tag.tag  => Op.OpConvertFToS
       case (from, _: ToUInt32[?]) if from.tag =:= Float32Tag.tag => Op.OpConvertFToU
       case (from, _: ToInt32[?]) if from.tag =:= UInt32Tag.tag   => Op.OpBitcast
       case (from, _: ToUInt32[?]) if from.tag =:= Int32Tag.tag   => Op.OpBitcast
-    }
     val instructions = List(Instruction(tfOpcode, List(ResultRef(typeRef), ResultRef(ctx.nextResultId), ResultRef(ctx.exprRefs(cexpr.a.treeid)))))
     val updatedContext = ctx.copy(exprRefs = ctx.exprRefs + (cexpr.treeid -> ctx.nextResultId), nextResultId = ctx.nextResultId + 1)
     (instructions, updatedContext)
@@ -81,35 +79,34 @@ private[cyfra] object ExpressionCompiler:
   private def compileBitwiseExpression(bexpr: BitwiseOpExpression[?], ctx: Context): (List[Instruction], Context) =
     val tpe = bexpr.tag
     val typeRef = ctx.valueTypeMap(tpe.tag)
-    val subOpcode = bexpr match {
+    val subOpcode = bexpr match
       case _: BitwiseAnd[?] => Op.OpBitwiseAnd
       case _: BitwiseOr[?]  => Op.OpBitwiseOr
       case _: BitwiseXor[?] => Op.OpBitwiseXor
       case _: BitwiseNot[?] => Op.OpNot
       case _: ShiftLeft[?]  => Op.OpShiftLeftLogical
       case _: ShiftRight[?] => Op.OpShiftRightLogical
-    }
     val instructions = List(
       Instruction(subOpcode, List(ResultRef(typeRef), ResultRef(ctx.nextResultId)) ::: bexpr.exprDependencies.map(d => ResultRef(ctx.exprRefs(d.treeid)))),
     )
     val updatedContext = ctx.copy(exprRefs = ctx.exprRefs + (bexpr.treeid -> ctx.nextResultId), nextResultId = ctx.nextResultId + 1)
     (instructions, updatedContext)
 
-  def compileBlock(tree: E[?], ctx: Context): (List[Words], Context) = {
+  def compileBlock(tree: E[?], ctx: Context): (List[Words], Context) =
 
     @tailrec
-    def compileExpressions(exprs: List[E[?]], ctx: Context, acc: List[Words]): (List[Words], Context) = {
+    def compileExpressions(exprs: List[E[?]], ctx: Context, acc: List[Words]): (List[Words], Context) =
       if exprs.isEmpty then (acc, ctx)
-      else {
+      else
         val expr = exprs.head
         if ctx.exprRefs.contains(expr.treeid) then compileExpressions(exprs.tail, ctx, acc)
-        else {
+        else
 
           val name: Option[String] = expr.of match
             case Some(v) => Some(v.source.name)
             case _       => None
 
-          val (instructions, updatedCtx) = expr match {
+          val (instructions, updatedCtx) = expr match
             case c @ Const(x) =>
               val constRef = ctx.constRefs((c.tag, x))
               val updatedContext = ctx.copy(exprRefs = ctx.exprRefs + (c.treeid -> constRef))
@@ -365,12 +362,7 @@ private[cyfra] object ExpressionCompiler:
               (insns, updatedContext)
 
             case ph: PhantomExpression[?] => (List(), ctx)
-          }
           val ctxWithName = updatedCtx.copy(exprNames = updatedCtx.exprNames ++ name.map(n => (updatedCtx.nextResultId - 1, n)).toMap)
           compileExpressions(exprs.tail, ctxWithName, acc ::: instructions)
-        }
-      }
-    }
     val sortedTree = BlockBuilder.buildBlock(tree, providedExprIds = ctx.exprRefs.keySet)
     compileExpressions(sortedTree, ctx, Nil)
-  }

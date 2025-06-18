@@ -13,11 +13,10 @@ object Source:
 
   implicit inline def generate: Source = ${ sourceImpl }
 
-  def sourceImpl(using Quotes): Expr[Source] = {
+  def sourceImpl(using Quotes): Expr[Source] =
     import quotes.reflect.*
     val name = valueName
     '{ Source(${ name }) }
-  }
 
   def valueName(using Quotes): Expr[String] =
     import quotes.reflect.*
@@ -29,14 +28,13 @@ object Source:
       case None =>
         Expr("unknown")
 
-  def findOwner(using Quotes)(owner: quotes.reflect.Symbol, skipIf: quotes.reflect.Symbol => Boolean): Option[quotes.reflect.Symbol] = {
+  def findOwner(using Quotes)(owner: quotes.reflect.Symbol, skipIf: quotes.reflect.Symbol => Boolean): Option[quotes.reflect.Symbol] =
     import quotes.reflect.*
     var owner0 = owner
     while skipIf(owner0) do
       if owner0 == Symbol.noSymbol then return None
       owner0 = owner0.owner
     Some(owner0)
-  }
 
   def actualOwner(using Quotes)(owner: quotes.reflect.Symbol): Option[quotes.reflect.Symbol] =
     findOwner(owner, owner0 => Util.isSynthetic(owner0) || Util.getName(owner0) == "ev")

@@ -18,7 +18,7 @@ import scala.util.Using
   *   MarconZet Created 15.04.2020
   */
 private[cyfra] class MapExecutor(dataLength: Int, bufferActions: Seq[BufferAction], computePipeline: ComputePipeline, context: VulkanContext)
-    extends AbstractExecutor(dataLength, bufferActions, context) {
+    extends AbstractExecutor(dataLength, bufferActions, context):
   private lazy val shader: Shader = computePipeline.computeShader
 
   protected def getBiggestTransportData: Int = shader.layoutInfo.sets
@@ -31,22 +31,20 @@ private[cyfra] class MapExecutor(dataLength: Int, bufferActions: Seq[BufferActio
   protected def setupBuffers(): (Seq[DescriptorSet], Seq[Buffer]) = pushStack { stack =>
     val bindings = shader.layoutInfo.sets.flatMap(_.bindings)
     val buffers = bindings.zipWithIndex.map { case (binding, i) =>
-      val bufferSize = binding.size match {
+      val bufferSize = binding.size match
         case InputBufferSize(n) => n * dataLength
         case UniformSize(n)     => n
-      }
       new Buffer(bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | bufferActions(i).action, 0, VMA_MEMORY_USAGE_GPU_ONLY, allocator)
     }
 
     val bufferDeque = mutable.ArrayDeque.from(buffers)
     val descriptorSetLayouts = computePipeline.descriptorSetLayouts
-    val descriptorSets = for i <- descriptorSetLayouts.indices yield {
+    val descriptorSets = for i <- descriptorSetLayouts.indices yield
       val descriptorSet = new DescriptorSet(device, descriptorSetLayouts(i)._1, descriptorSetLayouts(i)._2.bindings, descriptorPool)
       val size = descriptorSetLayouts(i)._2.bindings.size
       descriptorSet.update(bufferDeque.take(size).toSeq)
       bufferDeque.drop(size)
       descriptorSet
-    }
     (descriptorSets, buffers)
   }
 
@@ -61,4 +59,3 @@ private[cyfra] class MapExecutor(dataLength: Int, bufferActions: Seq[BufferActio
       vkCmdDispatch(commandBuffer, dataLength / workgroup.x(), 1 / workgroup.y(), 1 / workgroup.z())
     }
 
-}

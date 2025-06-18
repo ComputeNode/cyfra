@@ -44,15 +44,13 @@ def main =
   def lessThan(f: Vec3[Float32], f2: Float32): Vec3[Float32] =
     (when(f.x < f2)(1.0f).otherwise(0.0f), when(f.y < f2)(1.0f).otherwise(0.0f), when(f.z < f2)(1.0f).otherwise(0.0f))
 
-  def linearToSRGB(rgb: Vec3[Float32]): Vec3[Float32] = {
+  def linearToSRGB(rgb: Vec3[Float32]): Vec3[Float32] =
     val clampedRgb = vclamp(rgb, 0.0f, 1.0f)
     mix(pow(clampedRgb, vec3(1.0f / 2.4f)) * 1.055f - vec3(0.055f), clampedRgb * 12.92f, lessThan(clampedRgb, 0.0031308f))
-  }
 
-  def SRGBToLinear(rgb: Vec3[Float32]): Vec3[Float32] = {
+  def SRGBToLinear(rgb: Vec3[Float32]): Vec3[Float32] =
     val clampedRgb = vclamp(rgb, 0.0f, 1.0f)
     mix(pow((clampedRgb + vec3(0.055f)) * (1.0f / 1.055f), vec3(2.4f)), clampedRgb * (1.0f / 12.92f), lessThan(clampedRgb, 0.04045f))
-  }
 
   def ACESFilm(x: Vec3[Float32]): Vec3[Float32] =
     val a = 2.51f
@@ -132,7 +130,7 @@ def main =
     dist < radiusA + radiusB
 
   val existingSpheres = mutable.Set.empty[((Float, Float, Float), Float)]
-  def randomSphere(iter: Int = 0): Sphere = {
+  def randomSphere(iter: Int = 0): Sphere =
     if iter > 1000 then throw new Exception("Could not find a non-intersecting sphere")
     def nextFloatAny = rd.nextFloat() * 2f - 1f
 
@@ -141,7 +139,7 @@ def main =
     val center = (nextFloatAny * 10, nextFloatAny * 10, nextFloatPos * 10 + 8f)
     val radius = nextFloatPos + 1.5f
     if existingSpheres.exists(s => scalaTwoSpheresIntersect(s._1, s._2, center, radius)) then randomSphere(iter + 1)
-    else {
+    else
       existingSpheres.add((center, radius))
       def color = (nextFloatPos * 0.5f + 0.5f, nextFloatPos * 0.5f + 0.5f, nextFloatPos * 0.5f + 0.5f)
       val emissive = (0f, 0f, 0f)
@@ -158,19 +156,16 @@ def main =
         0.1f,
         (nextFloatPos, nextFloatPos, nextFloatPos),
       )
-    }
-  }
 
   def randomSpheres(n: Int) = List.fill(n)(randomSphere())
 
-  val flash = { // flash
+  val flash = // flash
     val x = -10f
     val mX = -5f
     val y = -10f
     val mY = 0f
     val z = -5f
     Sphere((-7.5f, -12f, -5f), 3f, (1f, 1f, 1f), (20f, 20f, 20f))
-  }
   val spheres = (flash :: randomSpheres(20)).map(sp => sp.copy(center = sp.center + sceneTranslation.xyz))
 
   val walls = List(
@@ -243,21 +238,19 @@ def main =
 
   def function(): GFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]] = GFunction.from2D(dim):
     case (RaytracingIteration(frame), (xi: Int32, yi: Int32), lastFrame) =>
-      def wangHash(seed: UInt32): UInt32 = {
+      def wangHash(seed: UInt32): UInt32 =
         val s1 = (seed ^ 61) ^ (seed >> 16)
         val s2 = s1 * 9
         val s3 = s2 ^ (s2 >> 4)
         val s4 = s3 * 0x27d4eb2d
         s4 ^ (s4 >> 15)
-      }
 
-      def randomFloat(seed: UInt32): Random[Float32] = {
+      def randomFloat(seed: UInt32): Random[Float32] =
         val nextSeed = wangHash(seed)
         val f = nextSeed.asFloat / 4294967296.0f
         Random(f, nextSeed)
-      }
 
-      def randomVector(seed: UInt32): Random[Vec3[Float32]] = {
+      def randomVector(seed: UInt32): Random[Vec3[Float32]] =
         val Random(z, seed1) = randomFloat(seed)
         val z2 = z * 2.0f - 1.0f
         val Random(a, seed2) = randomFloat(seed1)
@@ -266,7 +259,6 @@ def main =
         val x = r * cos(a2)
         val y = r * sin(a2)
         Random((x, y, z2), seed2)
-      }
 
       def scalarTriple(u: Vec3[Float32], v: Vec3[Float32], w: Vec3[Float32]): Float32 = (u cross v) dot w
 
@@ -290,9 +282,8 @@ def main =
             (intersectPoint.x - rayPos.x) / rayDir.x
           }.elseWhen(abs(rayDir.y) > 0.1f) {
             (intersectPoint.y - rayPos.y) / rayDir.y
-          }.otherwise {
+          }.otherwise:
             (intersectPoint.z - rayPos.z) / rayDir.z
-          }
           when(dist > minRayHitTime && dist < currentHit.dist) {
             RayHitInfo(
               dist,
@@ -320,7 +311,7 @@ def main =
             val intersectPos = fixedQuad.a * uu + fixedQuad.b * vv + fixedQuad.c * ww
             checkHit(intersectPos)
           } otherwise currentHit
-        } otherwise {
+        } otherwise:
           val pd = fixedQuad.d - p
           val u = pd dot m
           val w = scalarTriple(pq, pa, pd)
@@ -333,7 +324,6 @@ def main =
             val intersectPos = fixedQuad.a * uu + fixedQuad.d * vv + fixedQuad.c * ww
             checkHit(intersectPos)
           } otherwise currentHit
-        }
 
       def testSphereTrace(rayPos: Vec3[Float32], rayDir: Vec3[Float32], currentHit: RayHitInfo, sphere: Sphere): RayHitInfo =
         val toRay = rayPos - sphere.center
@@ -342,7 +332,7 @@ def main =
         val notHit = currentHit
         when(c > 0f && b > 0f) {
           notHit
-        } otherwise {
+        } otherwise:
           val discr = b * b - c
           when(discr > 0f) {
             val initDist = -b - sqrt(discr)
@@ -366,7 +356,6 @@ def main =
               )
             } otherwise notHit
           } otherwise notHit
-        }
 
       def testScene(rayPos: Vec3[Float32], rayDir: Vec3[Float32], currentHit: RayHitInfo): RayHitInfo =
 
@@ -389,17 +378,15 @@ def main =
           val sinT2 = n * n * (1f - cosX * cosX)
           when(sinT2 > 1f) {
             f90
-          } otherwise {
+          } otherwise:
             val cosX2 = sqrt(1.0f - sinT2)
             val x = 1.0f - cosX2
             val ret = r0 + ((1.0f - r0) * x * x * x * x * x)
             mix(f0, f90, ret)
-          }
-        } otherwise {
+        } otherwise:
           val x = 1.0f - cosX
           val ret = r0 + ((1.0f - r0) * x * x * x * x * x)
           mix(f0, f90, ret)
-        }
 
       val MaxBounces = 8
       def getColorForRay(startRayPos: Vec3[Float32], startRayDir: Vec3[Float32], initRngState: UInt32): RayTraceState =

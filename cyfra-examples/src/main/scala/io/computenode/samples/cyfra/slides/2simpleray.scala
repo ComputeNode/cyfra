@@ -34,9 +34,8 @@ def simpleray =
     val c = (toRay dot toRay) - (sphereRadius * sphereRadius)
     when((c < 0f || b < 0f) && b * b - c > 0f) {
       (1f, 1f, 1f, 1f)
-    } otherwise {
+    } otherwise:
       (0f, 0f, 0f, 1f)
-    }
 
   val raytracing: GFunction[Empty, Vec4[Float32], Vec4[Float32]] = GFunction.from2D(dim):
     case (_, (xi: Int32, yi: Int32), _) =>

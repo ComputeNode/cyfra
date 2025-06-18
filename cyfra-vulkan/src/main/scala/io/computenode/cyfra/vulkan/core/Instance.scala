@@ -21,7 +21,7 @@ import scala.util.chaining.*
 /** @author
   *   MarconZet Created 13.04.2020
   */
-object Instance {
+object Instance:
   val ValidationLayersExtensions: Seq[String] = List(VK_EXT_DEBUG_REPORT_EXTENSION_NAME)
   val MoltenVkExtensions: Seq[String] = List(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME)
 
@@ -42,9 +42,8 @@ object Instance {
 
   lazy val version: Int = VK.getInstanceVersionSupported
 
-}
 
-private[cyfra] class Instance(enableValidationLayers: Boolean) extends VulkanObject {
+private[cyfra] class Instance(enableValidationLayers: Boolean) extends VulkanObject:
 
   private val instance: VkInstance = pushStack { stack =>
 
@@ -59,12 +58,11 @@ private[cyfra] class Instance(enableValidationLayers: Boolean) extends VulkanObj
       .apiVersion(Instance.version)
 
     val ppEnabledExtensionNames = getInstanceExtensions(stack)
-    val ppEnabledLayerNames = {
+    val ppEnabledLayerNames =
       val layers = enabledLayers
       val pointer = stack.callocPointer(layers.length)
       layers.foreach(x => pointer.put(stack.ASCII(x)))
       pointer.flip()
-    }
 
     val pCreateInfo = VkInstanceCreateInfo
       .calloc(stack)
@@ -94,19 +92,18 @@ private[cyfra] class Instance(enableValidationLayers: Boolean) extends VulkanObj
   override protected def close(): Unit =
     vkDestroyInstance(instance, null)
 
-  private def getInstanceExtensions(stack: MemoryStack) = {
+  private def getInstanceExtensions(stack: MemoryStack) =
     val n = stack.callocInt(1)
     check(vkEnumerateInstanceExtensionProperties(null.asInstanceOf[ByteBuffer], n, null))
     val buffer = VkExtensionProperties.calloc(n.get(0), stack)
     check(vkEnumerateInstanceExtensionProperties(null.asInstanceOf[ByteBuffer], n, buffer))
 
-    val availableExtensions = {
+    val availableExtensions =
       val buf = mutable.Buffer[String]()
       buffer.forEach { ext =>
         buf.addOne(ext.extensionNameString())
       }
       buf.toSet
-    }
 
     val extensions = mutable.Buffer.from(Instance.MoltenVkExtensions)
     if enableValidationLayers then extensions.addAll(Instance.ValidationLayersExtensions)
@@ -120,5 +117,3 @@ private[cyfra] class Instance(enableValidationLayers: Boolean) extends VulkanObj
     val ppEnabledExtensionNames = stack.callocPointer(extensions.size)
     filteredExtensions.foreach(x => ppEnabledExtensionNames.put(stack.ASCII(x)))
     ppEnabledExtensionNames.flip()
-  }
-}

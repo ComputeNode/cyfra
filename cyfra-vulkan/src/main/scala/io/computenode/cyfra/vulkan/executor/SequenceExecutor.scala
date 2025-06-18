@@ -24,7 +24,7 @@ import java.nio.ByteBuffer
 /** @author
   *   MarconZet Created 15.04.2020
   */
-private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, context: VulkanContext) {
+private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, context: VulkanContext):
   private val device: Device = context.device
   private val queue: Queue = context.computeQueue
   private val allocator: Allocator = context.allocator
@@ -116,7 +116,7 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
     commandBuffer
   }
 
-  private def createBuffers(dataLength: Int): Map[DescriptorSet, Seq[Buffer]] = {
+  private def createBuffers(dataLength: Int): Map[DescriptorSet, Seq[Buffer]] =
 
     val setToActions = computeSequence.sequence
       .collect { case Compute(pipeline, bufferActions) =>
@@ -147,7 +147,6 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
       .toMap
 
     setToBuffers
-  }
 
   def execute(inputs: Seq[ByteBuffer], dataLength: Int): Seq[ByteBuffer] = pushStack { stack =>
     timed("Vulkan full execute"):
@@ -155,9 +154,8 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
 
       def buffersWithAction(bufferAction: BufferAction): Seq[Buffer] =
         computeSequence.sequence.collect { case x: Compute =>
-          pipelineToDescriptorSets(x.pipeline).map(setToBuffers).zip(x.pumpLayoutLocations).flatMap(x => x._1.zip(x._2)).collect {
+          pipelineToDescriptorSets(x.pipeline).map(setToBuffers).zip(x.pumpLayoutLocations).flatMap(x => x._1.zip(x._2)).collect:
             case (buffer, action) if (action.action & bufferAction.action) != 0 => buffer
-          }
         }.flatten
 
       val stagingBuffer =
@@ -204,9 +202,8 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
   def destroy(): Unit =
     descriptorSets.foreach(_.destroy())
 
-}
 
-object SequenceExecutor {
+object SequenceExecutor:
   private[cyfra] case class ComputationSequence(sequence: Seq[ComputationStep], dependencies: Seq[Dependency])
 
   private[cyfra] sealed trait ComputationStep
@@ -219,4 +216,3 @@ object SequenceExecutor {
 
   case class Dependency(from: ComputePipeline, fromSet: Int, to: ComputePipeline, toSet: Int)
 
-}

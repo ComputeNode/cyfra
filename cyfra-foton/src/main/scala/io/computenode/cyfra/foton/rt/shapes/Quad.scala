@@ -39,9 +39,8 @@ object Quad:
           (intersectPoint.x - rayPos.x) / rayDir.x
         }.elseWhen(abs(rayDir.y) > 0.1f) {
           (intersectPoint.y - rayPos.y) / rayDir.y
-        }.otherwise {
+        }.otherwise:
           (intersectPoint.z - rayPos.z) / rayDir.z
-        }
         when(dist > MinRayHitTime && dist < currentHit.dist) {
           RayHitInfo(dist, fixedNormal, quad.material)
         } otherwise currentHit
@@ -57,7 +56,7 @@ object Quad:
           val intersectPos = fixedQuad.a * uu + fixedQuad.b * vv + fixedQuad.c * ww
           checkHit(intersectPos)
         } otherwise currentHit
-      } otherwise {
+      } otherwise:
         val pd = fixedQuad.d - p
         val u = pd dot m
         val w = scalarTriple(pq, pa, pd)
@@ -70,4 +69,3 @@ object Quad:
           val intersectPos = fixedQuad.a * uu + fixedQuad.d * vv + fixedQuad.c * ww
           checkHit(intersectPos)
         } otherwise currentHit
-      }

@@ -51,7 +51,7 @@ def rays =
     val notHit = currentHit
     when(c > 0f && b > 0f) {
       notHit
-    } otherwise {
+    } otherwise:
       val discr = b * b - c
       when(discr > 0f) {
         val initDist = -b - sqrt(discr)
@@ -62,7 +62,6 @@ def rays =
           RayHitInfo(dist, normal, sphere.color, sphere.emissive)
         } otherwise notHit
       } otherwise notHit
-    }
 
   def testQuadTrace(rayPos: Vec3[Float32], rayDir: Vec3[Float32], currentHit: RayHitInfo, quad: Quad): RayHitInfo =
     val normal = normalize((quad.c - quad.a) cross (quad.c - quad.b))
@@ -84,9 +83,8 @@ def rays =
         (intersectPoint.x - rayPos.x) / rayDir.x
       }.elseWhen(abs(rayDir.y) > 0.1f) {
         (intersectPoint.y - rayPos.y) / rayDir.y
-      }.otherwise {
+      }.otherwise:
         (intersectPoint.z - rayPos.z) / rayDir.z
-      }
       when(dist > minRayHitTime && dist < currentHit.dist) {
         RayHitInfo(dist, fixedNormal, quad.color, quad.emissive)
       } otherwise currentHit
@@ -102,7 +100,7 @@ def rays =
         val intersectPos = fixedQuad.a * uu + fixedQuad.b * vv + fixedQuad.c * ww
         checkHit(intersectPos)
       } otherwise currentHit
-    } otherwise {
+    } otherwise:
       val pd = fixedQuad.d - p
       val u = pd dot m
       val w = scalarTriple(pq, pa, pd)
@@ -115,7 +113,6 @@ def rays =
         val intersectPos = fixedQuad.a * uu + fixedQuad.d * vv + fixedQuad.c * ww
         checkHit(intersectPos)
       } otherwise currentHit
-    }
 
   val sphere = Sphere(center = (1.5f, 1.5f, 4f), radius = 0.5f, color = (1f, 1f, 1f), emissive = (3f, 3f, 3f))
 

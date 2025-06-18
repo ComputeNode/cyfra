@@ -19,17 +19,15 @@ object Math3D:
       val sinT2 = n * n * (1f - cosX * cosX)
       when(sinT2 > 1f) {
         f90
-      } otherwise {
+      } otherwise:
         val cosX2 = sqrt(1.0f - sinT2)
         val x = 1.0f - cosX2
         val ret = r0 + ((1.0f - r0) * x * x * x * x * x)
         mix(f0, f90, ret)
-      }
-    } otherwise {
+    } otherwise:
       val x = 1.0f - cosX
       val ret = r0 + ((1.0f - r0) * x * x * x * x * x)
       mix(f0, f90, ret)
-    }
 
   def lessThan(f: Vec3[Float32], f2: Float32): Vec3[Float32] =
     (when(f.x < f2)(1.0f).otherwise(0.0f), when(f.y < f2)(1.0f).otherwise(0.0f), when(f.z < f2)(1.0f).otherwise(0.0f))

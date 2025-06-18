@@ -25,7 +25,7 @@ object Sphere:
       val notHit = currentHit
       when(c > 0f && b > 0f) {
         notHit
-      } otherwise {
+      } otherwise:
         val discr = b * b - c
         when(discr > 0f) {
           val initDist = -b - sqrt(discr)
@@ -36,4 +36,3 @@ object Sphere:
             RayHitInfo(dist, normal, sphere.material, fromInside)
           } otherwise notHit
         } otherwise notHit
-      }

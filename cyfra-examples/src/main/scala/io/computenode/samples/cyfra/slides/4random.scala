@@ -10,23 +10,21 @@ import io.computenode.cyfra.dsl.struct.GStruct.Empty
 import io.computenode.cyfra.runtime.mem.Vec4FloatMem
 import io.computenode.cyfra.utility.ImageUtility
 
-def wangHash(seed: UInt32): UInt32 = {
+def wangHash(seed: UInt32): UInt32 =
   val s1 = (seed ^ 61) ^ (seed >> 16)
   val s2 = s1 * 9
   val s3 = s2 ^ (s2 >> 4)
   val s4 = s3 * 0x27d4eb2d
   s4 ^ (s4 >> 15)
-}
 
 case class Random[T <: Value](value: T, nextSeed: UInt32)
 
-def randomFloat(seed: UInt32): Random[Float32] = {
+def randomFloat(seed: UInt32): Random[Float32] =
   val nextSeed = wangHash(seed)
   val f = nextSeed.asFloat / 4294967296.0f
   Random(f, nextSeed)
-}
 
-def randomVector(seed: UInt32): Random[Vec3[Float32]] = {
+def randomVector(seed: UInt32): Random[Vec3[Float32]] =
   val Random(z, seed1) = randomFloat(seed)
   val z2 = z * 2.0f - 1.0f
   val Random(a, seed2) = randomFloat(seed1)
@@ -35,7 +33,6 @@ def randomVector(seed: UInt32): Random[Vec3[Float32]] = {
   val x = r * cos(a2)
   val y = r * sin(a2)
   Random((x, y, z2), seed2)
-}
 
 @main
 def randomRays =
@@ -73,7 +70,7 @@ def randomRays =
     val notHit = currentHit
     when(c > 0f && b > 0f) {
       notHit
-    } otherwise {
+    } otherwise:
       val discr = b * b - c
       when(discr > 0f) {
         val initDist = -b - sqrt(discr)
@@ -84,7 +81,6 @@ def randomRays =
           RayHitInfo(dist, normal, sphere.color, sphere.emissive)
         } otherwise notHit
       } otherwise notHit
-    }
 
   def testQuadTrace(rayPos: Vec3[Float32], rayDir: Vec3[Float32], currentHit: RayHitInfo, quad: Quad): RayHitInfo =
     val normal = normalize((quad.c - quad.a) cross (quad.c - quad.b))
@@ -106,9 +102,8 @@ def randomRays =
         (intersectPoint.x - rayPos.x) / rayDir.x
       }.elseWhen(abs(rayDir.y) > 0.1f) {
         (intersectPoint.y - rayPos.y) / rayDir.y
-      }.otherwise {
+      }.otherwise:
         (intersectPoint.z - rayPos.z) / rayDir.z
-      }
       when(dist > minRayHitTime && dist < currentHit.dist) {
         RayHitInfo(dist, fixedNormal, quad.color, quad.emissive)
       } otherwise currentHit
@@ -124,7 +119,7 @@ def randomRays =
         val intersectPos = fixedQuad.a * uu + fixedQuad.b * vv + fixedQuad.c * ww
         checkHit(intersectPos)
       } otherwise currentHit
-    } otherwise {
+    } otherwise:
       val pd = fixedQuad.d - p
       val u = pd dot m
       val w = scalarTriple(pq, pa, pd)
@@ -137,7 +132,6 @@ def randomRays =
         val intersectPos = fixedQuad.a * uu + fixedQuad.d * vv + fixedQuad.c * ww
         checkHit(intersectPos)
       } otherwise currentHit
-    }
 
   val sphere = Sphere(center = (0f, 1.5f, 2f), radius = 0.5f, color = (1f, 1f, 1f), emissive = (30f, 30f, 30f))
 

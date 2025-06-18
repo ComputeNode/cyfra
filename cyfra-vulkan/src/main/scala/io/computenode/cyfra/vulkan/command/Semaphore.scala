@@ -13,7 +13,7 @@ import scala.util.Using
 /** @author
   *   MarconZet Created 30.10.2019
   */
-private[cyfra] class Semaphore(device: Device) extends VulkanObjectHandle {
+private[cyfra] class Semaphore(device: Device) extends VulkanObjectHandle:
   protected val handle: Long = pushStack { stack =>
     val semaphoreCreateInfo = VkSemaphoreCreateInfo
       .calloc(stack)
@@ -26,4 +26,3 @@ private[cyfra] class Semaphore(device: Device) extends VulkanObjectHandle {
   def close(): Unit =
     vkDestroySemaphore(device.get, handle, null)
 
-}

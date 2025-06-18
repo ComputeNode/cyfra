@@ -8,17 +8,16 @@ import org.lwjgl.system.MemoryUtil
 import java.nio.ByteBuffer
 
 class Vec4FloatMem(val size: Int, protected val data: ByteBuffer) extends RamGMem[Vec4[Float32], fRGBA]:
-  def toArray: Array[fRGBA] = {
+  def toArray: Array[fRGBA] =
     val res = data.asFloatBuffer()
     val result = new Array[fRGBA](size)
     for i <- 0 until size do result(i) = (res.get(), res.get(), res.get(), res.get())
     result
-  }
 
 object Vec4FloatMem:
   val Vec4FloatSize = 16
 
-  def apply(vecs: Array[fRGBA]): Vec4FloatMem = {
+  def apply(vecs: Array[fRGBA]): Vec4FloatMem =
     val size = vecs.length
     val data = BufferUtils.createByteBuffer(size * Vec4FloatSize)
     vecs.foreach { case (x, y, z, a) =>
@@ -29,7 +28,6 @@ object Vec4FloatMem:
     }
     data.rewind()
     new Vec4FloatMem(size, data)
-  }
 
   def apply(size: Int): Vec4FloatMem =
     val data = BufferUtils.createByteBuffer(size * Vec4FloatSize)

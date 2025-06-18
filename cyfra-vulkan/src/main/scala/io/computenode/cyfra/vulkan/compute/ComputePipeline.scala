@@ -14,7 +14,7 @@ import scala.util.Using
 /** @author
   *   MarconZet Created 14.04.2020
   */
-private[cyfra] class ComputePipeline(val computeShader: Shader, context: VulkanContext) extends VulkanObjectHandle {
+private[cyfra] class ComputePipeline(val computeShader: Shader, context: VulkanContext) extends VulkanObjectHandle:
   private val device: Device = context.device
   val descriptorSetLayouts: Seq[(Long, LayoutSet)] =
     computeShader.layoutInfo.sets.map(x => (createDescriptorSetLayout(x), x))
@@ -57,11 +57,10 @@ private[cyfra] class ComputePipeline(val computeShader: Shader, context: VulkanC
     pPipeline.get(0)
   }
 
-  protected def close(): Unit = {
+  protected def close(): Unit =
     vkDestroyPipeline(device.get, handle, null)
     vkDestroyPipelineLayout(device.get, pipelineLayout, null)
     descriptorSetLayouts.map(_._1).foreach(vkDestroyDescriptorSetLayout(device.get, _, null))
-  }
 
   private def createDescriptorSetLayout(set: LayoutSet): Long = pushStack { stack =>
     val descriptorSetLayoutBindings = VkDescriptorSetLayoutBinding.calloc(set.bindings.length, stack)
@@ -89,4 +88,3 @@ private[cyfra] class ComputePipeline(val computeShader: Shader, context: VulkanC
     check(vkCreateDescriptorSetLayout(device.get, descriptorSetLayoutCreateInfo, null, pDescriptorSetLayout), "Failed to create descriptor set layout")
     pDescriptorSetLayout.get(0)
   }
-}

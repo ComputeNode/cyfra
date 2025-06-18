@@ -65,9 +65,8 @@ object GSeq:
     GSeq
       .gen[Int32](0, _ + 1)
       .map { i =>
-        val first = when(i === 0) {
+        val first = when(i === 0):
           xs(0)
-        }
         (if xs.length == 1 then first
          else
            xs.init.zipWithIndex.tail.foldLeft(first) { case (acc, (x, j)) =>

@@ -25,7 +25,7 @@ private[cyfra] class Shader(
   val layoutInfo: LayoutInfo,
   val functionName: String,
   device: Device,
-) extends VulkanObjectHandle {
+) extends VulkanObjectHandle:
 
   protected val handle: Long = pushStack { stack =>
     val shaderModuleCreateInfo = VkShaderModuleCreateInfo
@@ -42,21 +42,19 @@ private[cyfra] class Shader(
 
   protected def close(): Unit =
     vkDestroyShaderModule(device.get, handle, null)
-}
 
-object Shader {
+object Shader:
 
   def loadShader(path: String): ByteBuffer =
     loadShader(path, getClass.getClassLoader)
 
   private def loadShader(path: String, classLoader: ClassLoader): ByteBuffer =
-    try {
+    try
       val file = new File(Objects.requireNonNull(classLoader.getResource(path)).getFile)
       val fis = new FileInputStream(file)
       val fc = fis.getChannel
       fc.map(FileChannel.MapMode.READ_ONLY, 0, fc.size())
-    } catch
+    catch
       case e: IOException =>
         throw new RuntimeException(e)
 
-}

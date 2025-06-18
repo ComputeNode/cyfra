@@ -31,9 +31,9 @@ object GMem:
       typeStride(t)
   }.sum
 
-  def serializeUniform(g: GStruct[?]): ByteBuffer = {
+  def serializeUniform(g: GStruct[?]): ByteBuffer =
     val data = BufferUtils.createByteBuffer(totalStride(g.schema))
-    g.productIterator.foreach {
+    g.productIterator.foreach:
       case Int32(ConstInt32(i))     => data.putInt(i)
       case Float32(ConstFloat32(f)) => data.putFloat(f)
       case Vec4(ComposeVec4(Float32(ConstFloat32(x)), Float32(ConstFloat32(y)), Float32(ConstFloat32(z)), Float32(ConstFloat32(a)))) =>
@@ -50,7 +50,5 @@ object GMem:
         data.putFloat(y)
       case illegal =>
         throw new IllegalArgumentException(s"Uniform must be constructed from constants (got field $illegal)")
-    }
     data.rewind()
     data
-  }

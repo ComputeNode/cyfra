@@ -17,12 +17,11 @@ import scala.jdk.CollectionConverters.given
   *   MarconZet Created 13.04.2020
   */
 
-object Device {
+object Device:
   final val MacOsExtension = VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME
   final val SyncExtension = VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME
-}
 
-private[cyfra] class Device(instance: Instance) extends VulkanObject {
+private[cyfra] class Device(instance: Instance) extends VulkanObject:
 
   val physicalDevice: VkPhysicalDevice = pushStack { stack =>
 
@@ -131,10 +130,9 @@ private[cyfra] class Device(instance: Instance) extends VulkanObject {
         .pQueueCreateInfos(pQueueCreateInfo)
         .ppEnabledExtensionNames(ppExtensionNames)
 
-      if instance.enabledLayers.contains(ValidationLayer) then {
+      if instance.enabledLayers.contains(ValidationLayer) then
         val ppValidationLayers = stack.callocPointer(1).put(stack.ASCII(ValidationLayer))
         pCreateInfo.ppEnabledLayerNames(ppValidationLayers.flip())
-      }
 
       assert(vulkan13Features.synchronization2() || extensions.contains(SyncExtension))
 
@@ -147,4 +145,3 @@ private[cyfra] class Device(instance: Instance) extends VulkanObject {
 
   override protected def close(): Unit =
     vkDestroyDevice(device, null)
-}

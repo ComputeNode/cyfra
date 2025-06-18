@@ -12,7 +12,7 @@ import org.lwjgl.vulkan.{VkDescriptorBufferInfo, VkDescriptorSetAllocateInfo, Vk
   *   MarconZet Created 15.04.2020
   */
 private[cyfra] class DescriptorSet(device: Device, descriptorSetLayout: Long, val bindings: Seq[Binding], descriptorPool: DescriptorPool)
-    extends VulkanObjectHandle {
+    extends VulkanObjectHandle:
 
   protected val handle: Long = pushStack { stack =>
     val pSetLayout = stack.callocLong(1).put(0, descriptorSetLayout)
@@ -52,4 +52,3 @@ private[cyfra] class DescriptorSet(device: Device, descriptorSetLayout: Long, va
 
   override protected def close(): Unit =
     vkFreeDescriptorSets(device.get, descriptorPool.get, handle)
-}

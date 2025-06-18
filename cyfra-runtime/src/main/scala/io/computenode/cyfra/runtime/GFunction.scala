@@ -9,11 +9,10 @@ import izumi.reflect.Tag
 
 case class GFunction[G <: GStruct[G]: GStructSchema: Tag, H <: Value: Tag: FromExpr, R <: Value: Tag: FromExpr](fn: (G, Int32, GArray[H]) => R)(
   implicit context: GContext,
-) {
+):
   def arrayInputs: List[Tag[?]] = List(summon[Tag[H]])
   def arrayOutputs: List[Tag[?]] = List(summon[Tag[R]])
   val pipeline: ComputePipeline = context.compile(this)
-}
 
 object GFunction:
   def apply[H <: Value: Tag: FromExpr, R <: Value: Tag: FromExpr](fn: H => R)(using context: GContext): GFunction[GStruct.Empty, H, R] =

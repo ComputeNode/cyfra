@@ -39,9 +39,8 @@ class RtRenderer(params: RtRenderer.Parameters):
   private def applyRefractionThroughput(state: RayTraceState, testResult: RayHitInfo) = pure:
     when(testResult.fromInside) {
       state.throughput mulV exp[Vec3[Float32]](-testResult.material.refractionColor * testResult.dist)
-    }.otherwise {
+    }.otherwise:
       state.throughput
-    }
 
   private def calculateSpecularChance(state: RayTraceState, testResult: RayHitInfo) = pure:
     when(testResult.material.percentSpecular > 0.0f) {
@@ -54,9 +53,8 @@ class RtRenderer(params: RtRenderer.Parameters):
         material.percentSpecular,
         1.0f,
       )
-    }.otherwise {
+    }.otherwise:
       0f
-    }
 
   private def getRefractionChance(state: RayTraceState, testResult: RayHitInfo, specularChance: Float32) = pure:
     when(specularChance > 0.0f) {
@@ -79,9 +77,8 @@ class RtRenderer(params: RtRenderer.Parameters):
       specularChance
     }.elseWhen(doRefraction === 1.0f) {
       refractionChance
-    }.otherwise {
+    }.otherwise:
       1.0f - (specularChance + refractionChance)
-    }
 
     (RayAction(doSpecular, doRefraction, max(rayProbability, 0.01f)), nextRandom)
 
@@ -89,9 +86,8 @@ class RtRenderer(params: RtRenderer.Parameters):
   private def getNextRayPos(rayPos: Vec3[Float32], rayDir: Vec3[Float32], testResult: RayHitInfo, doRefraction: Float32) = pure:
     when(doRefraction =~= 1.0f) {
       (rayPos + rayDir * testResult.dist) - (testResult.normal * rayPosNormalNudge)
-    }.otherwise {
+    }.otherwise:
       (rayPos + rayDir * testResult.dist) + (testResult.normal * rayPosNormalNudge)
-    }
 
   private def getRefractionRayDir(rayDir: Vec3[Float32], testResult: RayHitInfo, random: Random) =
     val (random2, randomVec) = random.next[Vec3[Float32]]

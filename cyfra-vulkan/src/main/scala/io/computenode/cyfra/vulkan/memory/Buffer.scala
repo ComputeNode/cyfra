@@ -18,7 +18,7 @@ import scala.util.Using
 /** @author
   *   MarconZet Created 11.05.2019
   */
-private[cyfra] class Buffer(val size: Int, val usage: Int, flags: Int, memUsage: Int, val allocator: Allocator) extends VulkanObjectHandle {
+private[cyfra] class Buffer(val size: Int, val usage: Int, flags: Int, memUsage: Int, val allocator: Allocator) extends VulkanObjectHandle:
 
   val (handle, allocation) = pushStack { stack =>
     val bufferInfo = VkBufferCreateInfo
@@ -41,19 +41,17 @@ private[cyfra] class Buffer(val size: Int, val usage: Int, flags: Int, memUsage:
     (pBuffer.get(), pAllocation.get())
   }
 
-  def get(dst: Array[Byte]): Unit = {
+  def get(dst: Array[Byte]): Unit =
     val len = Math.min(dst.length, size)
     val byteBuffer = memCalloc(len)
     Buffer.copyBuffer(this, byteBuffer, len)
     byteBuffer.get(dst)
     memFree(byteBuffer)
-  }
 
   protected def close(): Unit =
     vmaDestroyBuffer(allocator.get, handle, allocation)
-}
 
-object Buffer {
+object Buffer:
   def copyBuffer(src: ByteBuffer, dst: Buffer, bytes: Long): Unit =
     pushStack { stack =>
       val pData = stack.callocPointer(1)
@@ -87,4 +85,3 @@ object Buffer {
       commandPool.endSingleTimeCommands(commandBuffer)
     }
 
-}

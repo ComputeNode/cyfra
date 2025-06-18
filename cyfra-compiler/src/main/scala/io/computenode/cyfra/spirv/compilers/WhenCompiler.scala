@@ -11,9 +11,9 @@ import io.computenode.cyfra.spirv.SpirvTypes.*
 
 private[cyfra] object WhenCompiler:
 
-  def compileWhen(when: WhenExpr[?], ctx: Context): (List[Words], Context) = {
+  def compileWhen(when: WhenExpr[?], ctx: Context): (List[Words], Context) =
     def compileCases(ctx: Context, resultVar: Int, conditions: List[E[?]], thenCodes: List[E[?]], elseCode: E[?]): (List[Words], Context) =
-      (conditions, thenCodes) match {
+      (conditions, thenCodes) match
         case (Nil, Nil) =>
           val (elseInstructions, elseCtx) = compileBlock(elseCode, ctx)
           val elseWithStore = elseInstructions :+ Instruction(Op.OpStore, List(ResultRef(resultVar), ResultRef(elseCtx.exprRefs(elseCode.treeid))))
@@ -42,7 +42,6 @@ private[cyfra] object WhenCompiler:
             ),
             postCtx.joinNested(elseCtx),
           )
-      }
 
     val resultVar = ctx.nextResultId
     val resultLoaded = ctx.nextResultId + 1
@@ -58,4 +57,3 @@ private[cyfra] object WhenCompiler:
       List(Instruction(Op.OpVariable, List(ResultRef(ctx.funPointerTypeMap(resultTypeTag)), ResultRef(resultVar), StorageClass.Function))) :::
         caseInstructions ::: List(Instruction(Op.OpLoad, List(ResultRef(resultTypeTag), ResultRef(resultLoaded), ResultRef(resultVar))))
     (instructions, caseCtx.copy(exprRefs = caseCtx.exprRefs + (when.treeid -> resultLoaded)))
-  }
