@@ -12,4 +12,3 @@ private[cyfra] abstract class VulkanObject:
     alive = false
 
   protected def close(): Unit
-

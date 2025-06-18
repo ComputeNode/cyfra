@@ -40,7 +40,6 @@ object Instance:
 
   lazy val version: Int = VK.getInstanceVersionSupported
 
-
 private[cyfra] class Instance(enableValidationLayers: Boolean) extends VulkanObject:
 
   private val instance: VkInstance = pushStack { stack =>

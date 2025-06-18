@@ -53,4 +53,3 @@ object Shader:
     catch
       case e: IOException =>
         throw new RuntimeException(e)
-

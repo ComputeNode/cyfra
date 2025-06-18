@@ -54,4 +54,3 @@ private[cyfra] class MapExecutor(dataLength: Int, bufferActions: Seq[BufferActio
       val workgroup = shader.workgroupDimensions
       vkCmdDispatch(commandBuffer, dataLength / workgroup.x(), 1 / workgroup.y(), 1 / workgroup.z())
     }
-

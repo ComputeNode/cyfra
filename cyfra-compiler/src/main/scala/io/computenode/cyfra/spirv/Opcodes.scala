@@ -1030,4 +1030,3 @@ private[cyfra] object Opcodes:
     val NMin = Code("NMin", 79)
     val NMax = Code("NMax", 80)
     val NClamp = Code("NClamp", 81)
-

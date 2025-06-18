@@ -17,10 +17,10 @@ object ImageTests:
     // println(renderAsText(resultImage, 50, 50))
     assertEquals(expectedImage.getWidth, resultImage.getWidth, "Width was different")
     assertEquals(expectedImage.getHeight, resultImage.getHeight, "Height was different")
-    for {
+    for
       x <- 0 until expectedImage.getWidth
       y <- 0 until expectedImage.getHeight
-    }
+    do
       val equal = expectedImage.getRGB(x, y) == resultImage.getRGB(x, y)
       assert(equal, s"Pixel $x, $y was different. Output file: ${result.getAbsolutePath}")
 

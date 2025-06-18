@@ -80,4 +80,3 @@ object Buffer:
 
       commandPool.endSingleTimeCommands(commandBuffer)
     }
-

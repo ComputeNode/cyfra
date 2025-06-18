@@ -21,4 +21,3 @@ private[cyfra] class Semaphore(device: Device) extends VulkanObjectHandle:
 
   def close(): Unit =
     vkDestroySemaphore(device.get, handle, null)
-
