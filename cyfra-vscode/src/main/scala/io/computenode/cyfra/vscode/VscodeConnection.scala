@@ -4,7 +4,7 @@ import io.computenode.cyfra.vscode.VscodeConnection.Message
 
 import java.net.http.{HttpClient, WebSocket}
 
-class VscodeConnection(host: String, port: Int) {
+class VscodeConnection(host: String, port: Int):
   val ws = HttpClient
     .newHttpClient()
     .newWebSocketBuilder()
@@ -13,7 +13,6 @@ class VscodeConnection(host: String, port: Int) {
 
   def send(message: Message): Unit =
     ws.sendText(message.toJson, true)
-}
 
 object VscodeConnection:
   trait Message:
