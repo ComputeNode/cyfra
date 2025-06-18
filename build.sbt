@@ -36,6 +36,7 @@ lazy val vulkanNatives =
   else Seq.empty
 
 lazy val commonSettings = Seq(
+  scalacOptions ++= Seq("-feature", "-deprecation", "-unchecked", "-language:implicitConversions"),
   libraryDependencies ++= Seq(
     "dev.zio" % "izumi-reflect_3" % "2.3.10",
     "com.lihaoyi" % "pprint_3" % "0.9.0",
