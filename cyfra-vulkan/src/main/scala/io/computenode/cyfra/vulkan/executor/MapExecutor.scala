@@ -24,7 +24,7 @@ private[cyfra] class MapExecutor(dataLength: Int, bufferActions: Seq[BufferActio
     }
     .max
 
-  protected def setupBuffers(): (Seq[DescriptorSet], Seq[Buffer]) = pushStack { stack =>
+  protected def setupBuffers(): (Seq[DescriptorSet], Seq[Buffer]) = pushStack: stack =>
     val bindings = shader.layoutInfo.sets.flatMap(_.bindings)
     val buffers = bindings.zipWithIndex.map { case (binding, i) =>
       val bufferSize = binding.size match
@@ -42,10 +42,9 @@ private[cyfra] class MapExecutor(dataLength: Int, bufferActions: Seq[BufferActio
       bufferDeque.drop(size)
       descriptorSet
     (descriptorSets, buffers)
-  }
 
   protected def recordCommandBuffer(commandBuffer: VkCommandBuffer): Unit =
-    pushStack { stack =>
+    pushStack: stack =>
       vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline.get)
 
       val pDescriptorSets = stack.longs(descriptorSets.map(_.get)*)
@@ -53,4 +52,3 @@ private[cyfra] class MapExecutor(dataLength: Int, bufferActions: Seq[BufferActio
 
       val workgroup = shader.workgroupDimensions
       vkCmdDispatch(commandBuffer, dataLength / workgroup.x(), 1 / workgroup.y(), 1 / workgroup.z())
-    }

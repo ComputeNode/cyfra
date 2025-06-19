@@ -10,7 +10,7 @@ import org.lwjgl.vulkan.VkFenceCreateInfo
   *   MarconZet Created 13.04.2020
   */
 private[cyfra] class Fence(device: Device, flags: Int = 0, onDestroy: () => Unit = () => ()) extends VulkanObjectHandle:
-  protected val handle: Long = pushStack { stack =>
+  protected val handle: Long = pushStack(stack =>
     val fenceInfo = VkFenceCreateInfo
       .calloc(stack)
       .sType$Default()
@@ -19,8 +19,8 @@ private[cyfra] class Fence(device: Device, flags: Int = 0, onDestroy: () => Unit
 
     val pFence = stack.callocLong(1)
     check(vkCreateFence(device.get, fenceInfo, null, pFence), "Failed to create fence")
-    pFence.get()
-  }
+    pFence.get(),
+  )
 
   override def close(): Unit =
     onDestroy.apply()

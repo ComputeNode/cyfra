@@ -13,7 +13,7 @@ import org.lwjgl.vulkan.{VkDescriptorPoolCreateInfo, VkDescriptorPoolSize}
 object DescriptorPool:
   val MAX_SETS = 100
 private[cyfra] class DescriptorPool(device: Device) extends VulkanObjectHandle:
-  protected val handle: Long = pushStack { stack =>
+  protected val handle: Long = pushStack: stack =>
     val descriptorPoolSize = VkDescriptorPoolSize.calloc(1, stack)
     descriptorPoolSize
       .get(0)
@@ -30,7 +30,6 @@ private[cyfra] class DescriptorPool(device: Device) extends VulkanObjectHandle:
     val pDescriptorPool = stack.callocLong(1)
     check(vkCreateDescriptorPool(device.get, descriptorPoolCreateInfo, null, pDescriptorPool), "Failed to create descriptor pool")
     pDescriptorPool.get()
-  }
 
   override protected def close(): Unit =
     vkDestroyDescriptorPool(device.get, handle, null)

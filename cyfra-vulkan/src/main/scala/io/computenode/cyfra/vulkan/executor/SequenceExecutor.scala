@@ -27,8 +27,9 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
   private val descriptorPool: DescriptorPool = context.descriptorPool
   private val commandPool: CommandPool = context.commandPool
 
-  private val pipelineToDescriptorSets: Map[ComputePipeline, Seq[DescriptorSet]] = pushStack { stack =>
-    val pipelines = computeSequence.sequence.collect { case Compute(pipeline, _) => pipeline }
+  private val pipelineToDescriptorSets: Map[ComputePipeline, Seq[DescriptorSet]] = pushStack: stack =>
+    val pipelines = computeSequence.sequence.collect:
+      case Compute(pipeline, _) => pipeline
 
     val rawSets = pipelines.map(_.computeShader.layoutInfo.sets)
     val numbered = rawSets.flatten.zipWithIndex
@@ -67,11 +68,10 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
       .toMap
 
     pipelines.zip(resolvedSets.map(_.map(descriptorSetMap(_)))).toMap
-  }
 
   private val descriptorSets = pipelineToDescriptorSets.toSeq.flatMap(_._2).distinctBy(_.get)
 
-  private def recordCommandBuffer(dataLength: Int): VkCommandBuffer = pushStack { stack =>
+  private def recordCommandBuffer(dataLength: Int): VkCommandBuffer = pushStack: stack =>
     val pipelinesHasDependencies = computeSequence.dependencies.map(_.to).toSet
     val commandBuffer = commandPool.createCommandBuffer()
 
@@ -110,7 +110,6 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
 
     check(vkEndCommandBuffer(commandBuffer), "Failed to finish recording command buffer")
     commandBuffer
-  }
 
   private def createBuffers(dataLength: Int): Map[DescriptorSet, Seq[Buffer]] =
 
@@ -144,7 +143,7 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
 
     setToBuffers
 
-  def execute(inputs: Seq[ByteBuffer], dataLength: Int): Seq[ByteBuffer] = pushStack { stack =>
+  def execute(inputs: Seq[ByteBuffer], dataLength: Int): Seq[ByteBuffer] = pushStack: stack =>
     timed("Vulkan full execute"):
       val setToBuffers = createBuffers(dataLength)
 
@@ -197,7 +196,6 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
       setToBuffers.flatMap(_._2).foreach(_.destroy())
 
       output
-  }
 
   def destroy(): Unit =
     descriptorSets.foreach(_.destroy())

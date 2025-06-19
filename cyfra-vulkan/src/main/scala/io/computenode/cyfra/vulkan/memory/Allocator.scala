@@ -11,7 +11,7 @@ import org.lwjgl.util.vma.{VmaAllocatorCreateInfo, VmaVulkanFunctions}
   */
 private[cyfra] class Allocator(instance: Instance, device: Device) extends VulkanObjectHandle:
 
-  protected val handle: Long = pushStack { stack =>
+  protected val handle: Long = pushStack: stack =>
     val functions = VmaVulkanFunctions.calloc(stack)
     functions.set(instance.get, device.get)
     val allocatorInfo = VmaAllocatorCreateInfo
@@ -24,7 +24,6 @@ private[cyfra] class Allocator(instance: Instance, device: Device) extends Vulka
     val pAllocator = stack.callocPointer(1)
     check(vmaCreateAllocator(allocatorInfo, pAllocator), "Failed to create allocator")
     pAllocator.get(0)
-  }
 
   def close(): Unit =
     vmaDestroyAllocator(handle)

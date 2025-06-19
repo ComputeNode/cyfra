@@ -16,7 +16,7 @@ import java.nio.ByteBuffer
   */
 private[cyfra] class Buffer(val size: Int, val usage: Int, flags: Int, memUsage: Int, val allocator: Allocator) extends VulkanObjectHandle:
 
-  val (handle, allocation) = pushStack { stack =>
+  val (handle, allocation) = pushStack: stack =>
     val bufferInfo = VkBufferCreateInfo
       .calloc(stack)
       .sType$Default()
@@ -35,7 +35,6 @@ private[cyfra] class Buffer(val size: Int, val usage: Int, flags: Int, memUsage:
     val pAllocation = stack.callocPointer(1)
     check(vmaCreateBuffer(allocator.get, bufferInfo, allocInfo, pBuffer, pAllocation, null), "Failed to create buffer")
     (pBuffer.get(), pAllocation.get())
-  }
 
   def get(dst: Array[Byte]): Unit =
     val len = Math.min(dst.length, size)
@@ -49,26 +48,24 @@ private[cyfra] class Buffer(val size: Int, val usage: Int, flags: Int, memUsage:
 
 object Buffer:
   def copyBuffer(src: ByteBuffer, dst: Buffer, bytes: Long): Unit =
-    pushStack { stack =>
+    pushStack: stack =>
       val pData = stack.callocPointer(1)
       check(vmaMapMemory(dst.allocator.get, dst.allocation, pData), "Failed to map destination buffer memory")
       val data = pData.get()
       memCopy(memAddress(src), data, bytes)
       vmaFlushAllocation(dst.allocator.get, dst.allocation, 0, bytes)
       vmaUnmapMemory(dst.allocator.get, dst.allocation)
-    }
 
   def copyBuffer(src: Buffer, dst: ByteBuffer, bytes: Long): Unit =
-    pushStack { stack =>
+    pushStack: stack =>
       val pData = stack.callocPointer(1)
       check(vmaMapMemory(src.allocator.get, src.allocation, pData), "Failed to map destination buffer memory")
       val data = pData.get()
       memCopy(data, memAddress(dst), bytes)
       vmaUnmapMemory(src.allocator.get, src.allocation)
-    }
 
   def copyBuffer(src: Buffer, dst: Buffer, bytes: Long, commandPool: CommandPool): Fence =
-    pushStack { stack =>
+    pushStack: stack =>
       val commandBuffer = commandPool.beginSingleTimeCommands()
 
       val copyRegion = VkBufferCopy
@@ -79,4 +76,3 @@ object Buffer:
       vkCmdCopyBuffer(commandBuffer, src.get, dst.get, copyRegion)
 
       commandPool.endSingleTimeCommands(commandBuffer)
-    }

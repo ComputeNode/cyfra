@@ -20,22 +20,19 @@ private[cyfra] abstract class AbstractExecutor(dataLength: Int, val bufferAction
   protected val commandPool: CommandPool = context.commandPool
 
   protected val (descriptorSets, buffers) = setupBuffers()
-  private val commandBuffer: VkCommandBuffer =
-    pushStack { stack =>
-      val commandBuffer = commandPool.createCommandBuffer()
+  private val commandBuffer: VkCommandBuffer = pushStack: stack =>
+    val commandBuffer = commandPool.createCommandBuffer()
+    val commandBufferBeginInfo = VkCommandBufferBeginInfo
+      .calloc(stack)
+      .sType$Default()
+      .flags(0)
 
-      val commandBufferBeginInfo = VkCommandBufferBeginInfo
-        .calloc(stack)
-        .sType$Default()
-        .flags(0)
+    check(vkBeginCommandBuffer(commandBuffer, commandBufferBeginInfo), "Failed to begin recording command buffer")
 
-      check(vkBeginCommandBuffer(commandBuffer, commandBufferBeginInfo), "Failed to begin recording command buffer")
+    recordCommandBuffer(commandBuffer)
 
-      recordCommandBuffer(commandBuffer)
-
-      check(vkEndCommandBuffer(commandBuffer), "Failed to finish recording command buffer")
-      commandBuffer
-    }
+    check(vkEndCommandBuffer(commandBuffer), "Failed to finish recording command buffer")
+    commandBuffer
 
   def execute(input: Seq[ByteBuffer]): Seq[ByteBuffer] =
     val stagingBuffer =
@@ -51,7 +48,7 @@ private[cyfra] abstract class AbstractExecutor(dataLength: Int, val bufferAction
       Buffer.copyBuffer(buffer, stagingBuffer, buffer.remaining())
       Buffer.copyBuffer(stagingBuffer, buffers(i), buffer.remaining(), commandPool).block().destroy()
 
-    pushStack { stack =>
+    pushStack: stack =>
       val fence = new Fence(device)
       val pCommandBuffer = stack.callocPointer(1).put(0, commandBuffer)
       val submitInfo = VkSubmitInfo
@@ -61,7 +58,6 @@ private[cyfra] abstract class AbstractExecutor(dataLength: Int, val bufferAction
 
       check(VK10.vkQueueSubmit(queue.get, submitInfo, fence.get), "Failed to submit command buffer to queue")
       fence.block().destroy()
-    }
 
     val output = for i <- bufferActions.indices if bufferActions(i) == BufferAction.LoadFrom yield
       val fence = Buffer.copyBuffer(buffers(i), stagingBuffer, buffers(i).size, commandPool)

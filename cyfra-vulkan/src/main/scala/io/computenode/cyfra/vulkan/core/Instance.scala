@@ -23,7 +23,7 @@ object Instance:
   val ValidationLayersExtensions: Seq[String] = List(VK_EXT_DEBUG_REPORT_EXTENSION_NAME)
   val MoltenVkExtensions: Seq[String] = List(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME)
 
-  lazy val (extensions, layers): (Seq[String], Seq[String]) = pushStack { stack =>
+  lazy val (extensions, layers): (Seq[String], Seq[String]) = pushStack: stack =>
     val ip = stack.ints(1)
     vkEnumerateInstanceLayerProperties(ip, null)
     val availableLayers = VkLayerProperties.malloc(ip.get(0), stack)
@@ -36,14 +36,12 @@ object Instance:
     val extensions = instance_extensions.iterator().asScala.map(_.extensionNameString())
     val layers = availableLayers.iterator().asScala.map(_.layerNameString())
     (extensions.toSeq, layers.toSeq)
-  }
 
   lazy val version: Int = VK.getInstanceVersionSupported
 
 private[cyfra] class Instance(enableValidationLayers: Boolean) extends VulkanObject:
 
-  private val instance: VkInstance = pushStack { stack =>
-
+  private val instance: VkInstance = pushStack: stack =>
     val appInfo = VkApplicationInfo
       .calloc(stack)
       .sType$Default()
@@ -72,7 +70,6 @@ private[cyfra] class Instance(enableValidationLayers: Boolean) extends VulkanObj
     val pInstance = stack.mallocPointer(1)
     check(vkCreateInstance(pCreateInfo, null, pInstance), "Failed to create VkInstance")
     new VkInstance(pInstance.get(0), pCreateInfo)
-  }
 
   lazy val enabledLayers: Seq[String] = List
     .empty[String]

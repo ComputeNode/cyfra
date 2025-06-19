@@ -10,14 +10,13 @@ import org.lwjgl.vulkan.VkSemaphoreCreateInfo
   *   MarconZet Created 30.10.2019
   */
 private[cyfra] class Semaphore(device: Device) extends VulkanObjectHandle:
-  protected val handle: Long = pushStack { stack =>
+  protected val handle: Long = pushStack: stack =>
     val semaphoreCreateInfo = VkSemaphoreCreateInfo
       .calloc(stack)
       .sType$Default()
     val pointer = stack.callocLong(1)
     check(vkCreateSemaphore(device.get, semaphoreCreateInfo, null, pointer), "Failed to create semaphore")
     pointer.get()
-  }
 
   def close(): Unit =
     vkDestroySemaphore(device.get, handle, null)

@@ -23,7 +23,7 @@ private[cyfra] class Shader(
   device: Device,
 ) extends VulkanObjectHandle:
 
-  protected val handle: Long = pushStack { stack =>
+  protected val handle: Long = pushStack: stack =>
     val shaderModuleCreateInfo = VkShaderModuleCreateInfo
       .calloc(stack)
       .sType$Default()
@@ -34,7 +34,6 @@ private[cyfra] class Shader(
     val pShaderModule = stack.callocLong(1)
     check(vkCreateShaderModule(device.get, shaderModuleCreateInfo, null, pShaderModule), "Failed to create shader module")
     pShaderModule.get()
-  }
 
   protected def close(): Unit =
     vkDestroyShaderModule(device.get, handle, null)
