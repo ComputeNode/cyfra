@@ -31,13 +31,13 @@ class RtRenderer(params: RtRenderer.Parameters):
   ) extends GStruct[RayTraceState]
 
   private def applyRefractionThroughput(state: RayTraceState, testResult: RayHitInfo) = pure:
-    when(testResult.fromInside) {
+    when(testResult.fromInside):
       state.throughput mulV exp[Vec3[Float32]](-testResult.material.refractionColor * testResult.dist)
-    }.otherwise:
+    .otherwise:
       state.throughput
 
   private def calculateSpecularChance(state: RayTraceState, testResult: RayHitInfo) = pure:
-    when(testResult.material.percentSpecular > 0.0f) {
+    when(testResult.material.percentSpecular > 0.0f):
       val material = testResult.material
       fresnelReflectAmount(
         when(testResult.fromInside)(material.indexOfRefraction).otherwise(1.0f),
@@ -47,40 +47,41 @@ class RtRenderer(params: RtRenderer.Parameters):
         material.percentSpecular,
         1.0f,
       )
-    }.otherwise:
+    .otherwise:
       0f
 
   private def getRefractionChance(state: RayTraceState, testResult: RayHitInfo, specularChance: Float32) = pure:
-    when(specularChance > 0.0f) {
+    when(specularChance > 0.0f):
       testResult.material.refractionChance * ((1.0f - specularChance) / (1.0f - testResult.material.percentSpecular))
-    } otherwise testResult.material.refractionChance
+    .otherwise:
+      testResult.material.refractionChance
 
   private case class RayAction(doSpecular: Float32, doRefraction: Float32, rayProbability: Float32)
   private def getRayAction(state: RayTraceState, testResult: RayHitInfo, random: Random): (RayAction, Random) =
     val specularChance = calculateSpecularChance(state, testResult)
     val refractionChance = getRefractionChance(state, testResult, specularChance)
     val (nextRandom, rayRoll) = random.next[Float32]
-    val doSpecular = when(specularChance > 0.0f && rayRoll < specularChance) {
+    val doSpecular = when(specularChance > 0.0f && rayRoll < specularChance):
       1.0f
-    }.otherwise(0.0f)
-    val doRefraction = when(refractionChance > 0.0f && doSpecular === 0.0f && rayRoll < specularChance + refractionChance) {
+    .otherwise(0.0f)
+    val doRefraction = when(refractionChance > 0.0f && doSpecular === 0.0f && rayRoll < specularChance + refractionChance):
       1.0f
-    }.otherwise(0.0f)
+    .otherwise(0.0f)
 
-    val rayProbability = when(doSpecular === 1.0f) {
+    val rayProbability = when(doSpecular === 1.0f):
       specularChance
-    }.elseWhen(doRefraction === 1.0f) {
+    .elseWhen(doRefraction === 1.0f):
       refractionChance
-    }.otherwise:
+    .otherwise:
       1.0f - (specularChance + refractionChance)
 
     (RayAction(doSpecular, doRefraction, max(rayProbability, 0.01f)), nextRandom)
 
   private val rayPosNormalNudge = 0.01f
   private def getNextRayPos(rayPos: Vec3[Float32], rayDir: Vec3[Float32], testResult: RayHitInfo, doRefraction: Float32) = pure:
-    when(doRefraction =~= 1.0f) {
+    when(doRefraction =~= 1.0f):
       (rayPos + rayDir * testResult.dist) - (testResult.normal * rayPosNormalNudge)
-    }.otherwise:
+    .otherwise:
       (rayPos + rayDir * testResult.dist) + (testResult.normal * rayPosNormalNudge)
 
   private def getRefractionRayDir(rayDir: Vec3[Float32], testResult: RayHitInfo, random: Random) =
@@ -107,9 +108,10 @@ class RtRenderer(params: RtRenderer.Parameters):
     rayProbability: Float32,
     refractedThroughput: Vec3[Float32],
   ) = pure:
-    val nextThroughput = when(doRefraction === 0.0f) {
+    val nextThroughput = when(doRefraction === 0.0f):
       refractedThroughput mulV mix[Vec3[Float32]](testResult.material.color, testResult.material.specularColor, doSpecular)
-    }.otherwise(refractedThroughput)
+    .otherwise:
+      refractedThroughput
     nextThroughput * (1.0f / rayProbability)
 
   private def bounceRay(startRayPos: Vec3[Float32], startRayDir: Vec3[Float32], random: Random, scene: Scene): RayTraceState =
@@ -117,35 +119,35 @@ class RtRenderer(params: RtRenderer.Parameters):
     GSeq
       .gen[RayTraceState](
         first = initState,
-        next = { case state @ RayTraceState(rayPos, rayDir, color, throughput, random, _) =>
+        next =
+          case state @ RayTraceState(rayPos, rayDir, color, throughput, random, _) =>
+            val noHit = RayHitInfo(params.superFar, vec3(0f), Material.Zero)
+            val testResult: RayHitInfo = scene.rayTest(rayPos, rayDir, noHit)
 
-          val noHit = RayHitInfo(params.superFar, vec3(0f), Material.Zero)
-          val testResult: RayHitInfo = scene.rayTest(rayPos, rayDir, noHit)
+            when(testResult.dist < params.superFar):
+              val refractedThroughput = applyRefractionThroughput(state, testResult)
 
-          when(testResult.dist < params.superFar) {
-            val refractedThroughput = applyRefractionThroughput(state, testResult)
+              val (RayAction(doSpecular, doRefraction, rayProbability), random2) = getRayAction(state, testResult, random)
 
-            val (RayAction(doSpecular, doRefraction, rayProbability), random2) = getRayAction(state, testResult, random)
+              val nextRayPos = getNextRayPos(rayPos, rayDir, testResult, doRefraction)
 
-            val nextRayPos = getNextRayPos(rayPos, rayDir, testResult, doRefraction)
+              val (random3, randomVec1) = random2.next[Vec3[Float32]]
+              val diffuseRayDir = normalize(testResult.normal + randomVec1)
+              val specularRayDirPerfect = reflect(rayDir, testResult.normal)
+              val specularRayDir = normalize(mix(specularRayDirPerfect, diffuseRayDir, testResult.material.roughness * testResult.material.roughness))
 
-            val (random3, randomVec1) = random2.next[Vec3[Float32]]
-            val diffuseRayDir = normalize(testResult.normal + randomVec1)
-            val specularRayDirPerfect = reflect(rayDir, testResult.normal)
-            val specularRayDir = normalize(mix(specularRayDirPerfect, diffuseRayDir, testResult.material.roughness * testResult.material.roughness))
+              val (refractionRayDir, random4) = getRefractionRayDir(rayDir, testResult, random3)
 
-            val (refractionRayDir, random4) = getRefractionRayDir(rayDir, testResult, random3)
+              val rayDirSpecular = mix(diffuseRayDir, specularRayDir, doSpecular)
+              val rayDirRefracted = mix(rayDirSpecular, refractionRayDir, doRefraction)
 
-            val rayDirSpecular = mix(diffuseRayDir, specularRayDir, doSpecular)
-            val rayDirRefracted = mix(rayDirSpecular, refractionRayDir, doRefraction)
+              val nextColor = (refractedThroughput mulV testResult.material.emissive) addV color
 
-            val nextColor = (refractedThroughput mulV testResult.material.emissive) addV color
+              val throughputRayProb = getThroughput(testResult, doSpecular, doRefraction, rayProbability, refractedThroughput)
 
-            val throughputRayProb = getThroughput(testResult, doSpecular, doRefraction, rayProbability, refractedThroughput)
-
-            RayTraceState(nextRayPos, rayDirRefracted, nextColor, throughputRayProb, random4)
-          } otherwise RayTraceState(rayPos, rayDir, color, throughput, random, true)
-        },
+              RayTraceState(nextRayPos, rayDirRefracted, nextColor, throughputRayProb, random4)
+            .otherwise:
+              RayTraceState(rayPos, rayDir, color, throughput, random, true),
       )
       .limit(params.maxBounces)
       .takeWhile(!_.finished)
@@ -180,9 +182,10 @@ class RtRenderer(params: RtRenderer.Parameters):
 
     val colorCorrected = linearToSRGB(color)
 
-    when(frame === 0) {
+    when(frame === 0):
       (colorCorrected, 1.0f)
-    } otherwise mix(lastFrame.at(xi, yi), (colorCorrected, 1.0f), vec4(1.0f / (frame.asFloat + 1f)))
+    .otherwise:
+      mix(lastFrame.at(xi, yi), (colorCorrected, 1.0f), vec4(1.0f / (frame.asFloat + 1f)))
 
 object RtRenderer:
   trait Parameters:

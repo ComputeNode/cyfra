@@ -12,17 +12,17 @@ object Math3D:
   def fresnelReflectAmount(n1: Float32, n2: Float32, normal: Vec3[Float32], incident: Vec3[Float32], f0: Float32, f90: Float32): Float32 =
     val r0 = ((n1 - n2) / (n1 + n2)) * ((n1 - n2) / (n1 + n2))
     val cosX = -(normal dot incident)
-    when(n1 > n2) {
+    when(n1 > n2):
       val n = n1 / n2
       val sinT2 = n * n * (1f - cosX * cosX)
-      when(sinT2 > 1f) {
+      when(sinT2 > 1f):
         f90
-      } otherwise:
+      .otherwise:
         val cosX2 = sqrt(1.0f - sinT2)
         val x = 1.0f - cosX2
         val ret = r0 + ((1.0f - r0) * x * x * x * x * x)
         mix(f0, f90, ret)
-    } otherwise:
+    .otherwise:
       val x = 1.0f - cosX
       val ret = r0 + ((1.0f - r0) * x * x * x * x * x)
       mix(f0, f90, ret)

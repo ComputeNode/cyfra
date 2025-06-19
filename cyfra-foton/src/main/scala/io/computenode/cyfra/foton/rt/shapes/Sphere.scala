@@ -17,16 +17,18 @@ object Sphere:
       val b = toRay dot rayDir
       val c = (toRay dot toRay) - (sphere.radius * sphere.radius)
       val notHit = currentHit
-      when(c > 0f && b > 0f) {
+      when(c > 0f && b > 0f):
         notHit
-      } otherwise:
+      .otherwise:
         val discr = b * b - c
-        when(discr > 0f) {
+        when(discr > 0f):
           val initDist = -b - sqrt(discr)
           val fromInside = initDist < 0f
           val dist = when(fromInside)(-b + sqrt(discr)).otherwise(initDist)
-          when(dist > MinRayHitTime && dist < currentHit.dist) {
+          when(dist > MinRayHitTime && dist < currentHit.dist):
             val normal = normalize((rayPos + rayDir * dist - sphere.center) * when(fromInside)(-1f).otherwise(1f))
             RayHitInfo(dist, normal, sphere.material, fromInside)
-          } otherwise notHit
-        } otherwise notHit
+          .otherwise:
+            notHit
+        .otherwise:
+          notHit
