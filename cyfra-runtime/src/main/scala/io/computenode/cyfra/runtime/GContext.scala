@@ -29,7 +29,7 @@ class GContext(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()):
 
   def compile[G <: GStruct[G]: Tag: GStructSchema, H <: Value: Tag: FromExpr, R <: Value: Tag: FromExpr](
     function: GFunction[G, H, R],
-  ): ComputePipeline = {
+  ): ComputePipeline =
     val uniformStructSchema = summon[GStructSchema[G]]
     val uniformStruct = uniformStructSchema.fromTree(UniformStructRef)
     val tree = function.fn
@@ -44,7 +44,6 @@ class GContext(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()):
 
     val shader = Shader(optimizedShaderCode, org.joml.Vector3i(256, 1, 1), layoutInfo, "main", vkContext.device)
     ComputePipeline(shader, vkContext)
-  }
 
   def execute[G <: GStruct[G]: Tag: GStructSchema, H <: Value, R <: Value](mem: GMem[H], fn: GFunction[G, H, R])(using
     uniformContext: UniformContext[G],

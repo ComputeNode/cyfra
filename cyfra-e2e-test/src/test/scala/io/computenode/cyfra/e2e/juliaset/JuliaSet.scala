@@ -21,7 +21,7 @@ import scala.concurrent.ExecutionContext.Implicits
 class JuliaSet extends FunSuite:
   given ExecutionContext = Implicits.global
 
-  def runJuliaSet(referenceImgName: String)(using GContext): Unit = {
+  def runJuliaSet(referenceImgName: String)(using GContext): Unit =
     val dim = 4096
     val max = 1
     val RECURSION_LIMIT = 1000
@@ -70,7 +70,6 @@ class JuliaSet extends FunSuite:
     ImageUtility.renderToImage(r, dim, outputTemp.toPath)
     val referenceImage = getClass.getResource(referenceImgName)
     ImageTests.assertImagesEquals(outputTemp, new File(referenceImage.getPath))
-  }
 
   test("Render julia set"):
     given GContext = new GContext

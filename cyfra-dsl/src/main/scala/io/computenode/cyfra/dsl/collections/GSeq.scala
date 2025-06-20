@@ -10,9 +10,6 @@ import io.computenode.cyfra.dsl.macros.Source
 import io.computenode.cyfra.dsl.{Expression, Value}
 import izumi.reflect.Tag
 
-import java.util.Base64
-import scala.util.Random
-
 class GSeq[T <: Value: Tag: FromExpr](
   val uninitSource: Expression[?] => GSeqStream[?],
   val elemOps: List[GSeq.ElemOp[?]],
@@ -64,19 +61,16 @@ object GSeq:
   def of[T <: Value: Tag: FromExpr](xs: List[T]) =
     GSeq
       .gen[Int32](0, _ + 1)
-      .map { i =>
-        val first = when(i === 0) {
-          xs(0)
-        }
+      .map: i =>
+        val first = when(i === 0):
+          xs.head
         (if xs.length == 1 then first
          else
-           xs.init.zipWithIndex.tail.foldLeft(first) { case (acc, (x, j)) =>
-             acc.elseWhen(i === j) {
-               x
-             }
-           }
+           xs.init.zipWithIndex.tail.foldLeft(first):
+             case (acc, (x, j)) =>
+               acc.elseWhen(i === j):
+                 x
         ).otherwise(xs.last)
-      }
       .limit(xs.length)
 
   case class CurrentElem[T <: Value: Tag](tid: Int) extends PhantomExpression[T] with CustomTreeId:

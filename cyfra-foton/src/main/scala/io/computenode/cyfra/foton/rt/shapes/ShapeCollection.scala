@@ -1,15 +1,15 @@
 package io.computenode.cyfra.foton.rt.shapes
 
-import io.computenode.cyfra.foton.rt.shapes.*
-import io.computenode.cyfra.foton.rt.Material
-import io.computenode.cyfra.foton.rt.RtRenderer.RayHitInfo
-import izumi.reflect.Tag
-import io.computenode.cyfra.dsl.library.Functions.*
-import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.dsl.collections.GSeq
+import io.computenode.cyfra.dsl.given
+import io.computenode.cyfra.dsl.library.Functions.*
 import io.computenode.cyfra.dsl.struct.GStruct
+import io.computenode.cyfra.foton.rt.Material
+import io.computenode.cyfra.foton.rt.RtRenderer.RayHitInfo
+import io.computenode.cyfra.foton.rt.shapes.*
 import io.computenode.cyfra.foton.rt.shapes.Shape.TestRay
+import izumi.reflect.Tag
 
 import scala.util.chaining.*
 

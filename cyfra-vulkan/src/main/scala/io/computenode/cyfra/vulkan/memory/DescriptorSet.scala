@@ -1,10 +1,9 @@
 package io.computenode.cyfra.vulkan.memory
 
-import io.computenode.cyfra.vulkan.compute.{Binding, LayoutSet}
-import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
+import io.computenode.cyfra.vulkan.compute.Binding
 import io.computenode.cyfra.vulkan.core.Device
+import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import io.computenode.cyfra.vulkan.util.VulkanObjectHandle
-import org.lwjgl.system.MemoryStack
 import org.lwjgl.vulkan.VK10.*
 import org.lwjgl.vulkan.{VkDescriptorBufferInfo, VkDescriptorSetAllocateInfo, VkWriteDescriptorSet}
 
@@ -12,9 +11,9 @@ import org.lwjgl.vulkan.{VkDescriptorBufferInfo, VkDescriptorSetAllocateInfo, Vk
   *   MarconZet Created 15.04.2020
   */
 private[cyfra] class DescriptorSet(device: Device, descriptorSetLayout: Long, val bindings: Seq[Binding], descriptorPool: DescriptorPool)
-    extends VulkanObjectHandle {
+    extends VulkanObjectHandle:
 
-  protected val handle: Long = pushStack { stack =>
+  protected val handle: Long = pushStack: stack =>
     val pSetLayout = stack.callocLong(1).put(0, descriptorSetLayout)
     val descriptorSetAllocateInfo = VkDescriptorSetAllocateInfo
       .calloc(stack)
@@ -25,9 +24,8 @@ private[cyfra] class DescriptorSet(device: Device, descriptorSetLayout: Long, va
     val pDescriptorSet = stack.callocLong(1)
     check(vkAllocateDescriptorSets(device.get, descriptorSetAllocateInfo, pDescriptorSet), "Failed to allocate descriptor set")
     pDescriptorSet.get()
-  }
 
-  def update(buffers: Seq[Buffer]): Unit = pushStack { stack =>
+  def update(buffers: Seq[Buffer]): Unit = pushStack: stack =>
     val writeDescriptorSet = VkWriteDescriptorSet.calloc(buffers.length, stack)
     buffers.indices foreach { i =>
       val descriptorBufferInfo = VkDescriptorBufferInfo
@@ -48,8 +46,6 @@ private[cyfra] class DescriptorSet(device: Device, descriptorSetLayout: Long, va
         .pBufferInfo(descriptorBufferInfo)
     }
     vkUpdateDescriptorSets(device.get, writeDescriptorSet, null)
-  }
 
   override protected def close(): Unit =
     vkFreeDescriptorSets(device.get, descriptorPool.get, handle)
-}

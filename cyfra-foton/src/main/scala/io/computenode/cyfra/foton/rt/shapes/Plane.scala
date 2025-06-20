@@ -16,14 +16,13 @@ object Plane:
     def testRay(plane: Plane, rayPos: Vec3[Float32], rayDir: Vec3[Float32], currentHit: RayHitInfo): RayHitInfo = pure:
       val denom = plane.normal dot rayDir
       given epsilon: Float32 = 0.1f
-      when(denom =~= 0.0f) {
+      when(denom =~= 0.0f):
         currentHit
-      } otherwise {
+      .otherwise:
         val t = ((plane.point - rayPos) dot plane.normal) / denom
-        when(t < 0.0f || t >= currentHit.dist) {
+        when(t < 0.0f || t >= currentHit.dist):
           currentHit
-        } otherwise {
-          val hitNormal = when(denom < 0.0f)(plane.normal).otherwise(-plane.normal)
+        .otherwise:
+          val hitNormal = when(denom < 0.0f)(plane.normal)
+            .otherwise(-plane.normal)
           RayHitInfo(t, hitNormal, plane.material)
-        }
-      }

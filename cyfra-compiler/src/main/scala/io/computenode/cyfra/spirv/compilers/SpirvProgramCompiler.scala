@@ -14,12 +14,11 @@ import izumi.reflect.Tag
 private[cyfra] object SpirvProgramCompiler:
 
   def bubbleUpVars(exprs: List[Words]): (List[Words], List[Words]) =
-    exprs.partition {
+    exprs.partition:
       case Instruction(Op.OpVariable, _) => true
       case _                             => false
-    }
 
-  def compileMain(tree: Value, resultType: Tag[?], ctx: Context): (List[Words], Context) = {
+  def compileMain(tree: Value, resultType: Tag[?], ctx: Context): (List[Words], Context) =
 
     val init = List(
       Instruction(Op.OpFunction, List(ResultRef(ctx.voidTypeRef), ResultRef(MAIN_FUNC_REF), SamplerAddressingMode.None, ResultRef(VOID_FUNC_TYPE_REF))),
@@ -49,7 +48,7 @@ private[cyfra] object SpirvProgramCompiler:
         List(
           ResultRef(codeCtx.uniformPointerMap(codeCtx.valueTypeMap(resultType.tag))),
           ResultRef(codeCtx.nextResultId),
-          ResultRef(codeCtx.outBufferBlocks(0).blockVarRef),
+          ResultRef(codeCtx.outBufferBlocks.head.blockVarRef),
           ResultRef(codeCtx.constRefs((Int32Tag, 0))),
           ResultRef(codeCtx.workerIndexRef),
         ),
@@ -59,7 +58,6 @@ private[cyfra] object SpirvProgramCompiler:
       Instruction(Op.OpFunctionEnd, List()),
     )
     (init ::: vars ::: initWorkerIndex ::: nonVarsBody ::: end, codeCtx.copy(nextResultId = codeCtx.nextResultId + 1))
-  }
 
   def getNameDecorations(ctx: Context): List[Instruction] =
     val funNames = ctx.functions.map { case (id, fn) =>
@@ -96,23 +94,21 @@ private[cyfra] object SpirvProgramCompiler:
     Instruction(Op.OpDecorate, List(ResultRef(GL_GLOBAL_INVOCATION_ID_REF), Decoration.BuiltIn, BuiltIn.GlobalInvocationId)) :: // OpDecorate %GL_GLOBAL_INVOCATION_ID_REF BuiltIn GlobalInvocationId
       Instruction(Op.OpDecorate, List(ResultRef(GL_WORKGROUP_SIZE_REF), Decoration.BuiltIn, BuiltIn.WorkgroupSize)) :: Nil
 
-  def defineVoids(context: Context): (List[Words], Context) = {
+  def defineVoids(context: Context): (List[Words], Context) =
     val voidDef = List[Words](
       Instruction(Op.OpTypeVoid, List(ResultRef(TYPE_VOID_REF))),
       Instruction(Op.OpTypeFunction, List(ResultRef(VOID_FUNC_TYPE_REF), ResultRef(TYPE_VOID_REF))),
     )
     val ctxWithVoid = context.copy(voidTypeRef = TYPE_VOID_REF, voidFuncTypeRef = VOID_FUNC_TYPE_REF)
     (voidDef, ctxWithVoid)
-  }
 
-  def initAndDecorateUniforms(ins: List[Tag[?]], outs: List[Tag[?]], context: Context): (List[Words], List[Words], Context) = {
+  def initAndDecorateUniforms(ins: List[Tag[?]], outs: List[Tag[?]], context: Context): (List[Words], List[Words], Context) =
     val (inDecor, inDef, inCtx) = createAndInitBlocks(ins, in = true, context)
     val (outDecor, outDef, outCtx) = createAndInitBlocks(outs, in = false, inCtx)
     val (voidsDef, voidCtx) = defineVoids(outCtx)
     (inDecor ::: outDecor, voidsDef ::: inDef ::: outDef, voidCtx)
-  }
 
-  def createInvocationId(context: Context): (List[Words], Context) = {
+  def createInvocationId(context: Context): (List[Words], Context) =
     val definitionInstructions = List(
       Instruction(Op.OpConstant, List(ResultRef(context.valueTypeMap(UInt32Tag.tag)), ResultRef(context.nextResultId + 0), IntWord(localSizeX))),
       Instruction(Op.OpConstant, List(ResultRef(context.valueTypeMap(UInt32Tag.tag)), ResultRef(context.nextResultId + 1), IntWord(localSizeY))),
@@ -129,9 +125,8 @@ private[cyfra] object SpirvProgramCompiler:
       ),
     )
     (definitionInstructions, context.copy(nextResultId = context.nextResultId + 3))
-  }
 
-  def createAndInitBlocks(blocks: List[Tag[?]], in: Boolean, context: Context): (List[Words], List[Words], Context) = {
+  def createAndInitBlocks(blocks: List[Tag[?]], in: Boolean, context: Context): (List[Words], List[Words], Context) =
     val (decoration, definition, newContext) = blocks.foldLeft((List[Words](), List[Words](), context)) { case ((decAcc, insnAcc, ctx), tpe) =>
       val block = ArrayBufferBlock(ctx.nextResultId, ctx.nextResultId + 1, ctx.nextResultId + 2, ctx.nextResultId + 3, ctx.nextBinding)
 
@@ -159,7 +154,6 @@ private[cyfra] object SpirvProgramCompiler:
       )
     }
     (decoration, definition, newContext)
-  }
 
   def getBlockNames(context: Context, uniformSchema: GStructSchema[?]): List[Words] =
     def namesForBlock(block: ArrayBufferBlock, tpe: String): List[Words] =
@@ -215,7 +209,7 @@ private[cyfra] object SpirvProgramCompiler:
     )
 
   val predefinedConsts = List((Int32Tag, 0), (UInt32Tag, 0), (Int32Tag, 1))
-  def defineConstants(exprs: List[E[?]], ctx: Context): (List[Words], Context) = {
+  def defineConstants(exprs: List[E[?]], ctx: Context): (List[Words], Context) =
     val consts =
       (exprs.collect { case c @ Const(x) =>
         (c.tag, x)
@@ -234,10 +228,9 @@ private[cyfra] object SpirvProgramCompiler:
       withBool,
       newC.copy(
         nextResultId = newC.nextResultId + 2,
-        constRefs = newC.constRefs ++ Map((GBooleanTag, true) -> (newC.nextResultId), (GBooleanTag, false) -> (newC.nextResultId + 1)),
+        constRefs = newC.constRefs ++ Map((GBooleanTag, true) -> newC.nextResultId, (GBooleanTag, false) -> (newC.nextResultId + 1)),
       ),
     )
-  }
 
   def defineVarNames(ctx: Context): (List[Words], Context) =
     (

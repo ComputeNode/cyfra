@@ -1,9 +1,8 @@
 package io.computenode.cyfra.spirv
 
 import io.computenode.cyfra.dsl.macros.FnCall.FnIdentifier
-import io.computenode.cyfra.dsl.macros.Source
-import io.computenode.cyfra.spirv.compilers.FunctionCompiler.SprivFunction
 import io.computenode.cyfra.spirv.SpirvConstants.HEADER_REFS_TOP
+import io.computenode.cyfra.spirv.compilers.FunctionCompiler.SprivFunction
 import io.computenode.cyfra.spirv.compilers.SpirvProgramCompiler.ArrayBufferBlock
 import izumi.reflect.Tag
 import izumi.reflect.macrortti.LightTypeTag

@@ -1,17 +1,13 @@
 package io.computenode.cyfra.vulkan.executor
 
+import io.computenode.cyfra.utility.Utility.timed
+import io.computenode.cyfra.vulkan.VulkanContext
 import io.computenode.cyfra.vulkan.command.*
 import io.computenode.cyfra.vulkan.compute.*
 import io.computenode.cyfra.vulkan.core.*
-import SequenceExecutor.*
-import io.computenode.cyfra.utility.Utility.timed
+import io.computenode.cyfra.vulkan.executor.SequenceExecutor.*
 import io.computenode.cyfra.vulkan.memory.*
-import io.computenode.cyfra.vulkan.VulkanContext
-import io.computenode.cyfra.vulkan.command.{CommandPool, Fence, Queue}
-import io.computenode.cyfra.vulkan.compute.{ComputePipeline, InputBufferSize, LayoutSet, UniformSize}
 import io.computenode.cyfra.vulkan.util.Util.*
-import io.computenode.cyfra.vulkan.core.Device
-import io.computenode.cyfra.vulkan.memory.{Allocator, Buffer, DescriptorPool, DescriptorSet}
 import org.lwjgl.BufferUtils
 import org.lwjgl.util.vma.Vma.*
 import org.lwjgl.vulkan.*
@@ -24,15 +20,16 @@ import java.nio.ByteBuffer
 /** @author
   *   MarconZet Created 15.04.2020
   */
-private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, context: VulkanContext) {
+private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, context: VulkanContext):
   private val device: Device = context.device
   private val queue: Queue = context.computeQueue
   private val allocator: Allocator = context.allocator
   private val descriptorPool: DescriptorPool = context.descriptorPool
   private val commandPool: CommandPool = context.commandPool
 
-  private val pipelineToDescriptorSets: Map[ComputePipeline, Seq[DescriptorSet]] = pushStack { stack =>
-    val pipelines = computeSequence.sequence.collect { case Compute(pipeline, _) => pipeline }
+  private val pipelineToDescriptorSets: Map[ComputePipeline, Seq[DescriptorSet]] = pushStack: stack =>
+    val pipelines = computeSequence.sequence.collect:
+      case Compute(pipeline, _) => pipeline
 
     val rawSets = pipelines.map(_.computeShader.layoutInfo.sets)
     val numbered = rawSets.flatten.zipWithIndex
@@ -71,11 +68,10 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
       .toMap
 
     pipelines.zip(resolvedSets.map(_.map(descriptorSetMap(_)))).toMap
-  }
 
   private val descriptorSets = pipelineToDescriptorSets.toSeq.flatMap(_._2).distinctBy(_.get)
 
-  private def recordCommandBuffer(dataLength: Int): VkCommandBuffer = pushStack { stack =>
+  private def recordCommandBuffer(dataLength: Int): VkCommandBuffer = pushStack: stack =>
     val pipelinesHasDependencies = computeSequence.dependencies.map(_.to).toSet
     val commandBuffer = commandPool.createCommandBuffer()
 
@@ -114,9 +110,8 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
 
     check(vkEndCommandBuffer(commandBuffer), "Failed to finish recording command buffer")
     commandBuffer
-  }
 
-  private def createBuffers(dataLength: Int): Map[DescriptorSet, Seq[Buffer]] = {
+  private def createBuffers(dataLength: Int): Map[DescriptorSet, Seq[Buffer]] =
 
     val setToActions = computeSequence.sequence
       .collect { case Compute(pipeline, bufferActions) =>
@@ -147,17 +142,19 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
       .toMap
 
     setToBuffers
-  }
 
-  def execute(inputs: Seq[ByteBuffer], dataLength: Int): Seq[ByteBuffer] = pushStack { stack =>
+  def execute(inputs: Seq[ByteBuffer], dataLength: Int): Seq[ByteBuffer] = pushStack: stack =>
     timed("Vulkan full execute"):
       val setToBuffers = createBuffers(dataLength)
 
       def buffersWithAction(bufferAction: BufferAction): Seq[Buffer] =
         computeSequence.sequence.collect { case x: Compute =>
-          pipelineToDescriptorSets(x.pipeline).map(setToBuffers).zip(x.pumpLayoutLocations).flatMap(x => x._1.zip(x._2)).collect {
-            case (buffer, action) if (action.action & bufferAction.action) != 0 => buffer
-          }
+          pipelineToDescriptorSets(x.pipeline)
+            .map(setToBuffers)
+            .zip(x.pumpLayoutLocations)
+            .flatMap(x => x._1.zip(x._2))
+            .collect:
+              case (buffer, action) if (action.action & bufferAction.action) != 0 => buffer
         }.flatten
 
       val stagingBuffer =
@@ -199,14 +196,11 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
       setToBuffers.flatMap(_._2).foreach(_.destroy())
 
       output
-  }
 
   def destroy(): Unit =
     descriptorSets.foreach(_.destroy())
 
-}
-
-object SequenceExecutor {
+object SequenceExecutor:
   private[cyfra] case class ComputationSequence(sequence: Seq[ComputationStep], dependencies: Seq[Dependency])
 
   private[cyfra] sealed trait ComputationStep
@@ -218,5 +212,3 @@ object SequenceExecutor {
   case class LayoutLocation(set: Int, binding: Int)
 
   case class Dependency(from: ComputePipeline, fromSet: Int, to: ComputePipeline, toSet: Int)
-
-}

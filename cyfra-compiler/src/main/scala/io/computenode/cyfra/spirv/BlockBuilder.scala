@@ -1,12 +1,8 @@
 package io.computenode.cyfra.spirv
 
-import io.computenode.cyfra.dsl.Expression.{E, FunctionCall}
-import io.computenode.cyfra.dsl.Value
-import io.computenode.cyfra.dsl.macros.Source
-import izumi.reflect.Tag
+import io.computenode.cyfra.dsl.Expression.E
 
 import scala.collection.mutable
-import scala.quoted.Expr
 
 private[cyfra] object BlockBuilder:
 
