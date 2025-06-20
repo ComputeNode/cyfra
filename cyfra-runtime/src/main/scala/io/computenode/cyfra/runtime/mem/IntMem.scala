@@ -4,7 +4,6 @@ import io.computenode.cyfra.dsl.Value.Int32
 import org.lwjgl.BufferUtils
 
 import java.nio.ByteBuffer
-import org.lwjgl.system.MemoryUtil
 
 class IntMem(val size: Int, protected val data: ByteBuffer) extends RamGMem[Int32, Int]:
   def toArray: Array[Int] =

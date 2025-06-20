@@ -30,16 +30,14 @@ object Box:
       val tEnter = max(tMinX, tMinY, tMinZ)
       val tExit = min(tMaxX, tMaxY, tMaxZ)
 
-      when(tEnter < tExit || tExit < 0.0f) {
+      when(tEnter < tExit || tExit < 0.0f):
         currentHit
-      } otherwise {
+      .otherwise:
         val hitDistance = when(tEnter > 0f)(tEnter).otherwise(tExit)
-        val hitNormal = when(tEnter =~= tMinX) {
+        val hitNormal = when(tEnter =~= tMinX):
           (when(rayDir.x > 0f)(-1f).otherwise(1f), 0f, 0f)
-        }.elseWhen(tEnter =~= tMinY) {
+        .elseWhen(tEnter =~= tMinY):
           (0f, when(rayDir.y > 0f)(-1f).otherwise(1f), 0f)
-        }.otherwise {
+        .otherwise:
           (0f, 0f, when(rayDir.z > 0f)(-1f).otherwise(1f))
-        }
         RayHitInfo(hitDistance, hitNormal, box.material)
-      }

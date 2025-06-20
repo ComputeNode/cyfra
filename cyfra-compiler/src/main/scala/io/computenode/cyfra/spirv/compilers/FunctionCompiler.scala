@@ -1,16 +1,9 @@
 package io.computenode.cyfra.spirv.compilers
 
-import io.computenode.cyfra.spirv.Context
-import io.computenode.cyfra.dsl.Expression.E
-import io.computenode.cyfra.spirv.Opcodes.*
 import io.computenode.cyfra.dsl.Expression
-import io.computenode.cyfra.spirv.Context
-import io.computenode.cyfra.spirv.compilers.FunctionCompiler.SprivFunction
-import io.computenode.cyfra.spirv.SpirvConstants.GLSL_EXT_REF
-import io.computenode.cyfra.dsl.macros.Source
-import io.computenode.cyfra.dsl.library.Functions
-import io.computenode.cyfra.dsl.library.Functions.FunctionName
 import io.computenode.cyfra.dsl.macros.FnCall.FnIdentifier
+import io.computenode.cyfra.spirv.Context
+import io.computenode.cyfra.spirv.Opcodes.*
 import io.computenode.cyfra.spirv.compilers.ExpressionCompiler.compileBlock
 import io.computenode.cyfra.spirv.compilers.SpirvProgramCompiler.bubbleUpVars
 import izumi.reflect.macrortti.LightTypeTag

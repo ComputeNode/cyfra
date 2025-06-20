@@ -18,7 +18,7 @@ trait Expression[T <: Value: Tag] extends Product:
     .map(e => s"#${e.treeid}")
     .mkString("[", ", ", "]")
   override def toString: String = s"${this.productPrefix}(${of.fold("")(v => s"name = ${v.source}, ")}children=$childrenStrings, id=$treeid)"
-  private def exploreDeps(children: List[Any]): (List[Expression[?]], List[Scope[?]]) = (for (elem <- children) yield elem match {
+  private def exploreDeps(children: List[Any]): (List[Expression[?]], List[Scope[?]]) = (for elem <- children yield elem match {
     case b: Scope[?] =>
       (None, Some(b))
     case x: Expression[?] =>
@@ -46,10 +46,9 @@ object Expression:
   type E[T <: Value] = Expression[T]
 
   case class Negate[T <: Value: Tag](a: T) extends Expression[T]
-  sealed trait BinaryOpExpression[T <: Value: Tag] extends Expression[T] {
+  sealed trait BinaryOpExpression[T <: Value: Tag] extends Expression[T]:
     def a: T
     def b: T
-  }
   case class Sum[T <: Value: Tag](a: T, b: T) extends BinaryOpExpression[T]
   case class Diff[T <: Value: Tag](a: T, b: T) extends BinaryOpExpression[T]
   case class Mul[T <: Scalar: Tag](a: T, b: T) extends BinaryOpExpression[T]
@@ -59,10 +58,9 @@ object Expression:
   case class DotProd[S <: Scalar: Tag, V <: Vec[S]](a: V, b: V) extends Expression[S]
 
   sealed trait BitwiseOpExpression[T <: Scalar: Tag] extends Expression[T]
-  sealed trait BitwiseBinaryOpExpression[T <: Scalar: Tag] extends BitwiseOpExpression[T] {
+  sealed trait BitwiseBinaryOpExpression[T <: Scalar: Tag] extends BitwiseOpExpression[T]:
     def a: T
     def b: T
-  }
   case class BitwiseAnd[T <: Scalar: Tag](a: T, b: T) extends BitwiseBinaryOpExpression[T]
   case class BitwiseOr[T <: Scalar: Tag](a: T, b: T) extends BitwiseBinaryOpExpression[T]
   case class BitwiseXor[T <: Scalar: Tag](a: T, b: T) extends BitwiseBinaryOpExpression[T]
@@ -70,11 +68,10 @@ object Expression:
   case class ShiftLeft[T <: Scalar: Tag](a: T, by: UInt32) extends BitwiseOpExpression[T]
   case class ShiftRight[T <: Scalar: Tag](a: T, by: UInt32) extends BitwiseOpExpression[T]
 
-  sealed trait ComparisonOpExpression[T <: Value: Tag] extends Expression[GBoolean] {
+  sealed trait ComparisonOpExpression[T <: Value: Tag] extends Expression[GBoolean]:
     def operandTag = summon[Tag[T]]
     def a: T
     def b: T
-  }
   case class GreaterThan[T <: Scalar: Tag](a: T, b: T) extends ComparisonOpExpression[T]
   case class LessThan[T <: Scalar: Tag](a: T, b: T) extends ComparisonOpExpression[T]
   case class GreaterThanEqual[T <: Scalar: Tag](a: T, b: T) extends ComparisonOpExpression[T]
@@ -87,20 +84,17 @@ object Expression:
 
   case class ExtractScalar[V <: Vec[?]: Tag, S <: Scalar: Tag](a: V, i: Int32) extends Expression[S]
 
-  sealed trait ConvertExpression[F <: Scalar: Tag, T <: Scalar: Tag] extends Expression[T] {
+  sealed trait ConvertExpression[F <: Scalar: Tag, T <: Scalar: Tag] extends Expression[T]:
     def fromTag: Tag[F] = summon[Tag[F]]
     def a: F
-  }
   case class ToFloat32[T <: Scalar: Tag](a: T) extends ConvertExpression[T, Float32]
   case class ToInt32[T <: Scalar: Tag](a: T) extends ConvertExpression[T, Int32]
   case class ToUInt32[T <: Scalar: Tag](a: T) extends ConvertExpression[T, UInt32]
 
-  sealed trait Const[T <: Scalar: Tag] extends Expression[T] {
+  sealed trait Const[T <: Scalar: Tag] extends Expression[T]:
     def value: Any
-  }
-  object Const {
+  object Const:
     def unapply[T <: Scalar](c: Const[T]): Option[Any] = Some(c.value)
-  }
 
   case class ConstFloat32(value: Float) extends Const[Float32]
   case class ConstInt32(value: Int) extends Const[Int32]

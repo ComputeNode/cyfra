@@ -1,25 +1,18 @@
 package io.computenode.cyfra.foton.rt
 
 import io.computenode.cyfra
-import ImageRtRenderer.RaytracingIteration
-import io.computenode.cyfra.foton.rt.RtRenderer.RayHitInfo
-import io.computenode.cyfra.utility.Utility.timed
-import io.computenode.cyfra.foton.rt.ImageRtRenderer
 import io.computenode.cyfra.*
 import io.computenode.cyfra.dsl.Value.*
-import io.computenode.cyfra.foton.rt.shapes.{Box, Sphere}
-import io.computenode.cyfra.runtime.{GFunction, UniformContext}
-import io.computenode.cyfra.runtime.mem.GMem.fRGBA
-import io.computenode.cyfra.utility.ImageUtility
-import io.computenode.cyfra.runtime.mem.Vec4FloatMem
 import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.foton.rt.ImageRtRenderer.RaytracingIteration
+import io.computenode.cyfra.runtime.mem.GMem.fRGBA
+import io.computenode.cyfra.runtime.mem.Vec4FloatMem
+import io.computenode.cyfra.runtime.{GFunction, UniformContext}
+import io.computenode.cyfra.utility.ImageUtility
+import io.computenode.cyfra.utility.Utility.timed
 
-import java.nio.file.{Path, Paths}
-import scala.collection.mutable
-import scala.concurrent.ExecutionContext.Implicits
-import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContext}
+import java.nio.file.Path
 
 class ImageRtRenderer(params: ImageRtRenderer.Parameters) extends RtRenderer(params):
 

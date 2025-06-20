@@ -9,13 +9,12 @@ import io.computenode.cyfra.vulkan.memory.{Allocator, DescriptorPool}
 /** @author
   *   MarconZet Created 13.04.2020
   */
-private[cyfra] object VulkanContext {
+private[cyfra] object VulkanContext:
   val ValidationLayer: String = "VK_LAYER_KHRONOS_validation"
   val SyncLayer: String = "VK_LAYER_KHRONOS_synchronization2"
   private val ValidationLayers: Boolean = System.getProperty("io.computenode.cyfra.vulkan.validation", "false").toBoolean
-}
 
-private[cyfra] class VulkanContext {
+private[cyfra] class VulkanContext:
   val instance: Instance = new Instance(ValidationLayers)
   val debugCallback: Option[DebugCallback] = if ValidationLayers then Some(new DebugCallback(instance)) else None
   val device: Device = new Device(instance)
@@ -27,7 +26,7 @@ private[cyfra] class VulkanContext {
   logger.debug("Vulkan context created")
   logger.debug("Running on device: " + device.physicalDeviceName)
 
-  def destroy(): Unit = {
+  def destroy(): Unit =
     commandPool.destroy()
     descriptorPool.destroy()
     allocator.destroy()
@@ -35,5 +34,3 @@ private[cyfra] class VulkanContext {
     device.destroy()
     debugCallback.foreach(_.destroy())
     instance.destroy()
-  }
-}

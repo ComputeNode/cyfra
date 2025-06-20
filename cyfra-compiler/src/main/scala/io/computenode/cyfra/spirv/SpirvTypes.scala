@@ -2,7 +2,6 @@ package io.computenode.cyfra.spirv
 
 import io.computenode.cyfra.dsl.Value
 import io.computenode.cyfra.dsl.Value.*
-import io.computenode.cyfra.spirv.Context.initialContext
 import io.computenode.cyfra.spirv.Opcodes.*
 import izumi.reflect.Tag
 import izumi.reflect.macrortti.{LTag, LightTypeTag}
@@ -37,12 +36,11 @@ private[cyfra] object SpirvTypes:
   type Vec3C[T <: Value] = Vec3[T]
   type Vec4C[T <: Value] = Vec4[T]
 
-  def scalarTypeDefInsn(tag: Tag[?], typeDefIndex: Int) = tag match {
+  def scalarTypeDefInsn(tag: Tag[?], typeDefIndex: Int) = tag match
     case Int32Tag    => Instruction(Op.OpTypeInt, List(ResultRef(typeDefIndex), IntWord(32), IntWord(1)))
     case UInt32Tag   => Instruction(Op.OpTypeInt, List(ResultRef(typeDefIndex), IntWord(32), IntWord(0)))
     case Float32Tag  => Instruction(Op.OpTypeFloat, List(ResultRef(typeDefIndex), IntWord(32)))
     case GBooleanTag => Instruction(Op.OpTypeBool, List(ResultRef(typeDefIndex)))
-  }
 
   def vecSize(tag: LightTypeTag): Int = tag match
     case v if v <:< LVec2Tag => 2
@@ -59,19 +57,17 @@ private[cyfra] object SpirvTypes:
 
   def typeStride(tag: Tag[?]): Int = typeStride(tag.tag)
 
-  def toWord(tpe: Tag[?], value: Any): Words = tpe match {
+  def toWord(tpe: Tag[?], value: Any): Words = tpe match
     case t if t == Int32Tag =>
       IntWord(value.asInstanceOf[Int])
     case t if t == UInt32Tag =>
       IntWord(value.asInstanceOf[Int])
     case t if t == Float32Tag =>
-      val fl = value match {
+      val fl = value match
         case fl: Float  => fl
         case dl: Double => dl.toFloat
         case il: Int    => il.toFloat
-      }
       Word(intToBytes(java.lang.Float.floatToIntBits(fl)).reverse.toArray)
-  }
 
   def defineScalarTypes(types: List[Tag[?]], context: Context): (List[Words], Context) =
     val basicTypes = List(Int32Tag, Float32Tag, UInt32Tag, GBooleanTag)
@@ -99,9 +95,9 @@ private[cyfra] object SpirvTypes:
         ctx.copy(
           valueTypeMap = ctx.valueTypeMap ++ Map(
             valType.tag -> typeDefIndex,
-            (summon[LTag[Vec2C]].tag.combine(valType.tag)) -> (typeDefIndex + 4),
-            (summon[LTag[Vec3C]].tag.combine(valType.tag)) -> (typeDefIndex + 5),
-            (summon[LTag[Vec4C]].tag.combine(valType.tag)) -> (typeDefIndex + 11),
+            summon[LTag[Vec2C]].tag.combine(valType.tag) -> (typeDefIndex + 4),
+            summon[LTag[Vec3C]].tag.combine(valType.tag) -> (typeDefIndex + 5),
+            summon[LTag[Vec4C]].tag.combine(valType.tag) -> (typeDefIndex + 11),
           ),
           funPointerTypeMap = ctx.funPointerTypeMap ++ Map(
             typeDefIndex -> (typeDefIndex + 1),

@@ -2,33 +2,30 @@ package io.computenode.cyfra.spirv
 
 import java.nio.charset.StandardCharsets
 
-private[cyfra] object Opcodes {
+private[cyfra] object Opcodes:
 
   def intToBytes(i: Int): List[Byte] =
     List[Byte]((i >>> 24).asInstanceOf[Byte], (i >>> 16).asInstanceOf[Byte], (i >>> 8).asInstanceOf[Byte], (i >>> 0).asInstanceOf[Byte])
 
-  private[cyfra] trait Words {
+  private[cyfra] trait Words:
     def toWords: List[Byte]
 
     def length: Int
-  }
 
-  private[cyfra] case class Word(bytes: Array[Byte]) extends Words {
+  private[cyfra] case class Word(bytes: Array[Byte]) extends Words:
     def toWords: List[Byte] = bytes.toList
 
     def length = 1
 
     override def toString = s"Word(${bytes.mkString(", ")}${if bytes.length == 4 then s" [i = ${BigInt(bytes).toInt}])" else ""}"
-  }
 
-  private[cyfra] case class WordVariable(name: String) extends Words {
+  private[cyfra] case class WordVariable(name: String) extends Words:
     def toWords: List[Byte] =
       List(-1, -1, -1, -1)
 
     def length = 1
-  }
 
-  private[cyfra] case class Instruction(code: Code, operands: List[Words]) extends Words {
+  private[cyfra] case class Instruction(code: Code, operands: List[Words]) extends Words:
     override def toWords: List[Byte] =
       code.toWords.take(2) ::: intToBytes(length).reverse.take(2) ::: operands.flatMap(_.toWords)
 
@@ -41,38 +38,32 @@ private[cyfra] object Opcodes {
       })
 
     override def toString: String = s"${code.mnemo} ${operands.mkString(", ")}"
-  }
 
-  private[cyfra] case class Code(mnemo: String, opcode: Int) extends Words {
+  private[cyfra] case class Code(mnemo: String, opcode: Int) extends Words:
     override def toWords: List[Byte] = intToBytes(opcode).reverse
 
     override def length: Int = 1
-  }
 
-  private[cyfra] case class Text(text: String) extends Words {
-    override def toWords: List[Byte] = {
+  private[cyfra] case class Text(text: String) extends Words:
+    override def toWords: List[Byte] =
       val textBytes = text.getBytes(StandardCharsets.UTF_8).toList
       val complBytesLength = 4 - (textBytes.length % 4)
       val complBytes = List.fill[Byte](complBytesLength)(0)
       textBytes ::: complBytes
-    }
 
     override def length: Int = toWords.length / 4
-  }
 
-  private[cyfra] case class IntWord(i: Int) extends Words {
+  private[cyfra] case class IntWord(i: Int) extends Words:
     override def toWords: List[Byte] = intToBytes(i).reverse
 
     override def length: Int = 1
-  }
 
-  private[cyfra] case class ResultRef(result: Int) extends Words {
+  private[cyfra] case class ResultRef(result: Int) extends Words:
     override def toWords: List[Byte] = intToBytes(result).reverse
 
     override def length: Int = 1
 
     override def toString: String = s"%$result"
-  }
 
   val MagicNumber = Code("MagicNumber", 0x07230203)
   val Version = Code("Version", 0x00010000)
@@ -81,16 +72,15 @@ private[cyfra] object Opcodes {
   val OpCodeMask = Code("OpCodeMask", 0xffff)
   val WordCountShift = Code("WordCountShift", 16)
 
-  object SourceLanguage {
+  object SourceLanguage:
     val Unknown = Code("Unknown", 0)
     val ESSL = Code("ESSL", 1)
     val GLSL = Code("GLSL", 2)
     val OpenCL_C = Code("OpenCL_C", 3)
     val OpenCL_CPP = Code("OpenCL_CPP", 4)
     val HLSL = Code("HLSL", 5)
-  }
 
-  object ExecutionModel {
+  object ExecutionModel:
     val Vertex = Code("Vertex", 0)
     val TessellationControl = Code("TessellationControl", 1)
     val TessellationEvaluation = Code("TessellationEvaluation", 2)
@@ -98,21 +88,18 @@ private[cyfra] object Opcodes {
     val Fragment = Code("Fragment", 4)
     val GLCompute = Code("GLCompute", 5)
     val Kernel = Code("Kernel", 6)
-  }
 
-  object AddressingModel {
+  object AddressingModel:
     val Logical = Code("Logical", 0)
     val Physical32 = Code("Physical32", 1)
     val Physical64 = Code("Physical64", 2)
-  }
 
-  object MemoryModel {
+  object MemoryModel:
     val Simple = Code("Simple", 0)
     val GLSL450 = Code("GLSL450", 1)
     val OpenCL = Code("OpenCL", 2)
-  }
 
-  object ExecutionMode {
+  object ExecutionMode:
     val Invocations = Code("Invocations", 0)
     val SpacingEqual = Code("SpacingEqual", 1)
     val SpacingFractionalEven = Code("SpacingFractionalEven", 2)
@@ -150,9 +137,8 @@ private[cyfra] object Opcodes {
     val SubgroupsPerWorkgroup = Code("SubgroupsPerWorkgroup", 36)
     val PostDepthCoverage = Code("PostDepthCoverage", 4446)
     val StencilRefReplacingEXT = Code("StencilRefReplacingEXT", 5027)
-  }
 
-  object StorageClass {
+  object StorageClass:
     val UniformConstant = Code("UniformConstant", 0)
     val Input = Code("Input", 1)
     val Uniform = Code("Uniform", 2)
@@ -166,9 +152,8 @@ private[cyfra] object Opcodes {
     val AtomicCounter = Code("AtomicCounter", 10)
     val Image = Code("Image", 11)
     val StorageBuffer = Code("StorageBuffer", 12)
-  }
 
-  object Dim {
+  object Dim:
     val Dim1D = Code("Dim1D", 0)
     val Dim2D = Code("Dim2D", 1)
     val Dim3D = Code("Dim3D", 2)
@@ -176,22 +161,19 @@ private[cyfra] object Opcodes {
     val Rect = Code("Rect", 4)
     val Buffer = Code("Buffer", 5)
     val SubpassData = Code("SubpassData", 6)
-  }
 
-  object SamplerAddressingMode {
+  object SamplerAddressingMode:
     val None = Code("None", 0)
     val ClampToEdge = Code("ClampToEdge", 1)
     val Clamp = Code("Clamp", 2)
     val Repeat = Code("Repeat", 3)
     val RepeatMirrored = Code("RepeatMirrored", 4)
-  }
 
-  object SamplerFilterMode {
+  object SamplerFilterMode:
     val Nearest = Code("Nearest", 0)
     val Linear = Code("Linear", 1)
-  }
 
-  object ImageFormat {
+  object ImageFormat:
     val Unknown = Code("Unknown", 0)
     val Rgba32f = Code("Rgba32f", 1)
     val Rgba16f = Code("Rgba16f", 2)
@@ -232,9 +214,8 @@ private[cyfra] object Opcodes {
     val Rg8ui = Code("Rg8ui", 37)
     val R16ui = Code("R16ui", 38)
     val R8ui = Code("R8ui", 39)
-  }
 
-  object ImageChannelOrder {
+  object ImageChannelOrder:
     val R = Code("R", 0)
     val A = Code("A", 1)
     val RG = Code("RG", 2)
@@ -255,9 +236,8 @@ private[cyfra] object Opcodes {
     val sRGBA = Code("sRGBA", 17)
     val sBGRA = Code("sBGRA", 18)
     val ABGR = Code("ABGR", 19)
-  }
 
-  object ImageChannelDataType {
+  object ImageChannelDataType:
     val SnormInt8 = Code("SnormInt8", 0)
     val SnormInt16 = Code("SnormInt16", 1)
     val UnormInt8 = Code("UnormInt8", 2)
@@ -275,9 +255,8 @@ private[cyfra] object Opcodes {
     val Float = Code("Float", 14)
     val UnormInt24 = Code("UnormInt24", 15)
     val UnormInt101010_2 = Code("UnormInt101010_2", 16)
-  }
 
-  object ImageOperandsShift {
+  object ImageOperandsShift:
     val Bias = Code("Bias", 0)
     val Lod = Code("Lod", 1)
     val Grad = Code("Grad", 2)
@@ -286,9 +265,8 @@ private[cyfra] object Opcodes {
     val ConstOffsets = Code("ConstOffsets", 5)
     val Sample = Code("Sample", 6)
     val MinLod = Code("MinLod", 7)
-  }
 
-  object ImageOperandsMask {
+  object ImageOperandsMask:
     val MaskNone = Code("MaskNone", 0)
     val Bias = Code("Bias", 0x00000001)
     val Lod = Code("Lod", 0x00000002)
@@ -298,44 +276,38 @@ private[cyfra] object Opcodes {
     val ConstOffsets = Code("ConstOffsets", 0x00000020)
     val Sample = Code("Sample", 0x00000040)
     val MinLod = Code("MinLod", 0x00000080)
-  }
 
-  object FPFastMathModeShift {
+  object FPFastMathModeShift:
     val NotNaN = Code("NotNaN", 0)
     val NotInf = Code("NotInf", 1)
     val NSZ = Code("NSZ", 2)
     val AllowRecip = Code("AllowRecip", 3)
     val Fast = Code("Fast", 4)
-  }
 
-  object FPFastMathModeMask {
+  object FPFastMathModeMask:
     val MaskNone = Code("MaskNone", 0)
     val NotNaN = Code("NotNaN", 0x00000001)
     val NotInf = Code("NotInf", 0x00000002)
     val NSZ = Code("NSZ", 0x00000004)
     val AllowRecip = Code("AllowRecip", 0x00000008)
     val Fast = Code("Fast", 0x00000010)
-  }
 
-  object FPRoundingMode {
+  object FPRoundingMode:
     val RTE = Code("RTE", 0)
     val RTZ = Code("RTZ", 1)
     val RTP = Code("RTP", 2)
     val RTN = Code("RTN", 3)
-  }
 
-  object LinkageType {
+  object LinkageType:
     val Export = Code("Export", 0)
     val Import = Code("Import", 1)
-  }
 
-  object AccessQualifier {
+  object AccessQualifier:
     val ReadOnly = Code("ReadOnly", 0)
     val WriteOnly = Code("WriteOnly", 1)
     val ReadWrite = Code("ReadWrite", 2)
-  }
 
-  object FunctionParameterAttribute {
+  object FunctionParameterAttribute:
     val Zext = Code("Zext", 0)
     val Sext = Code("Sext", 1)
     val ByVal = Code("ByVal", 2)
@@ -344,9 +316,8 @@ private[cyfra] object Opcodes {
     val NoCapture = Code("NoCapture", 5)
     val NoWrite = Code("NoWrite", 6)
     val NoReadWrite = Code("NoReadWrite", 7)
-  }
 
-  object Decoration {
+  object Decoration:
     val RelaxedPrecision = Code("RelaxedPrecision", 0)
     val SpecId = Code("SpecId", 1)
     val Block = Code("Block", 2)
@@ -396,9 +367,8 @@ private[cyfra] object Opcodes {
     val PassthroughNV = Code("PassthroughNV", 5250)
     val ViewportRelativeNV = Code("ViewportRelativeNV", 5252)
     val SecondaryViewportRelativeNV = Code("SecondaryViewportRelativeNV", 5256)
-  }
 
-  object BuiltIn {
+  object BuiltIn:
     val Position = Code("Position", 0)
     val PointSize = Code("PointSize", 1)
     val ClipDistance = Code("ClipDistance", 3)
@@ -463,50 +433,43 @@ private[cyfra] object Opcodes {
     val SecondaryViewportMaskNV = Code("SecondaryViewportMaskNV", 5258)
     val PositionPerViewNV = Code("PositionPerViewNV", 5261)
     val ViewportMaskPerViewNV = Code("ViewportMaskPerViewNV", 5262)
-  }
 
-  object SelectionControlShift {
+  object SelectionControlShift:
     val Flatten = Code("Flatten", 0)
     val DontFlatten = Code("DontFlatten", 1)
-  }
 
-  object SelectionControlMask {
+  object SelectionControlMask:
     val MaskNone = Code("MaskNone", 0)
     val Flatten = Code("Flatten", 0x00000001)
     val DontFlatten = Code("DontFlatten", 0x00000002)
-  }
 
-  object LoopControlShift {
+  object LoopControlShift:
     val Unroll = Code("Unroll", 0)
     val DontUnroll = Code("DontUnroll", 1)
     val DependencyInfinite = Code("DependencyInfinite", 2)
     val DependencyLength = Code("DependencyLength", 3)
-  }
 
-  object LoopControlMask {
+  object LoopControlMask:
     val MaskNone = Code("MaskNone", 0)
     val Unroll = Code("Unroll", 0x00000001)
     val DontUnroll = Code("DontUnroll", 0x00000002)
     val DependencyInfinite = Code("DependencyInfinite", 0x00000004)
     val DependencyLength = Code("DependencyLength", 0x00000008)
-  }
 
-  object FunctionControlShift {
+  object FunctionControlShift:
     val Inline = Code("Inline", 0)
     val DontInline = Code("DontInline", 1)
     val Pure = Code("Pure", 2)
     val Const = Code("Const", 3)
-  }
 
-  object FunctionControlMask {
+  object FunctionControlMask:
     val MaskNone = Code("MaskNone", 0)
     val Inline = Code("Inline", 0x00000001)
     val DontInline = Code("DontInline", 0x00000002)
     val Pure = Code("Pure", 0x00000004)
     val Const = Code("Const", 0x00000008)
-  }
 
-  object MemorySemanticsShift {
+  object MemorySemanticsShift:
     val Acquire = Code("Acquire", 1)
     val Release = Code("Release", 2)
     val AcquireRelease = Code("AcquireRelease", 3)
@@ -517,9 +480,8 @@ private[cyfra] object Opcodes {
     val CrossWorkgroupMemory = Code("CrossWorkgroupMemory", 9)
     val AtomicCounterMemory = Code("AtomicCounterMemory", 10)
     val ImageMemory = Code("ImageMemory", 11)
-  }
 
-  object MemorySemanticsMask {
+  object MemorySemanticsMask:
     val MaskNone = Code("MaskNone", 0)
     val Acquire = Code("Acquire", 0x00000002)
     val Release = Code("Release", 0x00000004)
@@ -531,51 +493,43 @@ private[cyfra] object Opcodes {
     val CrossWorkgroupMemory = Code("CrossWorkgroupMemory", 0x00000200)
     val AtomicCounterMemory = Code("AtomicCounterMemory", 0x00000400)
     val ImageMemory = Code("ImageMemory", 0x00000800)
-  }
 
-  object MemoryAccessShift {
+  object MemoryAccessShift:
     val Volatile = Code("Volatile", 0)
     val Aligned = Code("Aligned", 1)
     val Nontemporal = Code("Nontemporal", 2)
-  }
 
-  object MemoryAccessMask {
+  object MemoryAccessMask:
     val MaskNone = Code("MaskNone", 0)
     val Volatile = Code("Volatile", 0x00000001)
     val Aligned = Code("Aligned", 0x00000002)
     val Nontemporal = Code("Nontemporal", 0x00000004)
-  }
 
-  object Scope {
+  object Scope:
     val CrossDevice = Code("CrossDevice", 0)
     val Device = Code("Device", 1)
     val Workgroup = Code("Workgroup", 2)
     val Subgroup = Code("Subgroup", 3)
     val Invocation = Code("Invocation", 4)
-  }
 
-  object GroupOperation {
+  object GroupOperation:
     val Reduce = Code("Reduce", 0)
     val InclusiveScan = Code("InclusiveScan", 1)
     val ExclusiveScan = Code("ExclusiveScan", 2)
-  }
 
-  object KernelEnqueueFlags {
+  object KernelEnqueueFlags:
     val NoWait = Code("NoWait", 0)
     val WaitKernel = Code("WaitKernel", 1)
     val WaitWorkGroup = Code("WaitWorkGroup", 2)
-  }
 
-  object KernelProfilingInfoShift {
+  object KernelProfilingInfoShift:
     val CmdExecTime = Code("CmdExecTime", 0)
-  }
 
-  object KernelProfilingInfoMask {
+  object KernelProfilingInfoMask:
     val MaskNone = Code("MaskNone", 0)
     val CmdExecTime = Code("CmdExecTime", 0x00000001)
-  }
 
-  object Capability {
+  object Capability:
     val Matrix = Code("Matrix", 0)
     val Shader = Code("Shader", 1)
     val Geometry = Code("Geometry", 2)
@@ -664,9 +618,8 @@ private[cyfra] object Opcodes {
     val SubgroupShuffleINTEL = Code("SubgroupShuffleINTEL", 5568)
     val SubgroupBufferBlockIOINTEL = Code("SubgroupBufferBlockIOINTEL", 5569)
     val SubgroupImageBlockIOINTEL = Code("SubgroupImageBlockIOINTEL", 5570)
-  }
 
-  object Op {
+  object Op:
     val OpNop = Code("OpNop", 0)
     val OpUndef = Code("OpUndef", 1)
     val OpSourceContinued = Code("OpSourceContinued", 2)
@@ -995,9 +948,8 @@ private[cyfra] object Opcodes {
     val OpSubgroupBlockWriteINTEL = Code("OpSubgroupBlockWriteINTEL", 5576)
     val OpSubgroupImageBlockReadINTEL = Code("OpSubgroupImageBlockReadINTEL", 5577)
     val OpSubgroupImageBlockWriteINTEL = Code("OpSubgroupImageBlockWriteINTEL", 5578)
-  }
 
-  object GlslOp {
+  object GlslOp:
     val Round = Code("Round", 1)
     val RoundEven = Code("RoundEven", 2)
     val Trunc = Code("Trunc", 3)
@@ -1078,6 +1030,3 @@ private[cyfra] object Opcodes {
     val NMin = Code("NMin", 79)
     val NMax = Code("NMax", 80)
     val NClamp = Code("NClamp", 81)
-  }
-
-}

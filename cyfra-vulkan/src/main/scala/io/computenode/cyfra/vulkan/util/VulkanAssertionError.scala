@@ -12,7 +12,7 @@ import org.lwjgl.vulkan.VK10.*
 private[cyfra] class VulkanAssertionError(msg: String, result: Int)
     extends AssertionError(s"$msg: ${VulkanAssertionError.translateVulkanResult(result)}")
 
-object VulkanAssertionError {
+object VulkanAssertionError:
   def translateVulkanResult(result: Int): String =
     result match
       // Success codes
@@ -69,4 +69,3 @@ object VulkanAssertionError {
         "A validation layer found an error."
       case x =>
         s"Unknown $x"
-}

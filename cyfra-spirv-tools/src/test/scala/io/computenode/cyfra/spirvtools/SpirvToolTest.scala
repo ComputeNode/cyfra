@@ -6,17 +6,16 @@ import java.io.{ByteArrayOutputStream, File}
 import java.nio.ByteBuffer
 import java.nio.file.Files
 
-class SpirvToolTest extends FunSuite {
+class SpirvToolTest extends FunSuite:
   private def isWindows: Boolean =
     System.getProperty("os.name").toLowerCase.contains("win")
 
-  class TestSpirvTool(toolName: String) extends SpirvTool(toolName) {
+  class TestSpirvTool(toolName: String) extends SpirvTool(toolName):
     def runExecuteCmd(input: ByteBuffer, cmd: Seq[String]): Either[SpirvToolError, (ByteArrayOutputStream, ByteArrayOutputStream, Int)] =
       executeSpirvCmd(input, cmd)
-  }
 
   if !isWindows then
-    test("executeSpirvCmd returns exit code and output streams on valid command") {
+    test("executeSpirvCmd returns exit code and output streams on valid command"):
       val tool = new TestSpirvTool("cat")
 
       val inputBytes = "hello SPIR-V".getBytes("UTF-8")
@@ -33,9 +32,8 @@ class SpirvToolTest extends FunSuite {
       assertEquals(exitCode, 0)
       assert(outputString == "hello SPIR-V")
       assertEquals(errStream.size(), 0)
-    }
 
-  test("executeSpirvCmd returns non-zero exit code on invalid command") {
+  test("executeSpirvCmd returns non-zero exit code on invalid command"):
     val tool = new TestSpirvTool("invalid-cmd")
 
     val byteBuffer = ByteBuffer.wrap("".getBytes("UTF-8"))
@@ -45,9 +43,8 @@ class SpirvToolTest extends FunSuite {
     assert(result.isLeft)
     val error = result.left.getOrElse(fail("Should have error"))
     assert(error.getMessage.contains("Failed to execute SPIR-V command"))
-  }
 
-  test("dumpSpvToFile writes ByteBuffer content to file") {
+  test("dumpSpvToFile writes ByteBuffer content to file"):
     val tmpFile = Files.createTempFile("spirv-dump-test", ".spv")
 
     val data = "SPIRV binary data".getBytes("UTF-8")
@@ -62,10 +59,7 @@ class SpirvToolTest extends FunSuite {
     assert(buffer.position() == 0)
 
     Files.deleteIfExists(tmpFile)
-  }
 
-  test("Param.asStringParam returns correct string") {
+  test("Param.asStringParam returns correct string"):
     val param = SpirvTool.Param("test-value")
     assertEquals(param.asStringParam, "test-value")
-  }
-}

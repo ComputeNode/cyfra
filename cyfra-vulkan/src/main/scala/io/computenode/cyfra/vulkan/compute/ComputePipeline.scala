@@ -1,24 +1,20 @@
 package io.computenode.cyfra.vulkan.compute
 
-import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import io.computenode.cyfra.vulkan.VulkanContext
 import io.computenode.cyfra.vulkan.core.Device
-import io.computenode.cyfra.vulkan.util.{VulkanAssertionError, VulkanObjectHandle}
-import org.lwjgl.system.MemoryStack
-import org.lwjgl.system.MemoryStack.stackPush
+import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
+import io.computenode.cyfra.vulkan.util.VulkanObjectHandle
 import org.lwjgl.vulkan.*
 import org.lwjgl.vulkan.VK10.*
-
-import scala.util.Using
 
 /** @author
   *   MarconZet Created 14.04.2020
   */
-private[cyfra] class ComputePipeline(val computeShader: Shader, context: VulkanContext) extends VulkanObjectHandle {
+private[cyfra] class ComputePipeline(val computeShader: Shader, context: VulkanContext) extends VulkanObjectHandle:
   private val device: Device = context.device
   val descriptorSetLayouts: Seq[(Long, LayoutSet)] =
     computeShader.layoutInfo.sets.map(x => (createDescriptorSetLayout(x), x))
-  val pipelineLayout: Long = pushStack { stack =>
+  val pipelineLayout: Long = pushStack: stack =>
     val pipelineLayoutCreateInfo = VkPipelineLayoutCreateInfo
       .calloc(stack)
       .sType$Default()
@@ -30,8 +26,8 @@ private[cyfra] class ComputePipeline(val computeShader: Shader, context: VulkanC
     val pPipelineLayout = stack.callocLong(1)
     check(vkCreatePipelineLayout(device.get, pipelineLayoutCreateInfo, null, pPipelineLayout), "Failed to create pipeline layout")
     pPipelineLayout.get(0)
-  }
-  protected val handle: Long = pushStack { stack =>
+
+  protected val handle: Long = pushStack: stack =>
     val pipelineShaderStageCreateInfo = VkPipelineShaderStageCreateInfo
       .calloc(stack)
       .sType$Default()
@@ -55,17 +51,15 @@ private[cyfra] class ComputePipeline(val computeShader: Shader, context: VulkanC
     val pPipeline = stack.callocLong(1)
     check(vkCreateComputePipelines(device.get, 0, computePipelineCreateInfo, null, pPipeline), "Failed to create compute pipeline")
     pPipeline.get(0)
-  }
 
-  protected def close(): Unit = {
+  protected def close(): Unit =
     vkDestroyPipeline(device.get, handle, null)
     vkDestroyPipelineLayout(device.get, pipelineLayout, null)
     descriptorSetLayouts.map(_._1).foreach(vkDestroyDescriptorSetLayout(device.get, _, null))
-  }
 
-  private def createDescriptorSetLayout(set: LayoutSet): Long = pushStack { stack =>
+  private def createDescriptorSetLayout(set: LayoutSet): Long = pushStack: stack =>
     val descriptorSetLayoutBindings = VkDescriptorSetLayoutBinding.calloc(set.bindings.length, stack)
-    set.bindings.foreach { binding =>
+    set.bindings.foreach: binding =>
       descriptorSetLayoutBindings
         .get()
         .binding(binding.id)
@@ -75,7 +69,7 @@ private[cyfra] class ComputePipeline(val computeShader: Shader, context: VulkanC
         .descriptorCount(1)
         .stageFlags(VK_SHADER_STAGE_COMPUTE_BIT)
         .pImmutableSamplers(null)
-    }
+
     descriptorSetLayoutBindings.flip()
 
     val descriptorSetLayoutCreateInfo = VkDescriptorSetLayoutCreateInfo
@@ -88,5 +82,3 @@ private[cyfra] class ComputePipeline(val computeShader: Shader, context: VulkanC
     val pDescriptorSetLayout = stack.callocLong(1)
     check(vkCreateDescriptorSetLayout(device.get, descriptorSetLayoutCreateInfo, null, pDescriptorSetLayout), "Failed to create descriptor set layout")
     pDescriptorSetLayout.get(0)
-  }
-}

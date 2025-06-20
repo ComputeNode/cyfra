@@ -10,21 +10,19 @@ import java.io.File
 import javax.imageio.ImageIO
 
 object ImageTests:
-  def assertImagesEquals(result: File, expected: File) = {
+  def assertImagesEquals(result: File, expected: File) =
     val expectedImage = ImageIO.read(expected)
     val resultImage = ImageIO.read(result)
     // println("Got image:")
     // println(renderAsText(resultImage, 50, 50))
     assertEquals(expectedImage.getWidth, resultImage.getWidth, "Width was different")
     assertEquals(expectedImage.getHeight, resultImage.getHeight, "Height was different")
-    for {
+    for
       x <- 0 until expectedImage.getWidth
       y <- 0 until expectedImage.getHeight
-    } {
+    do
       val equal = expectedImage.getRGB(x, y) == resultImage.getRGB(x, y)
       assert(equal, s"Pixel $x, $y was different. Output file: ${result.getAbsolutePath}")
-    }
-  }
 
   def renderAsText(bufferedImage: BufferedImage, w: Int, h: Int) =
     val downscaled = bufferedImage.getScaledInstance(w, h, Image.SCALE_SMOOTH)
