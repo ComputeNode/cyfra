@@ -6,9 +6,9 @@ import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.foton.animation.AnimatedFunctionRenderer.{AnimationIteration, RenderFn}
 import io.computenode.cyfra.foton.animation.AnimationFunctions.AnimationInstant
-import io.computenode.cyfra.runtime.mem.GMem.fRGBA
-import io.computenode.cyfra.runtime.mem.Vec4FloatMem
-import io.computenode.cyfra.runtime.{GContext, GFunction, UniformContext}
+import io.computenode.cyfra.core.aalegacy.mem.GMem.fRGBA
+import io.computenode.cyfra.core.aalegacy.mem.Vec4FloatMem
+import io.computenode.cyfra.core.aalegacy.{GContext, GFunction, UniformContext}
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.ExecutionContext.Implicits

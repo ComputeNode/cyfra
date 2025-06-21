@@ -6,9 +6,9 @@ import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.foton.rt.ImageRtRenderer.RaytracingIteration
-import io.computenode.cyfra.runtime.mem.GMem.fRGBA
-import io.computenode.cyfra.runtime.mem.Vec4FloatMem
-import io.computenode.cyfra.runtime.{GFunction, UniformContext}
+import io.computenode.cyfra.core.aalegacy.mem.GMem.fRGBA
+import io.computenode.cyfra.core.aalegacy.mem.Vec4FloatMem
+import io.computenode.cyfra.core.aalegacy.{GFunction, UniformContext}
 import io.computenode.cyfra.utility.ImageUtility
 import io.computenode.cyfra.utility.Utility.timed
 

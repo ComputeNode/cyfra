@@ -18,6 +18,10 @@ object Value:
   trait FromExpr[T <: Value]:
     def fromExpr(expr: E[T])(using name: Source): T
 
+  object FromExpr:
+    def fromExpr[T <: Value](expr: E[T])(using f: FromExpr[T]): T = 
+      f.fromExpr(expr)
+  
   sealed trait Scalar extends Value
 
   trait FloatType extends Scalar

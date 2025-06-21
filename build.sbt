@@ -76,9 +76,13 @@ lazy val compiler = (project in file("cyfra-compiler"))
   .settings(commonSettings)
   .dependsOn(dsl, utility)
 
-lazy val runtime = (project in file("cyfra-runtime"))
+lazy val core = (project in file("cyfra-core"))
   .settings(commonSettings)
   .dependsOn(compiler, dsl, vulkan, utility, spirvTools)
+
+lazy val runtime = (project in file("cyfra-runtime"))
+  .settings(commonSettings)
+  .dependsOn(core)
 
 lazy val foton = (project in file("cyfra-foton"))
   .settings(commonSettings)
@@ -98,7 +102,7 @@ lazy val e2eTest = (project in file("cyfra-e2e-test"))
 
 lazy val root = (project in file("."))
   .settings(name := "Cyfra")
-  .aggregate(compiler, dsl, foton, runtime, vulkan, examples)
+  .aggregate(compiler, dsl, foton, core, runtime, vulkan, examples)
 
 e2eTest / Test / javaOptions ++= Seq("-Dorg.lwjgl.system.stackSize=1024", "-DuniqueLibraryNames=true")
 

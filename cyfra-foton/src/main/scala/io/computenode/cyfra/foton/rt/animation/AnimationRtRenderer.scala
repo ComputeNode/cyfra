@@ -7,9 +7,9 @@ import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.foton.animation.AnimationRenderer
 import io.computenode.cyfra.foton.rt.RtRenderer
 import io.computenode.cyfra.foton.rt.animation.AnimationRtRenderer.RaytracingIteration
-import io.computenode.cyfra.runtime.mem.GMem.fRGBA
-import io.computenode.cyfra.runtime.mem.Vec4FloatMem
-import io.computenode.cyfra.runtime.{GFunction, UniformContext}
+import io.computenode.cyfra.core.aalegacy.mem.GMem.fRGBA
+import io.computenode.cyfra.core.aalegacy.mem.Vec4FloatMem
+import io.computenode.cyfra.core.aalegacy.{GFunction, UniformContext}
 
 class AnimationRtRenderer(params: AnimationRtRenderer.Parameters)
     extends RtRenderer(params)
