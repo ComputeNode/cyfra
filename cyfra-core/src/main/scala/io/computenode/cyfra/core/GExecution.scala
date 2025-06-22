@@ -9,29 +9,29 @@ import io.computenode.cyfra.dsl.struct.{GStruct, GStructSchema}
 import io.computenode.cyfra.spirv.compilers.ExpressionCompiler.UniformStructRef
 import izumi.reflect.Tag
 
-case class GExecution[Params, L <: Layout](layoutStruct: LayoutStruct[L], boundPrograms: Seq[BoundProgram[Params, ?, ?, ?]]):
-  def execute(layout: L, params: Params)(using Allocation): L =
+case class GExecution[Params, L <: Layout, RL <: Layout](layoutStruct: LayoutStruct[L], boundPrograms: Seq[BoundProgram[Params, ?, ?, ?]], toResult: L => RL):
+  def execute(layout: L, params: Params)(using Allocation): RL =
     println("Executing GExecution...")
-    layout // Return the layout after execution
+    toResult(layout) 
 
 object GExecution:
 
-  def forLayout[Params, L <: Layout](using layoutStruct: LayoutStruct[L]): GExecutionBuilder[Params, L] =
+  def build[Params, L <: Layout, RL <: Layout](using layoutStruct: LayoutStruct[L]): GExecutionBuilder[Params, L, RL] =
     GExecutionBuilder(layoutStruct, Seq.empty)
 
-  case class GExecutionBuilder[Params, L <: Layout](layoutStruct: LayoutStruct[L], boundPrograms: Seq[BoundProgram[Params, ?, ?, ?]]):
+  case class GExecutionBuilder[Params, L <: Layout, RL <: Layout](layoutStruct: LayoutStruct[L], boundPrograms: Seq[BoundProgram[Params, ?, ?, ?]]):
     def addProgram[ProgramParams, Uniform <: GStruct[Uniform]: GStructSchema: Tag, ProgramLayout <: Layout, P <: GProgram[
       ProgramParams,
       Uniform,
       ProgramLayout,
-    ]](program: P)(mapLayout: L => ProgramLayout, mapParams: Params => ProgramParams): GExecutionBuilder[Params, L] =
+    ]](program: P)(mapLayout: L => ProgramLayout, mapParams: Params => ProgramParams): GExecutionBuilder[Params, L, RL] =
       val mappedLayout = mapLayout(layoutStruct.layoutRef)
       val boundProgram = BoundProgram(mappedLayout, mapParams, program)
       GExecutionBuilder(layoutStruct, boundPrograms :+ boundProgram)
 
-    def compile()(using GContext): GExecution[Params, L] =
+    def compile(toResult: L => RL)(using GContext): GExecution[Params, L, RL] =
       println("Compiling GExecution...")
-      GExecution(layoutStruct, boundPrograms)
+      GExecution(layoutStruct, boundPrograms, toResult)
 
   case class BoundProgram[LParams, Params, Uniform <: GStruct[Uniform], L <: Layout](
     layout: L,

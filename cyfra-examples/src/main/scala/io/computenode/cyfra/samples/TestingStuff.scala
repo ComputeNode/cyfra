@@ -22,6 +22,10 @@ object TestingStuff:
 
   case class EmitProgramUniform(emitN: Int32) extends GStruct[EmitProgramUniform]
 
+  // 1 2 3 4
+  // VVVV (inSize = 4, emitN = 3)
+  // 1 1 1 2 2 2 3 3 3 4 4 4
+
   val emitProgram = GProgram[EmitProgramParams, EmitProgramUniform, EmitProgramLayout](
     layout = params => EmitProgramLayout(in = GBuffer[Int32](params.inSize), out = GBuffer[Int32](params.inSize * params.emitN)),
     uniform = params => EmitProgramUniform(params.emitN),
@@ -34,7 +38,7 @@ object TestingStuff:
       GIO.write(layout.out, bufferOffset + i, element)
 
   // === Filter program ===
-  case class FilterProgramParams(inSize: Int, filterValue: Int32)
+  case class FilterProgramParams(inSize: Int, filterValue: Int)
 
   case class FilterProgramLayout(in: GBuffer[Int32], out: GBuffer[GBoolean]) extends Layout
 
@@ -56,17 +60,19 @@ object TestingStuff:
 
   case class EmitFilterLayout(inBuffer: GBuffer[Int32], emitBuffer: GBuffer[Int32], filterBuffer: GBuffer[GBoolean]) extends Layout
 
+  case class EmitFilterResult(out: GBuffer[GBoolean]) extends Layout
+
   val emitFilterExecution = GExecution
-    .forLayout[EmitFilterParams, EmitFilterLayout]
-    .addProgram(emitProgram)(
+    .build[EmitFilterParams, EmitFilterLayout, EmitFilterResult]
+    .addProgram(emitProgram)( // (inBuffer, emitBuffer)
       mapLayout = layout => EmitProgramLayout(in = layout.inBuffer, out = layout.emitBuffer),
       mapParams = params => EmitProgramParams(inSize = params.inSize, emitN = params.emitN),
     )
-    .addProgram(filterProgram)(
+    .addProgram(filterProgram)( // (emitBuffer, filterBuffer)
       mapLayout = layout => FilterProgramLayout(in = layout.emitBuffer, out = layout.filterBuffer),
       mapParams = params => FilterProgramParams(inSize = params.inSize * params.emitN, filterValue = params.filterValue),
     )
-    .compile()
+    .compile(layout => EmitFilterResult(layout.filterBuffer))
 
   @main
   def test =
@@ -81,6 +87,7 @@ object TestingStuff:
     val data = (0 to 1024).toArray
     val buffer = BufferUtils.createByteBuffer(data.length * 4)
     buffer.asIntBuffer().put(data).flip()
+    
 
     val result = BufferUtils.createByteBuffer(data.length * 2)
     region.runUnsafe(
@@ -89,5 +96,5 @@ object TestingStuff:
         emitBuffer = GBuffer[Int32](data.length * 2),
         filterBuffer = GBuffer[GBoolean](data.length * 2),
       ),
-      onDone = layout => layout.filterBuffer.readTo(result),
+      onDone = layout => layout.out.readTo(result),
     )
