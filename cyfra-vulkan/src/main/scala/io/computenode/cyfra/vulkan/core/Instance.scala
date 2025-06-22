@@ -4,6 +4,7 @@ import io.computenode.cyfra.utility.Logger.logger
 import io.computenode.cyfra.vulkan.VulkanContext.{SyncLayer, ValidationLayer}
 import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import io.computenode.cyfra.vulkan.util.VulkanObject
+import org.lwjgl.glfw.GLFWVulkan
 import org.lwjgl.system.MemoryStack
 import org.lwjgl.system.MemoryUtil.NULL
 import org.lwjgl.vulkan.*
@@ -41,10 +42,9 @@ object Instance {
   }
 
   lazy val version: Int = VK.getInstanceVersionSupported
-
 }
 
-private[cyfra] class Instance(enableValidationLayers: Boolean) extends VulkanObject {
+private[cyfra] class Instance(enableValidationLayers: Boolean, enableSurfaceExtensions: Boolean = false) extends VulkanObject {
 
   private val instance: VkInstance = pushStack { stack =>
 
@@ -58,7 +58,7 @@ private[cyfra] class Instance(enableValidationLayers: Boolean) extends VulkanObj
       .engineVersion(VK_MAKE_VERSION(0, 1, 0))
       .apiVersion(Instance.version)
 
-    val ppEnabledExtensionNames = getInstanceExtensions(stack)
+    val ppEnabledExtensionNames = getInstanceExtensions(stack, enableSurfaceExtensions)
     val ppEnabledLayerNames = {
       val layers = enabledLayers
       val pointer = stack.callocPointer(layers.length)
@@ -94,7 +94,7 @@ private[cyfra] class Instance(enableValidationLayers: Boolean) extends VulkanObj
   override protected def close(): Unit =
     vkDestroyInstance(instance, null)
 
-  private def getInstanceExtensions(stack: MemoryStack) = {
+  private def getInstanceExtensions(stack: MemoryStack, includeSurfaceExtensions: Boolean) = {
     val n = stack.callocInt(1)
     check(vkEnumerateInstanceExtensionProperties(null.asInstanceOf[ByteBuffer], n, null))
     val buffer = VkExtensionProperties.calloc(n.get(0), stack)
@@ -112,6 +112,19 @@ private[cyfra] class Instance(enableValidationLayers: Boolean) extends VulkanObj
     if (enableValidationLayers)
       extensions.addAll(Instance.ValidationLayersExtensions)
 
+    if (includeSurfaceExtensions) {
+      
+      val glfwExtensions = GLFWVulkan.glfwGetRequiredInstanceExtensions()
+      if (glfwExtensions != null) {
+        val extensionNames = (0 until glfwExtensions.capacity()).map { i =>
+          val extName = org.lwjgl.system.MemoryUtil.memUTF8(glfwExtensions.get(i))
+          extensions.addOne(extName)
+          extName
+        }
+      } else {
+      }
+    } else {
+    }
 
     val filteredExtensions = extensions.filter(ext =>
       availableExtensions.contains(ext).tap { x =>
@@ -120,7 +133,7 @@ private[cyfra] class Instance(enableValidationLayers: Boolean) extends VulkanObj
       }
     )
 
-    val ppEnabledExtensionNames = stack.callocPointer(extensions.size)
+    val ppEnabledExtensionNames = stack.callocPointer(filteredExtensions.size)
     filteredExtensions.foreach(x => ppEnabledExtensionNames.put(stack.ASCII(x)))
     ppEnabledExtensionNames.flip()
   }

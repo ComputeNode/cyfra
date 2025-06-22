@@ -1,6 +1,6 @@
 package io.computenode.cyfra.rtrp.window
 
-import io.computenode.cyfra.window.core._
+import io.computenode.cyfra.rtrp.window.core._
 import scala.util.{Try, Success, Failure}
 
 object WindowSystemExample {

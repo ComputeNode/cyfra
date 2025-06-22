@@ -13,10 +13,15 @@ private[cyfra] object VulkanContext {
   val ValidationLayer: String = "VK_LAYER_KHRONOS_validation"
   val SyncLayer: String = "VK_LAYER_KHRONOS_synchronization2"
   private val ValidationLayers: Boolean = System.getProperty("io.computenode.cyfra.vulkan.validation", "false").toBoolean
+  
+  def apply(): VulkanContext = new VulkanContext(enableSurfaceExtensions = false)
+  
+  def withSurfaceSupport(): VulkanContext = new VulkanContext(enableSurfaceExtensions = true)
 }
 
-private[cyfra] class VulkanContext {
-  val instance: Instance = new Instance(ValidationLayers)
+private[cyfra] class VulkanContext(enableSurfaceExtensions: Boolean = false) {
+  
+    val instance: Instance = new Instance(ValidationLayers, enableSurfaceExtensions)
   val debugCallback: Option[DebugCallback] = if (ValidationLayers) Some(new DebugCallback(instance)) else None
   val device: Device = new Device(instance)
   val computeQueue: Queue = new Queue(device.computeQueueFamily, 0, device)
@@ -24,7 +29,11 @@ private[cyfra] class VulkanContext {
   val descriptorPool: DescriptorPool = new DescriptorPool(device)
   val commandPool: CommandPool = new StandardCommandPool(device, computeQueue)
 
-  logger.debug("Vulkan context created")
+  if (enableSurfaceExtensions) {
+    logger.debug("Vulkan context created with surface extension support")
+  } else {
+    logger.debug("Vulkan context created (compute-only)")
+  }
   logger.debug("Running on device: " + device.physicalDeviceName)
 
   def destroy(): Unit = {

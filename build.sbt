@@ -66,6 +66,12 @@ lazy val utility = (project in file("cyfra-utility"))
 lazy val vulkan = (project in file("cyfra-vulkan"))
   .settings(commonSettings)
   .dependsOn(utility)
+  .settings(
+    libraryDependencies ++= Seq(
+      "org.lwjgl" % "lwjgl-glfw" % lwjglVersion,
+      "org.lwjgl" % "lwjgl-glfw" % lwjglVersion classifier lwjglNatives
+    )
+  )
 
 lazy val dsl = (project in file("cyfra-dsl"))
   .settings(commonSettings)
@@ -101,7 +107,8 @@ lazy val rtrp = (project in file("cyfra-rtrp"))
   .settings(
     libraryDependencies ++= Seq(
       "org.lwjgl" % "lwjgl-glfw" % lwjglVersion,
-      "org.lwjgl" % "lwjgl-glfw" % lwjglVersion classifier lwjglNatives
+      "org.lwjgl" % "lwjgl-glfw" % lwjglVersion classifier lwjglNatives,
+      "org.scalatest" %% "scalatest" % "3.2.15" % Test
     )
   )
 

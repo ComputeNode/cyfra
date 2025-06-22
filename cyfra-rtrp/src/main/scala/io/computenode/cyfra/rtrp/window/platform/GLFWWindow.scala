@@ -1,6 +1,6 @@
-package io.computenode.cyfra.window.platform
+package io.computenode.cyfra.rtrp.window.platform
 
-import io.computenode.cyfra.window.core._
+import io.computenode.cyfra.rtrp.window.core._
 import org.lwjgl.glfw.GLFW
 import org.lwjgl.system.MemoryStack
 import scala.util.{Try, Success, Failure}

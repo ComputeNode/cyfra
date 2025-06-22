@@ -1,4 +1,4 @@
-package io.computenode.cyfra.window.core
+package io.computenode.cyfra.rtrp.window.core
 
 import scala.util.Try
 
