@@ -14,7 +14,7 @@ case class LayoutStruct[T <: Layout: Tag](private[cyfra] val layoutRef: T, priva
 
 object LayoutStruct:
 
-  inline given derived[T <: Layout: Tag]: LayoutStruct[T] = ${derivedImpl}
+  inline given derived[T <: Layout: Tag]: LayoutStruct[T] = ${ derivedImpl }
 
   def derivedImpl[T <: Layout: Type](using quotes: Quotes): Expr[LayoutStruct[T]] =
     import quotes.reflect.*
@@ -22,12 +22,13 @@ object LayoutStruct:
     val tpe = TypeRepr.of[T]
     val sym = tpe.typeSymbol
 
-    if !sym.isClassDef || !sym.flags.is(Flags.Case) then
-      report.errorAndAbort("LayoutStruct can only be derived for case classes")
+    if !sym.isClassDef || !sym.flags.is(Flags.Case) then report.errorAndAbort("LayoutStruct can only be derived for case classes")
 
-    val fieldTypes = sym.caseFields.map(_.tree).map:
-      case ValDef(_, tpt, _) => tpt.tpe
-      case _ => report.errorAndAbort("Unexpected field type in case class")
+    val fieldTypes = sym.caseFields
+      .map(_.tree)
+      .map:
+        case ValDef(_, tpt, _) => tpt.tpe
+        case _                 => report.errorAndAbort("Unexpected field type in case class")
 
     if !fieldTypes.forall(_ <:< TypeRepr.of[GBuffer[?]]) then
       report.errorAndAbort("LayoutStruct can only be derived for case classes with GBuffer elements")
@@ -38,9 +39,11 @@ object LayoutStruct:
     val tags = valueTypes.map: tpe =>
       tpe.asType match
         case '[t] =>
-          (tpe.asType, Expr.summon[Tag[t]] match
-            case Some(tagExpr) => tagExpr
-            case None => report.errorAndAbort(s"Cannot summon Tag for type ${tpe.show}")
+          (
+            tpe.asType,
+            Expr.summon[Tag[t]] match
+              case Some(tagExpr) => tagExpr
+              case None          => report.errorAndAbort(s"Cannot summon Tag for type ${tpe.show}"),
           )
 
     val buffers = tags.zipWithIndex.map:
@@ -48,26 +51,17 @@ object LayoutStruct:
         tpe match
           case '[type t <: Value; t] =>
             '{
-              BufferRef[t](${ Expr(i) }, ${tag.asExprOf[Tag[t]]})
+              BufferRef[t](${ Expr(i) }, ${ tag.asExprOf[Tag[t]] })
             }
 
     val constructor = sym.primaryConstructor
 
-    val layoutInstance = Apply(
-      Select(
-        New(TypeIdent(sym)),
-        constructor,
-      ),
-      buffers.map(_.asTerm)
-    )
+    val layoutInstance = Apply(Select(New(TypeIdent(sym)), constructor), buffers.map(_.asTerm))
 
     val layoutRef = layoutInstance.asExprOf[T]
 
     val soleTags = tags.map(_._2.asExprOf[Tag[? <: Value]]).toList
 
     '{
-      LayoutStruct[T](
-        $layoutRef,
-        ${Expr.ofList(soleTags)}
-      )
+      LayoutStruct[T]($layoutRef, ${ Expr.ofList(soleTags) })
     }

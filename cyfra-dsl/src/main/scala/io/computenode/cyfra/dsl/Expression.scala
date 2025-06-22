@@ -1,5 +1,5 @@
 package io.computenode.cyfra.dsl
-import io.computenode.cyfra.dsl.Expression
+
 import Expression.{Const, treeidState}
 import io.computenode.cyfra.dsl.library.Functions.*
 import io.computenode.cyfra.dsl.Value.*
@@ -107,6 +107,7 @@ object Expression:
 
   case class ExtFunctionCall[R <: Value: Tag](fn: FunctionName, args: List[Value]) extends Expression[R]
   case class FunctionCall[R <: Value: Tag](fn: FnIdentifier, body: Scope[R], args: List[Value]) extends E[R]
+  case object InvocationId extends E[Int32]
 
   case class Pass[T <: Value: Tag](value: T) extends E[T]
 
