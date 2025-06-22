@@ -13,17 +13,17 @@ sealed trait GBufferRegion[ReqAlloc <: Layout: LayoutStruct, ResAlloc <: Layout:
 object GBufferRegion:
 
   private[cyfra] case class ZeroedBuffer[T <: Value](size: Int) extends GBuffer[T]
-  
+
   private[cyfra] case class BufferFromRam[T <: Value](buff: ByteBuffer) extends GBuffer[T]
 
   trait InitAlloc:
     extension (buffers: GBuffer.type)
       def apply[T <: Value](size: Int): GBuffer[T] =
         ZeroedBuffer[T](size)
-      
+
       def apply[T <: Value](buff: ByteBuffer): GBuffer[T] =
         BufferFromRam[T](buff)
-        
+
   trait FinalizeAlloc:
     extension [T <: Value](buffer: GBuffer[T])
       def readTo(bb: ByteBuffer): Unit =
@@ -56,6 +56,6 @@ object GBufferRegion:
 
       val bodyAlloc = steps.foldLeft[Layout](region.initAlloc): (acc, step) =>
         step(alloc)(acc)
-      
+
       val finalizeAlloc = new FinalizeAlloc {}
       onDone(using finalizeAlloc)(bodyAlloc.asInstanceOf[ResAlloc])

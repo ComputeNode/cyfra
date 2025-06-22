@@ -25,7 +25,7 @@ object TestingStuff:
   val emitProgram = GProgram[EmitProgramParams, EmitProgramUniform, EmitProgramLayout](
     layout = params => EmitProgramLayout(in = GBuffer[Int32](params.inSize), out = GBuffer[Int32](params.inSize * params.emitN)),
     uniform = params => EmitProgramUniform(params.emitN),
-    dispatch = (layout, args) => GProgram.StaticDispatch((args.inSize, 1, 1))
+    dispatch = (layout, args) => GProgram.StaticDispatch((args.inSize, 1, 1)),
   ): (layout, args) =>
     val invocId = GIO.invocationId
     val element = GIO.read(layout.in, invocId)
@@ -43,7 +43,7 @@ object TestingStuff:
   val filterProgram = GProgram[FilterProgramParams, FilterProgramUniform, FilterProgramLayout](
     layout = params => FilterProgramLayout(in = GBuffer[Int32](params.inSize), out = GBuffer[GBoolean](params.inSize)),
     uniform = params => FilterProgramUniform(params.filterValue),
-    dispatch = (layout, args) => GProgram.StaticDispatch((args.inSize, 1, 1))
+    dispatch = (layout, args) => GProgram.StaticDispatch((args.inSize, 1, 1)),
   ): (layout, args) =>
     val invocId = GIO.invocationId
     val element = GIO.read(layout.in, invocId)
@@ -60,24 +60,21 @@ object TestingStuff:
     .forLayout[EmitFilterParams, EmitFilterLayout]
     .addProgram(emitProgram)(
       mapLayout = layout => EmitProgramLayout(in = layout.inBuffer, out = layout.emitBuffer),
-      mapParams = params => EmitProgramParams(inSize = params.inSize, emitN = params.emitN)
+      mapParams = params => EmitProgramParams(inSize = params.inSize, emitN = params.emitN),
     )
     .addProgram(filterProgram)(
       mapLayout = layout => FilterProgramLayout(in = layout.emitBuffer, out = layout.filterBuffer),
-      mapParams = params => FilterProgramParams(inSize = params.inSize * params.emitN, filterValue = params.filterValue)
+      mapParams = params => FilterProgramParams(inSize = params.inSize * params.emitN, filterValue = params.filterValue),
     )
     .compile()
 
   @main
   def test =
 
-    val emitFilterParams = EmitFilterParams(
-      inSize = 1024,
-      emitN = 2,
-      filterValue = 42
-    )
+    val emitFilterParams = EmitFilterParams(inSize = 1024, emitN = 2, filterValue = 42)
 
-    val region = GBufferRegion.allocate[EmitFilterLayout]
+    val region = GBufferRegion
+      .allocate[EmitFilterLayout]
       .map: region =>
         emitFilterExecution.execute(region, emitFilterParams)
 
@@ -90,11 +87,7 @@ object TestingStuff:
       init = EmitFilterLayout(
         inBuffer = GBuffer[Int32](buffer),
         emitBuffer = GBuffer[Int32](data.length * 2),
-        filterBuffer = GBuffer[GBoolean](data.length * 2)
+        filterBuffer = GBuffer[GBoolean](data.length * 2),
       ),
-      onDone = layout =>
-        layout.filterBuffer.readTo(result)
+      onDone = layout => layout.filterBuffer.readTo(result),
     )
-
-
-

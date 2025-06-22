@@ -32,7 +32,7 @@ object GProgram:
   case class StaticDispatch(size: WorkDimensions) extends ProgramDispatch
 
   private[cyfra] case class BufferSizeSpec[T <: Value](size: Int) extends GBuffer[T]
-  
+
   trait InitProgramLayout:
     extension (buffers: GBuffer.type)
       def apply[T <: Value](size: Int): GBuffer[T] =
