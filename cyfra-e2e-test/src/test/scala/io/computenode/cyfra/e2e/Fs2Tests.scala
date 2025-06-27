@@ -21,71 +21,31 @@ object Fs2:
     case Int   => Int32
     case Float => Float32
     case fRGBA => Vec4[Float32]
-    // case Array[t] => GBuffer[Cyfra[t]]
   type Scala[X] = X match
     case Int32         => Int
     case Float32       => Float
     case Vec4[Float32] => fRGBA
-  // case GBuffer[t]    => Array[Scala[t]]
-  // type Scala = Int | Float | fRGBA
 
-  trait Bridge[CyfraType, ScalaType]:
-    def toByteBuffer: ByteBuffer
+  trait Bridge[CyfraType <: Value: FromExpr: Tag, ScalaType: ClassTag]:
+    def toByteBuffer(buf: ByteBuffer, chunk: Chunk[ScalaType]): ByteBuffer
+    def fromByteBuffer(buf: ByteBuffer, arr: Array[ScalaType]): ByteBuffer
 
   given Bridge[Int32, Int]:
-    def toByteBuffer: ByteBuffer = ???
+    def toByteBuffer(buf: ByteBuffer, chunk: Chunk[Int]): ByteBuffer = ???
+    def fromByteBuffer(buf: ByteBuffer, arr: Array[Int]): ByteBuffer = ???
 
-  // def gPipe[F[_], O](f: O => O)(using GContext): Pipe[F, O, O] = stream => ???
-  def gPipe(f: Float32 => Float32)(using GContext): Pipe[Pure, Float, Float] =
-    (stream: Stream[Pure, Float]) =>
-      // We need 7 things: params, layout, uniform, result, program, execution, region
-      case class Params(inSize: Int)
-      case class PLayout(in: GBuffer[Float32], out: GBuffer[Float32]) extends Layout
-      case class PUniform(factor: Float32 = 0f) extends GStruct[PUniform]
-      case class PResult(out: GBuffer[Float32]) extends Layout
+  given Bridge[Float32, Float]:
+    def toByteBuffer(buf: ByteBuffer, chunk: Chunk[Float]): ByteBuffer = ???
+    def fromByteBuffer(buf: ByteBuffer, arr: Array[Float]): ByteBuffer = ???
 
-      val params = Params(inSize = 256)
+  extension [C <: Value, S](buf: ByteBuffer)
+    def put(chunk: Chunk[S])(using bridge: Bridge[C, S]): ByteBuffer =
+      bridge.toByteBuffer(buf, chunk)
+    def get(arr: Array[S])(using bridge: Bridge[C, S]) =
+      bridge.fromByteBuffer(buf, arr)
 
-      val prog = GProgram[Params, PUniform, PLayout](
-        layout = params => PLayout(in = GBuffer[Float32](params.inSize), out = GBuffer[Float32](params.inSize)),
-        uniform = params => PUniform(),
-        dispatch = (layout, params) => GProgram.StaticDispatch((params.inSize, 1, 1)),
-      ): (layout, uniform) =>
-        val invocId = GIO.invocationId
-        val element = GIO.read(layout.in, invocId)
-        GIO.write(layout.out, invocId, f(element))
-
-      val execution = GExecution
-        .build[Params, PLayout, PResult]
-        .addProgram(prog)(mapLayout = layout => PLayout(in = layout.in, out = layout.out), mapParams = params => Params(inSize = params.inSize))
-        .compile(layout => PResult(layout.out))
-
-      val region = GBufferRegion
-        .allocate[PLayout]
-        .map: region =>
-          execution.execute(region, params)
-
-      // these are allocated once, reused for many chunks
-      val floatSize = 4
-      val inBuf = BufferUtils.createByteBuffer(params.inSize * floatSize)
-      val outBuf = BufferUtils.createByteBuffer(params.inSize * floatSize)
-
-      val res = stream
-        .chunkMin(params.inSize)
-        .flatMap: chunk =>
-          val arr = chunk.toArray
-          inBuf.asFloatBuffer().put(arr).flip()
-
-          region.runUnsafe(init = PLayout(in = GBuffer[Float32](inBuf), out = GBuffer[Float32](outBuf)), onDone = layout => layout.out.readTo(outBuf))
-
-          val resArr = new Array[Float](params.inSize)
-          outBuf.asFloatBuffer().get(resArr).flip()
-          Stream.emits(resArr)
-      res
-
-  // here T is a Cyfra type: Float32, Int32, Vec4[Float32]
-  def gPipePoly[T <: Value: FromExpr: Tag](f: T => T)(typeSize: Int)(using GContext): Pipe[Pure, Scala[T], Any] =
-    (stream: Stream[Pure, Scala[T]]) =>
+  def gPipePoly[T <: Value: FromExpr: Tag, S: ClassTag](f: T => T)(using GContext, Bridge[T, S]): Pipe[Pure, S, S] =
+    (stream: Stream[Pure, S]) =>
       // We need 7 things: params, layout, uniform, result, program, execution, region
       case class Params(inSize: Int)
       case class PUniform() extends GStruct[PUniform]
@@ -93,6 +53,7 @@ object Fs2:
       case class PResult(out: GBuffer[T]) extends Layout
 
       val params = Params(inSize = 256)
+      val typeSize = typeStride(Tag.apply[T])
 
       val gProg = GProgram[Params, PUniform, PLayout](
         layout = params => PLayout(in = GBuffer[T](params.inSize), out = GBuffer[T](params.inSize)),
@@ -117,33 +78,14 @@ object Fs2:
       val inBuf = BufferUtils.createByteBuffer(params.inSize * typeSize)
       val outBuf = BufferUtils.createByteBuffer(params.inSize * typeSize)
 
-      val res = stream
+      stream
         .chunkMin(params.inSize)
         .flatMap: chunk =>
-          val tag = Tag.apply[T]
-          tag match
-            case t if t == Tag[Int32] =>
-              val arr = chunk.toArray[Int]
-              inBuf.asIntBuffer().put(arr).flip()
-              region.runUnsafe(init = PLayout(in = GBuffer[T](inBuf), out = GBuffer[T](outBuf)), onDone = layout => layout.out.readTo(outBuf))
-              val resArr = new Array[Int](params.inSize)
-              outBuf.asIntBuffer().get(resArr).flip()
-              Stream.emits(resArr)
-            case t if t == Tag[Float32] =>
-              val arr = chunk.toArray[Float]
-              inBuf.asFloatBuffer().put(arr).flip()
-              region.runUnsafe(init = PLayout(in = GBuffer[T](inBuf), out = GBuffer[T](outBuf)), onDone = layout => layout.out.readTo(outBuf))
-              val resArr = new Array[Float](params.inSize)
-              outBuf.asFloatBuffer().get(resArr).flip()
-              Stream.emits(resArr)
-            case t if t == Tag[Vec4[Float32]] =>
-              val arr = chunk.toArray[Float]
-              // inBuf.asFloatBuffer().put(arr).flip()
-              region.runUnsafe(init = PLayout(in = GBuffer[T](inBuf), out = GBuffer[T](outBuf)), onDone = layout => layout.out.readTo(outBuf))
-              val resArr = new Array[Float](params.inSize)
-              // outBuf.asFloatBuffer().get(resArr).flip()
-              Stream.emits(resArr)
-      res
+          inBuf.put(chunk).flip()
+          region.runUnsafe(init = PLayout(in = GBuffer[T](inBuf), out = GBuffer[T](outBuf)), onDone = layout => layout.out.readTo(outBuf))
+          val resArr = new Array[S](params.inSize)
+          outBuf.get(resArr).flip()
+          Stream.emits(resArr)
 
   // legacy stuff working with GFunction
   extension (stream: Stream[Pure, Float])
