@@ -9,10 +9,14 @@ import io.computenode.cyfra.dsl.struct.{GStruct, GStructSchema}
 import io.computenode.cyfra.spirv.compilers.ExpressionCompiler.UniformStructRef
 import izumi.reflect.Tag
 
-case class GExecution[Params, L <: Layout, RL <: Layout](layoutStruct: LayoutStruct[L], boundPrograms: Seq[BoundProgram[Params, ?, ?, ?]], toResult: L => RL):
+case class GExecution[Params, L <: Layout, RL <: Layout](
+  layoutStruct: LayoutStruct[L],
+  boundPrograms: Seq[BoundProgram[Params, ?, ?, ?]],
+  toResult: L => RL,
+):
   def execute(layout: L, params: Params)(using Allocation): RL =
     println("Executing GExecution...")
-    toResult(layout) 
+    toResult(layout)
 
 object GExecution:
 
