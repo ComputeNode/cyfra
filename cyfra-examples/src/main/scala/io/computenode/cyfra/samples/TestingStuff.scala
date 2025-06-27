@@ -87,7 +87,6 @@ object TestingStuff:
     val data = (0 to 1024).toArray
     val buffer = BufferUtils.createByteBuffer(data.length * 4)
     buffer.asIntBuffer().put(data).flip()
-    
 
     val result = BufferUtils.createByteBuffer(data.length * 2)
     region.runUnsafe(
