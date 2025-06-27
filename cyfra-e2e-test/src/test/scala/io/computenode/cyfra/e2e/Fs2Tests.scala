@@ -17,31 +17,51 @@ import scala.reflect.ClassTag
 import io.computenode.cyfra.spirv.SpirvTypes.typeStride
 
 object Fs2:
-  type Cyfra[X] = X match
-    case Int   => Int32
-    case Float => Float32
-    case fRGBA => Vec4[Float32]
-  type Scala[X] = X match
-    case Int32         => Int
-    case Float32       => Float
-    case Vec4[Float32] => fRGBA
-
   trait Bridge[CyfraType <: Value: FromExpr: Tag, ScalaType: ClassTag]:
-    def toByteBuffer(buf: ByteBuffer, chunk: Chunk[ScalaType]): ByteBuffer
-    def fromByteBuffer(buf: ByteBuffer, arr: Array[ScalaType]): ByteBuffer
+    // takes a stream chunk, puts into input byte buffer to be used by Cyfra
+    def toByteBuffer(inBuf: ByteBuffer, chunk: Chunk[ScalaType]): ByteBuffer
+
+    // takes a byte buffer (output from Cyfra), puts it into array to be used by stream
+    def fromByteBuffer(outBuf: ByteBuffer, arr: Array[ScalaType]): Array[ScalaType]
 
   given Bridge[Int32, Int]:
-    def toByteBuffer(buf: ByteBuffer, chunk: Chunk[Int]): ByteBuffer = ???
-    def fromByteBuffer(buf: ByteBuffer, arr: Array[Int]): ByteBuffer = ???
+    def toByteBuffer(inBuf: ByteBuffer, chunk: Chunk[Int]): ByteBuffer =
+      inBuf.asIntBuffer().put(chunk.toArray[Int]).flip()
+      inBuf
+    def fromByteBuffer(outBuf: ByteBuffer, arr: Array[Int]): Array[Int] =
+      outBuf.asIntBuffer().get(arr).flip
+      arr
 
   given Bridge[Float32, Float]:
-    def toByteBuffer(buf: ByteBuffer, chunk: Chunk[Float]): ByteBuffer = ???
-    def fromByteBuffer(buf: ByteBuffer, arr: Array[Float]): ByteBuffer = ???
+    def toByteBuffer(inBuf: ByteBuffer, chunk: Chunk[Float]): ByteBuffer =
+      inBuf.asFloatBuffer().put(chunk.toArray[Float]).flip()
+      inBuf
+    def fromByteBuffer(outBuf: ByteBuffer, arr: Array[Float]): Array[Float] =
+      outBuf.asFloatBuffer().get(arr).flip()
+      arr
+
+  given Bridge[Vec4[Float32], fRGBA]:
+    def toByteBuffer(inBuf: ByteBuffer, chunk: Chunk[fRGBA]): ByteBuffer =
+      val vecs = chunk.toArray[fRGBA]
+      val size = vecs.length
+      vecs.foreach:
+        case (x, y, z, a) =>
+          inBuf.putFloat(x)
+          inBuf.putFloat(y)
+          inBuf.putFloat(z)
+          inBuf.putFloat(a)
+      inBuf.flip()
+      inBuf
+    def fromByteBuffer(outBuf: ByteBuffer, arr: Array[fRGBA]): Array[fRGBA] =
+      val res = outBuf.asFloatBuffer()
+      for i <- 0 until arr.size do arr(i) = (res.get(), res.get(), res.get(), res.get())
+      outBuf.flip()
+      arr
 
   extension [C <: Value, S](buf: ByteBuffer)
     def put(chunk: Chunk[S])(using bridge: Bridge[C, S]): ByteBuffer =
       bridge.toByteBuffer(buf, chunk)
-    def get(arr: Array[S])(using bridge: Bridge[C, S]) =
+    def get(arr: Array[S])(using bridge: Bridge[C, S]): Array[S] =
       bridge.fromByteBuffer(buf, arr)
 
   def gPipePoly[T <: Value: FromExpr: Tag, S: ClassTag](f: T => T)(using GContext, Bridge[T, S]): Pipe[Pure, S, S] =
@@ -81,11 +101,9 @@ object Fs2:
       stream
         .chunkMin(params.inSize)
         .flatMap: chunk =>
-          inBuf.put(chunk).flip()
+          inBuf.put(chunk)
           region.runUnsafe(init = PLayout(in = GBuffer[T](inBuf), out = GBuffer[T](outBuf)), onDone = layout => layout.out.readTo(outBuf))
-          val resArr = new Array[S](params.inSize)
-          outBuf.get(resArr).flip()
-          Stream.emits(resArr)
+          Stream.emits(outBuf.get(new Array[S](params.inSize)))
 
   // legacy stuff working with GFunction
   extension (stream: Stream[Pure, Float])
