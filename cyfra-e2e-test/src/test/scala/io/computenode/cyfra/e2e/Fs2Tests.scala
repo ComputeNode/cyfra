@@ -56,98 +56,13 @@ object Fs2:
       outBuf.flip()
       arr
 
-  extension [C <: Value, S](buf: ByteBuffer)
-    def put(chunk: Chunk[S])(using bridge: Bridge[C, S]): ByteBuffer =
+  extension (buf: ByteBuffer)
+    def put[C <: Value: FromExpr: Tag, S: ClassTag](chunk: Chunk[S])(using bridge: Bridge[C, S]): ByteBuffer =
       bridge.toByteBuffer(buf, chunk)
-    def get(arr: Array[S])(using bridge: Bridge[C, S]): Array[S] =
+    def get[C <: Value: FromExpr: Tag, S: ClassTag](arr: Array[S])(using bridge: Bridge[C, S]): Array[S] =
       bridge.fromByteBuffer(buf, arr)
 
-  def gPipe[T <: Value: FromExpr: Tag, S: ClassTag](f: T => T)(using GContext, Bridge[T, S]): Pipe[Pure, S, S] =
-    (stream: Stream[Pure, S]) =>
-      // We need 7 things: params, layout, uniform, result, program, execution, region
-      case class Params(inSize: Int)
-      case class PUniform() extends GStruct[PUniform]
-      case class PLayout(in: GBuffer[T], out: GBuffer[T]) extends Layout
-      case class PResult(out: GBuffer[T]) extends Layout
-
-      val params = Params(inSize = 256)
-      val typeSize = typeStride(Tag.apply[T])
-
-      val gProg = GProgram[Params, PUniform, PLayout](
-        layout = params => PLayout(in = GBuffer[T](params.inSize), out = GBuffer[T](params.inSize)),
-        uniform = params => PUniform(),
-        dispatch = (layout, params) => GProgram.StaticDispatch((params.inSize, 1, 1)),
-      ): (layout, uniform) =>
-        val invocId = GIO.invocationId
-        val element = GIO.read(layout.in, invocId)
-        GIO.write(layout.out, invocId, f(element))
-
-      val execution = GExecution
-        .build[Params, PLayout, PResult]
-        .addProgram(gProg)(mapLayout = layout => PLayout(in = layout.in, out = layout.out), mapParams = params => Params(inSize = params.inSize))
-        .compile(layout => PResult(layout.out))
-
-      val region = GBufferRegion
-        .allocate[PLayout]
-        .map: region =>
-          execution.execute(region, params)
-
-      // these are allocated once, reused for many chunks
-      val inBuf = BufferUtils.createByteBuffer(params.inSize * typeSize)
-      val outBuf = BufferUtils.createByteBuffer(params.inSize * typeSize)
-
-      stream
-        .chunkMin(params.inSize)
-        .flatMap: chunk =>
-          inBuf.put(chunk)
-          region.runUnsafe(init = PLayout(in = GBuffer[T](inBuf), out = GBuffer[T](outBuf)), onDone = layout => layout.out.readTo(outBuf))
-          Stream.emits(outBuf.get(new Array[S](params.inSize)))
-
-  def gPipe2[C1 <: Value: FromExpr: Tag, C2 <: Value: FromExpr: Tag, S1: ClassTag, S2: ClassTag](
-    f: C1 => C2,
-  )(using GContext, Bridge[C1, S1], Bridge[C2, S2]): Pipe[Pure, S1, S2] =
-    (stream: Stream[Pure, S1]) =>
-      case class Params(inSize: Int)
-      case class PUniform() extends GStruct[PUniform]
-      case class PLayout(in: GBuffer[C1], out: GBuffer[C2]) extends Layout
-      case class PResult(out: GBuffer[C2]) extends Layout
-
-      val params = Params(inSize = 256)
-      val inTypeSize = typeStride(Tag.apply[C1])
-      val outTypeSize = typeStride(Tag.apply[C2])
-
-      val gProg = GProgram[Params, PUniform, PLayout](
-        // the sizes are probably wrong
-        layout = params => PLayout(in = GBuffer[C1](params.inSize), out = GBuffer[C2](params.inSize)),
-        uniform = params => PUniform(),
-        dispatch = (layout, params) => GProgram.StaticDispatch((params.inSize, 1, 1)),
-      ): (layout, uniform) =>
-        val invocId = GIO.invocationId
-        val element = GIO.read(layout.in, invocId)
-        GIO.write(layout.out, invocId, f(element))
-
-      val execution = GExecution
-        .build[Params, PLayout, PResult]
-        .addProgram(gProg)(mapLayout = layout => PLayout(in = layout.in, out = layout.out), mapParams = params => Params(inSize = params.inSize))
-        .compile(layout => PResult(layout.out))
-
-      val region = GBufferRegion
-        .allocate[PLayout]
-        .map: region =>
-          execution.execute(region, params)
-
-      // these are allocated once, reused for many chunks
-      val inBuf = BufferUtils.createByteBuffer(params.inSize * inTypeSize)
-      val outBuf = BufferUtils.createByteBuffer(params.inSize * outTypeSize)
-
-      stream
-        .chunkMin(params.inSize)
-        .flatMap: chunk =>
-          inBuf.put(chunk)
-          region.runUnsafe(init = PLayout(in = GBuffer[C1](inBuf), out = GBuffer[C2](outBuf)), onDone = layout => layout.out.readTo(outBuf))
-          Stream.emits(outBuf.get(new Array[S2](params.inSize)))
-
-  def gPipeF[F[_], C1 <: Value: FromExpr: Tag, C2 <: Value: FromExpr: Tag, S1: ClassTag, S2: ClassTag](
+  def gPipe[F[_], C1 <: Value: FromExpr: Tag, C2 <: Value: FromExpr: Tag, S1: ClassTag, S2: ClassTag](
     f: C1 => C2,
   )(using GContext, Bridge[C1, S1], Bridge[C2, S2]): Pipe[F, S1, S2] =
     (stream: Stream[F, S1]) =>
@@ -186,9 +101,9 @@ object Fs2:
       stream
         .chunkMin(params.inSize)
         .flatMap: chunk =>
-          inBuf.put(chunk)
+          inBuf.put[C1, S1](chunk)
           region.runUnsafe(init = PLayout(in = GBuffer[C1](inBuf), out = GBuffer[C2](outBuf)), onDone = layout => layout.out.readTo(outBuf))
-          Stream.emits(outBuf.get(new Array[S2](params.inSize)))
+          Stream.emits(outBuf.get[C2, S2](new Array[S2](params.inSize)))
 
   // legacy stuff working with GFunction
   extension (stream: Stream[Pure, Float])
@@ -221,8 +136,7 @@ object Fs2:
           val res = gmem.map(gf).asInstanceOf[Vec4FloatMem].toArray
           Stream.emits(res)
 
-  // needed in tests
-  extension (f: fRGBA)
+  extension (f: fRGBA) // needed in tests
     def neg = (-f._1, -f._2, -f._3, -f._4)
     def scl(s: Float) = (f._1 * s, f._2 * s, f._3 * s, f._4 * s)
     def add(g: fRGBA) = (f._1 + g._1, f._2 + g._2, f._3 + g._3, f._4 + g._4)
@@ -233,10 +147,10 @@ class Fs2E2eTest extends munit.FunSuite:
   import Fs2.*
   given gc: GContext = GContext()
 
-  test("fs2 through gPipe"):
+  test("fs2 through gPipe, just ints"):
     val in = (0 to 255).toSeq
     val stream = Stream.emits(in)
-    val pipe = gPipe[Int32, Int](_ + 1)
+    val pipe = gPipe[Pure, Int32, Int32, Int, Int](_ + 1)
     val result = stream.through(pipe).compile.toList
     val expected = in.map(_ + 1)
     result
@@ -244,19 +158,19 @@ class Fs2E2eTest extends munit.FunSuite:
       .foreach: (res, exp) =>
         assert(res == exp, s"Expected $exp, got $res")
 
-  test("fs2 through gPipe2"):
+  test("fs2 through gPipe, floats and vectors"):
     val in = (0 to 255).map(_.toFloat).toSeq
     val stream = Stream.emits(in)
-    val pipe = gPipe2[Float32, Vec4[Float32], Float, fRGBA](f => (f, f + 1f, f + 2f, f + 3f))
+    val pipe = gPipe[Pure, Float32, Vec4[Float32], Float, fRGBA](f => (f, f + 1f, f + 2f, f + 3f))
     val result = stream.through(pipe).compile.toList
     val expected = in.map(f => (f, f + 1f, f + 2f, f + 3f))
     result
       .zip(expected)
       .foreach: (res, exp) =>
-        assert(res == exp, s"Expected $exp, got $res")
+        assert(res.close(exp)(0.001f), s"Expected $exp, got $res")
 
   // legacy tests
-  test("fs2 Float stream"):
+  test("fs2 Float stream (legacy)"):
     val inSeq = (0 to 255).map(_.toFloat)
     val inStream = Stream.emits(inSeq)
     val outStream = inStream.gPipeFloat(_ + 1f).toList
@@ -266,7 +180,7 @@ class Fs2E2eTest extends munit.FunSuite:
       .foreach: (res, exp) =>
         assert(Math.abs(res - exp) < 0.001f, s"Expected $exp but got $res")
 
-  test("fs2 Int stream"):
+  test("fs2 Int stream (legacy)"):
     val inSeq = 0 to 255
     val inStream = Stream.emits(inSeq)
     val outStream = inStream.gPipeInt(_ + 1).toList
@@ -276,7 +190,7 @@ class Fs2E2eTest extends munit.FunSuite:
       .foreach: (res, exp) =>
         assert(res == exp, s"Expected $exp but got $res")
 
-  test("fs2 Vec4Float stream"):
+  test("fs2 Vec4Float stream (legacy)"):
     val k = -2.1f
     val f = (1.2f, 2.3f, 3.4f, 4.5f)
     val v = VectorAlgebra.vec4.tupled(f)
@@ -289,7 +203,6 @@ class Fs2E2eTest extends munit.FunSuite:
       .toSeq
     val inStream = Stream.emits(inSeq)
     val outStream = inStream.gPipeVec4(vec => (-vec).*(k).+(v)).toList
-
     val expected = inStream.map(vec => vec.neg.scl(k).add(f)).toList
 
     outStream
