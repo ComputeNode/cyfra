@@ -18,10 +18,7 @@ import io.computenode.cyfra.spirv.SpirvTypes.typeStride
 
 object Fs2:
   trait Bridge[CyfraType <: Value: FromExpr: Tag, ScalaType: ClassTag]:
-    // takes a stream chunk, puts into input byte buffer to be used by Cyfra
     def toByteBuffer(inBuf: ByteBuffer, chunk: Chunk[ScalaType]): ByteBuffer
-
-    // takes a byte buffer (output from Cyfra), puts it into array to be used by stream
     def fromByteBuffer(outBuf: ByteBuffer, arr: Array[ScalaType]): Array[ScalaType]
 
   given Bridge[Int32, Int]:
@@ -52,6 +49,7 @@ object Fs2:
           inBuf.putFloat(a)
       inBuf.flip()
       inBuf
+
     def fromByteBuffer(outBuf: ByteBuffer, arr: Array[fRGBA]): Array[fRGBA] =
       val res = outBuf.asFloatBuffer()
       for i <- 0 until arr.size do arr(i) = (res.get(), res.get(), res.get(), res.get())
@@ -64,7 +62,7 @@ object Fs2:
     def get(arr: Array[S])(using bridge: Bridge[C, S]): Array[S] =
       bridge.fromByteBuffer(buf, arr)
 
-  def gPipePoly[T <: Value: FromExpr: Tag, S: ClassTag](f: T => T)(using GContext, Bridge[T, S]): Pipe[Pure, S, S] =
+  def gPipe[T <: Value: FromExpr: Tag, S: ClassTag](f: T => T)(using GContext, Bridge[T, S]): Pipe[Pure, S, S] =
     (stream: Stream[Pure, S]) =>
       // We need 7 things: params, layout, uniform, result, program, execution, region
       case class Params(inSize: Int)
@@ -105,6 +103,93 @@ object Fs2:
           region.runUnsafe(init = PLayout(in = GBuffer[T](inBuf), out = GBuffer[T](outBuf)), onDone = layout => layout.out.readTo(outBuf))
           Stream.emits(outBuf.get(new Array[S](params.inSize)))
 
+  def gPipe2[C1 <: Value: FromExpr: Tag, C2 <: Value: FromExpr: Tag, S1: ClassTag, S2: ClassTag](
+    f: C1 => C2,
+  )(using GContext, Bridge[C1, S1], Bridge[C2, S2]): Pipe[Pure, S1, S2] =
+    (stream: Stream[Pure, S1]) =>
+      case class Params(inSize: Int)
+      case class PUniform() extends GStruct[PUniform]
+      case class PLayout(in: GBuffer[C1], out: GBuffer[C2]) extends Layout
+      case class PResult(out: GBuffer[C2]) extends Layout
+
+      val params = Params(inSize = 256)
+      val inTypeSize = typeStride(Tag.apply[C1])
+      val outTypeSize = typeStride(Tag.apply[C2])
+
+      val gProg = GProgram[Params, PUniform, PLayout](
+        // the sizes are probably wrong
+        layout = params => PLayout(in = GBuffer[C1](params.inSize), out = GBuffer[C2](params.inSize)),
+        uniform = params => PUniform(),
+        dispatch = (layout, params) => GProgram.StaticDispatch((params.inSize, 1, 1)),
+      ): (layout, uniform) =>
+        val invocId = GIO.invocationId
+        val element = GIO.read(layout.in, invocId)
+        GIO.write(layout.out, invocId, f(element))
+
+      val execution = GExecution
+        .build[Params, PLayout, PResult]
+        .addProgram(gProg)(mapLayout = layout => PLayout(in = layout.in, out = layout.out), mapParams = params => Params(inSize = params.inSize))
+        .compile(layout => PResult(layout.out))
+
+      val region = GBufferRegion
+        .allocate[PLayout]
+        .map: region =>
+          execution.execute(region, params)
+
+      // these are allocated once, reused for many chunks
+      val inBuf = BufferUtils.createByteBuffer(params.inSize * inTypeSize)
+      val outBuf = BufferUtils.createByteBuffer(params.inSize * outTypeSize)
+
+      stream
+        .chunkMin(params.inSize)
+        .flatMap: chunk =>
+          inBuf.put(chunk)
+          region.runUnsafe(init = PLayout(in = GBuffer[C1](inBuf), out = GBuffer[C2](outBuf)), onDone = layout => layout.out.readTo(outBuf))
+          Stream.emits(outBuf.get(new Array[S2](params.inSize)))
+
+  def gPipeF[F[_], C1 <: Value: FromExpr: Tag, C2 <: Value: FromExpr: Tag, S1: ClassTag, S2: ClassTag](
+    f: C1 => C2,
+  )(using GContext, Bridge[C1, S1], Bridge[C2, S2]): Pipe[F, S1, S2] =
+    (stream: Stream[F, S1]) =>
+      case class Params(inSize: Int)
+      case class PUniform() extends GStruct[PUniform]
+      case class PLayout(in: GBuffer[C1], out: GBuffer[C2]) extends Layout
+      case class PResult(out: GBuffer[C2]) extends Layout
+
+      val params = Params(inSize = 256)
+      val inTypeSize = typeStride(Tag.apply[C1])
+      val outTypeSize = typeStride(Tag.apply[C2])
+
+      val gProg = GProgram[Params, PUniform, PLayout](
+        layout = params => PLayout(in = GBuffer[C1](params.inSize), out = GBuffer[C2](params.inSize)),
+        uniform = params => PUniform(),
+        dispatch = (layout, params) => GProgram.StaticDispatch((params.inSize, 1, 1)),
+      ): (layout, uniform) =>
+        val invocId = GIO.invocationId
+        val element = GIO.read(layout.in, invocId)
+        GIO.write(layout.out, invocId, f(element))
+
+      val execution = GExecution
+        .build[Params, PLayout, PResult]
+        .addProgram(gProg)(mapLayout = layout => PLayout(in = layout.in, out = layout.out), mapParams = params => Params(inSize = params.inSize))
+        .compile(layout => PResult(layout.out))
+
+      val region = GBufferRegion
+        .allocate[PLayout]
+        .map: region =>
+          execution.execute(region, params)
+
+      // these are allocated once, reused for many chunks
+      val inBuf = BufferUtils.createByteBuffer(params.inSize * inTypeSize)
+      val outBuf = BufferUtils.createByteBuffer(params.inSize * outTypeSize)
+
+      stream
+        .chunkMin(params.inSize)
+        .flatMap: chunk =>
+          inBuf.put(chunk)
+          region.runUnsafe(init = PLayout(in = GBuffer[C1](inBuf), out = GBuffer[C2](outBuf)), onDone = layout => layout.out.readTo(outBuf))
+          Stream.emits(outBuf.get(new Array[S2](params.inSize)))
+
   // legacy stuff working with GFunction
   extension (stream: Stream[Pure, Float])
     def gPipeFloat(fn: Float32 => Float32)(using GContext): Stream[Pure, Float] =
@@ -136,78 +221,39 @@ object Fs2:
           val res = gmem.map(gf).asInstanceOf[Vec4FloatMem].toArray
           Stream.emits(res)
 
+  // needed in tests
+  extension (f: fRGBA)
+    def neg = (-f._1, -f._2, -f._3, -f._4)
+    def scl(s: Float) = (f._1 * s, f._2 * s, f._3 * s, f._4 * s)
+    def add(g: fRGBA) = (f._1 + g._1, f._2 + g._2, f._3 + g._3, f._4 + g._4)
+    def close(g: fRGBA)(eps: Float): Boolean =
+      Math.abs(f._1 - g._1) < eps && Math.abs(f._2 - g._2) < eps && Math.abs(f._3 - g._3) < eps && Math.abs(f._4 - g._4) < eps
+
 class Fs2E2eTest extends munit.FunSuite:
   import Fs2.*
   given gc: GContext = GContext()
 
-  test("testing stuff"):
-    // We need 7 things: params, layout, uniform, result, program, execution, region
-    case class Params(inSize: Int)
-    case class PLayout(in: GBuffer[Int32], out: GBuffer[Int32]) extends Layout
-    case class PUniform(factor: Int32 = 0) extends GStruct[PUniform]
-    case class PResult(out: GBuffer[Int32]) extends Layout
-
-    val params = Params(inSize = 1024)
-
-    val prog = GProgram[Params, PUniform, PLayout](
-      layout = params => PLayout(in = GBuffer[Int32](params.inSize), out = GBuffer[Int32](params.inSize)),
-      uniform = params => PUniform(),
-      dispatch = (layout, params) => GProgram.StaticDispatch((params.inSize, 1, 1)),
-    ): (layout, uniform) =>
-      val invocId = GIO.invocationId
-      val element = GIO.read(layout.in, invocId)
-      GIO.write(layout.out, invocId, element)
-
-    val execution = GExecution
-      .build[Params, PLayout, PResult]
-      .addProgram(prog)(mapLayout = layout => PLayout(in = layout.in, out = layout.out), mapParams = params => Params(inSize = params.inSize))
-      .compile(layout => PResult(layout.out))
-
-    val region = GBufferRegion
-      .allocate[PLayout]
-      .map: region =>
-        execution.execute(region, params)
-
-    // file has 256 * 4096 random bytes, interpreted as 256 * 1024 random Ints
-    val arrCount = 256 // 256 arrays
-    val arrSize = 1024 // 1024 Ints each
-    val batchSize = 16 // 16 arrays at a time
-    val intSize = 4
-    val chunkSizeMax = arrSize * batchSize
-    val sizeInBytesMax = chunkSizeMax * intSize
-
-    val file = nioPath.of("src/test/resources/bytes")
-    val bytes = nioFiles.readAllBytes(file)
-    val buf = ByteBuffer.wrap(bytes).asIntBuffer()
-    val bigArr = new Array[Int](arrCount * arrSize)
-    buf.get(bigArr)
-
-    // to feed into fs2
-    val arrays = bigArr.grouped(arrSize).toSeq // 256 arrays
-    val stream = Stream.emits(arrays) // a stream of 256 Array[Int]s
-
-    // fs2 land -> cyfra -> back to fs2 land
-    val inBuf = BufferUtils.createByteBuffer(sizeInBytesMax)
-    val outBuf = BufferUtils.createByteBuffer(sizeInBytesMax)
-
-    val res = stream
-      .chunkN(batchSize)
-      .map: chunk =>
-        val intArr = chunk.toArray.flatten // 16 arrays, 16 * 1024 Ints
-        inBuf.asIntBuffer().put(intArr).flip()
-
-        region.runUnsafe(init = PLayout(in = GBuffer[Int32](inBuf), out = GBuffer[Int32](outBuf)), onDone = layout => layout.out.readTo(outBuf))
-
-        val resArr = new Array[Int](chunkSizeMax)
-        outBuf.asIntBuffer().get(resArr).flip()
-        resArr
-
-    val result = res.compile.toList.flatten
-    val expected = arrays.flatten
+  test("fs2 through gPipe"):
+    val in = (0 to 255).toSeq
+    val stream = Stream.emits(in)
+    val pipe = gPipe[Int32, Int](_ + 1)
+    val result = stream.through(pipe).compile.toList
+    val expected = in.map(_ + 1)
     result
       .zip(expected)
       .foreach: (res, exp) =>
-        assert(res == exp, s"expected $exp, got $res")
+        assert(res == exp, s"Expected $exp, got $res")
+
+  test("fs2 through gPipe2"):
+    val in = (0 to 255).map(_.toFloat).toSeq
+    val stream = Stream.emits(in)
+    val pipe = gPipe2[Float32, Vec4[Float32], Float, fRGBA](f => (f, f + 1f, f + 2f, f + 3f))
+    val result = stream.through(pipe).compile.toList
+    val expected = in.map(f => (f, f + 1f, f + 2f, f + 3f))
+    result
+      .zip(expected)
+      .foreach: (res, exp) =>
+        assert(res == exp, s"Expected $exp, got $res")
 
   // legacy tests
   test("fs2 Float stream"):
@@ -243,13 +289,6 @@ class Fs2E2eTest extends munit.FunSuite:
       .toSeq
     val inStream = Stream.emits(inSeq)
     val outStream = inStream.gPipeVec4(vec => (-vec).*(k).+(v)).toList
-
-    extension (f: fRGBA)
-      def neg = (-f._1, -f._2, -f._3, -f._4)
-      def scl(s: Float) = (f._1 * s, f._2 * s, f._3 * s, f._4 * s)
-      def add(g: fRGBA) = (f._1 + g._1, f._2 + g._2, f._3 + g._3, f._4 + g._4)
-      def close(g: fRGBA)(eps: Float): Boolean =
-        Math.abs(f._1 - g._1) < eps && Math.abs(f._2 - g._2) < eps && Math.abs(f._3 - g._3) < eps && Math.abs(f._4 - g._4) < eps
 
     val expected = inStream.map(vec => vec.neg.scl(k).add(f)).toList
 
