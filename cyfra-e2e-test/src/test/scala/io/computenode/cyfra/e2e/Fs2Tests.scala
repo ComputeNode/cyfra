@@ -105,6 +105,10 @@ object Fs2:
           region.runUnsafe(init = PLayout(in = GBuffer[C1](inBuf), out = GBuffer[C2](outBuf)), onDone = layout => layout.out.readTo(outBuf))
           Stream.emits(outBuf.get[C2, S2](new Array[S2](params.inSize)))
 
+  // Syntax sugar for convenient single type version
+  def gPipe[F[_], C <: Value: FromExpr: Tag, S: ClassTag](f: C => C)(using GContext, Bridge[C, S]): Pipe[F, S, S] =
+    gPipe[F, C, C, S, S](f)
+
   // legacy stuff working with GFunction
   extension (stream: Stream[Pure, Float])
     def gPipeFloat(fn: Float32 => Float32)(using GContext): Stream[Pure, Float] =
@@ -148,9 +152,9 @@ class Fs2E2eTest extends munit.FunSuite:
   given gc: GContext = GContext()
 
   test("fs2 through gPipe, just ints"):
-    val in = (0 to 255).toSeq
+    val in = (0 until 256).toSeq
     val stream = Stream.emits(in)
-    val pipe = gPipe[Pure, Int32, Int32, Int, Int](_ + 1)
+    val pipe = gPipe[Pure, Int32, Int](_ + 1)
     val result = stream.through(pipe).compile.toList
     val expected = in.map(_ + 1)
     result
