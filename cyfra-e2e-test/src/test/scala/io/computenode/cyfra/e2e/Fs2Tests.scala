@@ -26,7 +26,7 @@ object Fs2:
       inBuf.asIntBuffer().put(chunk.toArray[Int]).flip()
       inBuf
     def fromByteBuffer(outBuf: ByteBuffer, arr: Array[Int]): Array[Int] =
-      outBuf.asIntBuffer().get(arr).flip
+      outBuf.asIntBuffer().get(arr).flip()
       arr
 
   given Bridge[Float32, Float]:
@@ -40,7 +40,6 @@ object Fs2:
   given Bridge[Vec4[Float32], fRGBA]:
     def toByteBuffer(inBuf: ByteBuffer, chunk: Chunk[fRGBA]): ByteBuffer =
       val vecs = chunk.toArray[fRGBA]
-      val size = vecs.length
       vecs.foreach:
         case (x, y, z, a) =>
           inBuf.putFloat(x)
@@ -56,15 +55,9 @@ object Fs2:
       outBuf.flip()
       arr
 
-  extension (buf: ByteBuffer)
-    def put[C <: Value: FromExpr: Tag, S: ClassTag](chunk: Chunk[S])(using bridge: Bridge[C, S]): ByteBuffer =
-      bridge.toByteBuffer(buf, chunk)
-    def get[C <: Value: FromExpr: Tag, S: ClassTag](arr: Array[S])(using bridge: Bridge[C, S]): Array[S] =
-      bridge.fromByteBuffer(buf, arr)
-
   def gPipe[F[_], C1 <: Value: FromExpr: Tag, C2 <: Value: FromExpr: Tag, S1: ClassTag, S2: ClassTag](
     f: C1 => C2,
-  )(using GContext, Bridge[C1, S1], Bridge[C2, S2]): Pipe[F, S1, S2] =
+  )(using gc: GContext, b1: Bridge[C1, S1], b2: Bridge[C2, S2]): Pipe[F, S1, S2] =
     (stream: Stream[F, S1]) =>
       case class Params(inSize: Int)
       case class PUniform() extends GStruct[PUniform]
@@ -101,9 +94,9 @@ object Fs2:
       stream
         .chunkMin(params.inSize)
         .flatMap: chunk =>
-          inBuf.put[C1, S1](chunk)
+          b1.toByteBuffer(inBuf, chunk)
           region.runUnsafe(init = PLayout(in = GBuffer[C1](inBuf), out = GBuffer[C2](outBuf)), onDone = layout => layout.out.readTo(outBuf))
-          Stream.emits(outBuf.get[C2, S2](new Array[S2](params.inSize)))
+          Stream.emits(b2.fromByteBuffer(outBuf, new Array[S2](params.inSize)))
 
   // Syntax sugar for convenient single type version
   def gPipe[F[_], C <: Value: FromExpr: Tag, S: ClassTag](f: C => C)(using GContext, Bridge[C, S]): Pipe[F, S, S] =
