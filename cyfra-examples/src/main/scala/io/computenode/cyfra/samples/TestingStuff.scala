@@ -1,10 +1,11 @@
 package io.computenode.cyfra.samples
 
 import io.computenode.cyfra.core.aalegacy.GContext
+import io.computenode.cyfra.core.binding.ParamUniform
 import io.computenode.cyfra.core.{GBufferRegion, GExecution, GProgram}
 import io.computenode.cyfra.core.layout.*
 import io.computenode.cyfra.dsl.Value.{GBoolean, Int32}
-import io.computenode.cyfra.dsl.buffer.GBuffer
+import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
 import io.computenode.cyfra.dsl.gio.GIO
 import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.dsl.{*, given}
@@ -26,11 +27,10 @@ object TestingStuff:
   // VVVV (inSize = 4, emitN = 3)
   // 1 1 1 2 2 2 3 3 3 4 4 4
 
-  val emitProgram = GProgram[EmitProgramParams, EmitProgramUniform, EmitProgramLayout](
+  val emitProgram = GProgram[EmitProgramParams, EmitProgramLayout](
     layout = params => EmitProgramLayout(in = GBuffer[Int32](params.inSize), out = GBuffer[Int32](params.inSize * params.emitN)),
-    uniform = params => EmitProgramUniform(params.emitN),
     dispatch = (layout, args) => GProgram.StaticDispatch((args.inSize, 1, 1)),
-  ): (layout, args) =>
+  ): (layout) =>
     val invocId = GIO.invocationId
     val element = GIO.read(layout.in, invocId)
     val bufferOffset = invocId * args.emitN
@@ -40,18 +40,25 @@ object TestingStuff:
   // === Filter program ===
   case class FilterProgramParams(inSize: Int, filterValue: Int)
 
-  case class FilterProgramLayout(in: GBuffer[Int32], out: GBuffer[GBoolean]) extends Layout
-
   case class FilterProgramUniform(filterValue: Int32) extends GStruct[FilterProgramUniform]
 
-  val filterProgram = GProgram[FilterProgramParams, FilterProgramUniform, FilterProgramLayout](
-    layout = params => FilterProgramLayout(in = GBuffer[Int32](params.inSize), out = GBuffer[GBoolean](params.inSize)),
-    uniform = params => FilterProgramUniform(params.filterValue),
+  case class FilterProgramLayout(
+    in: GBuffer[Int32], 
+    out: GBuffer[GBoolean], 
+    params: GUniform[FilterProgramUniform]
+  ) extends Layout
+
+  val filterProgram = GProgram[FilterProgramParams, FilterProgramLayout](
+    layout = params => FilterProgramLayout(
+      in = GBuffer[Int32](params.inSize), 
+      out = GBuffer[GBoolean](params.inSize),
+      params = ParamUniform(FilterProgramUniform(params.filterValue))
+    ),
     dispatch = (layout, args) => GProgram.StaticDispatch((args.inSize, 1, 1)),
-  ): (layout, args) =>
+  ): layout =>
     val invocId = GIO.invocationId
     val element = GIO.read(layout.in, invocId)
-    val isMatch = element === args.filterValue
+    val isMatch = element === layout.params.filterValue
     GIO.write(layout.out, invocId, isMatch)
 
   // === GExecution ===
@@ -73,7 +80,7 @@ object TestingStuff:
       mapParams = params => FilterProgramParams(inSize = params.inSize * params.emitN, filterValue = params.filterValue),
     )
     .compile(layout => EmitFilterResult(layout.filterBuffer))
-
+  
   @main
   def test =
 

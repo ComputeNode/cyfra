@@ -1,7 +1,7 @@
 package io.computenode.cyfra.core
 
 import io.computenode.cyfra.dsl.Value
-import io.computenode.cyfra.dsl.buffer.GBuffer
+import io.computenode.cyfra.dsl.binding.GBuffer
 
 import java.nio.ByteBuffer
 

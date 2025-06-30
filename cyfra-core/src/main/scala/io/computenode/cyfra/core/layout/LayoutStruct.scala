@@ -1,8 +1,8 @@
 package io.computenode.cyfra.core.layout
 
-import io.computenode.cyfra.core.buffer.BufferRef
+import io.computenode.cyfra.core.binding.BufferRef
 import io.computenode.cyfra.dsl.Value
-import io.computenode.cyfra.dsl.buffer.GBuffer
+import io.computenode.cyfra.dsl.binding.GBuffer
 import izumi.reflect.Tag
 import izumi.reflect.macrortti.LightTypeTag
 
