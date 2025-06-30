@@ -6,18 +6,16 @@ import io.computenode.cyfra.dsl.macros.Source.{actualOwner, findOwner}
 import izumi.reflect.macrortti.LightTypeTag
 import scala.quoted.*
 
-
 case class FnCall(shortName: String, fullName: String, params: List[Value]):
   def identifier: FnIdentifier = FnIdentifier(shortName, fullName, params.map(_.tree.tag.tag))
 
 object FnCall:
 
-  inline implicit def generate: FnCall = ${ fnCallImpl }
+  implicit inline def generate: FnCall = ${ fnCallImpl }
 
-  def fnCallImpl(using Quotes): Expr[FnCall] = {
+  def fnCallImpl(using Quotes): Expr[FnCall] =
     import quotes.reflect.*
     resolveFnCall
-  }
 
   case class FnIdentifier(shortName: String, fullName: String, args: List[LightTypeTag])
 
@@ -31,22 +29,21 @@ object FnCall:
         val name = Util.getName(ownerDef)
         val ddOwner = actualOwner(ownerDef)
         val ownerName = ddOwner.map(d => d.fullName).getOrElse("unknown")
-        ownerDef.tree match {
+        ownerDef.tree match
           case dd: DefDef if isPure(dd) =>
-            val paramTerms: List[Term] = for {
+            val paramTerms: List[Term] = for
               paramGroup <- dd.paramss
               param <- paramGroup.params
-            } yield Ref(param.symbol)
+            yield Ref(param.symbol)
             val paramExprs: List[Expr[Value]] = paramTerms.map(_.asExpr.asInstanceOf[Expr[Value]])
             val paramList = Expr.ofList(paramExprs)
             '{ FnCall(${ Expr(name) }, ${ Expr(ownerName) }, ${ paramList }) }
           case _ =>
-            quotes.reflect.report.errorAndAbort(s"Expected pure function. Found: ${ownerDef}")
-        }
+            quotes.reflect.report.errorAndAbort(s"Expected pure function. Found: $ownerDef")
       case None => quotes.reflect.report.errorAndAbort(s"Expected pure function")
 
   def isPure(using Quotes)(defdef: quotes.reflect.DefDef): Boolean =
-    import quotes.reflect._
+    import quotes.reflect.*
     val returnType = defdef.returnTpt.tpe
     val paramSets = defdef.termParamss
     if paramSets.length > 1 then return false
