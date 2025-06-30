@@ -10,15 +10,6 @@ import io.computenode.cyfra.spirv.compilers.ExpressionCompiler.UniformStructRef
 import izumi.reflect.Tag
 import GExecution.*
 
-case class GExecution[Params, L <: Layout, RL <: Layout](
-  layoutStruct: LayoutStruct[L],
-  boundPrograms: Seq[BoundProgram[Params, ?, ?, ?]],
-  toResult: L => RL,
-):
-  def execute(layout: L, params: Params)(using Allocation): RL =
-    println("Executing GExecution...")
-    toResult(layout)
-
 trait GExecution[-Params, -L <: Layout, +RL <: Layout]:
   def execute(layout: L, params: Params)(using Allocation): RL =
     println("Executing GExecution...")
@@ -36,10 +27,9 @@ trait GExecution[-Params, -L <: Layout, +RL <: Layout]:
   def contramapParams[NP](f: NP => Params): GExecution[NP, L, RL] =
     Map(this, identity, identity, f)
 
-  def addProgram[ProgramParams, PP <: Params, ProgramLayout <: Layout, PL <: L, P <: GProgram[
-    ProgramParams,
-    ProgramLayout,
-  ]](program: P)(mapParams: PP => ProgramParams, mapLayout: PL => ProgramLayout):  GExecution[PP, PL, ProgramLayout] =
+  def addProgram[ProgramParams, PP <: Params, ProgramLayout <: Layout, PL <: L, P <: GProgram[ProgramParams, ProgramLayout]](
+    program: P,
+  )(mapParams: PP => ProgramParams, mapLayout: PL => ProgramLayout): GExecution[PP, PL, ProgramLayout] =
     val adapted = program.contramapParams(mapParams).contramapLayout(mapLayout)
     flatMap(_ => adapted)
 
@@ -47,13 +37,12 @@ object GExecution:
 
   def forParams[Params, L <: Layout, LR <: Layout, NP](fn: Params => GExecution[NP, L, LR]): GExecution[Params & NP, L, LR] =
     ???
-  
+
   private case class FlatMap[Params, L <: Layout, RL <: Layout, NRL <: Layout](
     execution: GExecution[Params, L, RL],
     f: RL => GExecution[Params, L, NRL],
   ) extends GExecution[Params, L, NRL]
-      
-  
+
   private case class Map[P, NP, L <: Layout, NL <: Layout, RL <: Layout, NRL <: Layout](
     execution: GExecution[P, L, RL],
     mapResult: RL => NRL,
@@ -61,17 +50,13 @@ object GExecution:
     contramapParams: NP => P,
   ) extends GExecution[NP, NL, NRL]:
 
-    override def mapResult[NNRL <: Layout](f: NRL => NNRL): GExecution[NP, NL, NNRL] = 
+    override def mapResult[NNRL <: Layout](f: NRL => NNRL): GExecution[NP, NL, NNRL] =
       Map(execution, mapResult andThen f, contramapLayout, contramapParams)
-    
-    override def contramapParams[NNP](f: NNP => NP): GExecution[NNP, NL, NRL] = 
+
+    override def contramapParams[NNP](f: NNP => NP): GExecution[NNP, NL, NRL] =
       Map(execution, mapResult, contramapLayout, f andThen contramapParams)
-      
+
     override def contramapLayout[NNL <: Layout](f: NNL => NL): GExecution[NP, NNL, NRL] =
       Map(execution, mapResult, f andThen contramapLayout, contramapParams)
 
-  case class BoundProgram[LParams, Params, L <: Layout](
-    layout: L,
-    paramsMapping: LParams => Params,
-    program: GProgram[Params, L],
-  )
+  case class BoundProgram[LParams, Params, L <: Layout](layout: L, paramsMapping: LParams => Params, program: GProgram[Params, L])
