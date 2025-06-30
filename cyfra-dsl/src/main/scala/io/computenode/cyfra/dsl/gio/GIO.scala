@@ -3,7 +3,7 @@ package io.computenode.cyfra.dsl.gio
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.dsl.Value.{FromExpr, Int32}
 import io.computenode.cyfra.dsl.Value.FromExpr.fromExpr
-import io.computenode.cyfra.dsl.buffer.{GBuffer, Read, Write}
+import io.computenode.cyfra.dsl.binding.{GBuffer, ReadBuffer, WriteBuffer}
 import io.computenode.cyfra.dsl.collections.GSeq
 import io.computenode.cyfra.dsl.gio.GIO.*
 import izumi.reflect.Tag
@@ -36,10 +36,10 @@ object GIO:
     Repeat(n, f)
 
   def write[T <: Value](buffer: GBuffer[T], index: Int32, value: T): GIO[Unit] =
-    Write(buffer, index, value)
+    WriteBuffer(buffer, index, value)
 
   def read[T <: Value: FromExpr: Tag](buffer: GBuffer[T], index: Int32): T =
-    fromExpr(Read(buffer, index))
+    fromExpr(ReadBuffer(buffer, index))
 
   def invocationId: Int32 =
     fromExpr(InvocationId)

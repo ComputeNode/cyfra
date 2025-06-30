@@ -7,18 +7,17 @@ import io.computenode.cyfra.core.layout.Layout
 import java.nio.ByteBuffer
 import GProgram.*
 import io.computenode.cyfra.dsl.Value
-import io.computenode.cyfra.dsl.buffer.GBuffer
+import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
 import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.dsl.struct.GStruct.Empty
 import izumi.reflect.Tag
 
-class GProgram[Params, Uniform <: GStruct[Uniform], L <: Layout: LayoutStruct] private (
-  val body: (L, Uniform) => GIO[?],
+class GProgram[Params, L <: Layout: LayoutStruct] private (
+  val body: L => GIO[?],
   val layout: InitProgramLayout => Params => L,
-  val uniform: Params => Uniform,
   val dispatch: (L, Params) => ProgramDispatch,
   val workgroupSize: WorkDimensions,
-):
+) extends GExecution[Params, L, L]:
   private[cyfra] def layoutStruct: LayoutStruct[L] = summon[LayoutStruct[L]]
 
 object GProgram:
@@ -32,16 +31,26 @@ object GProgram:
   case class StaticDispatch(size: WorkDimensions) extends ProgramDispatch
 
   private[cyfra] case class BufferSizeSpec[T <: Value](size: Int) extends GBuffer[T]
+  
+  private[cyfra] case class ParamUniform[T <: GStruct[T]: Tag](value: T) extends GUniform[T]
+  
+  private[cyfra] case class DynamicUniform[T <: GStruct[T]: Tag]() extends GUniform[T]
 
   trait InitProgramLayout:
     extension (buffers: GBuffer.type)
       def apply[T <: Value](size: Int): GBuffer[T] =
         BufferSizeSpec[T](size)
 
-  def apply[Params, Uniform <: GStruct[Uniform], L <: Layout: LayoutStruct](
+    extension (uniforms: GUniform.type)
+      def apply[T <: GStruct[T]: Tag](value: T): GUniform[T] =
+        ParamUniform[T](value)
+        
+      def apply[T <: GStruct[T]: Tag](): GUniform[T] =
+        DynamicUniform[T]()
+  
+  def apply[Params, L <: Layout: LayoutStruct](
     layout: InitProgramLayout ?=> Params => L,
-    uniform: Params => Uniform,
     dispatch: (L, Params) => ProgramDispatch,
     workgroupSize: WorkDimensions = (128, 1, 1),
-  )(body: (L, Uniform) => GIO[?]): GProgram[Params, Uniform, L] =
-    new GProgram(body, s => layout(using s), uniform, dispatch, workgroupSize)
+  )(body: L => GIO[?]): GProgram[Params, L] =
+    new GProgram(body, s => layout(using s), dispatch, workgroupSize)
