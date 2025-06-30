@@ -7,6 +7,7 @@ import io.computenode.cyfra.core.layout.Layout
 import java.nio.ByteBuffer
 import GProgram.*
 import io.computenode.cyfra.dsl.Value
+import io.computenode.cyfra.dsl.Value.FromExpr
 import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
 import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.dsl.struct.GStruct.Empty
@@ -30,22 +31,22 @@ object GProgram:
 
   case class StaticDispatch(size: WorkDimensions) extends ProgramDispatch
 
-  private[cyfra] case class BufferSizeSpec[T <: Value](size: Int) extends GBuffer[T]
+  private[cyfra] case class BufferSizeSpec[T <: Value: Tag: FromExpr](size: Int) extends GBuffer[T]
   
-  private[cyfra] case class ParamUniform[T <: GStruct[T]: Tag](value: T) extends GUniform[T]
+  private[cyfra] case class ParamUniform[T <: GStruct[T]: Tag: FromExpr](value: T) extends GUniform[T]
   
-  private[cyfra] case class DynamicUniform[T <: GStruct[T]: Tag]() extends GUniform[T]
+  private[cyfra] case class DynamicUniform[T <: GStruct[T]: Tag: FromExpr]() extends GUniform[T]
 
   trait InitProgramLayout:
     extension (buffers: GBuffer.type)
-      def apply[T <: Value](size: Int): GBuffer[T] =
+      def apply[T <: Value: Tag: FromExpr](size: Int): GBuffer[T] =
         BufferSizeSpec[T](size)
 
     extension (uniforms: GUniform.type)
-      def apply[T <: GStruct[T]: Tag](value: T): GUniform[T] =
+      def apply[T <: GStruct[T]: Tag: FromExpr](value: T): GUniform[T] =
         ParamUniform[T](value)
         
-      def apply[T <: GStruct[T]: Tag](): GUniform[T] =
+      def apply[T <: GStruct[T]: Tag: FromExpr](): GUniform[T] =
         DynamicUniform[T]()
   
   def apply[Params, L <: Layout: LayoutStruct](
