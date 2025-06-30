@@ -5,7 +5,6 @@ sealed trait WindowEvent {
   def windowId: WindowId
 }
 
-
 // Window lifecycle events
 object WindowEvent {
   case class Created(windowId: WindowId) extends WindowEvent
@@ -20,7 +19,6 @@ object WindowEvent {
   case class Restored(windowId: WindowId) extends WindowEvent
 }
 
-
 // Input events
 sealed trait InputEvent extends WindowEvent
 
@@ -29,7 +27,7 @@ object InputEvent {
   case class KeyReleased(windowId: WindowId, key: Key, modifiers: KeyModifiers) extends InputEvent
   case class KeyRepeated(windowId: WindowId, key: Key, modifiers: KeyModifiers) extends InputEvent
   case class CharacterInput(windowId: WindowId, codepoint: Int) extends InputEvent
-  
+
   case class MousePressed(windowId: WindowId, button: MouseButton, x: Double, y: Double, modifiers: KeyModifiers) extends InputEvent
   case class MouseReleased(windowId: WindowId, button: MouseButton, x: Double, y: Double, modifiers: KeyModifiers) extends InputEvent
   case class MouseMoved(windowId: WindowId, x: Double, y: Double) extends InputEvent
@@ -41,9 +39,4 @@ object InputEvent {
 case class Key(code: Int)
 case class MouseButton(code: Int)
 
-case class KeyModifiers(
-  shift: Boolean = false,
-  ctrl: Boolean = false,
-  alt: Boolean = false,
-  `super`: Boolean = false
-)
+case class KeyModifiers(shift: Boolean = false, ctrl: Boolean = false, alt: Boolean = false, `super`: Boolean = false)

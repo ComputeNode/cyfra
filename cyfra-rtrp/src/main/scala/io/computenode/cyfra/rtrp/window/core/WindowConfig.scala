@@ -9,7 +9,7 @@ case class WindowConfig(
   fullscreen: Boolean = false,
   vsync: Boolean = true,
   samples: Int = 1, // MSAA samples
-  position: Option[WindowPosition] = None
+  position: Option[WindowPosition] = None,
 )
 
 sealed trait WindowPosition
@@ -19,12 +19,4 @@ object WindowPosition {
   case object Default extends WindowPosition
 }
 
-case class WindowProperties(
-  width: Int,
-  height: Int,
-  title: String,
-  visible: Boolean,
-  focused: Boolean,
-  minimized: Boolean,
-  maximized: Boolean
-)
+case class WindowProperties(width: Int, height: Int, title: String, visible: Boolean, focused: Boolean, minimized: Boolean, maximized: Boolean)
