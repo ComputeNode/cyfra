@@ -52,12 +52,11 @@ lazy val commonSettings = Seq(
     "com.lihaoyi" %% "sourcecode" % "0.4.3-M5",
     "org.slf4j" % "slf4j-api" % "2.0.17",
     "org.apache.logging.log4j" % "log4j-slf4j2-impl" % "2.24.3" % Test,
-    "co.fs2" %% "fs2-core" % "3.12.0",
-    "co.fs2" %% "fs2-io" % "3.12.0",
   ) ++ vulkanNatives,
 )
 
 lazy val runnerSettings = Seq(libraryDependencies += "org.apache.logging.log4j" % "log4j-slf4j2-impl" % "2.24.3")
+lazy val fs2Settings = Seq(libraryDependencies ++= Seq("co.fs2" %% "fs2-core" % "3.12.0", "co.fs2" %% "fs2-io" % "3.12.0"))
 
 lazy val utility = (project in file("cyfra-utility"))
   .settings(commonSettings)
@@ -98,9 +97,13 @@ lazy val vscode = (project in file("cyfra-vscode"))
   .settings(commonSettings)
   .dependsOn(foton)
 
-lazy val e2eTest = (project in file("cyfra-e2e-test"))
-  .settings(commonSettings, runnerSettings)
+lazy val fs2interop = (project in file("cyfra-fs2"))
+  .settings(commonSettings, fs2Settings)
   .dependsOn(runtime)
+
+lazy val e2eTest = (project in file("cyfra-e2e-test"))
+  .settings(commonSettings, runnerSettings, fs2Settings)
+  .dependsOn(runtime, fs2interop)
 
 lazy val root = (project in file("."))
   .settings(name := "Cyfra")
