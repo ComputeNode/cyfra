@@ -1,12 +1,11 @@
-package io.computenode.cyfra.window.core
+package io.computenode.cyfra.rtrp.window.core
 
 // Base trait for all window events
-sealed trait WindowEvent {
+sealed trait WindowEvent:
   def windowId: WindowId
-}
 
 // Window lifecycle events
-object WindowEvent {
+object WindowEvent:
   case class Created(windowId: WindowId) extends WindowEvent
   case class Destroyed(windowId: WindowId) extends WindowEvent
   case class CloseRequested(windowId: WindowId) extends WindowEvent
@@ -17,12 +16,11 @@ object WindowEvent {
   case class Minimized(windowId: WindowId) extends WindowEvent
   case class Maximized(windowId: WindowId) extends WindowEvent
   case class Restored(windowId: WindowId) extends WindowEvent
-}
 
 // Input events
 sealed trait InputEvent extends WindowEvent
 
-object InputEvent {
+object InputEvent:
   case class KeyPressed(windowId: WindowId, key: Key, modifiers: KeyModifiers) extends InputEvent
   case class KeyReleased(windowId: WindowId, key: Key, modifiers: KeyModifiers) extends InputEvent
   case class KeyRepeated(windowId: WindowId, key: Key, modifiers: KeyModifiers) extends InputEvent
@@ -34,7 +32,6 @@ object InputEvent {
   case class MouseScrolled(windowId: WindowId, xOffset: Double, yOffset: Double) extends InputEvent
   case class MouseEntered(windowId: WindowId) extends InputEvent
   case class MouseExited(windowId: WindowId) extends InputEvent
-}
 
 case class Key(code: Int)
 case class MouseButton(code: Int)

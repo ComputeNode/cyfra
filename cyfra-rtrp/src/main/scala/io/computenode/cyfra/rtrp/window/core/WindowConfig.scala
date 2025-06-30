@@ -1,4 +1,4 @@
-package io.computenode.cyfra.window.core
+package io.computenode.cyfra.rtrp.window.core
 
 case class WindowConfig(
   width: Int = 800,
@@ -13,10 +13,9 @@ case class WindowConfig(
 )
 
 sealed trait WindowPosition
-object WindowPosition {
+object WindowPosition:
   case object Centered extends WindowPosition
   case class Fixed(x: Int, y: Int) extends WindowPosition
   case object Default extends WindowPosition
-}
 
 case class WindowProperties(width: Int, height: Int, title: String, visible: Boolean, focused: Boolean, minimized: Boolean, maximized: Boolean)

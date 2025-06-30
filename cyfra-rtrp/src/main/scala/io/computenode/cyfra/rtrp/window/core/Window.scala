@@ -1,4 +1,4 @@
-package io.computenode.cyfra.window.core
+package io.computenode.cyfra.rtrp.window.core
 
 import scala.util.Try
 
@@ -6,7 +6,7 @@ import scala.util.Try
 case class WindowId(value: Long) extends AnyVal
 
 // Platform-agnostic window interface
-trait Window {
+trait Window:
   def id: WindowId
   def properties: WindowProperties
   def nativeHandle: Long // Platform-specific handle
@@ -31,4 +31,3 @@ trait Window {
   def isFocused: Boolean
   def isMinimized: Boolean
   def isMaximized: Boolean
-}

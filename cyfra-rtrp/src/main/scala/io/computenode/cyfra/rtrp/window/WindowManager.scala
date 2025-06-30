@@ -1,55 +1,52 @@
 package io.computenode.cyfra.rtrp.window
 
-import io.computenode.cyfra.window.core.*
-import io.computenode.cyfra.window.platform.GLFWWindowSystem
-import scala.util.{Try, Success, Failure}
+import io.computenode.cyfra.rtrp.window.core.*
+import io.computenode.cyfra.rtrp.window.platform.GLFWWindowSystem
+import io.computenode.cyfra.rtrp.CyfraRtrpException
+import scala.util.*
 
-class WindowManager {
+class WindowManager:
   private var windowSystem: Option[WindowSystem] = None
   private var eventHandlers: Map[Class[? <: WindowEvent], WindowEvent => Unit] = Map.empty
 
-  def initialize(): Try[Unit] = {
-    if windowSystem.isDefined then return Failure(new IllegalStateException("WindowManager already initialized"))
+  def initialize(): Try[Unit] =
+    if windowSystem.isDefined then return Failure(WindowSystemInitializationException("WindowManager already initialized"))
 
     val glfwSystem = new GLFWWindowSystem()
-    glfwSystem.initialize().map { _ =>
-      windowSystem = Some(glfwSystem)
-    }
-  }
+    glfwSystem
+      .initialize()
+      .map: _ =>
+        windowSystem = Some(glfwSystem)
 
   def shutdown(): Try[Unit] =
-    windowSystem match {
+    windowSystem match
       case Some(system) =>
         val result = system.shutdown()
         windowSystem = None
         result
       case None =>
         Success(())
-    }
 
   def createWindow(): Try[Window] =
     createWindow(WindowConfig())
 
   def createWindow(config: WindowConfig): Try[Window] =
-    windowSystem match {
+    windowSystem match
       case Some(system) => system.createWindow(config)
-      case None         => Failure(new IllegalStateException("WindowManager not initialized"))
-    }
+      case None         => Failure(WindowSystemNotInitializedException("WindowManager not initialized"))
 
-  def createWindow(configure: WindowConfig => WindowConfig): Try[Window] = {
+  def createWindow(configure: WindowConfig => WindowConfig): Try[Window] =
     val config = configure(WindowConfig())
     createWindow(config)
-  }
 
   def pollAndDispatchEvents(): Try[Unit] =
-    windowSystem match {
+    windowSystem match
       case Some(system) =>
         system.pollEvents().map { events =>
           events.foreach(dispatchEvent)
         }
       case None =>
-        Failure(new IllegalStateException("WindowManager not initialized"))
-    }
+        Failure(WindowSystemNotInitializedException("WindowManager not initialized"))
 
   def onEvent[T <: WindowEvent](eventClass: Class[T])(handler: T => Unit): Unit =
     eventHandlers = eventHandlers + (eventClass -> handler.asInstanceOf[WindowEvent => Unit])
@@ -73,20 +70,16 @@ class WindowManager {
 
   private def dispatchEvent(event: WindowEvent): Unit =
     eventHandlers.get(event.getClass).foreach(_(event))
-}
 
-object WindowManager {
+object WindowManager:
 
-  def create(): Try[WindowManager] = {
+  def create(): Try[WindowManager] =
     val manager = new WindowManager()
     manager.initialize().map(_ => manager)
-  }
 
   def withManager[T](action: WindowManager => Try[T]): Try[T] =
-    create().flatMap { manager =>
+    create().flatMap: manager =>
       try
         action(manager)
       finally
         manager.shutdown()
-    }
-}
