@@ -42,9 +42,10 @@ class WindowManager:
   def pollAndDispatchEvents(): Try[Unit] =
     windowSystem match
       case Some(system) =>
-        system.pollEvents().map { events =>
-          events.foreach(dispatchEvent)
-        }
+        system
+          .pollEvents()
+          .map: events =>
+            events.foreach(dispatchEvent)
       case None =>
         Failure(WindowSystemNotInitializedException("WindowManager not initialized"))
 
