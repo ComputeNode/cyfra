@@ -1,9 +1,12 @@
 package io.computenode.cyfra.core
 
+import io.computenode.cyfra.core.Allocation.{FinalizeAlloc, InitAlloc}
 import io.computenode.cyfra.core.GProgram.BufferSizeSpec
 import io.computenode.cyfra.core.layout.{Layout, LayoutStruct}
 import io.computenode.cyfra.dsl.Value
+import io.computenode.cyfra.dsl.Value.FromExpr
 import io.computenode.cyfra.dsl.binding.GBuffer
+import izumi.reflect.Tag
 
 import java.nio.ByteBuffer
 
@@ -11,24 +14,7 @@ sealed trait GBufferRegion[ReqAlloc <: Layout: LayoutStruct, ResAlloc <: Layout:
   val initAlloc: ReqAlloc
 
 object GBufferRegion:
-
-  private[cyfra] case class ZeroedBuffer[T <: Value](size: Int) extends GBuffer[T]
-
-  private[cyfra] case class BufferFromRam[T <: Value](buff: ByteBuffer) extends GBuffer[T]
-
-  trait InitAlloc:
-    extension (buffers: GBuffer.type)
-      def apply[T <: Value](size: Int): GBuffer[T] =
-        ZeroedBuffer[T](size)
-
-      def apply[T <: Value](buff: ByteBuffer): GBuffer[T] =
-        BufferFromRam[T](buff)
-
-  trait FinalizeAlloc:
-    extension [T <: Value](buffer: GBuffer[T])
-      def readTo(bb: ByteBuffer): Unit =
-        ()
-
+  
   def allocate[Alloc <: Layout: LayoutStruct]: GBufferRegion[Alloc, Alloc] =
     AllocRegion(summon[LayoutStruct[Alloc]].layoutRef)
 
@@ -45,17 +31,18 @@ object GBufferRegion:
     def map[NewAlloc <: Layout: LayoutStruct](f: Allocation ?=> ResAlloc => NewAlloc): GBufferRegion[ReqAlloc, NewAlloc] =
       MapRegion(region, (alloc: Allocation) => (resAlloc: ResAlloc) => f(using alloc)(resAlloc))
 
-    def runUnsafe(init: InitAlloc ?=> ReqAlloc, onDone: FinalizeAlloc ?=> ResAlloc => Unit): Unit =
-      val initAlloc = new InitAlloc {}
+    def runUnsafe(init: InitAlloc ?=> ReqAlloc, onDone: FinalizeAlloc ?=> ResAlloc => Unit)(using cyfraRuntime: CyfraRuntime): Unit =
+      val allocation = cyfraRuntime.allocation()
+      val initAlloc = cyfraRuntime.initAlloc(allocation)
       init(using initAlloc)
-      val alloc = new Allocation {}
+      
       val steps: Seq[Allocation => Layout => Layout] = Seq.unfold(region: GBufferRegion[?, ?]):
         case _: AllocRegion[?] => None
         case MapRegion(req, f) =>
           Some((f.asInstanceOf[Allocation => Layout => Layout], req))
 
       val bodyAlloc = steps.foldLeft[Layout](region.initAlloc): (acc, step) =>
-        step(alloc)(acc)
+        step(allocation)(acc)
 
-      val finalizeAlloc = new FinalizeAlloc {}
+      val finalizeAlloc = cyfraRuntime.finalizeAlloc(allocation)
       onDone(using finalizeAlloc)(bodyAlloc.asInstanceOf[ResAlloc])

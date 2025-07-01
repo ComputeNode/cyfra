@@ -11,12 +11,9 @@ import izumi.reflect.Tag
 import GExecution.*
 
 trait GExecution[-Params, -L <: Layout, +RL <: Layout]:
-  def execute(layout: L, params: Params)(using Allocation): RL =
-    println("Executing GExecution...")
-    ???
 
   def flatMap[NRL <: Layout, NP <: Params, NL <: L](f: RL => GExecution[NP, NL, NRL]): GExecution[NP, NL, NRL] =
-    FlatMap(this, f)
+    FlatMap(this, (p, r) => f(r))
 
   def mapResult[NRL <: Layout](f: RL => NRL): GExecution[Params, L, NRL] =
     Map(this, f, identity, identity)
@@ -35,15 +32,25 @@ trait GExecution[-Params, -L <: Layout, +RL <: Layout]:
 
 object GExecution:
 
-  def forParams[Params, L <: Layout, LR <: Layout, NP](fn: Params => GExecution[NP, L, LR]): GExecution[Params & NP, L, LR] =
-    ???
-
-  private case class FlatMap[Params, L <: Layout, RL <: Layout, NRL <: Layout](
+  def apply[Params, L <: Layout]() =
+    Pure[Params, L, L]()
+    
+  def forParams[Params, L <: Layout, RL <: Layout](
+    f: Params => GExecution[Params, L, RL],
+  ): GExecution[Params, L, RL] =
+    FlatMap[Params, L, RL, RL](
+      Pure[Params, L, RL](),
+      (params: Params, _: RL) => f(params),
+    )
+    
+  case class Pure[Params, L <: Layout, RL <: Layout]() extends GExecution[Params, L, RL]
+    
+  case class FlatMap[Params, L <: Layout, RL <: Layout, NRL <: Layout](
     execution: GExecution[Params, L, RL],
-    f: RL => GExecution[Params, L, NRL],
+    f: (Params, RL) => GExecution[Params, L, NRL],
   ) extends GExecution[Params, L, NRL]
-
-  private case class Map[P, NP, L <: Layout, NL <: Layout, RL <: Layout, NRL <: Layout](
+  
+  case class Map[P, NP, L <: Layout, NL <: Layout, RL <: Layout, NRL <: Layout](
     execution: GExecution[P, L, RL],
     mapResult: RL => NRL,
     contramapLayout: NL => L,
@@ -58,5 +65,3 @@ object GExecution:
 
     override def contramapLayout[NNL <: Layout](f: NNL => NL): GExecution[NP, NNL, NRL] =
       Map(execution, mapResult, f andThen contramapLayout, contramapParams)
-
-  case class BoundProgram[LParams, Params, L <: Layout](layout: L, paramsMapping: LParams => Params, program: GProgram[Params, L])
