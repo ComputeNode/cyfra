@@ -2,8 +2,8 @@ package io.computenode.cyfra.fs2interop
 
 import io.computenode.cyfra.core.aalegacy.*, mem.*, GMem.fRGBA
 import io.computenode.cyfra.core.layout.Layout
-import io.computenode.cyfra.core.{GBufferRegion, GExecution, GProgram}
-import io.computenode.cyfra.dsl.{*, given}, gio.GIO, buffer.GBuffer
+import io.computenode.cyfra.core.{CyfraRuntime, GBufferRegion, GExecution, GProgram}
+import io.computenode.cyfra.dsl.{*, given}, gio.GIO, binding.GBuffer
 import io.computenode.cyfra.spirv.SpirvTypes.typeStride
 import struct.GStruct, GStruct.Empty, Empty.given
 
@@ -17,10 +17,9 @@ import scala.reflect.ClassTag
 object GPipe:
   def gPipeMap[F[_], C1 <: Value: FromExpr: Tag, C2 <: Value: FromExpr: Tag, S1: ClassTag, S2: ClassTag](
     f: C1 => C2,
-  )(using gc: GContext, bridge1: Bridge[C1, S1], bridge2: Bridge[C2, S2]): Pipe[F, S1, S2] =
+  )(using cr: CyfraRuntime, bridge1: Bridge[C1, S1], bridge2: Bridge[C2, S2]): Pipe[F, S1, S2] =
     (stream: Stream[F, S1]) =>
       case class Params(inSize: Int)
-      case class PUniform() extends GStruct[PUniform]
       case class PLayout(in: GBuffer[C1], out: GBuffer[C2]) extends Layout
       case class PResult(out: GBuffer[C2]) extends Layout
 
@@ -28,24 +27,24 @@ object GPipe:
       val inTypeSize = typeStride(Tag.apply[C1])
       val outTypeSize = typeStride(Tag.apply[C2])
 
-      val gProg = GProgram[Params, PUniform, PLayout](
+      val gProg = GProgram[Params, PLayout](
         layout = params => PLayout(in = GBuffer[C1](params.inSize), out = GBuffer[C2](params.inSize)),
-        uniform = params => PUniform(),
         dispatch = (layout, params) => GProgram.StaticDispatch((params.inSize, 1, 1)),
-      ): (layout, uniform) =>
+      ): layout =>
         val invocId = GIO.invocationId
         val element = GIO.read(layout.in, invocId)
         GIO.write(layout.out, invocId, f(element))
 
-      val execution = GExecution
-        .build[Params, PLayout, PResult]
+      val execution = GExecution[Params, PLayout]()
+        // .build[Params, PLayout, PResult]
         .addProgram(gProg)(mapLayout = layout => PLayout(in = layout.in, out = layout.out), mapParams = params => Params(inSize = params.inSize))
-        .compile(layout => PResult(layout.out))
+        // .compile(layout => PResult(layout.out))
+        .mapResult(layout => PResult(layout.out))
 
       val region = GBufferRegion
         .allocate[PLayout]
-        .map: region =>
-          execution.execute(region, params)
+        .map: layout =>
+          execution.execute(params, layout)
 
       // these are allocated once, reused for many chunks
       val inBuf = BufferUtils.createByteBuffer(params.inSize * inTypeSize)
@@ -59,15 +58,14 @@ object GPipe:
           Stream.emits(bridge2.fromByteBuffer(outBuf, new Array[S2](params.inSize)))
 
   // Syntax sugar for convenient single type version
-  def gPipeMap[F[_], C <: Value: FromExpr: Tag, S: ClassTag](f: C => C)(using GContext, Bridge[C, S]): Pipe[F, S, S] =
+  def gPipeMap[F[_], C <: Value: FromExpr: Tag, S: ClassTag](f: C => C)(using CyfraRuntime, Bridge[C, S]): Pipe[F, S, S] =
     gPipeMap[F, C, C, S, S](f)
 
   def gPipeFilter[F[_], C <: Value: FromExpr: Tag, S: ClassTag](
     f: C => GBoolean,
-  )(using gc: GContext, bridge: Bridge[C, S], boolBridge: Bridge[GBoolean, Boolean]): Pipe[F, S, S] =
+  )(using cr: CyfraRuntime, bridge: Bridge[C, S], boolBridge: Bridge[GBoolean, Boolean]): Pipe[F, S, S] =
     (stream: Stream[F, S]) =>
       case class Params(inSize: Int)
-      case class PUniform() extends GStruct[PUniform]
       case class PLayout(in: GBuffer[C], outBool: GBuffer[GBoolean]) extends Layout
       case class PResult(outBool: GBuffer[GBoolean]) extends Layout
 
@@ -75,27 +73,27 @@ object GPipe:
       val inTypeSize = typeStride(Tag.apply[C])
       val outTypeSize = typeStride(Tag.apply[GBoolean])
 
-      val gProg = GProgram[Params, PUniform, PLayout](
+      val gProg = GProgram[Params, PLayout](
         layout = params => PLayout(in = GBuffer[C](params.inSize), outBool = GBuffer[GBoolean](params.inSize)),
-        uniform = params => PUniform(),
         dispatch = (layout, params) => GProgram.StaticDispatch((params.inSize, 1, 1)),
-      ): (layout, uniform) =>
+      ): layout =>
         val invocId = GIO.invocationId
         val element = GIO.read(layout.in, invocId)
         GIO.write(layout.outBool, invocId, f(element))
 
-      val execution = GExecution
-        .build[Params, PLayout, PResult]
+      val execution = GExecution[Params, PLayout]()
+        // .build[Params, PLayout, PResult]
         .addProgram(gProg)(
           mapLayout = layout => PLayout(in = layout.in, outBool = layout.outBool),
           mapParams = params => Params(inSize = params.inSize),
         )
-        .compile(layout => PResult(outBool = layout.outBool))
+        // .compile(layout => PResult(outBool = layout.outBool))
+        .mapResult(layout => PResult(outBool = layout.outBool))
 
       val region = GBufferRegion
         .allocate[PLayout]
-        .map: region =>
-          execution.execute(region, params)
+        .map: layout =>
+          execution.execute(params, layout)
 
       val inBuf = BufferUtils.createByteBuffer(params.inSize * inTypeSize)
       val outBuf = BufferUtils.createByteBuffer(params.inSize * outTypeSize)

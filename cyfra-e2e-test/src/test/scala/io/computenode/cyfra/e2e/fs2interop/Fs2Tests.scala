@@ -2,7 +2,7 @@ package io.computenode.cyfra.e2e.fs2interop
 
 import io.computenode.cyfra.core.aalegacy.*, mem.*, GMem.fRGBA
 import io.computenode.cyfra.dsl.{*, given}, algebra.VectorAlgebra
-import io.computenode.cyfra.fs2interop.*, GPipe.*, Bridge.*
+import io.computenode.cyfra.fs2interop.*, GPipe.*, Bridge.given
 
 import fs2.*
 
