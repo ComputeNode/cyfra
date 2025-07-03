@@ -12,16 +12,16 @@ sealed trait SurfaceFormat {
 
 object SurfaceFormat {
   case object B8G8R8A8_SRGB extends SurfaceFormat {
-    val vulkanValue = 50 
+    val vulkanValue = 50
   }
   case object B8G8R8A8_UNORM extends SurfaceFormat {
-    val vulkanValue = 44 
+    val vulkanValue = 44
   }
   case object R8G8B8A8_SRGB extends SurfaceFormat {
-    val vulkanValue = 43 
+    val vulkanValue = 43
   }
   case object R8G8B8A8_UNORM extends SurfaceFormat {
-    val vulkanValue = 37 
+    val vulkanValue = 37
   }
 }
 

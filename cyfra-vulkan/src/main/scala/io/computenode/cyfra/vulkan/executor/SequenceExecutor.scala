@@ -1,17 +1,13 @@
 package io.computenode.cyfra.vulkan.executor
 
+import io.computenode.cyfra.utility.Utility.timed
+import io.computenode.cyfra.vulkan.VulkanContext
 import io.computenode.cyfra.vulkan.command.*
 import io.computenode.cyfra.vulkan.compute.*
 import io.computenode.cyfra.vulkan.core.*
-import SequenceExecutor.*
-import io.computenode.cyfra.utility.Utility.timed
+import io.computenode.cyfra.vulkan.executor.SequenceExecutor.*
 import io.computenode.cyfra.vulkan.memory.*
-import io.computenode.cyfra.vulkan.VulkanContext
-import io.computenode.cyfra.vulkan.command.{CommandPool, Fence, Queue}
-import io.computenode.cyfra.vulkan.compute.{ComputePipeline, InputBufferSize, LayoutSet, UniformSize}
 import io.computenode.cyfra.vulkan.util.Util.*
-import io.computenode.cyfra.vulkan.core.Device
-import io.computenode.cyfra.vulkan.memory.{Allocator, Buffer, DescriptorPool, DescriptorSet}
 import org.lwjgl.BufferUtils
 import org.lwjgl.util.vma.Vma.*
 import org.lwjgl.vulkan.*
@@ -24,15 +20,16 @@ import java.nio.ByteBuffer
 /** @author
   *   MarconZet Created 15.04.2020
   */
-private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, context: VulkanContext) {
+private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, context: VulkanContext):
   private val device: Device = context.device
   private val queue: Queue = context.computeQueue
   private val allocator: Allocator = context.allocator
   private val descriptorPool: DescriptorPool = context.descriptorPool
   private val commandPool: CommandPool = context.commandPool
 
-  private val pipelineToDescriptorSets: Map[ComputePipeline, Seq[DescriptorSet]] = pushStack { stack =>
-    val pipelines = computeSequence.sequence.collect { case Compute(pipeline, _) => pipeline }
+  private val pipelineToDescriptorSets: Map[ComputePipeline, Seq[DescriptorSet]] = pushStack: stack =>
+    val pipelines = computeSequence.sequence.collect:
+      case Compute(pipeline, _) => pipeline
 
     val rawSets = pipelines.map(_.computeShader.layoutInfo.sets)
     val numbered = rawSets.flatten.zipWithIndex
@@ -71,11 +68,10 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
       .toMap
 
     pipelines.zip(resolvedSets.map(_.map(descriptorSetMap(_)))).toMap
-  }
 
   private val descriptorSets = pipelineToDescriptorSets.toSeq.flatMap(_._2).distinctBy(_.get)
 
-  private def recordCommandBuffer(dataLength: Int): VkCommandBuffer = pushStack { stack =>
+  private def recordCommandBuffer(dataLength: Int): VkCommandBuffer = pushStack: stack =>
     val pipelinesHasDependencies = computeSequence.dependencies.map(_.to).toSet
     val commandBuffer = commandPool.createCommandBuffer()
 
@@ -86,38 +82,36 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
 
     check(vkBeginCommandBuffer(commandBuffer, commandBufferBeginInfo), "Failed to begin recording command buffer")
 
-    computeSequence.sequence.foreach {
-      case Compute(pipeline, _) =>
-        if(pipelinesHasDependencies(pipeline))
-          val memoryBarrier = VkMemoryBarrier2
-            .calloc(1, stack)
-            .sType$Default()
-            .srcStageMask(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT)
-            .srcAccessMask(VK_ACCESS_2_SHADER_WRITE_BIT)
-            .dstStageMask(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT)
-            .dstAccessMask(VK_ACCESS_2_SHADER_READ_BIT)
+    computeSequence.sequence.foreach { case Compute(pipeline, _) =>
+      if pipelinesHasDependencies(pipeline) then
+        val memoryBarrier = VkMemoryBarrier2
+          .calloc(1, stack)
+          .sType$Default()
+          .srcStageMask(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT)
+          .srcAccessMask(VK_ACCESS_2_SHADER_WRITE_BIT)
+          .dstStageMask(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT)
+          .dstAccessMask(VK_ACCESS_2_SHADER_READ_BIT)
 
-          val dependencyInfo = VkDependencyInfo
-            .calloc(stack)
-            .sType$Default()
-            .pMemoryBarriers(memoryBarrier)
+        val dependencyInfo = VkDependencyInfo
+          .calloc(stack)
+          .sType$Default()
+          .pMemoryBarriers(memoryBarrier)
 
-          vkCmdPipelineBarrier2KHR(commandBuffer, dependencyInfo)
+        vkCmdPipelineBarrier2KHR(commandBuffer, dependencyInfo)
 
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.get)
+      vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.get)
 
-        val pDescriptorSets = stack.longs(pipelineToDescriptorSets(pipeline).map(_.get): _*)
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.pipelineLayout, 0, pDescriptorSets, null)
+      val pDescriptorSets = stack.longs(pipelineToDescriptorSets(pipeline).map(_.get)*)
+      vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.pipelineLayout, 0, pDescriptorSets, null)
 
-        val workgroup = pipeline.computeShader.workgroupDimensions
-        vkCmdDispatch(commandBuffer, dataLength / workgroup.x, 1 / workgroup.y, 1 / workgroup.z) // TODO this can be changed to indirect dispatch, this would unlock options like filters
+      val workgroup = pipeline.computeShader.workgroupDimensions
+      vkCmdDispatch(commandBuffer, dataLength / workgroup.x, 1 / workgroup.y, 1 / workgroup.z) // TODO this can be changed to indirect dispatch, this would unlock options like filters
     }
 
     check(vkEndCommandBuffer(commandBuffer), "Failed to finish recording command buffer")
     commandBuffer
-  }
 
-  private def createBuffers(dataLength: Int): Map[DescriptorSet, Seq[Buffer]] = {
+  private def createBuffers(dataLength: Int): Map[DescriptorSet, Seq[Buffer]] =
 
     val setToActions = computeSequence.sequence
       .collect { case Compute(pipeline, bufferActions) =>
@@ -131,42 +125,46 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
       }
       .flatten
       .groupMapReduce(_._1)(_._2)((a, b) => a.zip(b).map(x => x._1 | x._2))
-    
 
-    val setToBuffers = descriptorSets.map(set =>
-      val actions = setToActions(set)
-      val buffers = set.bindings.zip(actions).map { case (binding, action) =>
-        binding.size match
-          case InputBufferSize(elemSize) =>
-            new Buffer(elemSize * dataLength, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | action.action, 0, VMA_MEMORY_USAGE_GPU_ONLY, allocator)
-          case UniformSize(size) =>
-            new Buffer(size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | action.action, 0, VMA_MEMORY_USAGE_GPU_ONLY, allocator)
-      }     
-      set.update(buffers)
-      (set, buffers)
-    ).toMap
+    val setToBuffers = descriptorSets
+      .map(set =>
+        val actions = setToActions(set)
+        val buffers = set.bindings.zip(actions).map { case (binding, action) =>
+          binding.size match
+            case InputBufferSize(elemSize) =>
+              new Buffer(elemSize * dataLength, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | action.action, 0, VMA_MEMORY_USAGE_GPU_ONLY, allocator)
+            case UniformSize(size) =>
+              new Buffer(size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | action.action, 0, VMA_MEMORY_USAGE_GPU_ONLY, allocator)
+        }
+        set.update(buffers)
+        (set, buffers),
+      )
+      .toMap
 
     setToBuffers
-  }
 
-  def execute(inputs: Seq[ByteBuffer], dataLength: Int): Seq[ByteBuffer] = pushStack { stack =>
+  def execute(inputs: Seq[ByteBuffer], dataLength: Int): Seq[ByteBuffer] = pushStack: stack =>
     timed("Vulkan full execute"):
       val setToBuffers = createBuffers(dataLength)
 
       def buffersWithAction(bufferAction: BufferAction): Seq[Buffer] =
         computeSequence.sequence.collect { case x: Compute =>
-          pipelineToDescriptorSets(x.pipeline).map(setToBuffers).zip(x.pumpLayoutLocations).flatMap(x => x._1.zip(x._2)).collect {
-            case (buffer, action) if (action.action & bufferAction.action) != 0 => buffer
-          }
+          pipelineToDescriptorSets(x.pipeline)
+            .map(setToBuffers)
+            .zip(x.pumpLayoutLocations)
+            .flatMap(x => x._1.zip(x._2))
+            .collect:
+              case (buffer, action) if (action.action & bufferAction.action) != 0 => buffer
         }.flatten
 
-      val stagingBuffer = new Buffer(
-        inputs.map(_.remaining()).max,
-        VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
-        VMA_MEMORY_USAGE_UNKNOWN,
-        allocator
-      )
+      val stagingBuffer =
+        new Buffer(
+          inputs.map(_.remaining()).max,
+          VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+          VMA_MEMORY_USAGE_UNKNOWN,
+          allocator,
+        )
 
       buffersWithAction(BufferAction.LoadTo).zipWithIndex.foreach { case (buffer, i) =>
         Buffer.copyBuffer(inputs(i), stagingBuffer, buffer.size)
@@ -198,14 +196,11 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
       setToBuffers.flatMap(_._2).foreach(_.destroy())
 
       output
-  }
 
   def destroy(): Unit =
     descriptorSets.foreach(_.destroy())
 
-}
-
-object SequenceExecutor {
+object SequenceExecutor:
   private[cyfra] case class ComputationSequence(sequence: Seq[ComputationStep], dependencies: Seq[Dependency])
 
   private[cyfra] sealed trait ComputationStep
@@ -217,5 +212,3 @@ object SequenceExecutor {
   case class LayoutLocation(set: Int, binding: Int)
 
   case class Dependency(from: ComputePipeline, fromSet: Int, to: ComputePipeline, toSet: Int)
-
-}

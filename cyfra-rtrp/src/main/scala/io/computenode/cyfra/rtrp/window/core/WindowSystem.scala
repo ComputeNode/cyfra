@@ -3,7 +3,7 @@ package io.computenode.cyfra.rtrp.window.core
 import scala.util.Try
 
 // Main interface for window system operations
-trait WindowSystem {
+trait WindowSystem:
 
   def initialize(): Try[Unit]
   def shutdown(): Try[Unit]
@@ -13,4 +13,3 @@ trait WindowSystem {
   def getActiveWindows(): List[Window]
   def findWindow(id: WindowId): Option[Window]
   def isInitialized: Boolean
-}

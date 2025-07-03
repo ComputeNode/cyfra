@@ -1,13 +1,11 @@
 package io.computenode.cyfra.spirv
 
 import io.computenode.cyfra.dsl.macros.FnCall.FnIdentifier
-import io.computenode.cyfra.dsl.macros.Source
-import io.computenode.cyfra.spirv.compilers.FunctionCompiler.SprivFunction
 import io.computenode.cyfra.spirv.SpirvConstants.HEADER_REFS_TOP
+import io.computenode.cyfra.spirv.compilers.FunctionCompiler.SprivFunction
 import io.computenode.cyfra.spirv.compilers.SpirvProgramCompiler.ArrayBufferBlock
 import izumi.reflect.Tag
 import izumi.reflect.macrortti.LightTypeTag
-
 
 private[cyfra] case class Context(
   valueTypeMap: Map[LightTypeTag, Int] = Map(),
@@ -19,7 +17,7 @@ private[cyfra] case class Context(
   voidFuncTypeRef: Int = -1,
   workerIndexRef: Int = -1,
   uniformVarRef: Int = -1,
-  constRefs: Map[(Tag[_], Any), Int] = Map(),
+  constRefs: Map[(Tag[?], Any), Int] = Map(),
   exprRefs: Map[Int, Int] = Map(),
   inBufferBlocks: List[ArrayBufferBlock] = List(),
   outBufferBlocks: List[ArrayBufferBlock] = List(),
@@ -33,5 +31,5 @@ private[cyfra] case class Context(
     this.copy(nextResultId = ctx.nextResultId, exprNames = ctx.exprNames ++ this.exprNames, functions = ctx.functions ++ this.functions)
 
 private[cyfra] object Context:
-  
+
   def initialContext: Context = Context()

@@ -1,13 +1,12 @@
 package io.computenode.cyfra.spirv.compilers
 
-import io.computenode.cyfra.dsl.Expression.E
-import io.computenode.cyfra.dsl.Functions.FunctionName
-import io.computenode.cyfra.spirv.Opcodes.*
-import io.computenode.cyfra.dsl.{Expression, Functions}
+import io.computenode.cyfra.dsl.Expression
+import io.computenode.cyfra.dsl.library.Functions
+import io.computenode.cyfra.dsl.library.Functions.FunctionName
 import io.computenode.cyfra.spirv.Context
-import io.computenode.cyfra.spirv.compilers.FunctionCompiler.SprivFunction
+import io.computenode.cyfra.spirv.Opcodes.*
 import io.computenode.cyfra.spirv.SpirvConstants.GLSL_EXT_REF
-
+import io.computenode.cyfra.spirv.compilers.FunctionCompiler.SprivFunction
 
 private[cyfra] object ExtFunctionCompiler:
   private val fnOpMap: Map[FunctionName, Code] = Map(
@@ -36,20 +35,16 @@ private[cyfra] object ExtFunctionCompiler:
     Functions.Log -> GlslOp.Log,
   )
 
-  def compileExtFunctionCall(call: Expression.ExtFunctionCall[_], ctx: Context): (List[Instruction], Context) =
+  def compileExtFunctionCall(call: Expression.ExtFunctionCall[?], ctx: Context): (List[Instruction], Context) =
     val fnOp = fnOpMap(call.fn)
     val tp = call.tag
     val typeRef = ctx.valueTypeMap(tp.tag)
     val instructions = List(
-      Instruction(Op.OpExtInst, List(
-        ResultRef(typeRef),
-        ResultRef(ctx.nextResultId),
-        ResultRef(GLSL_EXT_REF),
-        fnOp
-      ) ::: call.exprDependencies.map(d => ResultRef(ctx.exprRefs(d.treeid)))
-      ))
-    val updatedContext = ctx.copy(
-      exprRefs = ctx.exprRefs + (call.treeid -> ctx.nextResultId),
-      nextResultId = ctx.nextResultId + 1
+      Instruction(
+        Op.OpExtInst,
+        List(ResultRef(typeRef), ResultRef(ctx.nextResultId), ResultRef(GLSL_EXT_REF), fnOp) :::
+          call.exprDependencies.map(d => ResultRef(ctx.exprRefs(d.treeid))),
+      ),
     )
+    val updatedContext = ctx.copy(exprRefs = ctx.exprRefs + (call.treeid -> ctx.nextResultId), nextResultId = ctx.nextResultId + 1)
     (instructions, updatedContext)

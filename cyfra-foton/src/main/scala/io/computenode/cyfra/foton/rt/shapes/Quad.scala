@@ -1,13 +1,9 @@
 package io.computenode.cyfra.foton.rt.shapes
 
 import io.computenode.cyfra.foton.rt.Material
-import io.computenode.cyfra.dsl.Functions.*
-import io.computenode.cyfra.dsl.Algebra.{*, given}
-import io.computenode.cyfra.dsl.Control.when
-import io.computenode.cyfra.dsl.GStruct
-import io.computenode.cyfra.dsl.Math3D.scalarTriple
+import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.dsl.library.Math3D.scalarTriple
 import io.computenode.cyfra.foton.rt.RtRenderer.{MinRayHitTime, RayHitInfo}
-import io.computenode.cyfra.dsl.Value.*
 
 import java.nio.file.Paths
 import scala.collection.mutable
@@ -16,30 +12,19 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext}
 import io.computenode.cyfra.dsl.given
 import io.computenode.cyfra.foton.rt.shapes.Shape.TestRay
-import io.computenode.cyfra.dsl.Pure.pure
+import io.computenode.cyfra.dsl.control.Pure.pure
+import io.computenode.cyfra.dsl.struct.GStruct
 
-case class Quad(
-  a: Vec3[Float32],
-  b: Vec3[Float32],
-  c: Vec3[Float32],
-  d: Vec3[Float32],
-  material: Material
-) extends GStruct[Quad] with Shape
+case class Quad(a: Vec3[Float32], b: Vec3[Float32], c: Vec3[Float32], d: Vec3[Float32], material: Material) extends GStruct[Quad] with Shape
 
 object Quad:
   given TestRay[Quad] with
-    def testRay(
-      quad: Quad,
-      rayPos: Vec3[Float32],
-      rayDir: Vec3[Float32],
-      currentHit: RayHitInfo,
-    ): RayHitInfo = pure:
+    def testRay(quad: Quad, rayPos: Vec3[Float32], rayDir: Vec3[Float32], currentHit: RayHitInfo): RayHitInfo = pure:
       val normal = normalize((quad.c - quad.a) cross (quad.c - quad.b))
-      val fixedQuad = when((normal dot rayDir) > 0f) {
+      val fixedQuad = when((normal dot rayDir) > 0f):
         Quad(quad.d, quad.c, quad.b, quad.a, quad.material)
-      } otherwise {
+      .otherwise:
         quad
-      }
       val fixedNormal = when((normal dot rayDir) > 0f)(-normal).otherwise(normal)
       val p = rayPos
       val q = rayPos + rayDir
@@ -51,37 +36,34 @@ object Quad:
       val v = pa dot m
 
       def checkHit(intersectPoint: Vec3[Float32]): RayHitInfo =
-        val dist = when(abs(rayDir.x) > 0.1f) {
+        val dist = when(abs(rayDir.x) > 0.1f):
           (intersectPoint.x - rayPos.x) / rayDir.x
-        }.elseWhen(abs(rayDir.y) > 0.1f) {
+        .elseWhen(abs(rayDir.y) > 0.1f):
           (intersectPoint.y - rayPos.y) / rayDir.y
-        }.otherwise {
+        .otherwise:
           (intersectPoint.z - rayPos.z) / rayDir.z
-        }
-        when(dist > MinRayHitTime && dist < currentHit.dist) {
+        when(dist > MinRayHitTime && dist < currentHit.dist):
           RayHitInfo(dist, fixedNormal, quad.material)
-        } otherwise {
+        .otherwise:
           currentHit
-        }
 
-      when(v >= 0f) {
+      when(v >= 0f):
         val u = -(pb dot m)
         val w = scalarTriple(pq, pb, pa)
-        when(u >= 0f && w >= 0f) {
+        when(u >= 0f && w >= 0f):
           val denom = 1f / (u + v + w)
           val uu = u * denom
           val vv = v * denom
           val ww = w * denom
           val intersectPos = fixedQuad.a * uu + fixedQuad.b * vv + fixedQuad.c * ww
           checkHit(intersectPos)
-        } otherwise {
+        .otherwise:
           currentHit
-        }
-      } otherwise {
+      .otherwise:
         val pd = fixedQuad.d - p
         val u = pd dot m
         val w = scalarTriple(pq, pa, pd)
-        when(u >= 0f && w >= 0f) {
+        when(u >= 0f && w >= 0f):
           val negV = -v
           val denom = 1f / (u + negV + w)
           val uu = u * denom
@@ -89,7 +71,5 @@ object Quad:
           val ww = w * denom
           val intersectPos = fixedQuad.a * uu + fixedQuad.d * vv + fixedQuad.c * ww
           checkHit(intersectPos)
-        } otherwise {
+        .otherwise:
           currentHit
-        }
-      }

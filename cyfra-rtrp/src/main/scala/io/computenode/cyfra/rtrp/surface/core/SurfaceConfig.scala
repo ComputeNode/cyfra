@@ -7,22 +7,22 @@ case class SurfaceConfig(
   preferredPresentMode: PresentMode = PresentMode.MAILBOX,
   enableVSync: Boolean = true,
   minImageCount: Option[Int] = None,
-  maxImageCount: Option[Int] = None
+  maxImageCount: Option[Int] = None,
 ) {
-  
+
 // Create a copy with different format, present mode, VSync settings, or image count constraints
-  def withFormat(format: SurfaceFormat): SurfaceConfig = 
+  def withFormat(format: SurfaceFormat): SurfaceConfig =
     copy(preferredFormat = format)
 
-  def withPresentMode(mode: PresentMode): SurfaceConfig = 
+  def withPresentMode(mode: PresentMode): SurfaceConfig =
     copy(preferredPresentMode = mode)
 
   def withVSync(enabled: Boolean): SurfaceConfig = {
-    val mode = if (enabled) PresentMode.FIFO else PresentMode.IMMEDIATE
+    val mode = if enabled then PresentMode.FIFO else PresentMode.IMMEDIATE
     copy(enableVSync = enabled, preferredPresentMode = mode)
   }
 
-  def withImageCount(min: Int, max: Int): SurfaceConfig = 
+  def withImageCount(min: Int, max: Int): SurfaceConfig =
     copy(minImageCount = Some(min), maxImageCount = Some(max))
 }
 
@@ -36,14 +36,14 @@ object SurfaceConfig {
     preferredPresentMode = PresentMode.MAILBOX,
     enableVSync = false,
     minImageCount = Some(2),
-    maxImageCount = Some(3)
+    maxImageCount = Some(3),
   )
 
   def quality: SurfaceConfig = SurfaceConfig(
     preferredFormat = SurfaceFormat.R8G8B8A8_SRGB,
     preferredColorSpace = ColorSpace.DISPLAY_P3_NONLINEAR,
     preferredPresentMode = PresentMode.FIFO,
-    enableVSync = true
+    enableVSync = true,
   )
 
   def lowLatency: SurfaceConfig = SurfaceConfig(
@@ -51,6 +51,6 @@ object SurfaceConfig {
     preferredPresentMode = PresentMode.IMMEDIATE,
     enableVSync = false,
     minImageCount = Some(1),
-    maxImageCount = Some(2)
+    maxImageCount = Some(2),
   )
 }

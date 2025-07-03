@@ -1,7 +1,7 @@
 package io.computenode.cyfra.vulkan.core
 
 import io.computenode.cyfra.utility.Logger.logger
-import io.computenode.cyfra.vulkan.VulkanContext.{SyncLayer, ValidationLayer}
+import io.computenode.cyfra.vulkan.VulkanContext.ValidationLayer
 import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import io.computenode.cyfra.vulkan.util.VulkanObject
 import org.lwjgl.glfw.GLFWVulkan
@@ -11,8 +11,6 @@ import org.lwjgl.vulkan.*
 import org.lwjgl.vulkan.EXTDebugReport.VK_EXT_DEBUG_REPORT_EXTENSION_NAME
 import org.lwjgl.vulkan.KHRPortabilityEnumeration.{VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR, VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME}
 import org.lwjgl.vulkan.VK10.*
-import org.lwjgl.vulkan.VK13.*
-import org.slf4j.LoggerFactory
 
 import java.nio.ByteBuffer
 import scala.collection.mutable
@@ -22,11 +20,11 @@ import scala.util.chaining.*
 /** @author
   *   MarconZet Created 13.04.2020
   */
-object Instance {
+object Instance:
   val ValidationLayersExtensions: Seq[String] = List(VK_EXT_DEBUG_REPORT_EXTENSION_NAME)
   val MoltenVkExtensions: Seq[String] = List(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME)
 
-  lazy val (extensions, layers): (Seq[String], Seq[String]) = pushStack { stack =>
+  lazy val (extensions, layers): (Seq[String], Seq[String]) = pushStack: stack =>
     val ip = stack.ints(1)
     vkEnumerateInstanceLayerProperties(ip, null)
     val availableLayers = VkLayerProperties.malloc(ip.get(0), stack)
@@ -39,14 +37,12 @@ object Instance {
     val extensions = instance_extensions.iterator().asScala.map(_.extensionNameString())
     val layers = availableLayers.iterator().asScala.map(_.layerNameString())
     (extensions.toSeq, layers.toSeq)
-  }
 
   lazy val version: Int = VK.getInstanceVersionSupported
-}
 
-private[cyfra] class Instance(enableValidationLayers: Boolean, enableSurfaceExtensions: Boolean = false) extends VulkanObject {
+private[cyfra] class Instance(enableValidationLayers: Boolean, enableSurfaceExtensions: Boolean = false) extends VulkanObject:
 
-  private val instance: VkInstance = pushStack { stack =>
+  private val instance: VkInstance = pushStack: stack =>
 
     val appInfo = VkApplicationInfo
       .calloc(stack)
@@ -59,12 +55,11 @@ private[cyfra] class Instance(enableValidationLayers: Boolean, enableSurfaceExte
       .apiVersion(Instance.version)
 
     val ppEnabledExtensionNames = getInstanceExtensions(stack, enableSurfaceExtensions)
-    val ppEnabledLayerNames = {
+    val ppEnabledLayerNames =
       val layers = enabledLayers
       val pointer = stack.callocPointer(layers.length)
       layers.foreach(x => pointer.put(stack.ASCII(x)))
       pointer.flip()
-    }
 
     val pCreateInfo = VkInstanceCreateInfo
       .calloc(stack)
@@ -77,13 +72,12 @@ private[cyfra] class Instance(enableValidationLayers: Boolean, enableSurfaceExte
     val pInstance = stack.mallocPointer(1)
     check(vkCreateInstance(pCreateInfo, null, pInstance), "Failed to create VkInstance")
     new VkInstance(pInstance.get(0), pCreateInfo)
-  }
 
   lazy val enabledLayers: Seq[String] = List
     .empty[String]
     .pipe { x =>
-      if (Instance.layers.contains(ValidationLayer) && enableValidationLayers) ValidationLayer +: x
-      else if (enableValidationLayers)
+      if Instance.layers.contains(ValidationLayer) && enableValidationLayers then ValidationLayer +: x
+      else if enableValidationLayers then
         logger.error("Validation layers requested but not available")
         x
       else x
@@ -94,47 +88,39 @@ private[cyfra] class Instance(enableValidationLayers: Boolean, enableSurfaceExte
   override protected def close(): Unit =
     vkDestroyInstance(instance, null)
 
-  private def getInstanceExtensions(stack: MemoryStack, includeSurfaceExtensions: Boolean) = {
+  private def getInstanceExtensions(stack: MemoryStack, includeSurfaceExtensions: Boolean) =
     val n = stack.callocInt(1)
     check(vkEnumerateInstanceExtensionProperties(null.asInstanceOf[ByteBuffer], n, null))
     val buffer = VkExtensionProperties.calloc(n.get(0), stack)
     check(vkEnumerateInstanceExtensionProperties(null.asInstanceOf[ByteBuffer], n, buffer))
 
-    val availableExtensions = {
+    val availableExtensions =
       val buf = mutable.Buffer[String]()
       buffer.forEach { ext =>
         buf.addOne(ext.extensionNameString())
       }
       buf.toSet
-    }
 
     val extensions = mutable.Buffer.from(Instance.MoltenVkExtensions)
-    if (enableValidationLayers)
-      extensions.addAll(Instance.ValidationLayersExtensions)
+    if enableValidationLayers then extensions.addAll(Instance.ValidationLayersExtensions)
 
-    if (includeSurfaceExtensions) {
-      
+    if includeSurfaceExtensions then {
       val glfwExtensions = GLFWVulkan.glfwGetRequiredInstanceExtensions()
-      if (glfwExtensions != null) {
+      if glfwExtensions != null then {
         val extensionNames = (0 until glfwExtensions.capacity()).map { i =>
           val extName = org.lwjgl.system.MemoryUtil.memUTF8(glfwExtensions.get(i))
           extensions.addOne(extName)
           extName
         }
-      } else {
-      }
-    } else {
-    }
+      } else {}
+    } else {}
 
-    val filteredExtensions = extensions.filter(ext =>
+    val filteredExtensions = extensions.filter { ext =>
       availableExtensions.contains(ext).tap { x =>
-        if (!x)
-          logger.warn(s"Requested Vulkan instance extension '$ext' is not available")
+        if !x then logger.warn(s"Requested Vulkan instance extension '$ext' is not available")
       }
-    )
+    }
 
     val ppEnabledExtensionNames = stack.callocPointer(filteredExtensions.size)
     filteredExtensions.foreach(x => ppEnabledExtensionNames.put(stack.ASCII(x)))
     ppEnabledExtensionNames.flip()
-  }
-}

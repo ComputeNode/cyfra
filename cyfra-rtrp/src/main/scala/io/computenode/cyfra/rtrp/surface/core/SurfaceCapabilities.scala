@@ -13,27 +13,25 @@ trait SurfaceCapabilities {
   def supportsAlpha: Boolean
   def supportsTransform: Boolean
 
-  def supportsFormat(format: SurfaceFormat): Boolean = 
+  def supportsFormat(format: SurfaceFormat): Boolean =
     supportedFormats.contains(format)
 
-  def supportsPresentMode(mode: PresentMode): Boolean = 
+  def supportsPresentMode(mode: PresentMode): Boolean =
     supportedPresentModes.contains(mode)
 
-  def chooseBestFormat(preferences: List[SurfaceFormat]): Option[SurfaceFormat] = {
+  def chooseBestFormat(preferences: List[SurfaceFormat]): Option[SurfaceFormat] =
     preferences.find(supportsFormat)
-  }
 
-  def chooseBestPresentMode(preferences: List[PresentMode]): Option[PresentMode] = {
+  def chooseBestPresentMode(preferences: List[PresentMode]): Option[PresentMode] =
     preferences.find(supportsPresentMode)
-  }
-  
- // Check if the given extent is within supported bounds
+
+  // Check if the given extent is within supported bounds
   def isExtentSupported(width: Int, height: Int): Boolean = {
     val (minW, minH) = minImageExtent
     val (maxW, maxH) = maxImageExtent
     width >= minW && width <= maxW && height >= minH && height <= maxH
   }
-  
+
 // Clamp extent to supported bounds.
   def clampExtent(width: Int, height: Int): (Int, Int) = {
     val (minW, minH) = minImageExtent
