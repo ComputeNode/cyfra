@@ -38,7 +38,7 @@ lazy val vulkanNatives =
 lazy val commonSettings = Seq(
   scalacOptions ++= Seq("-feature", "-deprecation", "-unchecked", "-language:implicitConversions"),
   libraryDependencies ++= Seq(
-    "dev.zio" % "izumi-reflect_3" % "2.3.10",
+    "dev.zio" % "izumi-reflect_3" % "3.0.4",
     "com.lihaoyi" % "pprint_3" % "0.9.0",
     "com.diogonunes" % "JColor" % "5.5.1",
     "org.lwjgl" % "lwjgl" % lwjglVersion,
@@ -95,6 +95,10 @@ lazy val examples = (project in file("cyfra-examples"))
 lazy val vscode = (project in file("cyfra-vscode"))
   .settings(commonSettings)
   .dependsOn(foton)
+
+lazy val interpreter = (project in file("cyfra-interpreter"))
+  .settings(commonSettings)
+  .dependsOn(core, dsl)
 
 lazy val e2eTest = (project in file("cyfra-e2e-test"))
   .settings(commonSettings, runnerSettings)
