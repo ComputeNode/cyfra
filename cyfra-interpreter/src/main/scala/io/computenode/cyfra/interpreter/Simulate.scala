@@ -14,7 +14,7 @@ object Simulate:
     case e: PhantomExpression[?]      => throw IllegalArgumentException("phantom expression")
     case Negate(a)                    => simValue(a).negate
     case e: BinaryOpExpression[?]     => simBinOp(e)
-    case ScalarProd(a, b)             => scale(simVector(a), simScalar(b).asInstanceOf[Float])
+    case ScalarProd(a, b)             => simVector(a).scale(simScalar(b))
     case DotProd(a, b)                => simVector(a).dot(simVector(b))
     case e: BitwiseOpExpression[?]    => simBitwiseOp(e)
     case e: ComparisonOpExpression[?] => simCompareOp(e)
