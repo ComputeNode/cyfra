@@ -32,9 +32,9 @@ object GProgram:
   case class StaticDispatch(size: WorkDimensions) extends ProgramDispatch
 
   private[cyfra] case class BufferSizeSpec[T <: Value: Tag: FromExpr](size: Int) extends GBuffer[T]
-  
+
   private[cyfra] case class ParamUniform[T <: GStruct[T]: Tag: FromExpr](value: T) extends GUniform[T]
-  
+
   private[cyfra] case class DynamicUniform[T <: GStruct[T]: Tag: FromExpr]() extends GUniform[T]
 
   trait InitProgramLayout:
@@ -45,10 +45,10 @@ object GProgram:
     extension (uniforms: GUniform.type)
       def apply[T <: GStruct[T]: Tag: FromExpr](value: T): GUniform[T] =
         ParamUniform[T](value)
-        
+
       def apply[T <: GStruct[T]: Tag: FromExpr](): GUniform[T] =
         DynamicUniform[T]()
-  
+
   def apply[Params, L <: Layout: LayoutStruct](
     layout: InitProgramLayout ?=> Params => L,
     dispatch: (L, Params) => ProgramDispatch,

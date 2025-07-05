@@ -34,22 +34,17 @@ object GExecution:
 
   def apply[Params, L <: Layout]() =
     Pure[Params, L, L]()
-    
-  def forParams[Params, L <: Layout, RL <: Layout](
-    f: Params => GExecution[Params, L, RL],
-  ): GExecution[Params, L, RL] =
-    FlatMap[Params, L, RL, RL](
-      Pure[Params, L, RL](),
-      (params: Params, _: RL) => f(params),
-    )
-    
+
+  def forParams[Params, L <: Layout, RL <: Layout](f: Params => GExecution[Params, L, RL]): GExecution[Params, L, RL] =
+    FlatMap[Params, L, RL, RL](Pure[Params, L, RL](), (params: Params, _: RL) => f(params))
+
   case class Pure[Params, L <: Layout, RL <: Layout]() extends GExecution[Params, L, RL]
-    
+
   case class FlatMap[Params, L <: Layout, RL <: Layout, NRL <: Layout](
     execution: GExecution[Params, L, RL],
     f: (Params, RL) => GExecution[Params, L, NRL],
   ) extends GExecution[Params, L, NRL]
-  
+
   case class Map[P, NP, L <: Layout, NL <: Layout, RL <: Layout, NRL <: Layout](
     execution: GExecution[P, L, RL],
     mapResult: RL => NRL,

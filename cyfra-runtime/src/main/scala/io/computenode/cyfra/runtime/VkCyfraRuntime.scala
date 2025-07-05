@@ -9,6 +9,6 @@ class VkCyfraRuntime extends CyfraRuntime:
 
   override def initAlloc(allocation: Allocation): InitAlloc =
     ???
-    
+
   override def finalizeAlloc(allocation: Allocation): FinalizeAlloc =
     ???
