@@ -6,19 +6,21 @@ import control.Scope
 import izumi.reflect.Tag
 
 object Simulate:
-  type Result = Float | Int | Boolean | Vector[?]
+  import Result.*
+
+  def sim(v: Value): Result = sim(v.tree) // helpful wrapper for Value instead of Expression
 
   def sim(e: Expression[?]): Result = e match
-    case e: PhantomExpression[?]      => ???
-    case Negate(a)                    => -simValue(a).asInstanceOf[Float]
+    case e: PhantomExpression[?]      => throw IllegalArgumentException("phantom expression")
+    case Negate(a)                    => simValue(a).negate
     case e: BinaryOpExpression[?]     => simBinOp(e)
     case ScalarProd(a, b)             => scale(simVector(a), simScalar(b).asInstanceOf[Float])
-    case DotProd(a, b)                => dot(simVector(a), simVector(b))
+    case DotProd(a, b)                => simVector(a).dot(simVector(b))
     case e: BitwiseOpExpression[?]    => simBitwiseOp(e)
     case e: ComparisonOpExpression[?] => simCompareOp(e)
-    case And(a, b)                    => simScalar(a).asInstanceOf[Boolean] && simScalar(b).asInstanceOf[Boolean]
-    case Or(a, b)                     => simScalar(a).asInstanceOf[Boolean] || simScalar(b).asInstanceOf[Boolean]
-    case Not(a)                       => !simScalar(a).asInstanceOf[Boolean]
+    case And(a, b)                    => simScalar(a) && simScalar(b)
+    case Or(a, b)                     => simScalar(a) || simScalar(b)
+    case Not(a)                       => simScalar(a).negateSc
     case ExtractScalar(a, i)          => ???
     case e: ConvertExpression[?, ?]   => simConvert(e)
     case e: Const[?]                  => simConst(e)
@@ -28,7 +30,7 @@ object Simulate:
     case ExtFunctionCall(fn, args)    => simExtFunc(fn, args.map(simValue))
     case FunctionCall(fn, body, args) => simFunc(fn, simScope(body), args.map(simValue))
     case InvocationId                 => ???
-    case Pass(value)                  => simValue(value)
+    case Pass(value)                  => ???
     case Dynamic(source)              => ???
     case _                            => throw IllegalArgumentException("wrong argument")
 
@@ -44,8 +46,8 @@ object Simulate:
     case BitwiseOr(a, b)   => simScalar(a).asInstanceOf[Int] | simScalar(b).asInstanceOf[Int]
     case BitwiseXor(a, b)  => simScalar(a).asInstanceOf[Int] ^ simScalar(b).asInstanceOf[Int]
     case BitwiseNot(a)     => ~simScalar(a).asInstanceOf[Int]
-    case ShiftLeft(a, by)  => simScalar(a).asInstanceOf[Int] << simUInt(by).asInstanceOf[Int]
-    case ShiftRight(a, by) => simScalar(a).asInstanceOf[Int] >> simUInt(by).asInstanceOf[Int]
+    case ShiftLeft(a, by)  => simScalar(a).asInstanceOf[Int] << simScalar(by).asInstanceOf[Int]
+    case ShiftRight(a, by) => simScalar(a).asInstanceOf[Int] >> simScalar(by).asInstanceOf[Int]
 
   def simCompareOp(e: ComparisonOpExpression[?]): Boolean = e match
     case GreaterThan(a, b)      => simScalar(a).asInstanceOf[Float] > simScalar(b).asInstanceOf[Float]
@@ -59,7 +61,7 @@ object Simulate:
     case ToInt32(a)   => simScalar(a).asInstanceOf[Int]
     case ToUInt32(a)  => simScalar(a).asInstanceOf[Int]
 
-  def simConst(e: Const[?]): Float | Int | Boolean = e match
+  def simConst(e: Const[?]): ScalarRes = e match
     case ConstFloat32(value) => value
     case ConstInt32(value)   => value
     case ConstUInt32(value)  => value
@@ -69,37 +71,19 @@ object Simulate:
     case v: Scalar => simScalar(v)
     case v: Vec[?] => simVector(v)
 
-  def simScalar(v: Scalar): Float | Int | Boolean = v match
-    case v: FloatType     => simFloat(v)
-    case v: IntType       => simInt(v).asInstanceOf[Int]
-    case v: UIntType      => simUInt(v).asInstanceOf[Int]
+  def simScalar(v: Scalar): ScalarRes = v match
+    case v: FloatType     => sim(v.tree).asInstanceOf[Float]
+    case v: IntType       => sim(v.tree).asInstanceOf[Int]
+    case v: UIntType      => sim(v.tree).asInstanceOf[Int]
     case GBoolean(source) => sim(source).asInstanceOf[Boolean]
 
-  def simFloat(v: FloatType): Float = v match
-    case Float32(tree) => sim(tree).asInstanceOf[Float]
-    case _             => throw IllegalArgumentException("wrong argument, should be FloatType")
+  def simVector(v: Vec[?]): Vector[ScalarRes] = v match
+    case Vec2(tree) => sim(tree).asInstanceOf[Vector[ScalarRes]]
+    case Vec3(tree) => sim(tree).asInstanceOf[Vector[ScalarRes]]
+    case Vec4(tree) => sim(tree).asInstanceOf[Vector[ScalarRes]]
 
-  def simInt(v: IntType): Int = v match
-    case Int32(tree) => sim(tree).asInstanceOf[Int]
-    case _           => throw IllegalArgumentException("wrong argument, should be IntType")
-
-  def simUInt(v: UIntType): Int = v match
-    case UInt32(tree) => sim(tree).asInstanceOf[Int]
-    case _            => throw IllegalArgumentException("wrong argument, should be UIntType")
-
-  def simVector(v: Vec[?]): Vector[Float | Int | Boolean] = v match
-    case Vec2(tree) => Vector(???)
-    case Vec3(tree) => Vector(???)
-    case Vec4(tree) => Vector(???)
-
-  def dot(v: Vector[?], w: Vector[?]) = v
-    .zip(w)
-    .map: (x, y) =>
-      x.asInstanceOf[Float] * y.asInstanceOf[Float]
-    .sum
-
-  def scale(v: Vector[?], s: Float): Vector[?] = v.map(x => x.asInstanceOf[Float] * s)
+  def scale(v: Vector[ScalarRes], s: Float): Vector[ScalarRes] = v.map(x => x.asInstanceOf[Float] * s)
 
   def simExtFunc(fn: FunctionName, args: List[Result]): Result = ???
-  def simFunc(fn: FnIdentifier, body: Result, args: List[Result]): Float | Int | Boolean | Vector[?] = ???
+  def simFunc(fn: FnIdentifier, body: Result, args: List[Result]): Result = ???
   def simScope(body: Scope[?]) = sim(body.expr)

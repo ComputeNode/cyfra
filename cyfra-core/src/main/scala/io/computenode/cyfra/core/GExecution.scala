@@ -24,10 +24,9 @@ trait GExecution[-Params, -L <: Layout, +RL <: Layout]:
   def contramapParams[NP](f: NP => Params): GExecution[NP, L, RL] =
     Map(this, identity, identity, f)
 
-  def addProgram[ProgramParams, PP <: Params, ProgramLayout <: Layout, PL <: L, P <: GProgram[
-    ProgramParams,
-    ProgramLayout,
-  ]](program: P)(mapParams: PP => ProgramParams, mapLayout: PL => ProgramLayout):  GExecution[PP, PL, ProgramLayout] =
+  def addProgram[ProgramParams, PP <: Params, ProgramLayout <: Layout, PL <: L, P <: GProgram[ProgramParams, ProgramLayout]](
+    program: P,
+  )(mapParams: PP => ProgramParams, mapLayout: PL => ProgramLayout): GExecution[PP, PL, ProgramLayout] =
     val adapted = program.contramapParams(mapParams).contramapLayout(mapLayout)
     flatMap(_ => adapted)
 
@@ -35,23 +34,17 @@ object GExecution:
 
   def apply[Params, L <: Layout]() =
     Pure[Params, L, L]()
-    
-  def forParams[Params, L <: Layout, RL <: Layout](
-    f: Params => GExecution[Params, L, RL],
-  ): GExecution[Params, L, RL] =
-    FlatMap[Params, L, RL, RL](
-      Pure[Params, L, RL](),
-      (params: Params, _: RL) => f(params),
-    )
-    
+
+  def forParams[Params, L <: Layout, RL <: Layout](f: Params => GExecution[Params, L, RL]): GExecution[Params, L, RL] =
+    FlatMap[Params, L, RL, RL](Pure[Params, L, RL](), (params: Params, _: RL) => f(params))
+
   case class Pure[Params, L <: Layout, RL <: Layout]() extends GExecution[Params, L, RL]
-    
+
   case class FlatMap[Params, L <: Layout, RL <: Layout, NRL <: Layout](
     execution: GExecution[Params, L, RL],
     f: (Params, RL) => GExecution[Params, L, NRL],
   ) extends GExecution[Params, L, NRL]
-      
-  
+
   case class Map[P, NP, L <: Layout, NL <: Layout, RL <: Layout, NRL <: Layout](
     execution: GExecution[P, L, RL],
     mapResult: RL => NRL,
@@ -59,11 +52,11 @@ object GExecution:
     contramapParams: NP => P,
   ) extends GExecution[NP, NL, NRL]:
 
-    override def mapResult[NNRL <: Layout](f: NRL => NNRL): GExecution[NP, NL, NNRL] = 
+    override def mapResult[NNRL <: Layout](f: NRL => NNRL): GExecution[NP, NL, NNRL] =
       Map(execution, mapResult andThen f, contramapLayout, contramapParams)
-    
-    override def contramapParams[NNP](f: NNP => NP): GExecution[NNP, NL, NRL] = 
+
+    override def contramapParams[NNP](f: NNP => NP): GExecution[NNP, NL, NRL] =
       Map(execution, mapResult, contramapLayout, f andThen contramapParams)
-      
+
     override def contramapLayout[NNL <: Layout](f: NNL => NL): GExecution[NP, NNL, NRL] =
       Map(execution, mapResult, f andThen contramapLayout, contramapParams)

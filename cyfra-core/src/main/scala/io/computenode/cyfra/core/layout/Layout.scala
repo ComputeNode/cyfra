@@ -4,5 +4,3 @@ import io.computenode.cyfra.dsl.Value
 import io.computenode.cyfra.dsl.binding.GBuffer
 
 trait Layout
-
-  

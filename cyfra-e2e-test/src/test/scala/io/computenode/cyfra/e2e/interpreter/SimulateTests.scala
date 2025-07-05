@@ -1,0 +1,38 @@
+package io.computenode.cyfra.e2e.interpreter
+
+import io.computenode.cyfra.interpreter.*
+import io.computenode.cyfra.dsl.{*, given}, Value.FromExpr.fromExpr
+
+class SimulateE2eTest extends munit.FunSuite:
+  test("simulate binary operation arithmetic"):
+    val a: Int32 = 1
+    val b: Int32 = 2
+    val c: Int32 = 3
+    val d: Int32 = 4
+    val e: Int32 = 5
+    val f: Int32 = 6
+    val e1 = Diff(a, b)
+    val e2 = Sum(fromExpr(e1), c)
+    val e3 = Mul(f, fromExpr(e2))
+    val e4 = Div(fromExpr(e3), d)
+    val expr = Mod(e, fromExpr(e4)) // 5 % ((6 * ((1 - 2) + 3)) / 4)
+    val result = Simulate.sim(expr)
+    val expected = 2
+    assert(result == expected, s"Expected $expected, got $result")
+
+  test("simulate vec4, scalar, dot"):
+    val v1 = ComposeVec4[Float32](1f, 2f, 3f, 4f)
+    val res1 = Simulate.sim(v1)
+    val exp1 = Vector(1f, 2f, 3f, 4f)
+    assert(res1 == exp1, s"Expected $exp1, got $res1")
+
+    val v2 = ScalarProd(fromExpr(v1), -1f)
+    val res2 = Simulate.sim(v2)
+    val exp2 = Vector(-1f, -2f, -3f, -4f)
+    assert(res2 == exp2, s"Expected $exp2, got $res2")
+
+    val v3 = ComposeVec4[Float32](-4f, -3f, 2f, 1f)
+    val dot = DotProd(fromExpr(v1), fromExpr(v3))
+    val res3 = Simulate.sim(dot)
+    val exp3 = 0f
+    assert(res3 == exp3, s"Expected $exp3, got $res3")

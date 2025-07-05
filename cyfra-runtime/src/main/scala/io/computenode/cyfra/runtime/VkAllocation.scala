@@ -13,6 +13,6 @@ class VkAllocation extends Allocation:
 
     override def write(bb: ByteBuffer): Unit = ()
 
-  extension [Params, L <: Layout, RL <: Layout : LayoutStruct](execution: GExecution[Params, L, RL])
+  extension [Params, L <: Layout, RL <: Layout: LayoutStruct](execution: GExecution[Params, L, RL])
     override def execute(params: Params, layout: L): RL =
       ???

@@ -23,16 +23,18 @@ object TestingStuff:
   case class EmitProgramLayout(
     in: GBuffer[Int32],
     out: GBuffer[Int32],
-    args: GUniform[EmitProgramUniform] = GUniform.fromParams // todo will be different in the future
+    args: GUniform[EmitProgramUniform] = GUniform.fromParams, // todo will be different in the future
   ) extends Layout
 
   val emitProgram = GProgram[EmitProgramParams, EmitProgramLayout](
-    layout = params => EmitProgramLayout(
-      in = GBuffer[Int32](params.inSize),
-      out = GBuffer[Int32](params.inSize * params.emitN),
-      args = GUniform(EmitProgramUniform(params.emitN))),
+    layout = params =>
+      EmitProgramLayout(
+        in = GBuffer[Int32](params.inSize),
+        out = GBuffer[Int32](params.inSize * params.emitN),
+        args = GUniform(EmitProgramUniform(params.emitN)),
+      ),
     dispatch = (layout, args) => GProgram.StaticDispatch((args.inSize, 1, 1)),
-  ): (layout) =>
+  ): layout =>
     val EmitProgramUniform(emitN) = layout.args.read
     val invocId = GIO.invocationId
     val element = GIO.read(layout.in, invocId)
@@ -46,18 +48,16 @@ object TestingStuff:
 
   case class FilterProgramUniform(filterValue: Int32) extends GStruct[FilterProgramUniform]
 
-  case class FilterProgramLayout(
-    in: GBuffer[Int32], 
-    out: GBuffer[GBoolean], 
-    params: GUniform[FilterProgramUniform] = GUniform.fromParams
-  ) extends Layout
+  case class FilterProgramLayout(in: GBuffer[Int32], out: GBuffer[GBoolean], params: GUniform[FilterProgramUniform] = GUniform.fromParams)
+      extends Layout
 
   val filterProgram = GProgram[FilterProgramParams, FilterProgramLayout](
-    layout = params => FilterProgramLayout(
-      in = GBuffer[Int32](params.inSize), 
-      out = GBuffer[GBoolean](params.inSize),
-      params = GUniform(FilterProgramUniform(params.filterValue))
-    ),
+    layout = params =>
+      FilterProgramLayout(
+        in = GBuffer[Int32](params.inSize),
+        out = GBuffer[GBoolean](params.inSize),
+        params = GUniform(FilterProgramUniform(params.filterValue)),
+      ),
     dispatch = (layout, args) => GProgram.StaticDispatch((args.inSize, 1, 1)),
   ): layout =>
     val invocId = GIO.invocationId
@@ -69,36 +69,20 @@ object TestingStuff:
 
   case class EmitFilterParams(inSize: Int, emitN: Int, filterValue: Int)
 
-  case class EmitFilterLayout(
-    inBuffer: GBuffer[Int32],
-    emitBuffer: GBuffer[Int32],
-    filterBuffer: GBuffer[GBoolean]
-  ) extends Layout
+  case class EmitFilterLayout(inBuffer: GBuffer[Int32], emitBuffer: GBuffer[Int32], filterBuffer: GBuffer[GBoolean]) extends Layout
 
   case class EmitFilterResult(out: GBuffer[GBoolean]) extends Layout
 
   val emitFilterExecution = GExecution[EmitFilterParams, EmitFilterLayout]()
     .addProgram(emitProgram)(
-      params => EmitProgramParams(
-        inSize = params.inSize,
-        emitN = params.emitN
-      ),
-      layout => EmitProgramLayout(
-        in = layout.inBuffer,
-        out = layout.emitBuffer
-      )
+      params => EmitProgramParams(inSize = params.inSize, emitN = params.emitN),
+      layout => EmitProgramLayout(in = layout.inBuffer, out = layout.emitBuffer),
     )
     .addProgram(filterProgram)(
-      params => FilterProgramParams(
-        inSize = params.inSize,
-        filterValue = params.filterValue
-      ),
-      layout => FilterProgramLayout(
-        in = layout.emitBuffer,
-        out = layout.filterBuffer
-      )
+      params => FilterProgramParams(inSize = params.inSize, filterValue = params.filterValue),
+      layout => FilterProgramLayout(in = layout.emitBuffer, out = layout.filterBuffer),
     )
-  
+
   @main
   def test =
     given VkCyfraRuntime = VkCyfraRuntime()
@@ -113,7 +97,6 @@ object TestingStuff:
     val data = (0 to 1024).toArray
     val buffer = BufferUtils.createByteBuffer(data.length * 4)
     buffer.asIntBuffer().put(data).flip()
-    
 
     val result = BufferUtils.createByteBuffer(data.length * 2)
     region.runUnsafe(

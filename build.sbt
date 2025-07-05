@@ -102,7 +102,7 @@ lazy val interpreter = (project in file("cyfra-interpreter"))
 
 lazy val e2eTest = (project in file("cyfra-e2e-test"))
   .settings(commonSettings, runnerSettings)
-  .dependsOn(runtime)
+  .dependsOn(runtime, interpreter)
 
 lazy val root = (project in file("."))
   .settings(name := "Cyfra")

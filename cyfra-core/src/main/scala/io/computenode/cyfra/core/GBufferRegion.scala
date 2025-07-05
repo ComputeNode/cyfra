@@ -14,7 +14,7 @@ sealed trait GBufferRegion[ReqAlloc <: Layout: LayoutStruct, ResAlloc <: Layout:
   val initAlloc: ReqAlloc
 
 object GBufferRegion:
-  
+
   def allocate[Alloc <: Layout: LayoutStruct]: GBufferRegion[Alloc, Alloc] =
     AllocRegion(summon[LayoutStruct[Alloc]].layoutRef)
 
@@ -35,7 +35,7 @@ object GBufferRegion:
       val allocation = cyfraRuntime.allocation()
       val initAlloc = cyfraRuntime.initAlloc(allocation)
       init(using initAlloc)
-      
+
       val steps: Seq[Allocation => Layout => Layout] = Seq.unfold(region: GBufferRegion[?, ?]):
         case _: AllocRegion[?] => None
         case MapRegion(req, f) =>

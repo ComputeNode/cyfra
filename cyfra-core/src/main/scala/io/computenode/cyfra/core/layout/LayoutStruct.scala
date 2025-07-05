@@ -34,8 +34,8 @@ object LayoutStruct:
     if !fieldTypes.forall(_ <:< TypeRepr.of[GBinding]) then
       report.errorAndAbort("LayoutStruct can only be derived for case classes with GBinding elements")
 
-    val valueTypes = fieldTypes.map:
-      ftype => (ftype, ftype.typeArgs.headOption.getOrElse(report.errorAndAbort("GBuffer must have a value type")))
+    val valueTypes = fieldTypes.map: ftype =>
+      (ftype, ftype.typeArgs.headOption.getOrElse(report.errorAndAbort("GBuffer must have a value type")))
 
     // summon izumi tags
     val typeGivens = valueTypes.map:
@@ -50,7 +50,7 @@ object LayoutStruct:
                 case None          => report.errorAndAbort(s"Cannot summon Tag for type ${tpe.show}"),
               Expr.summon[FromExpr[t]] match
                 case Some(fromExpr) => fromExpr
-                case None    => report.errorAndAbort(s"Cannot summon FromExpr for type ${tpe.show}")
+                case None           => report.errorAndAbort(s"Cannot summon FromExpr for type ${tpe.show}"),
             )
 
     val buffers = typeGivens.zipWithIndex.map:
