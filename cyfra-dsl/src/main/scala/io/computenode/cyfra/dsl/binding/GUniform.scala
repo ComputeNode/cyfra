@@ -7,7 +7,7 @@ import io.computenode.cyfra.dsl.gio.GIO
 import io.computenode.cyfra.dsl.struct.GStruct
 import izumi.reflect.Tag
 
-trait GUniform[T <: Value: Tag: FromExpr] extends GBinding:
+trait GUniform[T <: Value: Tag: FromExpr] extends GBinding[T]:
   def read: T = fromExpr(ReadUniform(this))
 
   def write(value: T): GIO[Unit] = WriteUniform(this, value)

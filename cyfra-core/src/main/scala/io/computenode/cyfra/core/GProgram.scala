@@ -56,10 +56,3 @@ object GProgram:
   )(body: L => GIO[?]): GProgram[Params, L] =
     new GProgram(body, s => layout(using s), dispatch, workgroupSize)
 
-case class Write(buffer: GBuffer[?], index: Int, value: Any)
-
-case class Read(buffer: GBuffer[?], index: Int)
-
-case class SimulationResult(invocs: List[InvocationSimResult])
-
-case class InvocationSimResult(invocId: Int, instructions: List[Expression[_]], writes: List[Write], read: List[Read])
