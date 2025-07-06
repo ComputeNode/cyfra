@@ -12,11 +12,10 @@ class SequenceExecutorTest extends FunSuite:
   private val vulkanContext = VulkanContext()
 
   test("Memory barrier"):
-    val code = Shader.loadShader("copy_test.spv")
+    val code = ComputePipeline.loadShader("copy_test.spv").get
     val layout = LayoutInfo(Seq(LayoutSet(0, Seq(Binding(0, InputBufferSize(4)))), LayoutSet(1, Seq(Binding(0, InputBufferSize(4))))))
-    val shader = new Shader(code, new org.joml.Vector3i(128, 1, 1), layout, "main", vulkanContext.device)
-    val copy1 = new ComputePipeline(shader, vulkanContext)
-    val copy2 = new ComputePipeline(shader, vulkanContext)
+    val copy1 = new ComputePipeline(code, "main", layout, vulkanContext)
+    val copy2 = new ComputePipeline(code, "main", layout, vulkanContext)
 
     val sequence =
       ComputationSequence(

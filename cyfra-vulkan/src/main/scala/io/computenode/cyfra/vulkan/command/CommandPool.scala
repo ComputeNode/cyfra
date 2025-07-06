@@ -24,17 +24,6 @@ private[cyfra] abstract class CommandPool(device: Device, queue: Queue) extends 
 
   private val commandPool = handle
 
-  def beginSingleTimeCommands(): VkCommandBuffer =
-    pushStack: stack =>
-      val commandBuffer = this.createCommandBuffer()
-
-      val beginInfo = VkCommandBufferBeginInfo
-        .calloc(stack)
-        .sType$Default()
-        .flags(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT)
-
-      check(vkBeginCommandBuffer(commandBuffer, beginInfo), "Failed to begin single time command buffer")
-      commandBuffer
 
   def createCommandBuffer(): VkCommandBuffer =
     createCommandBuffers(1).head
@@ -50,8 +39,27 @@ private[cyfra] abstract class CommandPool(device: Device, queue: Queue) extends 
     val pointerBuffer = stack.callocPointer(n)
     check(vkAllocateCommandBuffers(device.get, allocateInfo, pointerBuffer), "Failed to allocate command buffers")
     0 until n map (i => pointerBuffer.get(i)) map (new VkCommandBuffer(_, device.get))
+    
+    
+  def executeCommand(block: VkCommandBuffer => Unit): Fence =
+    pushStack: stack =>
+      val commandBuffer = beginSingleTimeCommands()
+      block(commandBuffer)
+      endSingleTimeCommands(commandBuffer)
 
-  def endSingleTimeCommands(commandBuffer: VkCommandBuffer): Fence =
+  private def beginSingleTimeCommands(): VkCommandBuffer =
+    pushStack: stack =>
+      val commandBuffer = this.createCommandBuffer()
+
+      val beginInfo = VkCommandBufferBeginInfo
+        .calloc(stack)
+        .sType$Default()
+        .flags(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT)
+
+      check(vkBeginCommandBuffer(commandBuffer, beginInfo), "Failed to begin single time command buffer")
+      commandBuffer
+
+  private def endSingleTimeCommands(commandBuffer: VkCommandBuffer): Fence =
     pushStack: stack =>
       vkEndCommandBuffer(commandBuffer)
       val pointerBuffer = stack.callocPointer(1).put(0, commandBuffer)
