@@ -4,27 +4,22 @@ import io.computenode.cyfra.core.layout.{Layout, LayoutStruct}
 import io.computenode.cyfra.dsl.Value
 import io.computenode.cyfra.dsl.Value.FromExpr
 import io.computenode.cyfra.dsl.binding.GBuffer
+import io.computenode.cyfra.dsl.struct.GStruct
 import izumi.reflect.Tag
 
 import java.nio.ByteBuffer
 
 trait Allocation:
   extension [R, T <: Value](buffer: GBuffer[T])
-    def read(bb: ByteBuffer): Unit 
-    
-    def write(bb: ByteBuffer): Unit
-      
-  extension [Params, L <: Layout, RL <: Layout : LayoutStruct](execution: GExecution[Params, L, RL])
-    def execute(params: Params, layout: L): RL
+    def read(bb: ByteBuffer, offset: Int = 0, length: Int = -1): Unit
 
-object Allocation:
-  
-  trait InitAlloc:
-    extension (buffers: GBuffer.type)
-      def apply[T <: Value : Tag : FromExpr](size: Int): GBuffer[T]
+    def write(bb: ByteBuffer, offset: Int = 0, length: Int = -1): Unit
 
-      def apply[T <: Value : Tag : FromExpr](buff: ByteBuffer): GBuffer[T]
+  extension [Params, L <: Layout, RL <: Layout: LayoutStruct](execution: GExecution[Params, L, RL]) def execute(params: Params, layout: L): RL
 
-  trait FinalizeAlloc:
-    extension [T <: Value](buffer: GBuffer[T])
-      def readTo(bb: ByteBuffer): Unit
+  extension (buffers: GBuffer.type)
+    def apply[T <: Value: Tag: FromExpr](size: Int): GBuffer[T]
+
+    def apply[T <: Value: Tag: FromExpr](buff: ByteBuffer): GBuffer[T]
+
+  extension (structs: GStruct.type) def apply[T <: GStruct[T]: Tag: FromExpr](buff: ByteBuffer): GStruct[T]

@@ -1,6 +1,6 @@
 package io.computenode.cyfra.core
 
-import io.computenode.cyfra.core.Allocation.{FinalizeAlloc, InitAlloc}
+import io.computenode.cyfra.core.Allocation
 import io.computenode.cyfra.core.GProgram.BufferSizeSpec
 import io.computenode.cyfra.core.layout.{Layout, LayoutStruct}
 import io.computenode.cyfra.dsl.Value
@@ -14,7 +14,7 @@ sealed trait GBufferRegion[ReqAlloc <: Layout: LayoutStruct, ResAlloc <: Layout:
   val initAlloc: ReqAlloc
 
 object GBufferRegion:
-  
+
   def allocate[Alloc <: Layout: LayoutStruct]: GBufferRegion[Alloc, Alloc] =
     AllocRegion(summon[LayoutStruct[Alloc]].layoutRef)
 
@@ -31,11 +31,10 @@ object GBufferRegion:
     def map[NewAlloc <: Layout: LayoutStruct](f: Allocation ?=> ResAlloc => NewAlloc): GBufferRegion[ReqAlloc, NewAlloc] =
       MapRegion(region, (alloc: Allocation) => (resAlloc: ResAlloc) => f(using alloc)(resAlloc))
 
-    def runUnsafe(init: InitAlloc ?=> ReqAlloc, onDone: FinalizeAlloc ?=> ResAlloc => Unit)(using cyfraRuntime: CyfraRuntime): Unit =
+    def runUnsafe(init: Allocation ?=> ReqAlloc, onDone: Allocation ?=> ResAlloc => Unit)(using cyfraRuntime: CyfraRuntime): Unit =
       val allocation = cyfraRuntime.allocation()
-      val initAlloc = cyfraRuntime.initAlloc(allocation)
-      init(using initAlloc)
-      
+      init(using allocation)
+
       val steps: Seq[Allocation => Layout => Layout] = Seq.unfold(region: GBufferRegion[?, ?]):
         case _: AllocRegion[?] => None
         case MapRegion(req, f) =>
@@ -44,5 +43,4 @@ object GBufferRegion:
       val bodyAlloc = steps.foldLeft[Layout](region.initAlloc): (acc, step) =>
         step(allocation)(acc)
 
-      val finalizeAlloc = cyfraRuntime.finalizeAlloc(allocation)
-      onDone(using finalizeAlloc)(bodyAlloc.asInstanceOf[ResAlloc])
+      onDone(using allocation)(bodyAlloc.asInstanceOf[ResAlloc])
