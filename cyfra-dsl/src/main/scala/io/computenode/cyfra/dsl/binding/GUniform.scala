@@ -7,13 +7,13 @@ import io.computenode.cyfra.dsl.gio.GIO
 import io.computenode.cyfra.dsl.struct.GStruct
 import izumi.reflect.Tag
 
-trait GUniform[T <: Value: Tag: FromExpr] extends GBinding[T]:
+trait GUniform[T <: Value: {Tag, FromExpr}] extends GBinding[T]:
   def read: T = fromExpr(ReadUniform(this))
 
   def write(value: T): GIO[Unit] = WriteUniform(this, value)
 
 object GUniform:
 
-  case class ParamUniform[T <: GStruct[T]: Tag: FromExpr]() extends GUniform[T]
+  case class ParamUniform[T <: GStruct[T]: {Tag, FromExpr}]() extends GUniform[T]
 
-  def fromParams[T <: GStruct[T]: Tag: FromExpr] = ParamUniform[T]()
+  def fromParams[T <: GStruct[T]: {Tag, FromExpr}] = ParamUniform[T]()

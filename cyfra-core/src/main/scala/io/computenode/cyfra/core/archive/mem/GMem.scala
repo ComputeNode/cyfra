@@ -13,7 +13,7 @@ import java.nio.ByteBuffer
 trait GMem[H <: Value]:
   def size: Int
   def toReadOnlyBuffer: ByteBuffer
-  def map[G <: GStruct[G]: Tag: GStructSchema, R <: Value: FromExpr: Tag](
+  def map[G <: GStruct[G]: {Tag, GStructSchema}, R <: Value: {FromExpr, Tag}](
     fn: GFunction[G, H, R],
   )(using context: GContext, uc: UniformContext[G]): GMem[R] =
     context.execute(this, fn)

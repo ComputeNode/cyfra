@@ -28,7 +28,7 @@ class GContext(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()):
 
   implicit val ec: ExecutionContextExecutor = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(16))
 
-  def compile[G <: GStruct[G]: Tag: GStructSchema, H <: Value: Tag: FromExpr, R <: Value: Tag: FromExpr](
+  def compile[G <: GStruct[G]: {Tag, GStructSchema}, H <: Value: {Tag, FromExpr}, R <: Value: {Tag, FromExpr}](
     function: GFunction[G, H, R],
   ): ComputePipeline =
     val uniformStructSchema = summon[GStructSchema[G]]
@@ -46,8 +46,8 @@ class GContext(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()):
     val shader = Shader(optimizedShaderCode, org.joml.Vector3i(256, 1, 1), layoutInfo, "main", vkContext.device)
     ComputePipeline(shader, vkContext)
 
-  def execute[G <: GStruct[G]: Tag: GStructSchema, H <: Value, R <: Value](mem: GMem[H], fn: GFunction[G, H, R])(using
-    uniformContext: UniformContext[G],
+  def execute[G <: GStruct[G]: {Tag, GStructSchema}, H <: Value, R <: Value](mem: GMem[H], fn: GFunction[G, H, R])(using
+                                                                                                                   uniformContext: UniformContext[G],
   ): GMem[R] =
     val isUniformEmpty = uniformContext.uniform.schema.fields.isEmpty
     val actions = Map(LayoutLocation(0, 0) -> BufferAction.LoadTo, LayoutLocation(0, 1) -> BufferAction.LoadFrom) ++

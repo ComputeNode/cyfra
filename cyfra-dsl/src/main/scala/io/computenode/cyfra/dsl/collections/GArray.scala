@@ -6,7 +6,7 @@ import io.computenode.cyfra.dsl.macros.Source
 import io.computenode.cyfra.dsl.{Expression, Value}
 import izumi.reflect.Tag
 
-case class GArray[T <: Value: Tag: FromExpr](index: Int):
+case class GArray[T <: Value: {Tag, FromExpr}](index: Int):
   def at(i: Int32)(using Source): T =
     summon[FromExpr[T]].fromExpr(GArrayElem(index, i.tree))
 

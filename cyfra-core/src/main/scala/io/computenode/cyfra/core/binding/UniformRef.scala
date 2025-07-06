@@ -7,4 +7,4 @@ import io.computenode.cyfra.dsl.struct.GStruct
 import izumi.reflect.Tag
 import izumi.reflect.macrortti.LightTypeTag
 
-case class UniformRef[T <: Value: Tag: FromExpr](layoutOffset: Int, valueTag: Tag[T]) extends GUniform[T]
+case class UniformRef[T <: Value: {Tag, FromExpr}](layoutOffset: Int, valueTag: Tag[T]) extends GUniform[T]

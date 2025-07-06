@@ -10,7 +10,7 @@ import io.computenode.cyfra.dsl.macros.Source
 import io.computenode.cyfra.dsl.{Expression, Value}
 import izumi.reflect.Tag
 
-class GSeq[T <: Value: Tag: FromExpr](
+class GSeq[T <: Value: {Tag, FromExpr}](
   val uninitSource: Expression[?] => GSeqStream[?],
   val elemOps: List[GSeq.ElemOp[?]],
   val limit: Option[Int],
@@ -19,7 +19,7 @@ class GSeq[T <: Value: Tag: FromExpr](
   val aggregateElemExprTreeId: Int = treeidState.getAndIncrement(),
 ):
 
-  def copyWithDynamicTrees[R <: Value: Tag: FromExpr](
+  def copyWithDynamicTrees[R <: Value: {Tag, FromExpr}](
     elemOps: List[GSeq.ElemOp[?]] = elemOps,
     limit: Option[Int] = limit,
     currentElemExprTreeId: Int = currentElemExprTreeId,
@@ -29,9 +29,9 @@ class GSeq[T <: Value: Tag: FromExpr](
   private val currentElemExpr = CurrentElem[T](currentElemExprTreeId)
   val source = uninitSource(currentElemExpr)
   private def currentElem: T = summon[FromExpr[T]].fromExpr(currentElemExpr)
-  private def aggregateElem[R <: Value: Tag: FromExpr]: R = summon[FromExpr[R]].fromExpr(AggregateElem[R](aggregateElemExprTreeId))
+  private def aggregateElem[R <: Value: {Tag, FromExpr}]: R = summon[FromExpr[R]].fromExpr(AggregateElem[R](aggregateElemExprTreeId))
 
-  def map[R <: Value: Tag: FromExpr](fn: T => R): GSeq[R] =
+  def map[R <: Value: {Tag, FromExpr}](fn: T => R): GSeq[R] =
     this.copyWithDynamicTrees[R](elemOps = elemOps :+ GSeq.MapOp[T, R](fn(currentElem).tree))
 
   def filter(fn: T => GBoolean): GSeq[T] =
@@ -43,7 +43,7 @@ class GSeq[T <: Value: Tag: FromExpr](
   def limit(n: Int): GSeq[T] =
     this.copyWithDynamicTrees(limit = Some(n))
 
-  def fold[R <: Value: Tag: FromExpr](zero: R, fn: (R, T) => R): R =
+  def fold[R <: Value: {Tag, FromExpr}](zero: R, fn: (R, T) => R): R =
     summon[FromExpr[R]].fromExpr(GSeq.FoldSeq(zero, fn(aggregateElem, currentElem).tree, this))
 
   def count: Int32 =
@@ -54,11 +54,11 @@ class GSeq[T <: Value: Tag: FromExpr](
 
 object GSeq:
 
-  def gen[T <: Value: Tag: FromExpr](first: T, next: T => T)(using name: Source) =
+  def gen[T <: Value: {Tag, FromExpr}](first: T, next: T => T)(using name: Source) =
     GSeq(ce => GSeqStream(first, next(summon[FromExpr[T]].fromExpr(ce.asInstanceOf[E[T]])).tree), Nil, None, name)
 
   // REALLY naive implementation, should be replaced with dynamic array (O(1)) access
-  def of[T <: Value: Tag: FromExpr](xs: List[T]) =
+  def of[T <: Value: {Tag, FromExpr}](xs: List[T]) =
     GSeq
       .gen[Int32](0, _ + 1)
       .map: i =>

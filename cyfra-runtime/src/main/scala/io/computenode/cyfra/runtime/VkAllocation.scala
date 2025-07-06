@@ -19,11 +19,11 @@ class VkAllocation extends Allocation:
   extension [Params, L <: Layout, RL <: Layout: LayoutStruct](execution: GExecution[Params, L, RL]) def execute(params: Params, layout: L): RL = ???
 
   extension (buffers: GBuffer.type)
-    def apply[T <: Value: Tag: FromExpr](size: Int): GBuffer[T] = ???
+    def apply[T <: Value: {Tag, FromExpr}](size: Int): GBuffer[T] = ???
 
-    def apply[T <: Value: Tag: FromExpr](buff: ByteBuffer): GBuffer[T] = ???
+    def apply[T <: Value: {Tag, FromExpr}](buff: ByteBuffer): GBuffer[T] = ???
 
   extension (buffers: GUniform.type)
-    def apply[T <: Value: Tag: FromExpr](buff: ByteBuffer): GUniform[T] = ???
+    def apply[T <: Value: {Tag, FromExpr}](buff: ByteBuffer): GUniform[T] = ???
 
-    def apply[T <: Value: Tag: FromExpr](): GUniform[T] = ???
+    def apply[T <: Value: {Tag, FromExpr}](): GUniform[T] = ???

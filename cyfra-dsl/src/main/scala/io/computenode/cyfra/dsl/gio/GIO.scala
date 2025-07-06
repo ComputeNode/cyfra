@@ -38,7 +38,7 @@ object GIO:
   def write[T <: Value](buffer: GBuffer[T], index: Int32, value: T): GIO[Unit] =
     WriteBuffer(buffer, index, value)
 
-  def read[T <: Value: FromExpr: Tag](buffer: GBuffer[T], index: Int32): T =
+  def read[T <: Value: {FromExpr, Tag}](buffer: GBuffer[T], index: Int32): T =
     fromExpr(ReadBuffer(buffer, index))
 
   def invocationId: Int32 =
