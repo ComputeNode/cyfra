@@ -14,13 +14,13 @@ object Simulate:
     case e: PhantomExpression[?]      => throw IllegalArgumentException("phantom expression")
     case Negate(a)                    => simValue(a).negate
     case e: BinaryOpExpression[?]     => simBinOp(e)
-    case ScalarProd(a, b)             => simVector(a).scale(simScalar(b))
-    case DotProd(a, b)                => simVector(a).dot(simVector(b))
+    case ScalarProd(a, b)             => simVector(a) scale simScalar(b)
+    case DotProd(a, b)                => simVector(a) dot simVector(b)
     case e: BitwiseOpExpression[?]    => simBitwiseOp(e)
     case e: ComparisonOpExpression[?] => simCompareOp(e)
     case And(a, b)                    => simScalar(a) && simScalar(b)
     case Or(a, b)                     => simScalar(a) || simScalar(b)
-    case Not(a)                       => simScalar(a).negateSc
+    case Not(a)                       => simScalar(a).neg
     case ExtractScalar(a, i)          => ???
     case e: ConvertExpression[?, ?]   => simConvert(e)
     case e: Const[?]                  => simConst(e)
@@ -35,31 +35,61 @@ object Simulate:
     case _                            => throw IllegalArgumentException("wrong argument")
 
   def simBinOp(e: BinaryOpExpression[?]): Result = e match
-    case Sum(a, b)  => sim(a.tree).asInstanceOf[Int] + sim(b.tree).asInstanceOf[Int]
-    case Diff(a, b) => sim(a.tree).asInstanceOf[Int] - sim(b.tree).asInstanceOf[Int]
-    case Mul(a, b)  => sim(a.tree).asInstanceOf[Int] * sim(b.tree).asInstanceOf[Int]
-    case Div(a, b)  => sim(a.tree).asInstanceOf[Int] / sim(b.tree).asInstanceOf[Int]
-    case Mod(a, b)  => sim(a.tree).asInstanceOf[Int] % sim(b.tree).asInstanceOf[Int]
+    case Sum(a, b)  => simValue(a) add simValue(b)
+    case Diff(a, b) => simValue(a) sub simValue(b)
+    case Mul(a, b)  => simScalar(a) mul simScalar(b)
+    case Div(a, b)  => simScalar(a) div simScalar(b)
+    case Mod(a, b)  => simScalar(a) mod simScalar(b)
 
-  def simBitwiseOp(e: BitwiseOpExpression[?]): Result = e match
-    case BitwiseAnd(a, b)  => simScalar(a).asInstanceOf[Int] & simScalar(b).asInstanceOf[Int]
-    case BitwiseOr(a, b)   => simScalar(a).asInstanceOf[Int] | simScalar(b).asInstanceOf[Int]
-    case BitwiseXor(a, b)  => simScalar(a).asInstanceOf[Int] ^ simScalar(b).asInstanceOf[Int]
-    case BitwiseNot(a)     => ~simScalar(a).asInstanceOf[Int]
-    case ShiftLeft(a, by)  => simScalar(a).asInstanceOf[Int] << simScalar(by).asInstanceOf[Int]
-    case ShiftRight(a, by) => simScalar(a).asInstanceOf[Int] >> simScalar(by).asInstanceOf[Int]
+  def simBitwiseOp(e: BitwiseOpExpression[?]): Int = e match
+    case e: BitwiseBinaryOpExpression[?] => simBitwiseBinOp(e)
+    case BitwiseNot(a)                   =>
+      simScalar(a) match
+        case m: Int => ~m
+        case _      => throw IllegalArgumentException("BitwiseNot: wrong argument type")
+    case ShiftLeft(a, by) =>
+      (simScalar(a), simScalar(by)) match
+        case (m: Int, n: Int) => m << n
+        case _                => throw IllegalArgumentException("ShiftLeft: wrong argument types")
+    case ShiftRight(a, by) =>
+      (simScalar(a), simScalar(by)) match
+        case (m: Int, n: Int) => m >> n
+        case _                => throw IllegalArgumentException("ShiftRight: wrong argument types")
+
+  def simBitwiseBinOp(e: BitwiseBinaryOpExpression[?]) = e match
+    case BitwiseAnd(a, b) =>
+      (simScalar(a), simScalar(b)) match
+        case (m: Int, n: Int) => m & n
+        case _                => throw IllegalArgumentException("BitwiseAnd: wrong argument types")
+    case BitwiseOr(a, b) =>
+      (simScalar(a), simScalar(b)) match
+        case (m: Int, n: Int) => m | n
+        case _                => throw IllegalArgumentException("BitwiseOr: wrong argument types")
+    case BitwiseXor(a, b) =>
+      (simScalar(a), simScalar(b)) match
+        case (m: Int, n: Int) => m ^ n
+        case _                => throw IllegalArgumentException("BitwiseXor: wrong argument types")
 
   def simCompareOp(e: ComparisonOpExpression[?]): Boolean = e match
-    case GreaterThan(a, b)      => simScalar(a).asInstanceOf[Float] > simScalar(b).asInstanceOf[Float]
-    case LessThan(a, b)         => simScalar(a).asInstanceOf[Float] < simScalar(b).asInstanceOf[Float]
-    case GreaterThanEqual(a, b) => simScalar(a).asInstanceOf[Float] >= simScalar(b).asInstanceOf[Float]
-    case LessThanEqual(a, b)    => simScalar(a).asInstanceOf[Float] <= simScalar(b).asInstanceOf[Float]
-    case Equal(a, b)            => simScalar(a).asInstanceOf[Float] == simScalar(b).asInstanceOf[Float]
+    case GreaterThan(a, b)      => simScalar(a) > simScalar(b)
+    case LessThan(a, b)         => simScalar(a) < simScalar(b)
+    case GreaterThanEqual(a, b) => simScalar(a) >= simScalar(b)
+    case LessThanEqual(a, b)    => simScalar(a) <= simScalar(b)
+    case Equal(a, b)            => simScalar(a) === simScalar(b)
 
   def simConvert(e: ConvertExpression[?, ?]): Float | Int = e match
-    case ToFloat32(a) => simScalar(a).asInstanceOf[Float]
-    case ToInt32(a)   => simScalar(a).asInstanceOf[Int]
-    case ToUInt32(a)  => simScalar(a).asInstanceOf[Int]
+    case ToFloat32(a) =>
+      simScalar(a) match
+        case f: Float => f
+        case _        => throw IllegalArgumentException("ToFloat32: wrong argument type")
+    case ToInt32(a) =>
+      simScalar(a) match
+        case n: Int => n
+        case _      => throw IllegalArgumentException("ToInt32: wrong argument type")
+    case ToUInt32(a) =>
+      simScalar(a) match
+        case n: Int => n
+        case _      => throw IllegalArgumentException("ToUInt32: wrong argument type")
 
   def simConst(e: Const[?]): ScalarRes = e match
     case ConstFloat32(value) => value
@@ -81,8 +111,6 @@ object Simulate:
     case Vec2(tree) => sim(tree).asInstanceOf[Vector[ScalarRes]]
     case Vec3(tree) => sim(tree).asInstanceOf[Vector[ScalarRes]]
     case Vec4(tree) => sim(tree).asInstanceOf[Vector[ScalarRes]]
-
-  def scale(v: Vector[ScalarRes], s: Float): Vector[ScalarRes] = v.map(x => x.asInstanceOf[Float] * s)
 
   def simExtFunc(fn: FunctionName, args: List[Result]): Result = ???
   def simFunc(fn: FnIdentifier, body: Result, args: List[Result]): Result = ???

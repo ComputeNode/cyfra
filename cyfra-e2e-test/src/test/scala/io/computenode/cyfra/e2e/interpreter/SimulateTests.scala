@@ -1,6 +1,6 @@
 package io.computenode.cyfra.e2e.interpreter
 
-import io.computenode.cyfra.interpreter.*
+import io.computenode.cyfra.interpreter.*, Result.*
 import io.computenode.cyfra.dsl.{*, given}, Value.FromExpr.fromExpr
 
 class SimulateE2eTest extends munit.FunSuite:
@@ -33,6 +33,6 @@ class SimulateE2eTest extends munit.FunSuite:
 
     val v3 = ComposeVec4[Float32](-4f, -3f, 2f, 1f)
     val dot = DotProd(fromExpr(v1), fromExpr(v3))
-    val res3 = Simulate.sim(dot)
+    val res3 = Simulate.sim(dot).asInstanceOf[Float]
     val exp3 = 0f
-    assert(res3 == exp3, s"Expected $exp3, got $res3")
+    assert(Math.abs(res3 - exp3) < 0.001f, s"Expected $exp3, got $res3")

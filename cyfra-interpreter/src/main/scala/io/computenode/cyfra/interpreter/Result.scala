@@ -1,11 +1,11 @@
 package io.computenode.cyfra.interpreter
 
-type ScalarRes = Float | Int | Boolean
-type Result = ScalarRes | Vector[ScalarRes]
-
 object Result:
+  type ScalarRes = Float | Int | Boolean
+  type Result = ScalarRes | Vector[ScalarRes]
+
   extension (sr: ScalarRes)
-    def negateSc: ScalarRes = sr match
+    def neg: ScalarRes = sr match
       case f: Float   => -f
       case n: Int     => -n
       case b: Boolean => !b
@@ -13,20 +13,32 @@ object Result:
     infix def +(that: ScalarRes) = (sr, that) match
       case (f: Float, t: Float)     => f + t
       case (n: Int, t: Int)         => n + t
-      case (b: Boolean, t: Boolean) => ???
+      case (b: Boolean, t: Boolean) => throw IllegalArgumentException("+: cannot add booleans")
       case _                        => throw IllegalArgumentException("+: incompatible argument types")
 
     infix def -(that: ScalarRes) = (sr, that) match
       case (f: Float, t: Float)     => f - t
       case (n: Int, t: Int)         => n - t
-      case (b: Boolean, t: Boolean) => ???
+      case (b: Boolean, t: Boolean) => throw IllegalArgumentException("-: cannot sub booleans")
       case _                        => throw IllegalArgumentException("-: incompatible argument types")
 
     infix def *(that: ScalarRes) = (sr, that) match
       case (f: Float, t: Float)     => f * t
       case (n: Int, t: Int)         => n * t
-      case (b: Boolean, t: Boolean) => ???
+      case (b: Boolean, t: Boolean) => throw IllegalArgumentException("*: cannot mul booleans")
       case _                        => throw IllegalArgumentException("*: incompatible argument types")
+
+    infix def /(that: ScalarRes) = (sr, that) match
+      case (f: Float, t: Float)     => f / t
+      case (n: Int, t: Int)         => n / t
+      case (b: Boolean, t: Boolean) => throw IllegalArgumentException("/: cannot div booleans")
+      case _                        => throw IllegalArgumentException("/: incompatible argument types")
+
+    infix def %(that: ScalarRes) = (sr, that) match
+      case (f: Float, t: Float)     => throw IllegalArgumentException("%: cannot mod floats")
+      case (n: Int, t: Int)         => n % t
+      case (b: Boolean, t: Boolean) => throw IllegalArgumentException("%: cannot mod booleans")
+      case _                        => throw IllegalArgumentException("%: incompatible argument types")
 
     infix def &&(that: ScalarRes) = (sr, that) match
       case (b: Boolean, t: Boolean) => b && t
@@ -35,19 +47,84 @@ object Result:
       case (b: Boolean, t: Boolean) => b || t
       case _                        => throw IllegalArgumentException("||: incompatible argument types")
 
+    infix def >(that: ScalarRes) = (sr, that) match
+      case (f: Float, t: Float)     => f > t
+      case (n: Int, t: Int)         => n > t
+      case (b: Boolean, t: Boolean) => throw IllegalArgumentException(">: cannot compare booleans")
+      case _                        => throw IllegalArgumentException(">: incompatible argument types")
+
+    infix def <(that: ScalarRes) = (sr, that) match
+      case (f: Float, t: Float)     => f < t
+      case (n: Int, t: Int)         => n < t
+      case (b: Boolean, t: Boolean) => throw IllegalArgumentException("<: cannot compare booleans")
+      case _                        => throw IllegalArgumentException("<: incompatible argument types")
+
+    infix def >=(that: ScalarRes) = (sr, that) match
+      case (f: Float, t: Float)     => f >= t
+      case (n: Int, t: Int)         => n >= t
+      case (b: Boolean, t: Boolean) => throw IllegalArgumentException(">=: cannot compare booleans")
+      case _                        => throw IllegalArgumentException(">=: incompatible argument types")
+
+    infix def <=(that: ScalarRes) = (sr, that) match
+      case (f: Float, t: Float)     => f <= t
+      case (n: Int, t: Int)         => n <= t
+      case (b: Boolean, t: Boolean) => throw IllegalArgumentException("<=: cannot compare booleans")
+      case _                        => throw IllegalArgumentException("<=: incompatible argument types")
+
+    infix def ===(that: ScalarRes) = (sr, that) match
+      case (f: Float, t: Float)     => Math.abs(f - t) < 0.001f
+      case (n: Int, t: Int)         => n == t
+      case (b: Boolean, t: Boolean) => b == t
+      case _                        => throw IllegalArgumentException("<=: incompatible argument types")
+
   extension (v: Vector[ScalarRes])
-    def scale(s: ScalarRes) = v.map(_ * s)
-    def sumRes: ScalarRes = v.head match
-      case f: Float   => v.asInstanceOf[Vector[Float]].sum
-      case n: Int     => v.asInstanceOf[Vector[Int]].sum
-      case b: Boolean => ???
-    def dot(that: Vector[ScalarRes]) = v
+    infix def add(that: Vector[ScalarRes]) = v.zip(that).map(_ + _)
+    infix def sub(that: Vector[ScalarRes]) = v.zip(that).map(_ - _)
+    infix def mul(that: Vector[ScalarRes]) = v.zip(that).map(_ * _)
+    infix def div(that: Vector[ScalarRes]) = v.zip(that).map(_ / _)
+    infix def mod(that: Vector[ScalarRes]) = v.zip(that).map(_ % _)
+
+    infix def scale(s: ScalarRes) = v.map(_ * s)
+
+    def sumRes: ScalarRes = v.headOption match
+      case None        => 0
+      case Some(value) =>
+        value match
+          case f: Float   => v.asInstanceOf[Vector[Float]].sum
+          case n: Int     => v.asInstanceOf[Vector[Int]].sum
+          case b: Boolean => throw IllegalArgumentException("sumRes: cannot add booleans")
+
+    infix def dot(that: Vector[ScalarRes]) = v
       .zip(that)
       .map(_ * _)
       .sumRes
 
   extension (r: Result)
     def negate: Result = r match
-      case s: ScalarRes         => s.negateSc
-      case v: Vector[ScalarRes] => v.map(_.negateSc) // this is like ScalarProd
-      // how to handle nested Vectors?
+      case s: ScalarRes         => s.neg
+      case v: Vector[ScalarRes] => v.map(_.neg) // this is like ScalarProd
+
+    infix def add(that: Result): Result = (r, that) match
+      case (s: ScalarRes, t: ScalarRes)                 => s + t
+      case (v: Vector[ScalarRes], t: Vector[ScalarRes]) => v add t
+      case _                                            => throw IllegalArgumentException("add: incompatible argument types")
+
+    infix def sub(that: Result): Result = (r, that) match
+      case (s: ScalarRes, t: ScalarRes)                 => s - t
+      case (v: Vector[ScalarRes], t: Vector[ScalarRes]) => v sub t
+      case _                                            => throw IllegalArgumentException("sub: incompatible argument types")
+
+    infix def mul(that: Result): Result = (r, that) match
+      case (s: ScalarRes, t: ScalarRes)                 => s * t
+      case (v: Vector[ScalarRes], t: Vector[ScalarRes]) => v mul t
+      case _                                            => throw IllegalArgumentException("mul: incompatible argument types")
+
+    infix def div(that: Result): Result = (r, that) match
+      case (s: ScalarRes, t: ScalarRes)                 => s / t
+      case (v: Vector[ScalarRes], t: Vector[ScalarRes]) => v div t
+      case _                                            => throw IllegalArgumentException("div: incompatible argument types")
+
+    infix def mod(that: Result): Result = (r, that) match
+      case (s: ScalarRes, t: ScalarRes)                 => s % t
+      case (v: Vector[ScalarRes], t: Vector[ScalarRes]) => v mod t
+      case _                                            => throw IllegalArgumentException("mod: incompatible argument types")
