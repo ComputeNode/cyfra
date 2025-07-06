@@ -23,8 +23,6 @@ trait Allocation:
     def apply[T <: Value: Tag: FromExpr](buff: ByteBuffer): GBuffer[T]
 
   extension (buffers: GUniform.type)
-    def apply[T <: Value : Tag : FromExpr](buff: ByteBuffer): GUniform[T]
+    def apply[T <: Value: Tag: FromExpr](buff: ByteBuffer): GUniform[T]
 
-    def apply[T <: Value : Tag : FromExpr](): GUniform[T]
-
-
+    def apply[T <: Value: Tag: FromExpr](): GUniform[T]

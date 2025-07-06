@@ -20,7 +20,7 @@ sealed trait GProgram[Params, L <: Layout: LayoutStruct] extends GExecution[Para
 
 object GProgram:
 
-  class GioProgram[Params, L <: Layout : LayoutStruct](
+  class GioProgram[Params, L <: Layout: LayoutStruct](
     val body: L => GIO[?],
     val layout: InitProgramLayout => Params => L,
     val dispatch: (L, Params) => ProgramDispatch,
@@ -28,7 +28,7 @@ object GProgram:
   ) extends GProgram[Params, L]:
     private[cyfra] def layoutStruct: LayoutStruct[L] = summon[LayoutStruct[L]]
 
-  class SpirvProgram[Params, L <: Layout : LayoutStruct](
+  class SpirvProgram[Params, L <: Layout: LayoutStruct](
     val code: ByteBuffer,
     val layout: InitProgramLayout => Params => L,
     val dispatch: (L, Params) => ProgramDispatch,
@@ -68,4 +68,3 @@ object GProgram:
     workgroupSize: WorkDimensions = (128, 1, 1),
   )(body: L => GIO[?]): GProgram[Params, L] =
     new GioProgram[Params, L](body, s => layout(using s), dispatch, workgroupSize)
-
