@@ -7,7 +7,13 @@ import io.computenode.cyfra.dsl.Value.{FromExpr, GBoolean}
 import io.computenode.cyfra.dsl.macros.Source
 import izumi.reflect.Tag
 
-case class When[T <: Value: Tag: FromExpr](when: GBoolean, thenCode: T, otherConds: List[Scope[GBoolean]], otherCases: List[Scope[T]], name: Source):
+case class When[T <: Value: {Tag, FromExpr}](
+  when: GBoolean,
+  thenCode: T,
+  otherConds: List[Scope[GBoolean]],
+  otherCases: List[Scope[T]],
+  name: Source,
+):
   def elseWhen(cond: GBoolean)(t: T): When[T] =
     When(when, thenCode, otherConds :+ Scope(cond.tree), otherCases :+ Scope(t.tree.asInstanceOf[E[T]]), name)
   infix def otherwise(t: T): T =
@@ -24,5 +30,5 @@ object When:
     otherwise: Scope[T],
   ) extends Expression[T]
 
-  def when[T <: Value: Tag: FromExpr](cond: GBoolean)(fn: T)(using name: Source): When[T] =
+  def when[T <: Value: {Tag, FromExpr}](cond: GBoolean)(fn: T)(using name: Source): When[T] =
     When(cond, fn, Nil, Nil, name)

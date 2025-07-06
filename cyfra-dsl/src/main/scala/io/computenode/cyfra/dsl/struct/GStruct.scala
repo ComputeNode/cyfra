@@ -10,7 +10,7 @@ import izumi.reflect.Tag
 import scala.compiletime.*
 import scala.deriving.Mirror
 
-abstract class GStruct[T <: GStruct[T]: Tag: GStructSchema] extends Value with Product:
+abstract class GStruct[T <: GStruct[T]: {Tag, GStructSchema}] extends Value with Product:
   self: T =>
   private[cyfra] var _schema: GStructSchema[T] = summon[GStructSchema[T]] // a nasty hack
   def schema: GStructSchema[T] = _schema
