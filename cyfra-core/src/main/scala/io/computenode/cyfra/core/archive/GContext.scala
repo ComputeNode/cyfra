@@ -11,10 +11,10 @@ import io.computenode.cyfra.spirv.SpirvTypes.typeStride
 import io.computenode.cyfra.spirv.compilers.DSLCompiler
 import io.computenode.cyfra.spirv.compilers.ExpressionCompiler.{UniformStructRef, WorkerIndex}
 import io.computenode.cyfra.spirvtools.SpirvToolsRunner
-import io.computenode.cyfra.vulkan.VulkanContext
-import io.computenode.cyfra.vulkan.compute.*
-import io.computenode.cyfra.vulkan.executor.SequenceExecutor.*
-import io.computenode.cyfra.vulkan.executor.{BufferAction, SequenceExecutor}
+import io.computenode.cyfra.vulkan.archive.VulkanContext
+import io.computenode.cyfra.vulkan.archive.compute.*
+import io.computenode.cyfra.vulkan.archive.executor.SequenceExecutor.*
+import io.computenode.cyfra.vulkan.archive.executor.{BufferAction, SequenceExecutor}
 import izumi.reflect.Tag
 import org.lwjgl.system.Configuration
 

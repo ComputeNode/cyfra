@@ -5,7 +5,7 @@ import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.dsl.collections.{GArray, GArray2D}
 import io.computenode.cyfra.dsl.struct.*
 import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.vulkan.compute.ComputePipeline
+import io.computenode.cyfra.vulkan.archive.compute.ComputePipeline
 import izumi.reflect.Tag
 
 case class GFunction[G <: GStruct[G]: {GStructSchema, Tag}, H <: Value: {Tag, FromExpr}, R <: Value: {Tag, FromExpr}](fn: (G, Int32, GArray[H]) => R)(

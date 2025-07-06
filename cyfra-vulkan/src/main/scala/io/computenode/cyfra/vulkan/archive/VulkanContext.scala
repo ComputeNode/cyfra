@@ -1,11 +1,10 @@
-package io.computenode.cyfra.vulkan
+package io.computenode.cyfra.vulkan.archive
 
 import io.computenode.cyfra.utility.Logger.logger
-import io.computenode.cyfra.vulkan.VulkanContext.ValidationLayers
-import io.computenode.cyfra.vulkan.command.{CommandPool, Queue, StandardCommandPool}
-import io.computenode.cyfra.vulkan.core.{DebugCallback, Device, Instance}
-import io.computenode.cyfra.vulkan.memory.{Allocator, DescriptorPool}
-import org.lwjgl.system.Configuration
+import io.computenode.cyfra.vulkan.archive.VulkanContext.ValidationLayers
+import io.computenode.cyfra.vulkan.archive.command.{CommandPool, Queue, StandardCommandPool}
+import io.computenode.cyfra.vulkan.archive.core.{DebugCallback, Device, Instance}
+import io.computenode.cyfra.vulkan.archive.memory.{Allocator, DescriptorPool}
 
 /** @author
   *   MarconZet Created 13.04.2020
@@ -14,9 +13,6 @@ private[cyfra] object VulkanContext:
   val ValidationLayer: String = "VK_LAYER_KHRONOS_validation"
   val SyncLayer: String = "VK_LAYER_KHRONOS_synchronization2"
   private val ValidationLayers: Boolean = System.getProperty("io.computenode.cyfra.vulkan.validation", "false").toBoolean
-  Option(Configuration.STACK_SIZE.get())
-    .filter(_ < 100)
-    .foreach(size => logger.warn(s"Stack size [$size] may fail during runtime. Set org.lwjgl.system.stackSize"))
 
 private[cyfra] class VulkanContext:
   val instance: Instance = new Instance(ValidationLayers)
