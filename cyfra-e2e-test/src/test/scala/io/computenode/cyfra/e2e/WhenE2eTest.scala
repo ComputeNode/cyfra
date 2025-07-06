@@ -1,7 +1,7 @@
 package io.computenode.cyfra.e2e
 
 import io.computenode.cyfra.dsl.struct.GStruct
-import io.computenode.cyfra.runtime.*
+import io.computenode.cyfra.core.archive.*
 import mem.*
 import io.computenode.cyfra.dsl.{*, given}
 
