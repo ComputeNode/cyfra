@@ -1,6 +1,6 @@
-package io.computenode.cyfra.core.aalegacy
+package io.computenode.cyfra.core.archive
 
-import io.computenode.cyfra.core.aalegacy.GFunction
+import io.computenode.cyfra.core.archive.GFunction
 import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.dsl.collections.{GArray, GArray2D}
 import io.computenode.cyfra.dsl.struct.*

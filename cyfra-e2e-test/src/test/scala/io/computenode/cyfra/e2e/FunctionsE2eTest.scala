@@ -1,6 +1,6 @@
 package io.computenode.cyfra.e2e
 
-import io.computenode.cyfra.core.aalegacy.*, mem.*
+import io.computenode.cyfra.core.archive.*, mem.*
 import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.dsl.{*, given}
 import GMem.fRGBA

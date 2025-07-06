@@ -1,6 +1,6 @@
-package io.computenode.cyfra.core.aalegacy.mem
+package io.computenode.cyfra.core.archive.mem
 
-import io.computenode.cyfra.core.aalegacy.{GContext, GFunction, UniformContext}
+import io.computenode.cyfra.core.archive.{GContext, GFunction, UniformContext}
 import io.computenode.cyfra.dsl.Value.FromExpr
 import io.computenode.cyfra.dsl.struct.*
 import io.computenode.cyfra.dsl.{*, given}

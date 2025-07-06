@@ -1,6 +1,6 @@
-package io.computenode.cyfra.core.aalegacy.mem
+package io.computenode.cyfra.core.archive.mem
 
-import io.computenode.cyfra.core.aalegacy.mem.GMem.fRGBA
+import io.computenode.cyfra.core.archive.mem.GMem.fRGBA
 import io.computenode.cyfra.dsl.Value.{Float32, Vec4}
 import org.lwjgl.BufferUtils
 

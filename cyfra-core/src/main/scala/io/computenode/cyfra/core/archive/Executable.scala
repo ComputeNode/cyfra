@@ -1,6 +1,6 @@
-package io.computenode.cyfra.core.aalegacy
+package io.computenode.cyfra.core.archive
 
-import io.computenode.cyfra.core.aalegacy.mem.{GMem, RamGMem}
+import io.computenode.cyfra.core.archive.mem.{GMem, RamGMem}
 import io.computenode.cyfra.dsl.Value
 
 import scala.concurrent.Future

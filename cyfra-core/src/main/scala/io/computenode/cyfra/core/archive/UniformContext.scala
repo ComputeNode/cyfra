@@ -1,6 +1,6 @@
-package io.computenode.cyfra.core.aalegacy
+package io.computenode.cyfra.core.archive
 
-import io.computenode.cyfra.core.aalegacy.UniformContext
+import io.computenode.cyfra.core.archive.UniformContext
 import io.computenode.cyfra.dsl.struct.*
 import io.computenode.cyfra.dsl.struct.GStruct.Empty
 import izumi.reflect.Tag

@@ -1,6 +1,6 @@
 package io.computenode.cyfra.e2e
 
-import io.computenode.cyfra.core.aalegacy.*
+import io.computenode.cyfra.core.archive.*
 import mem.*
 import GMem.fRGBA
 import io.computenode.cyfra.dsl.algebra.VectorAlgebra

@@ -1,7 +1,7 @@
 package io.computenode.cyfra.core
 
 import io.computenode.cyfra.core.GExecution.*
-import io.computenode.cyfra.core.aalegacy.GContext
+import io.computenode.cyfra.core.archive.GContext
 import io.computenode.cyfra.core.layout.*
 import io.computenode.cyfra.dsl.binding.GBuffer
 import io.computenode.cyfra.dsl.gio.GIO

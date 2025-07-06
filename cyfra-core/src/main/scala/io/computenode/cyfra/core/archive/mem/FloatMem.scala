@@ -1,4 +1,4 @@
-package io.computenode.cyfra.core.aalegacy.mem
+package io.computenode.cyfra.core.archive.mem
 
 import io.computenode.cyfra.dsl.Value.Float32
 import org.lwjgl.BufferUtils

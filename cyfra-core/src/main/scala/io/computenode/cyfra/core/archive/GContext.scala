@@ -1,8 +1,8 @@
-package io.computenode.cyfra.core.aalegacy
+package io.computenode.cyfra.core.archive
 
-import io.computenode.cyfra.core.aalegacy.mem.GMem.totalStride
-import io.computenode.cyfra.core.aalegacy.mem.{FloatMem, GMem, IntMem, Vec4FloatMem}
-import io.computenode.cyfra.core.aalegacy.{GFunction, UniformContext}
+import io.computenode.cyfra.core.archive.mem.GMem.totalStride
+import io.computenode.cyfra.core.archive.mem.{FloatMem, GMem, IntMem, Vec4FloatMem}
+import io.computenode.cyfra.core.archive.{GFunction, UniformContext}
 import io.computenode.cyfra.dsl.Value
 import io.computenode.cyfra.dsl.Value.{Float32, FromExpr, Int32, Vec4}
 import io.computenode.cyfra.dsl.collections.GArray

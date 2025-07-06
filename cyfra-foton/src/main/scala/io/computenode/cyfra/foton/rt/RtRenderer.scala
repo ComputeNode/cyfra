@@ -10,7 +10,7 @@ import io.computenode.cyfra.dsl.library.Random
 import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.foton.rt.RtRenderer.RayHitInfo
-import io.computenode.cyfra.core.aalegacy.GContext
+import io.computenode.cyfra.core.archive.GContext
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.ExecutionContext.Implicits

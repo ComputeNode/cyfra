@@ -6,8 +6,8 @@ import io.computenode.cyfra.dsl.collections.GSeq
 import io.computenode.cyfra.dsl.control.Pure.pure
 import io.computenode.cyfra.dsl.struct.GStruct.Empty
 import io.computenode.cyfra.e2e.ImageTests
-import io.computenode.cyfra.core.aalegacy.mem.Vec4FloatMem
-import io.computenode.cyfra.core.aalegacy.{GContext, GFunction}
+import io.computenode.cyfra.core.archive.mem.Vec4FloatMem
+import io.computenode.cyfra.core.archive.{GContext, GFunction}
 import io.computenode.cyfra.spirvtools.*
 import io.computenode.cyfra.spirvtools.SpirvTool.{Param, ToFile}
 import io.computenode.cyfra.utility.ImageUtility

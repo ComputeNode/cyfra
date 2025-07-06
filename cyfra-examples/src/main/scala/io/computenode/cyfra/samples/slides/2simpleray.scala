@@ -3,8 +3,8 @@ package io.computenode.cyfra.samples.slides
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.dsl.struct.GStruct.Empty
-import io.computenode.cyfra.core.aalegacy.*
-import io.computenode.cyfra.core.aalegacy.mem.Vec4FloatMem
+import io.computenode.cyfra.core.archive.*
+import io.computenode.cyfra.core.archive.mem.Vec4FloatMem
 import io.computenode.cyfra.utility.ImageUtility
 
 import java.nio.file.Paths

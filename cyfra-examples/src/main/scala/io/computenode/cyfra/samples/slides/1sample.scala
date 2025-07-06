@@ -1,8 +1,8 @@
 package io.computenode.cyfra.samples.slides
 
 import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.core.aalegacy.*
-import io.computenode.cyfra.core.aalegacy.mem.FloatMem
+import io.computenode.cyfra.core.archive.*
+import io.computenode.cyfra.core.archive.mem.FloatMem
 
 given GContext = new GContext()
 
