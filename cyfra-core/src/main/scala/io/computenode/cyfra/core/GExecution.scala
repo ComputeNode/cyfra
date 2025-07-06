@@ -10,9 +10,9 @@ import io.computenode.cyfra.spirv.compilers.ExpressionCompiler.UniformStructRef
 import izumi.reflect.Tag
 import GExecution.*
 
-trait GExecution[-Params, -ExecLayout <: Layout, +ResLayout <: Layout]:
+trait GExecution[-Params, ExecLayout <: Layout, +ResLayout <: Layout]:
 
-  def flatMap[NRL <: Layout, NP <: Params, NL <: ExecLayout](f: ResLayout => GExecution[NP, NL, NRL]): GExecution[NP, NL, NRL] =
+  def flatMap[NRL <: Layout, NP <: Params](f: ResLayout => GExecution[NP, ExecLayout, NRL]): GExecution[NP, ExecLayout, NRL] =
     FlatMap(this, (p, r) => f(r))
 
   def map[NRL <: Layout](f: ResLayout => NRL): GExecution[Params, ExecLayout, NRL] =
@@ -24,9 +24,9 @@ trait GExecution[-Params, -ExecLayout <: Layout, +ResLayout <: Layout]:
   def contramapParams[NP](f: NP => Params): GExecution[NP, ExecLayout, ResLayout] =
     Map(this, identity, identity, f)
 
-  def addProgram[ProgramParams, PP <: Params, ProgramLayout <: Layout, PL <: ExecLayout, P <: GProgram[ProgramParams, ProgramLayout]](
+  def addProgram[ProgramParams, PP <: Params, ProgramLayout <: Layout, P <: GProgram[ProgramParams, ProgramLayout]](
     program: P,
-  )(mapParams: PP => ProgramParams, mapLayout: PL => ProgramLayout): GExecution[PP, PL, ResLayout] =
+  )(mapParams: PP => ProgramParams, mapLayout: ExecLayout => ProgramLayout): GExecution[PP, ExecLayout, ResLayout] =
     val adapted = program.contramapParams(mapParams).contramap(mapLayout)
     flatMap(r => adapted.map(_ => r))
 
