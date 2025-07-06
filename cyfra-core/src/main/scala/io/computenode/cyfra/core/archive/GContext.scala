@@ -47,7 +47,7 @@ class GContext(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()):
     ComputePipeline(shader, vkContext)
 
   def execute[G <: GStruct[G]: {Tag, GStructSchema}, H <: Value, R <: Value](mem: GMem[H], fn: GFunction[G, H, R])(using
-                                                                                                                   uniformContext: UniformContext[G],
+    uniformContext: UniformContext[G],
   ): GMem[R] =
     val isUniformEmpty = uniformContext.uniform.schema.fields.isEmpty
     val actions = Map(LayoutLocation(0, 0) -> BufferAction.LoadTo, LayoutLocation(0, 1) -> BufferAction.LoadFrom) ++
