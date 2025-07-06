@@ -35,6 +35,7 @@ object GBufferRegion:
       val allocation = cyfraRuntime.allocation()
       init(using allocation)
 
+      //noinspection ScalaRedundantCast
       val steps: Seq[Allocation => Layout => Layout] = Seq.unfold(region: GBufferRegion[?, ?]):
         case _: AllocRegion[?] => None
         case MapRegion(req, f) =>
