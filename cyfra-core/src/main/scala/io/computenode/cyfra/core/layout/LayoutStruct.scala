@@ -31,7 +31,7 @@ object LayoutStruct:
         case ValDef(_, tpt, _) => tpt.tpe
         case _                 => report.errorAndAbort("Unexpected field type in case class")
 
-    if !fieldTypes.forall(_ <:< TypeRepr.of[GBinding]) then
+    if !fieldTypes.forall(_ <:< TypeRepr.of[GBinding[?]]) then
       report.errorAndAbort("LayoutStruct can only be derived for case classes with GBinding elements")
 
     val valueTypes = fieldTypes.map: ftype =>

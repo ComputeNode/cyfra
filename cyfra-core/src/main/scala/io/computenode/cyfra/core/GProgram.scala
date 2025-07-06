@@ -27,7 +27,7 @@ object GProgram:
 
   sealed trait ProgramDispatch
 
-  case class DynamicDispatch[L <: Layout](buffer: GBinding, offset: Int) extends ProgramDispatch
+  case class DynamicDispatch[L <: Layout](buffer: GBinding[?], offset: Int) extends ProgramDispatch
 
   case class StaticDispatch(size: WorkDimensions) extends ProgramDispatch
 
