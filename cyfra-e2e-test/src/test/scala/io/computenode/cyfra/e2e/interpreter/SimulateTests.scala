@@ -1,7 +1,7 @@
 package io.computenode.cyfra.e2e.interpreter
 
 import io.computenode.cyfra.interpreter.*, Result.*
-import io.computenode.cyfra.dsl.{*, given}, Value.FromExpr.fromExpr
+import io.computenode.cyfra.dsl.{*, given}, Value.FromExpr.fromExpr, control.Scope
 
 class SimulateE2eTest extends munit.FunSuite:
   test("simulate binary operation arithmetic"):
@@ -36,3 +36,15 @@ class SimulateE2eTest extends munit.FunSuite:
     val res3 = Simulate.sim(dot).asInstanceOf[Float]
     val exp3 = 0f
     assert(Math.abs(res3 - exp3) < 0.001f, s"Expected $exp3, got $res3")
+
+  test("when test"):
+    val expr = WhenExpr(
+      when = 2 <= 1,
+      thenCode = Scope(ConstInt32(1)),
+      otherConds = List(Scope(ConstGB(3 == 2)), Scope(ConstGB(1 >= 3))),
+      otherCaseCodes = List(Scope(ConstInt32(2)), Scope(ConstInt32(4))),
+      otherwise = Scope(ConstInt32(3)),
+    )
+    val res = Simulate.sim(expr)
+    val exp = 3
+    assert(res == exp, s"Expected $exp, got $res")

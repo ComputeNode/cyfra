@@ -32,6 +32,7 @@ object Simulate:
     case InvocationId                 => ???
     case Pass(value)                  => ???
     case Dynamic(source)              => ???
+    case e: WhenExpr[?]               => simWhen(e)
     case _                            => throw IllegalArgumentException("wrong argument")
 
   def simBinOp(e: BinaryOpExpression[?]): Result = e match
@@ -75,7 +76,7 @@ object Simulate:
     case LessThan(a, b)         => simScalar(a) < simScalar(b)
     case GreaterThanEqual(a, b) => simScalar(a) >= simScalar(b)
     case LessThanEqual(a, b)    => simScalar(a) <= simScalar(b)
-    case Equal(a, b)            => simScalar(a) === simScalar(b)
+    case Equal(a, b)            => simScalar(a) eql simScalar(b)
 
   def simConvert(e: ConvertExpression[?, ?]): Float | Int = e match
     case ToFloat32(a) =>
@@ -115,3 +116,20 @@ object Simulate:
   def simExtFunc(fn: FunctionName, args: List[Result]): Result = ???
   def simFunc(fn: FnIdentifier, body: Result, args: List[Result]): Result = ???
   def simScope(body: Scope[?]) = sim(body.expr)
+
+  def simWhen(e: WhenExpr[?]): Result = e match
+    case WhenExpr(when, thenCode, otherConds, otherCaseCodes, otherwise) =>
+      if sim(when.tree).asInstanceOf[Boolean] then sim(thenCode.expr)
+      else
+        otherConds.headOption match
+          case None       => sim(otherwise.expr)
+          case Some(cond) =>
+            simWhen(
+              WhenExpr(
+                when = GBoolean(cond.expr),
+                thenCode = otherCaseCodes.head,
+                otherConds = otherConds.tail,
+                otherCaseCodes = otherCaseCodes.tail,
+                otherwise,
+              ),
+            )

@@ -71,7 +71,7 @@ object Result:
       case (b: Boolean, t: Boolean) => throw IllegalArgumentException("<=: cannot compare booleans")
       case _                        => throw IllegalArgumentException("<=: incompatible argument types")
 
-    infix def ===(that: ScalarRes) = (sr, that) match
+    infix def eql(that: ScalarRes) = (sr, that) match
       case (f: Float, t: Float)     => Math.abs(f - t) < 0.001f
       case (n: Int, t: Int)         => n == t
       case (b: Boolean, t: Boolean) => b == t
