@@ -14,7 +14,7 @@ private[cyfra] class Fence(flags: Int = 0, onDestroy: () => Unit = () => ())(usi
     val fenceInfo = VkFenceCreateInfo
       .calloc(stack)
       .sType$Default()
-      .pNext(VK_NULL_HANDLE)
+      .pNext(0)
       .flags(flags)
 
     val pFence = stack.callocLong(1)

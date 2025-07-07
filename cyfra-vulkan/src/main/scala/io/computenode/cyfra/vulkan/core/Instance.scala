@@ -45,7 +45,7 @@ private[cyfra] class Instance(enableValidationLayers: Boolean) extends VulkanObj
     val appInfo = VkApplicationInfo
       .calloc(stack)
       .sType$Default()
-      .pNext(NULL)
+      .pNext(0)
       .pApplicationName(stack.UTF8("cyfra MVP"))
       .pEngineName(stack.UTF8("cyfra Computing Engine"))
       .applicationVersion(VK_MAKE_VERSION(0, 1, 0))
@@ -63,7 +63,7 @@ private[cyfra] class Instance(enableValidationLayers: Boolean) extends VulkanObj
       .calloc(stack)
       .sType$Default()
       .flags(VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR)
-      .pNext(NULL)
+      .pNext(0)
       .pApplicationInfo(appInfo)
       .ppEnabledExtensionNames(ppEnabledExtensionNames)
       .ppEnabledLayerNames(ppEnabledLayerNames)

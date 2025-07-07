@@ -20,7 +20,7 @@ private[cyfra] sealed class Buffer private (val size: Int, usage: Int, flags: In
     val bufferInfo = VkBufferCreateInfo
       .calloc(stack)
       .sType$Default()
-      .pNext(NULL)
+      .pNext(0)
       .size(size)
       .usage(usage)
       .flags(0)

@@ -1,7 +1,7 @@
 package io.computenode.cyfra.vulkan.core
 
 import io.computenode.cyfra.utility.Logger.logger
-import io.computenode.cyfra.vulkan.core.DebugCallback.DEBUG_REPORT
+import io.computenode.cyfra.vulkan.core.DebugCallback.DebugReport
 import io.computenode.cyfra.vulkan.util.{VulkanAssertionError, VulkanObjectHandle}
 import org.lwjgl.BufferUtils
 import org.lwjgl.system.MemoryUtil.NULL
@@ -15,7 +15,7 @@ import java.lang.Integer.highestOneBit
   *   MarconZet Created 13.04.2020
   */
 object DebugCallback:
-  val DEBUG_REPORT = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT
+  val DebugReport: Int = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT
 
 private[cyfra] class DebugCallback(instance: Instance) extends VulkanObjectHandle:
   override protected val handle: Long =
@@ -42,7 +42,7 @@ private[cyfra] class DebugCallback(instance: Instance) extends VulkanObjectHandl
             logger.info(decodedMessage)
           case x => logger.error(s"Unexpected value: x, message: $decodedMessage")
         0
-    setupDebugging(DEBUG_REPORT, debugCallback)
+    setupDebugging(DebugReport, debugCallback)
 
   override protected def close(): Unit =
     vkDestroyDebugReportCallbackEXT(instance.get, handle, null)
@@ -51,9 +51,9 @@ private[cyfra] class DebugCallback(instance: Instance) extends VulkanObjectHandl
     val dbgCreateInfo = VkDebugReportCallbackCreateInfoEXT
       .create()
       .sType$Default()
-      .pNext(NULL)
+      .pNext(0)
       .pfnCallback(callback)
-      .pUserData(NULL)
+      .pUserData(0)
       .flags(flags)
     val pCallback = BufferUtils.createLongBuffer(1)
     val err = vkCreateDebugReportCallbackEXT(instance.get, dbgCreateInfo, null, pCallback)

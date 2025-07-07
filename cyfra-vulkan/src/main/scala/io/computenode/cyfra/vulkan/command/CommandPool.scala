@@ -14,7 +14,7 @@ private[cyfra] abstract class CommandPool private (flags: Int, queue: Queue)(usi
     val createInfo = VkCommandPoolCreateInfo
       .calloc(stack)
       .sType$Default()
-      .pNext(VK_NULL_HANDLE)
+      .pNext(0)
       .queueFamilyIndex(queue.familyIndex)
       .flags(flags)
 
