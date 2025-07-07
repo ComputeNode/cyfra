@@ -16,9 +16,6 @@ private[cyfra] class Queue(val familyIndex: Int, queueIndex: Int, device: Device
     vkGetDeviceQueue(device.get, familyIndex, queueIndex, pQueue)
     new VkQueue(pQueue.get(0), device.get)
 
-  def submit(submitInfo: VkSubmitInfo, fence: Fence): Int = this.synchronized:
-    vkQueueSubmit(queue, submitInfo, fence.get)
-
   def get: VkQueue = queue
 
   protected def close(): Unit = ()

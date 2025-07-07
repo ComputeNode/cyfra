@@ -82,7 +82,7 @@ lazy val core = (project in file("cyfra-core"))
 
 lazy val runtime = (project in file("cyfra-runtime"))
   .settings(commonSettings)
-  .dependsOn(core)
+  .dependsOn(core, vulkan)
 
 lazy val foton = (project in file("cyfra-foton"))
   .settings(commonSettings)

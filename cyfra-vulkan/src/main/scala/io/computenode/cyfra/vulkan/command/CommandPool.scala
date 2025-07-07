@@ -66,7 +66,7 @@ private[cyfra] abstract class CommandPool private (flags: Int, queue: Queue)(usi
         .sType$Default()
         .pCommandBuffers(pointerBuffer)
       val fence = new Fence(0, () => freeCommandBuffer(commandBuffer))
-      queue.submit(submitInfo, fence)
+      check(vkQueueSubmit(queue.get, submitInfo, fence.get), "Failed to submit single time command buffer")
       fence
 
   def freeCommandBuffer(commandBuffer: VkCommandBuffer*): Unit =
