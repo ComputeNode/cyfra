@@ -2,9 +2,10 @@ package io.computenode.cyfra.vulkan
 
 import io.computenode.cyfra.utility.Logger.logger
 import io.computenode.cyfra.vulkan.VulkanContext.ValidationLayers
-import io.computenode.cyfra.vulkan.command.{CommandPool, Queue, StandardCommandPool}
-import io.computenode.cyfra.vulkan.core.{DebugCallback, Device, Instance}
+import io.computenode.cyfra.vulkan.command.CommandPool
+import io.computenode.cyfra.vulkan.core.{DebugCallback, Device, Instance, Queue}
 import io.computenode.cyfra.vulkan.memory.{Allocator, DescriptorPool}
+import org.lwjgl.system.Configuration
 
 /** @author
   *   MarconZet Created 13.04.2020
@@ -13,15 +14,16 @@ private[cyfra] object VulkanContext:
   val ValidationLayer: String = "VK_LAYER_KHRONOS_validation"
   val SyncLayer: String = "VK_LAYER_KHRONOS_synchronization2"
   private val ValidationLayers: Boolean = System.getProperty("io.computenode.cyfra.vulkan.validation", "false").toBoolean
+  if Configuration.STACK_SIZE.get() < 100 then logger.warn(s"Small stack size. Increase with org.lwjgl.system.stackSize")
 
 private[cyfra] class VulkanContext:
   val instance: Instance = new Instance(ValidationLayers)
   val debugCallback: Option[DebugCallback] = if ValidationLayers then Some(new DebugCallback(instance)) else None
-  val device: Device = new Device(instance)
+  given device: Device = new Device(instance)
+  given allocator: Allocator = new Allocator(instance, device)
   val computeQueue: Queue = new Queue(device.computeQueueFamily, 0, device)
-  val allocator: Allocator = new Allocator(instance, device)
-  val descriptorPool: DescriptorPool = new DescriptorPool(device)
-  val commandPool: CommandPool = new StandardCommandPool(device, computeQueue)
+  val descriptorPool: DescriptorPool = new DescriptorPool()
+  val commandPool: CommandPool = new CommandPool.Standard(computeQueue)
 
   logger.debug("Vulkan context created")
   logger.debug("Running on device: " + device.physicalDeviceName)
@@ -29,8 +31,8 @@ private[cyfra] class VulkanContext:
   def destroy(): Unit =
     commandPool.destroy()
     descriptorPool.destroy()
-    allocator.destroy()
     computeQueue.destroy()
+    allocator.destroy()
     device.destroy()
     debugCallback.foreach(_.destroy())
     instance.destroy()

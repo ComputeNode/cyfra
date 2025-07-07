@@ -1,22 +1,23 @@
-package io.computenode.cyfra.e2e.vulkan
+package io.computenode.cyfra.vulkan
 
-import io.computenode.cyfra.vulkan.compute.{Binding, ComputePipeline, InputBufferSize, LayoutInfo, LayoutSet, Shader}
+import io.computenode.cyfra.vulkan.VulkanContext
+import io.computenode.cyfra.vulkan.compute.*
+import io.computenode.cyfra.vulkan.core.Device
 import io.computenode.cyfra.vulkan.executor.BufferAction.{LoadFrom, LoadTo}
 import io.computenode.cyfra.vulkan.executor.SequenceExecutor
 import io.computenode.cyfra.vulkan.executor.SequenceExecutor.{ComputationSequence, Compute, Dependency, LayoutLocation}
-import io.computenode.cyfra.vulkan.VulkanContext
 import munit.FunSuite
 import org.lwjgl.BufferUtils
 
 class SequenceExecutorTest extends FunSuite:
-  private val vulkanContext = VulkanContext()
+  val vulkanContext = VulkanContext()
+  import vulkanContext.given
 
   test("Memory barrier"):
-    val code = Shader.loadShader("copy_test.spv")
+    val code = ComputePipeline.loadShader("copy_test.spv").get
     val layout = LayoutInfo(Seq(LayoutSet(0, Seq(Binding(0, InputBufferSize(4)))), LayoutSet(1, Seq(Binding(0, InputBufferSize(4))))))
-    val shader = new Shader(code, new org.joml.Vector3i(128, 1, 1), layout, "main", vulkanContext.device)
-    val copy1 = new ComputePipeline(shader, vulkanContext)
-    val copy2 = new ComputePipeline(shader, vulkanContext)
+    val copy1 = new ComputePipeline(code, "main", layout)
+    val copy2 = new ComputePipeline(code, "main", layout)
 
     val sequence =
       ComputationSequence(
@@ -28,7 +29,7 @@ class SequenceExecutorTest extends FunSuite:
     val buffer = BufferUtils.createByteBuffer(input.length * 4)
     input.foreach(buffer.putInt)
     buffer.flip()
-    val res = sequenceExecutor.execute(Seq(buffer), input.length)
+    val res = sequenceExecutor.execute(Seq(buffer))
     val output = input.map(_ => res.head.getInt)
 
     assertEquals(input.map(_ + 20000).toList, output.toList)

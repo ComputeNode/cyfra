@@ -1,5 +1,6 @@
-package io.computenode.cyfra.vulkan.command
+package io.computenode.cyfra.vulkan.core
 
+import io.computenode.cyfra.vulkan.command.Fence
 import io.computenode.cyfra.vulkan.core.Device
 import io.computenode.cyfra.vulkan.util.Util.pushStack
 import io.computenode.cyfra.vulkan.util.VulkanObject
@@ -14,9 +15,6 @@ private[cyfra] class Queue(val familyIndex: Int, queueIndex: Int, device: Device
     val pQueue = stack.callocPointer(1)
     vkGetDeviceQueue(device.get, familyIndex, queueIndex, pQueue)
     new VkQueue(pQueue.get(0), device.get)
-
-  def submit(submitInfo: VkSubmitInfo, fence: Fence): Int = this.synchronized:
-    vkQueueSubmit(queue, submitInfo, fence.get)
 
   def get: VkQueue = queue
 

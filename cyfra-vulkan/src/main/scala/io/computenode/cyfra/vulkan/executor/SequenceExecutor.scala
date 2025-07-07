@@ -21,9 +21,9 @@ import java.nio.ByteBuffer
   *   MarconZet Created 15.04.2020
   */
 private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, context: VulkanContext):
-  private val device: Device = context.device
+  import context.given
+
   private val queue: Queue = context.computeQueue
-  private val allocator: Allocator = context.allocator
   private val descriptorPool: DescriptorPool = context.descriptorPool
   private val commandPool: CommandPool = context.commandPool
 
@@ -31,7 +31,7 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
     val pipelines = computeSequence.sequence.collect:
       case Compute(pipeline, _) => pipeline
 
-    val rawSets = pipelines.map(_.computeShader.layoutInfo.sets)
+    val rawSets = pipelines.map(_.layoutInfo.sets)
     val numbered = rawSets.flatten.zipWithIndex
     val numberedSets = rawSets
       .foldLeft((numbered, Seq.empty[Seq[(LayoutSet, Int)]])) { case ((remaining, acc), sequence) =>
@@ -63,7 +63,7 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
       }
       .distinctBy(_._1)
       .map { case (set, (id, layout)) =>
-        (set, new DescriptorSet(device, id, layout.bindings, descriptorPool))
+        (set, new DescriptorSet(id, layout.bindings, descriptorPool))
       }
       .toMap
 
@@ -71,7 +71,7 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
 
   private val descriptorSets = pipelineToDescriptorSets.toSeq.flatMap(_._2).distinctBy(_.get)
 
-  private def recordCommandBuffer(dataLength: Int): VkCommandBuffer = pushStack: stack =>
+  private def recordCommandBuffer() = pushStack: stack =>
     val pipelinesHasDependencies = computeSequence.dependencies.map(_.to).toSet
     val commandBuffer = commandPool.createCommandBuffer()
 
@@ -104,14 +104,13 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
       val pDescriptorSets = stack.longs(pipelineToDescriptorSets(pipeline).map(_.get)*)
       vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.pipelineLayout, 0, pDescriptorSets, null)
 
-      val workgroup = pipeline.computeShader.workgroupDimensions
-      vkCmdDispatch(commandBuffer, dataLength / workgroup.x, 1 / workgroup.y, 1 / workgroup.z) // TODO this can be changed to indirect dispatch, this would unlock options like filters
+      vkCmdDispatch(commandBuffer, 8, 1, 1)
     }
 
     check(vkEndCommandBuffer(commandBuffer), "Failed to finish recording command buffer")
     commandBuffer
 
-  private def createBuffers(dataLength: Int): Map[DescriptorSet, Seq[Buffer]] =
+  private def createBuffers(): Map[DescriptorSet, Seq[Buffer]] =
 
     val setToActions = computeSequence.sequence
       .collect { case Compute(pipeline, bufferActions) =>
@@ -132,9 +131,9 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
         val buffers = set.bindings.zip(actions).map { case (binding, action) =>
           binding.size match
             case InputBufferSize(elemSize) =>
-              new Buffer(elemSize * dataLength, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | action.action, 0, VMA_MEMORY_USAGE_GPU_ONLY, allocator)
+              new Buffer.DeviceBuffer(elemSize * 1024, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | action.action)
             case UniformSize(size) =>
-              new Buffer(size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | action.action, 0, VMA_MEMORY_USAGE_GPU_ONLY, allocator)
+              new Buffer.DeviceBuffer(size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | action.action)
         }
         set.update(buffers)
         (set, buffers),
@@ -143,9 +142,9 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
 
     setToBuffers
 
-  def execute(inputs: Seq[ByteBuffer], dataLength: Int): Seq[ByteBuffer] = pushStack: stack =>
+  def execute(inputs: Seq[ByteBuffer]): Seq[ByteBuffer] = pushStack: stack =>
     timed("Vulkan full execute"):
-      val setToBuffers = createBuffers(dataLength)
+      val setToBuffers = createBuffers()
 
       def buffersWithAction(bufferAction: BufferAction): Seq[Buffer] =
         computeSequence.sequence.collect { case x: Compute =>
@@ -158,21 +157,15 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
         }.flatten
 
       val stagingBuffer =
-        new Buffer(
-          inputs.map(_.remaining()).max,
-          VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
-          VMA_MEMORY_USAGE_UNKNOWN,
-          allocator,
-        )
+        new Buffer.HostBuffer(inputs.map(_.remaining()).max, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
 
       buffersWithAction(BufferAction.LoadTo).zipWithIndex.foreach { case (buffer, i) =>
         Buffer.copyBuffer(inputs(i), stagingBuffer, buffer.size)
         Buffer.copyBuffer(stagingBuffer, buffer, buffer.size, commandPool).block().destroy()
       }
 
-      val fence = new Fence(device)
-      val commandBuffer = recordCommandBuffer(dataLength)
+      val fence = new Fence()
+      val commandBuffer = recordCommandBuffer()
       val pCommandBuffer = stack.callocPointer(1).put(0, commandBuffer)
       val submitInfo = VkSubmitInfo
         .calloc(stack)
@@ -192,7 +185,6 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
 
       stagingBuffer.destroy()
       commandPool.freeCommandBuffer(commandBuffer)
-      setToBuffers.keys.foreach(_.update(Seq.empty))
       setToBuffers.flatMap(_._2).foreach(_.destroy())
 
       output
@@ -206,7 +198,7 @@ object SequenceExecutor:
   private[cyfra] sealed trait ComputationStep
   case class Compute(pipeline: ComputePipeline, bufferActions: Map[LayoutLocation, BufferAction]) extends ComputationStep:
     def pumpLayoutLocations: Seq[Seq[BufferAction]] =
-      pipeline.computeShader.layoutInfo.sets
+      pipeline.layoutInfo.sets
         .map(x => x.bindings.map(y => (x.id, y.id)).map(x => bufferActions.getOrElse(LayoutLocation.apply.tupled(x), BufferAction.DoNothing)))
 
   case class LayoutLocation(set: Int, binding: Int)
