@@ -111,5 +111,5 @@ object ComputePipeline:
     Using.Manager: use =>
       val file = new File(Objects.requireNonNull(classLoader.getResource(path)).getFile)
       val fis = use(new FileInputStream(file))
-      val fc = fis.getChannel
+      val fc = use(fis.getChannel)
       fc.map(FileChannel.MapMode.READ_ONLY, 0, fc.size())

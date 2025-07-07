@@ -1,5 +1,6 @@
-package io.computenode.cyfra.vulkan.command
+package io.computenode.cyfra.vulkan.core
 
+import io.computenode.cyfra.vulkan.command.Fence
 import io.computenode.cyfra.vulkan.core.Device
 import io.computenode.cyfra.vulkan.util.Util.pushStack
 import io.computenode.cyfra.vulkan.util.VulkanObject
