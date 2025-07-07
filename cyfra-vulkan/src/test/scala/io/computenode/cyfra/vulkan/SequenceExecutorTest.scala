@@ -27,7 +27,7 @@ class SequenceExecutorTest extends FunSuite:
     val buffer = BufferUtils.createByteBuffer(input.length * 4)
     input.foreach(buffer.putInt)
     buffer.flip()
-    val res = sequenceExecutor.execute(Seq(buffer), input.length)
+    val res = sequenceExecutor.execute(Seq(buffer))
     val output = input.map(_ => res.head.getInt)
 
     assertEquals(input.map(_ + 20000).toList, output.toList)

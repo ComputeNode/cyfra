@@ -1,6 +1,6 @@
 package io.computenode.cyfra.vulkan.memory
 
-import io.computenode.cyfra.vulkan.compute.Binding
+import io.computenode.cyfra.vulkan.compute.{Binding, InputBufferSize, LayoutSet, UniformSize}
 import io.computenode.cyfra.vulkan.core.Device
 import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import io.computenode.cyfra.vulkan.util.VulkanObjectHandle
@@ -26,25 +26,27 @@ private[cyfra] class DescriptorSet(device: Device, descriptorSetLayout: Long, va
     pDescriptorSet.get()
 
   def update(buffers: Seq[Buffer]): Unit = pushStack: stack =>
+    assert(buffers.length == bindings.length, s"Number of buffers (${buffers.length}) does not match number of bindings (${bindings.length})")
     val writeDescriptorSet = VkWriteDescriptorSet.calloc(buffers.length, stack)
-    buffers.indices foreach { i =>
+    buffers.zip(bindings).foreach { case (buffer, binding) =>
       val descriptorBufferInfo = VkDescriptorBufferInfo
         .calloc(1, stack)
-        .buffer(buffers(i).get)
+        .buffer(buffer.get)
         .offset(0)
         .range(VK_WHOLE_SIZE)
-      val descriptorType = buffers(i).usage match
-        case storage if (storage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT) != 0 => VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-        case uniform if (uniform & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) != 0 => VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
+      val descriptorType = binding.size match
+        case InputBufferSize(elemSize) => VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+        case UniformSize(size)         => VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
       writeDescriptorSet
-        .get(i)
+        .get()
         .sType$Default()
         .dstSet(handle)
-        .dstBinding(i)
+        .dstBinding(binding.id)
         .descriptorCount(1)
         .descriptorType(descriptorType)
         .pBufferInfo(descriptorBufferInfo)
     }
+    writeDescriptorSet.rewind()
     vkUpdateDescriptorSets(device.get, writeDescriptorSet, null)
 
   override protected def close(): Unit =

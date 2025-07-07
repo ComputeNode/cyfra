@@ -71,7 +71,7 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
 
   private val descriptorSets = pipelineToDescriptorSets.toSeq.flatMap(_._2).distinctBy(_.get)
 
-  private def recordCommandBuffer(dataLength: Int): VkCommandBuffer = pushStack: stack =>
+  private def recordCommandBuffer() = pushStack: stack =>
     val pipelinesHasDependencies = computeSequence.dependencies.map(_.to).toSet
     val commandBuffer = commandPool.createCommandBuffer()
 
@@ -110,7 +110,7 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
     check(vkEndCommandBuffer(commandBuffer), "Failed to finish recording command buffer")
     commandBuffer
 
-  private def createBuffers(dataLength: Int): Map[DescriptorSet, Seq[Buffer]] =
+  private def createBuffers(): Map[DescriptorSet, Seq[Buffer]] =
 
     val setToActions = computeSequence.sequence
       .collect { case Compute(pipeline, bufferActions) =>
@@ -131,9 +131,9 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
         val buffers = set.bindings.zip(actions).map { case (binding, action) =>
           binding.size match
             case InputBufferSize(elemSize) =>
-              new DeviceLocalBuffer(elemSize * dataLength, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | action.action, allocator)
+              new Buffer.DeviceLocal(elemSize * 1024, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | action.action, allocator)
             case UniformSize(size) =>
-              new DeviceLocalBuffer(size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | action.action, allocator)
+              new Buffer.DeviceLocal(size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | action.action, allocator)
         }
         set.update(buffers)
         (set, buffers),
@@ -142,9 +142,9 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
 
     setToBuffers
 
-  def execute(inputs: Seq[ByteBuffer], dataLength: Int): Seq[ByteBuffer] = pushStack: stack =>
+  def execute(inputs: Seq[ByteBuffer]): Seq[ByteBuffer] = pushStack: stack =>
     timed("Vulkan full execute"):
-      val setToBuffers = createBuffers(dataLength)
+      val setToBuffers = createBuffers()
 
       def buffersWithAction(bufferAction: BufferAction): Seq[Buffer] =
         computeSequence.sequence.collect { case x: Compute =>
@@ -157,7 +157,7 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
         }.flatten
 
       val stagingBuffer =
-        new HostBuffer(inputs.map(_.remaining()).max, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, allocator)
+        new Buffer.Host(inputs.map(_.remaining()).max, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, allocator)
 
       buffersWithAction(BufferAction.LoadTo).zipWithIndex.foreach { case (buffer, i) =>
         Buffer.copyBuffer(inputs(i), stagingBuffer, buffer.size)
@@ -165,7 +165,7 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
       }
 
       val fence = new Fence(device)
-      val commandBuffer = recordCommandBuffer(dataLength)
+      val commandBuffer = recordCommandBuffer()
       val pCommandBuffer = stack.callocPointer(1).put(0, commandBuffer)
       val submitInfo = VkSubmitInfo
         .calloc(stack)
@@ -185,7 +185,6 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
 
       stagingBuffer.destroy()
       commandPool.freeCommandBuffer(commandBuffer)
-      setToBuffers.keys.foreach(_.update(Seq.empty))
       setToBuffers.flatMap(_._2).foreach(_.destroy())
 
       output
