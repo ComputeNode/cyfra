@@ -14,9 +14,7 @@ private[cyfra] object VulkanContext:
   val ValidationLayer: String = "VK_LAYER_KHRONOS_validation"
   val SyncLayer: String = "VK_LAYER_KHRONOS_synchronization2"
   private val ValidationLayers: Boolean = System.getProperty("io.computenode.cyfra.vulkan.validation", "false").toBoolean
-  Option(Configuration.STACK_SIZE.get())
-    .filter(_ < 100)
-    .foreach(size => logger.warn(s"Stack size [$size] may fail during runtime. Set org.lwjgl.system.stackSize"))
+  if Configuration.STACK_SIZE.get() < 100 then logger.warn(s"Small stack size. Increase with org.lwjgl.system.stackSize")
 
 private[cyfra] class VulkanContext:
   val instance: Instance = new Instance(ValidationLayers)
