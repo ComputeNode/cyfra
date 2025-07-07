@@ -40,10 +40,10 @@ private[cyfra] sealed class Buffer private (val size: Int, usage: Int, flags: In
     vmaDestroyBuffer(allocator.get, handle, allocation)
 
 object Buffer:
-  private[cyfra] class DeviceLocal(size: Int, usage: Int)(using allocator: Allocator)
+  private[cyfra] class DeviceBuffer(size: Int, usage: Int)(using allocator: Allocator)
       extends Buffer(size, usage, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)(using allocator)
 
-  private[cyfra] class Host(size: Int, usage: Int)(using allocator: Allocator)
+  private[cyfra] class HostBuffer(size: Int, usage: Int)(using allocator: Allocator)
       extends Buffer(size, usage, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)(using allocator):
     def mapped(f: ByteBuffer => Unit): Unit = mappedImpl(f, flush = true)
     def mappedNoFlush(f: ByteBuffer => Unit): Unit = mappedImpl(f, flush = false)
@@ -58,11 +58,11 @@ object Buffer:
         if flush then vmaFlushAllocation(this.allocator.get, this.allocation, 0, size)
         vmaUnmapMemory(this.allocator.get, this.allocation)
 
-  def copyBuffer(src: ByteBuffer, dst: Host, bytes: Long): Unit =
+  def copyBuffer(src: ByteBuffer, dst: HostBuffer, bytes: Long): Unit =
     dst.mapped: destination =>
       memCopy(memAddress(src), memAddress(destination), bytes)
 
-  def copyBuffer(src: Host, dst: ByteBuffer, bytes: Long): Unit =
+  def copyBuffer(src: HostBuffer, dst: ByteBuffer, bytes: Long): Unit =
     src.mappedNoFlush: source =>
       memCopy(memAddress(source), memAddress(dst), bytes)
 

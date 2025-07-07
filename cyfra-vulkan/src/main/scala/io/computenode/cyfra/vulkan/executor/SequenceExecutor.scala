@@ -131,9 +131,9 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
         val buffers = set.bindings.zip(actions).map { case (binding, action) =>
           binding.size match
             case InputBufferSize(elemSize) =>
-              new Buffer.DeviceLocal(elemSize * 1024, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | action.action)
+              new Buffer.DeviceBuffer(elemSize * 1024, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | action.action)
             case UniformSize(size) =>
-              new Buffer.DeviceLocal(size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | action.action)
+              new Buffer.DeviceBuffer(size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | action.action)
         }
         set.update(buffers)
         (set, buffers),
@@ -157,7 +157,7 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
         }.flatten
 
       val stagingBuffer =
-        new Buffer.Host(inputs.map(_.remaining()).max, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+        new Buffer.HostBuffer(inputs.map(_.remaining()).max, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
 
       buffersWithAction(BufferAction.LoadTo).zipWithIndex.foreach { case (buffer, i) =>
         Buffer.copyBuffer(inputs(i), stagingBuffer, buffer.size)
