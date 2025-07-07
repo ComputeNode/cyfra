@@ -2,7 +2,7 @@ package io.computenode.cyfra.vulkan
 
 import io.computenode.cyfra.utility.Logger.logger
 import io.computenode.cyfra.vulkan.VulkanContext.ValidationLayers
-import io.computenode.cyfra.vulkan.command.{CommandPool}
+import io.computenode.cyfra.vulkan.command.CommandPool
 import io.computenode.cyfra.vulkan.core.{DebugCallback, Device, Instance, Queue}
 import io.computenode.cyfra.vulkan.memory.{Allocator, DescriptorPool}
 import org.lwjgl.system.Configuration

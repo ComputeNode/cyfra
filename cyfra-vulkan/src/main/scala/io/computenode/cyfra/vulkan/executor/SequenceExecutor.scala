@@ -63,7 +63,7 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
       }
       .distinctBy(_._1)
       .map { case (set, (id, layout)) =>
-        (set, new DescriptorSet( id, layout.bindings, descriptorPool))
+        (set, new DescriptorSet(id, layout.bindings, descriptorPool))
       }
       .toMap
 
