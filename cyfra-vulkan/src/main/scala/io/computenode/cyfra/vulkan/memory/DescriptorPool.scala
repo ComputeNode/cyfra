@@ -12,7 +12,7 @@ import org.lwjgl.vulkan.{VkDescriptorPoolCreateInfo, VkDescriptorPoolSize}
   */
 object DescriptorPool:
   val MAX_SETS = 100
-private[cyfra] class DescriptorPool(device: Device) extends VulkanObjectHandle:
+private[cyfra] class DescriptorPool(using device: Device) extends VulkanObjectHandle:
   protected val handle: Long = pushStack: stack =>
     val descriptorPoolSize = VkDescriptorPoolSize.calloc(1, stack)
     descriptorPoolSize

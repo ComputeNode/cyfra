@@ -2,6 +2,7 @@ package io.computenode.cyfra.vulkan
 
 import io.computenode.cyfra.vulkan.VulkanContext
 import io.computenode.cyfra.vulkan.compute.*
+import io.computenode.cyfra.vulkan.core.Device
 import io.computenode.cyfra.vulkan.executor.BufferAction.{LoadFrom, LoadTo}
 import io.computenode.cyfra.vulkan.executor.SequenceExecutor
 import io.computenode.cyfra.vulkan.executor.SequenceExecutor.{ComputationSequence, Compute, Dependency, LayoutLocation}
@@ -9,13 +10,14 @@ import munit.FunSuite
 import org.lwjgl.BufferUtils
 
 class SequenceExecutorTest extends FunSuite:
-  private val vulkanContext = VulkanContext()
+  val vulkanContext = VulkanContext()
+  import vulkanContext.given
 
   test("Memory barrier"):
     val code = ComputePipeline.loadShader("copy_test.spv").get
     val layout = LayoutInfo(Seq(LayoutSet(0, Seq(Binding(0, InputBufferSize(4)))), LayoutSet(1, Seq(Binding(0, InputBufferSize(4))))))
-    val copy1 = new ComputePipeline(code, "main", layout, vulkanContext)
-    val copy2 = new ComputePipeline(code, "main", layout, vulkanContext)
+    val copy1 = new ComputePipeline(code, "main", layout)
+    val copy2 = new ComputePipeline(code, "main", layout)
 
     val sequence =
       ComputationSequence(

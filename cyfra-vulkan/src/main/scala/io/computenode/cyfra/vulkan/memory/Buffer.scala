@@ -15,7 +15,7 @@ import java.nio.ByteBuffer
   *   MarconZet Created 11.05.2019
   */
 
-private[cyfra] sealed class Buffer private (val size: Int, usage: Int, flags: Int, allocator: Allocator) extends VulkanObjectHandle:
+private[cyfra] sealed class Buffer private (val size: Int, usage: Int, flags: Int)(using allocator: Allocator) extends VulkanObjectHandle:
   val (handle, allocation) = pushStack: stack =>
     val bufferInfo = VkBufferCreateInfo
       .calloc(stack)
@@ -40,11 +40,11 @@ private[cyfra] sealed class Buffer private (val size: Int, usage: Int, flags: In
     vmaDestroyBuffer(allocator.get, handle, allocation)
 
 object Buffer:
-  private[cyfra] class DeviceLocal(size: Int, usage: Int, allocator: Allocator)
-      extends Buffer(size, usage, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, allocator)
+  private[cyfra] class DeviceLocal(size: Int, usage: Int)(using allocator: Allocator)
+      extends Buffer(size, usage, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)(using allocator)
 
-  private[cyfra] class Host(size: Int, usage: Int, allocator: Allocator)
-      extends Buffer(size, usage, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, allocator):
+  private[cyfra] class Host(size: Int, usage: Int)(using allocator: Allocator)
+      extends Buffer(size, usage, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)(using allocator):
     def mapped(f: ByteBuffer => Unit): Unit = mappedImpl(f, flush = true)
     def mappedNoFlush(f: ByteBuffer => Unit): Unit = mappedImpl(f, flush = false)
 

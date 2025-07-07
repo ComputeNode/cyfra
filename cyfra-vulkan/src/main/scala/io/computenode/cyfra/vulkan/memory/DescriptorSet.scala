@@ -10,7 +10,7 @@ import org.lwjgl.vulkan.{VkDescriptorBufferInfo, VkDescriptorSetAllocateInfo, Vk
 /** @author
   *   MarconZet Created 15.04.2020
   */
-private[cyfra] class DescriptorSet(device: Device, descriptorSetLayout: Long, val bindings: Seq[Binding], descriptorPool: DescriptorPool)
+private[cyfra] class DescriptorSet(descriptorSetLayout: Long, val bindings: Seq[Binding], descriptorPool: DescriptorPool)(using device: Device)
     extends VulkanObjectHandle:
 
   protected val handle: Long = pushStack: stack =>

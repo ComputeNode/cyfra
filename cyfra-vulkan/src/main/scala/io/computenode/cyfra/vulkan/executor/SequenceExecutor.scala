@@ -21,9 +21,9 @@ import java.nio.ByteBuffer
   *   MarconZet Created 15.04.2020
   */
 private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, context: VulkanContext):
-  private val device: Device = context.device
+  import context.given
+
   private val queue: Queue = context.computeQueue
-  private val allocator: Allocator = context.allocator
   private val descriptorPool: DescriptorPool = context.descriptorPool
   private val commandPool: CommandPool = context.commandPool
 
@@ -63,7 +63,7 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
       }
       .distinctBy(_._1)
       .map { case (set, (id, layout)) =>
-        (set, new DescriptorSet(device, id, layout.bindings, descriptorPool))
+        (set, new DescriptorSet( id, layout.bindings, descriptorPool))
       }
       .toMap
 
@@ -131,9 +131,9 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
         val buffers = set.bindings.zip(actions).map { case (binding, action) =>
           binding.size match
             case InputBufferSize(elemSize) =>
-              new Buffer.DeviceLocal(elemSize * 1024, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | action.action, allocator)
+              new Buffer.DeviceLocal(elemSize * 1024, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | action.action)
             case UniformSize(size) =>
-              new Buffer.DeviceLocal(size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | action.action, allocator)
+              new Buffer.DeviceLocal(size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | action.action)
         }
         set.update(buffers)
         (set, buffers),
@@ -157,14 +157,14 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
         }.flatten
 
       val stagingBuffer =
-        new Buffer.Host(inputs.map(_.remaining()).max, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, allocator)
+        new Buffer.Host(inputs.map(_.remaining()).max, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
 
       buffersWithAction(BufferAction.LoadTo).zipWithIndex.foreach { case (buffer, i) =>
         Buffer.copyBuffer(inputs(i), stagingBuffer, buffer.size)
         Buffer.copyBuffer(stagingBuffer, buffer, buffer.size, commandPool).block().destroy()
       }
 
-      val fence = new Fence(device)
+      val fence = new Fence()
       val commandBuffer = recordCommandBuffer()
       val pCommandBuffer = stack.callocPointer(1).put(0, commandBuffer)
       val submitInfo = VkSubmitInfo

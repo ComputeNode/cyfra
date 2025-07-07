@@ -21,11 +21,11 @@ private[cyfra] object VulkanContext:
 private[cyfra] class VulkanContext:
   val instance: Instance = new Instance(ValidationLayers)
   val debugCallback: Option[DebugCallback] = if ValidationLayers then Some(new DebugCallback(instance)) else None
-  val device: Device = new Device(instance)
+  given device: Device = new Device(instance)
+  given allocator: Allocator = new Allocator(instance, device)
   val computeQueue: Queue = new Queue(device.computeQueueFamily, 0, device)
-  val allocator: Allocator = new Allocator(instance, device)
-  val descriptorPool: DescriptorPool = new DescriptorPool(device)
-  val commandPool: CommandPool = new StandardCommandPool(device, computeQueue)
+  val descriptorPool: DescriptorPool = new DescriptorPool()
+  val commandPool: CommandPool = new StandardCommandPool(computeQueue)
 
   logger.debug("Vulkan context created")
   logger.debug("Running on device: " + device.physicalDeviceName)
@@ -33,8 +33,8 @@ private[cyfra] class VulkanContext:
   def destroy(): Unit =
     commandPool.destroy()
     descriptorPool.destroy()
-    allocator.destroy()
     computeQueue.destroy()
+    allocator.destroy()
     device.destroy()
     debugCallback.foreach(_.destroy())
     instance.destroy()
