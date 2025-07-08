@@ -1,9 +1,9 @@
 package io.computenode.cyfra.interpreter
 
 import io.computenode.cyfra.dsl.{*, given}
-import macros.FnCall.FnIdentifier
-import control.Scope
-import izumi.reflect.Tag
+import binding.*, macros.FnCall.FnIdentifier, control.Scope
+import collections.*, GArray.GArrayElem, GSeq.FoldSeq
+import struct.*, GStruct.{ComposeStruct, GetField}
 
 object Simulate:
   import Result.*
@@ -33,16 +33,22 @@ object Simulate:
     case Pass(value)                  => ???
     case Dynamic(source)              => ???
     case e: WhenExpr[?]               => simWhen(e)
+    case e: ReadBuffer[?]             => simReadBuffer(e)
+    case e: ReadUniform[?]            => simReadUniform(e)
+    case e: GArrayElem[?]             => simGArrayElem(e)
+    case e: FoldSeq[?, ?]             => simFoldSeq(e)
+    case e: ComposeStruct[?]          => ???
+    case e: GetField[?, ?]            => ???
     case _                            => throw IllegalArgumentException("wrong argument")
 
-  def simBinOp(e: BinaryOpExpression[?]): Result = e match
+  private def simBinOp(e: BinaryOpExpression[?]): Result = e match
     case Sum(a, b)  => simValue(a) add simValue(b)
     case Diff(a, b) => simValue(a) sub simValue(b)
     case Mul(a, b)  => simScalar(a) mul simScalar(b)
     case Div(a, b)  => simScalar(a) div simScalar(b)
     case Mod(a, b)  => simScalar(a) mod simScalar(b)
 
-  def simBitwiseOp(e: BitwiseOpExpression[?]): Int = e match
+  private def simBitwiseOp(e: BitwiseOpExpression[?]): Int = e match
     case e: BitwiseBinaryOpExpression[?] => simBitwiseBinOp(e)
     case BitwiseNot(a)                   =>
       simScalar(a) match
@@ -57,7 +63,7 @@ object Simulate:
         case (m: Int, n: Int) => m >> n
         case _                => throw IllegalArgumentException("ShiftRight: wrong argument types")
 
-  def simBitwiseBinOp(e: BitwiseBinaryOpExpression[?]) = e match
+  private def simBitwiseBinOp(e: BitwiseBinaryOpExpression[?]) = e match
     case BitwiseAnd(a, b) =>
       (simScalar(a), simScalar(b)) match
         case (m: Int, n: Int) => m & n
@@ -71,14 +77,14 @@ object Simulate:
         case (m: Int, n: Int) => m ^ n
         case _                => throw IllegalArgumentException("BitwiseXor: wrong argument types")
 
-  def simCompareOp(e: ComparisonOpExpression[?]): Boolean = e match
+  private def simCompareOp(e: ComparisonOpExpression[?]): Boolean = e match
     case GreaterThan(a, b)      => simScalar(a) > simScalar(b)
     case LessThan(a, b)         => simScalar(a) < simScalar(b)
     case GreaterThanEqual(a, b) => simScalar(a) >= simScalar(b)
     case LessThanEqual(a, b)    => simScalar(a) <= simScalar(b)
     case Equal(a, b)            => simScalar(a) eql simScalar(b)
 
-  def simConvert(e: ConvertExpression[?, ?]): Float | Int = e match
+  private def simConvert(e: ConvertExpression[?, ?]): Float | Int = e match
     case ToFloat32(a) =>
       simScalar(a) match
         case f: Float => f
@@ -92,33 +98,39 @@ object Simulate:
         case n: Int => n
         case _      => throw IllegalArgumentException("ToUInt32: wrong argument type")
 
-  def simConst(e: Const[?]): ScalarRes = e match
+  private def simConst(e: Const[?]): ScalarRes = e match
     case ConstFloat32(value) => value
     case ConstInt32(value)   => value
     case ConstUInt32(value)  => value
     case ConstGB(value)      => value
 
-  def simValue(v: Value): Result = v match
+  private def simValue(v: Value): Result = v match
     case v: Scalar => simScalar(v)
     case v: Vec[?] => simVector(v)
 
-  def simScalar(v: Scalar): ScalarRes = v match
+  private def simScalar(v: Scalar): ScalarRes = v match
     case v: FloatType     => sim(v.tree).asInstanceOf[Float]
     case v: IntType       => sim(v.tree).asInstanceOf[Int]
     case v: UIntType      => sim(v.tree).asInstanceOf[Int]
     case GBoolean(source) => sim(source).asInstanceOf[Boolean]
 
-  def simVector(v: Vec[?]): Vector[ScalarRes] = v match
+  private def simVector(v: Vec[?]): Vector[ScalarRes] = v match
     case Vec2(tree) => sim(tree).asInstanceOf[Vector[ScalarRes]]
     case Vec3(tree) => sim(tree).asInstanceOf[Vector[ScalarRes]]
     case Vec4(tree) => sim(tree).asInstanceOf[Vector[ScalarRes]]
 
-  def simExtFunc(fn: FunctionName, args: List[Result]): Result = ???
-  def simFunc(fn: FnIdentifier, body: Result, args: List[Result]): Result = ???
-  def simScope(body: Scope[?]) = sim(body.expr)
+  private def simExtFunc(fn: FunctionName, args: List[Result]): Result = ???
+  private def simFunc(fn: FnIdentifier, body: Result, args: List[Result]): Result = ???
+  private def simScope(body: Scope[?]) = sim(body.expr)
 
   @annotation.tailrec
-  def whenHelper(when: GBoolean, thenCode: Scope[?], otherConds: List[Scope[GBoolean]], otherCaseCodes: List[Scope[?]], otherwise: Scope[?]): Result =
+  private def whenHelper(
+    when: GBoolean,
+    thenCode: Scope[?],
+    otherConds: List[Scope[GBoolean]],
+    otherCaseCodes: List[Scope[?]],
+    otherwise: Scope[?],
+  ): Result =
     if sim(when.tree).asInstanceOf[Boolean] then sim(thenCode.expr)
     else
       otherConds.headOption match
@@ -132,6 +144,24 @@ object Simulate:
             otherwise = otherwise,
           )
 
-  def simWhen(e: WhenExpr[?]): Result = e match
+  private def simWhen(e: WhenExpr[?]): Result = e match
     case WhenExpr(when, thenCode, otherConds, otherCaseCodes, otherwise) =>
       whenHelper(when, thenCode, otherConds, otherCaseCodes, otherwise)
+
+  private def simReadBuffer(buf: ReadBuffer[?]): Result = buf match
+    case ReadBuffer(buffer, index) => ???
+
+  private def simReadUniform(uni: ReadUniform[?]): Result = uni match
+    case ReadUniform(uniform) => ???
+
+  private def simGArrayElem(gElem: GArrayElem[?]): Result = gElem match
+    case GArrayElem(index, i) => ???
+
+  private def simFoldSeq(seq: FoldSeq[?, ?]): Result = seq match
+    case FoldSeq(zero, fn, seq) => ???
+
+  private def simComposeStruct(cs: ComposeStruct[?]): Result = cs match
+    case ComposeStruct(fields, resultSchema) => ???
+
+  private def simGetField(gf: GetField[?, ?]): Result = gf match
+    case GetField(struct, fieldIndex) => ???
