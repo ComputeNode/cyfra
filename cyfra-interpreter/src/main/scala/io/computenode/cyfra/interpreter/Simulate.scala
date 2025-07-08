@@ -117,19 +117,21 @@ object Simulate:
   def simFunc(fn: FnIdentifier, body: Result, args: List[Result]): Result = ???
   def simScope(body: Scope[?]) = sim(body.expr)
 
+  @annotation.tailrec
+  def whenHelper(when: GBoolean, thenCode: Scope[?], otherConds: List[Scope[GBoolean]], otherCaseCodes: List[Scope[?]], otherwise: Scope[?]): Result =
+    if sim(when.tree).asInstanceOf[Boolean] then sim(thenCode.expr)
+    else
+      otherConds.headOption match
+        case None       => sim(otherwise.expr)
+        case Some(cond) =>
+          whenHelper(
+            when = GBoolean(cond.expr),
+            thenCode = otherCaseCodes.head,
+            otherConds = otherConds.tail,
+            otherCaseCodes = otherCaseCodes.tail,
+            otherwise = otherwise,
+          )
+
   def simWhen(e: WhenExpr[?]): Result = e match
     case WhenExpr(when, thenCode, otherConds, otherCaseCodes, otherwise) =>
-      if sim(when.tree).asInstanceOf[Boolean] then sim(thenCode.expr)
-      else
-        otherConds.headOption match
-          case None       => sim(otherwise.expr)
-          case Some(cond) =>
-            simWhen(
-              WhenExpr(
-                when = GBoolean(cond.expr),
-                thenCode = otherCaseCodes.head,
-                otherConds = otherConds.tail,
-                otherCaseCodes = otherCaseCodes.tail,
-                otherwise,
-              ),
-            )
+      whenHelper(when, thenCode, otherConds, otherCaseCodes, otherwise)
