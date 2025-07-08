@@ -1,6 +1,6 @@
 package io.computenode.cyfra.interpreter
 
-import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.dsl.{*, given}, collections.GSeq
 import binding.*, Value.*, gio.GIO, GIO.*
 import izumi.reflect.Tag
 
@@ -24,18 +24,28 @@ object Interpreter:
   // val expression = bufferA.read(0) + 2
   // val res = Simulate.sim(expression, 1024) -> SimulationResult(???)
 
-  @annotation.tailrec
-  def interpretHelper(gios: List[GIO[?]], simRes: SimResult): SimResult = gios match
-    case head :: next => interpretHelper(next, simRes.add(interpret(head)))
-    case Nil          => simRes
-
-  def interpret(gio: GIO[?]): SimResult = gio match
+  def interpretPure(gio: Pure[?]): SimResult = gio match
     case Pure(value) =>
       val id = Simulate.sim(invocationId).asInstanceOf[Int]
       val invocSimRes = InvocSimResult(invocId = id, instructions = ???, values = ???)
       SimResult(List(invocSimRes))
-    case FlatMap(gio, next)                => interpretHelper(List(gio, next), SimResult())
-    case Repeat(n, f)                      => ??? // interpret output of f, recur on n until it reaches 0
+
+  def interpretOne(gio: GIO[?]): SimResult = gio match
+    case Pure(value)                       => ???
     case WriteBuffer(buffer, index, value) => ???
     case WriteUniform(uniform, value)      => ???
     case _                                 => throw IllegalArgumentException("interpret: invalid GIO")
+
+  @annotation.tailrec
+  def interpretMany(gios: List[GIO[?]], simRes: SimResult): SimResult = gios match
+    case head :: tail =>
+      head match
+        case FlatMap(gio, next) => interpretMany(gio :: next :: tail, simRes)
+        case Repeat(n, f)       =>
+          val int = Simulate.sim(n).asInstanceOf[Int]
+          val newGios = (0 until int).map(i => f(i)).toList
+          interpretMany(newGios ::: tail, simRes)
+        case _ => interpretMany(tail, simRes.add(interpretOne(head)))
+    case Nil => simRes
+
+  def interpret(gio: GIO[?]): SimResult = interpretMany(List(gio), SimResult())

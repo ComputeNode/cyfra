@@ -2,7 +2,7 @@ package io.computenode.cyfra.interpreter
 
 import io.computenode.cyfra.dsl.{*, given}
 import binding.*, macros.FnCall.FnIdentifier, control.Scope
-import collections.*, GArray.GArrayElem, GSeq.FoldSeq
+import collections.*, GArray.GArrayElem, GSeq.{CurrentElem, AggregateElem, FoldSeq}
 import struct.*, GStruct.{ComposeStruct, GetField}
 
 object Simulate:
@@ -11,7 +11,7 @@ object Simulate:
   def sim(v: Value): Result = sim(v.tree) // helpful wrapper for Value instead of Expression
 
   def sim(e: Expression[?]): Result = e match
-    case e: PhantomExpression[?]      => throw IllegalArgumentException("phantom expression")
+    case e: PhantomExpression[?]      => simPhantom(e)
     case Negate(a)                    => simValue(a).negate
     case e: BinaryOpExpression[?]     => simBinOp(e)
     case ScalarProd(a, b)             => simVector(a) scale simScalar(b)
@@ -41,12 +41,16 @@ object Simulate:
     case e: GetField[?, ?]            => ???
     case _                            => throw IllegalArgumentException("wrong argument")
 
+  private def simPhantom(e: PhantomExpression[?]): Result = e match
+    case CurrentElem(tid: Int)   => ???
+    case AggregateElem(tid: Int) => ???
+
   private def simBinOp(e: BinaryOpExpression[?]): Result = e match
-    case Sum(a, b)  => simValue(a) add simValue(b)
-    case Diff(a, b) => simValue(a) sub simValue(b)
-    case Mul(a, b)  => simScalar(a) mul simScalar(b)
-    case Div(a, b)  => simScalar(a) div simScalar(b)
-    case Mod(a, b)  => simScalar(a) mod simScalar(b)
+    case Sum(a, b)  => simValue(a) add simValue(b) // scalar or vector
+    case Diff(a, b) => simValue(a) sub simValue(b) // scalar or vector
+    case Mul(a, b)  => simScalar(a) * simScalar(b)
+    case Div(a, b)  => simScalar(a) / simScalar(b)
+    case Mod(a, b)  => simScalar(a) % simScalar(b)
 
   private def simBitwiseOp(e: BitwiseOpExpression[?]): Int = e match
     case e: BitwiseBinaryOpExpression[?] => simBitwiseBinOp(e)
