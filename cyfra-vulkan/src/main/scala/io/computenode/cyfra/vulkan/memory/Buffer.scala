@@ -15,7 +15,7 @@ import java.nio.ByteBuffer
   *   MarconZet Created 11.05.2019
   */
 
-private[cyfra] sealed class Buffer private (val size: Int, usage: Int, flags: Int)(using allocator: Allocator) extends VulkanObjectHandle:
+private[cyfra] sealed abstract class Buffer private (val size: Int, usage: Int, flags: Int)(using allocator: Allocator) extends VulkanObjectHandle:
   val (handle, allocation) = pushStack: stack =>
     val bufferInfo = VkBufferCreateInfo
       .calloc(stack)
@@ -58,20 +58,20 @@ object Buffer:
         if flush then vmaFlushAllocation(this.allocator.get, this.allocation, 0, size)
         vmaUnmapMemory(this.allocator.get, this.allocation)
 
-  def copyBuffer(src: ByteBuffer, dst: HostBuffer, bytes: Long): Unit =
+  def copyBuffer(src: ByteBuffer, dst: HostBuffer, srcOffset: Int , dstOffset: Int , bytes: Int ): Unit =
     dst.mapped: destination =>
-      memCopy(memAddress(src), memAddress(destination), bytes)
+      memCopy(memAddress(src) + srcOffset, memAddress(destination) + dstOffset, bytes)
 
-  def copyBuffer(src: HostBuffer, dst: ByteBuffer, bytes: Long): Unit =
+  def copyBuffer(src: HostBuffer, dst: ByteBuffer, srcOffset: Int , dstOffset: Int , bytes: Int ): Unit =
     src.mappedNoFlush: source =>
-      memCopy(memAddress(source), memAddress(dst), bytes)
+      memCopy(memAddress(source) + srcOffset, memAddress(dst) + dstOffset, bytes)
 
-  def copyBuffer(src: Buffer, dst: Buffer, bytes: Long, commandPool: CommandPool): Fence =
+  def copyBuffer(src: Buffer, dst: Buffer, srcOffset: Int, dstOffset: Int, bytes: Int, commandPool: CommandPool): Fence =
     commandPool.executeCommand: commandBuffer =>
       pushStack: stack =>
         val copyRegion = VkBufferCopy
           .calloc(1, stack)
-          .srcOffset(0)
-          .dstOffset(0)
+          .srcOffset(srcOffset)
+          .dstOffset(dstOffset)
           .size(bytes)
         vkCmdCopyBuffer(commandBuffer, src.get, dst.get, copyRegion)

@@ -1,7 +1,7 @@
 package io.computenode.cyfra.samples
 
 import io.computenode.cyfra.core.archive.GContext
-import io.computenode.cyfra.core.{GBufferRegion, GExecution, GProgram}
+import io.computenode.cyfra.core.{CyfraRuntime, GBufferRegion, GExecution, GProgram}
 import io.computenode.cyfra.core.layout.*
 import io.computenode.cyfra.dsl.Value.{GBoolean, Int32}
 import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
@@ -85,7 +85,7 @@ object TestingStuff:
 
   @main
   def test =
-    given VkCyfraRuntime = VkCyfraRuntime()
+    given CyfraRuntime = VkCyfraRuntime()
 
     val emitFilterParams = EmitFilterParams(inSize = 1024, emitN = 2, filterValue = 42)
 

@@ -160,8 +160,8 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
         new Buffer.HostBuffer(inputs.map(_.remaining()).max, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
 
       buffersWithAction(BufferAction.LoadTo).zipWithIndex.foreach { case (buffer, i) =>
-        Buffer.copyBuffer(inputs(i), stagingBuffer, buffer.size)
-        Buffer.copyBuffer(stagingBuffer, buffer, buffer.size, commandPool).block().destroy()
+        Buffer.copyBuffer(inputs(i), stagingBuffer, buffer.size, 0, 0)
+        Buffer.copyBuffer(stagingBuffer, buffer, buffer.size, 0, 0, commandPool).block().destroy()
       }
 
       val fence = new Fence()
@@ -177,9 +177,9 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
         fence.block().destroy()
 
       val output = buffersWithAction(BufferAction.LoadFrom).map { buffer =>
-        Buffer.copyBuffer(buffer, stagingBuffer, buffer.size, commandPool).block().destroy()
+        Buffer.copyBuffer(buffer, stagingBuffer, 0, 0, buffer.size, commandPool).block().destroy()
         val out = BufferUtils.createByteBuffer(buffer.size)
-        Buffer.copyBuffer(stagingBuffer, out, buffer.size)
+        Buffer.copyBuffer(stagingBuffer, out, 0, 0, buffer.size)
         out
       }
 

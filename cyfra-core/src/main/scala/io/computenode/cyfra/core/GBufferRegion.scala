@@ -32,16 +32,16 @@ object GBufferRegion:
       MapRegion(region, (alloc: Allocation) => (resAlloc: ResAlloc) => f(using alloc)(resAlloc))
 
     def runUnsafe(init: Allocation ?=> ReqAlloc, onDone: Allocation ?=> ResAlloc => Unit)(using cyfraRuntime: CyfraRuntime): Unit =
-      val allocation = cyfraRuntime.allocation()
-      init(using allocation)
+      cyfraRuntime.withAllocation: allocation =>
+        init(using allocation)
 
-      // noinspection ScalaRedundantCast
-      val steps: Seq[Allocation => Layout => Layout] = Seq.unfold(region: GBufferRegion[?, ?]):
-        case _: AllocRegion[?] => None
-        case MapRegion(req, f) =>
-          Some((f.asInstanceOf[Allocation => Layout => Layout], req))
+        // noinspection ScalaRedundantCast
+        val steps: Seq[Allocation => Layout => Layout] = Seq.unfold(region: GBufferRegion[?, ?]):
+          case _: AllocRegion[?] => None
+          case MapRegion(req, f) =>
+            Some((f.asInstanceOf[Allocation => Layout => Layout], req))
 
-      val bodyAlloc = steps.foldLeft[Layout](region.initAlloc): (acc, step) =>
-        step(allocation)(acc)
+        val bodyAlloc = steps.foldLeft[Layout](region.initAlloc): (acc, step) =>
+          step(allocation)(acc)
 
-      onDone(using allocation)(bodyAlloc.asInstanceOf[ResAlloc])
+        onDone(using allocation)(bodyAlloc.asInstanceOf[ResAlloc])
