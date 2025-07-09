@@ -6,6 +6,7 @@ import io.computenode.cyfra.core.SpirvProgram
 import io.computenode.cyfra.dsl.Value
 import io.computenode.cyfra.dsl.Value.FromExpr
 import io.computenode.cyfra.dsl.binding.{GBinding, GBuffer, GUniform}
+import io.computenode.cyfra.runtime.VkAllocation.getUnderlying
 import io.computenode.cyfra.spirv.SpirvTypes.typeStride
 import io.computenode.cyfra.vulkan.command.CommandPool
 import io.computenode.cyfra.vulkan.memory.{Allocator, Buffer}
@@ -61,12 +62,6 @@ class VkAllocation(commandPool: CommandPool, executionHandler: ExecutionHandler)
   extension [Params, L <: Layout, RL <: Layout: LayoutStruct](execution: GExecution[Params, L, RL])
     override def execute(params: Params, layout: L): RL = executionHandler.handle(execution, params, layout)
 
-  private def getUnderlying(buffer: GBinding[?]): Buffer =
-    buffer match
-      case buffer: VkBuffer[?]   => buffer.underlying
-      case uniform: VkUniform[?] => uniform.underlying
-      case _                     => ???
-
   private val bindings = mutable.Buffer[VkUniform[?] | VkBuffer[?]]()
   private[cyfra] def close(): Unit = bindings.map(getUnderlying).foreach(_.destroy())
 
@@ -79,3 +74,10 @@ class VkAllocation(commandPool: CommandPool, executionHandler: ExecutionHandler)
         val newBuffer = Buffer.HostBuffer(size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
         stagingBuffer = Some(newBuffer)
         newBuffer
+
+object VkAllocation:
+  private[runtime] def getUnderlying(buffer: GBinding[?]): Buffer =
+    buffer match
+      case buffer: VkBuffer[?]   => buffer.underlying
+      case uniform: VkUniform[?] => uniform.underlying
+      case _                     => ???

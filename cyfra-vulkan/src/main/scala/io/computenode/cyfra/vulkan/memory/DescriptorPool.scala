@@ -1,5 +1,6 @@
 package io.computenode.cyfra.vulkan.memory
 
+import io.computenode.cyfra.vulkan.compute.ComputePipeline.DescriptorSetLayout
 import io.computenode.cyfra.vulkan.core.Device
 import io.computenode.cyfra.vulkan.memory.DescriptorPool.MAX_SETS
 import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
@@ -30,6 +31,8 @@ private[cyfra] class DescriptorPool(using device: Device) extends VulkanObjectHa
     val pDescriptorPool = stack.callocLong(1)
     check(vkCreateDescriptorPool(device.get, descriptorPoolCreateInfo, null, pDescriptorPool), "Failed to create descriptor pool")
     pDescriptorPool.get()
+
+  def allocate(descriptorSetLayout: DescriptorSetLayout): DescriptorSet = DescriptorSet(descriptorSetLayout, this)
 
   override protected def close(): Unit =
     vkDestroyDescriptorPool(device.get, handle, null)
