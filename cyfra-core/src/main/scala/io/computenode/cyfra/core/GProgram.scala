@@ -18,7 +18,7 @@ trait GProgram[Params, L <: Layout: LayoutStruct] extends GExecution[Params, L, 
   val dispatch: (L, Params) => ProgramDispatch
   val workgroupSize: WorkDimensions
   private[cyfra] def layoutStruct: LayoutStruct[L] = summon[LayoutStruct[L]]
-  private[cyfra] def cacheKey: String
+  private[cyfra] def cacheKey: String // TODO better type
 
 object GProgram:
 
@@ -28,7 +28,7 @@ object GProgram:
     dispatch: (L, Params) => ProgramDispatch,
     workgroupSize: WorkDimensions,
   ) extends GProgram[Params, L]:
-    private[cyfra] def cacheKey: String = toString
+    private[cyfra] def cacheKey: String = if layoutStruct.elementTypes.contains(summon[Tag[Boolean]]) then "filter" else "emit"
 
   type WorkDimensions = (Int, Int, Int)
 

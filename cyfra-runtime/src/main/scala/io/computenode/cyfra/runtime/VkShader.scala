@@ -15,7 +15,7 @@ case class VkShader[L](underlying: ComputePipeline, shaderBindings: L => ShaderL
 
 object VkShader:
   def apply[P, L <: Layout: LayoutStruct](program: GProgram[P, L])(using Device): VkShader[L] =
-    val SpirvProgram(layout, dispatch, _workgroupSize, code, entryPoint, shaderBindings) = program match
+    val SpirvProgram(layout, dispatch, _workgroupSize, code, entryPoint, shaderBindings, _) = program match
       case p: GioProgram[?, ?]   => compile(p)
       case p: SpirvProgram[?, ?] => p
       case _                     => throw new IllegalArgumentException(s"Unsupported program type: ${program.getClass.getName}")

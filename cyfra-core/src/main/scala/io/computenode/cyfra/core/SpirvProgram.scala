@@ -19,15 +19,15 @@ import scala.util.Try
 import scala.util.Using
 import scala.util.chaining.*
 
-case class SpirvProgram[Params, L <: Layout: LayoutStruct](
+case class SpirvProgram[Params, L <: Layout: LayoutStruct] private (
   layout: InitProgramLayout => Params => L,
   dispatch: (L, Params) => ProgramDispatch,
   workgroupSize: WorkDimensions,
   code: ByteBuffer,
   entryPoint: String,
   shaderBindings: L => ShaderLayout,
-) extends GProgram[Params, L]:
-  private[cyfra] def cacheKey: String = toString
+  cacheKey: String,
+) extends GProgram[Params, L]
 
 object SpirvProgram:
   type ShaderLayout = Seq[Seq[Binding]]
@@ -39,7 +39,7 @@ object SpirvProgram:
 
   def apply[Params, L <: Layout: LayoutStruct](
     path: String,
-    layout: InitProgramLayout => Params => L,
+    layout: InitProgramLayout ?=> Params => L,
     dispatch: (L, Params) => ProgramDispatch,
   ): SpirvProgram[Params, L] =
     val code = loadShader(path).get
@@ -48,7 +48,10 @@ object SpirvProgram:
     val f: L => ShaderLayout = { case layout: Product =>
       layout.productIterator.zipWithIndex.map { case (binding: GBinding[?], i) => Binding(binding, ReadWrite) }.toSeq.pipe(Seq(_))
     }
-    new SpirvProgram[Params, L](layout, dispatch, workgroupSize, code, main, f)
+    val cacheKey =
+      val x = new File(path).getName
+      x.substring(0, x.lastIndexOf('.'))
+    new SpirvProgram[Params, L]((il: InitProgramLayout) => layout(using il), dispatch, workgroupSize, code, main, f, cacheKey)
 
   private def loadShader(path: String, classLoader: ClassLoader = getClass.getClassLoader): Try[ByteBuffer] =
     Using.Manager: use =>
