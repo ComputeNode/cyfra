@@ -96,13 +96,17 @@ lazy val vscode = (project in file("cyfra-vscode"))
   .settings(commonSettings)
   .dependsOn(foton)
 
+lazy val interpreter = (project in file("cyfra-interpreter"))
+  .settings(commonSettings)
+  .dependsOn(core)
+
 lazy val e2eTest = (project in file("cyfra-e2e-test"))
   .settings(commonSettings, runnerSettings)
-  .dependsOn(runtime)
+  .dependsOn(runtime, interpreter)
 
 lazy val root = (project in file("."))
   .settings(name := "Cyfra")
-  .aggregate(compiler, dsl, foton, core, runtime, vulkan, examples)
+  .aggregate(compiler, dsl, foton, core, runtime, vulkan, examples, interpreter)
 
 e2eTest / Test / javaOptions ++= Seq("-Dorg.lwjgl.system.stackSize=1024", "-DuniqueLibraryNames=true")
 
