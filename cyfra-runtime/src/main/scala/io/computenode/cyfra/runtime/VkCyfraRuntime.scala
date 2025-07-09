@@ -13,9 +13,9 @@ class VkCyfraRuntime extends CyfraRuntime:
 
   private val executionHandler = new ExecutionHandler(this)
 
-  private val shaderCache = mutable.Map.empty[String, ComputePipeline]
-  private[cyfra] def getOrLoadProgram[Params, L <: Layout: LayoutStruct](program: GProgram[Params, L]): ComputePipeline =
-    shaderCache.getOrElseUpdate(program.cacheKey, VkShader(program))
+  val shaderCache = mutable.Map.empty[String, VkShader[?]]
+  private[cyfra] def getOrLoadProgram[Params, L <: Layout: LayoutStruct](program: GProgram[Params, L]): VkShader[L] =
+    shaderCache.getOrElseUpdate(program.cacheKey, VkShader(program)).asInstanceOf[VkShader[L]]
 
   override def withAllocation(f: Allocation => Unit): Unit =
     val allocation = new VkAllocation(context.commandPool, executionHandler)

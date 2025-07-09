@@ -33,12 +33,12 @@ trait GExecution[-Params, ExecLayout <: Layout, +ResLayout <: Layout]:
 object GExecution:
 
   def apply[Params, L <: Layout]() =
-    Pure[Params, L, L]()
+    Pure[Params, L]()
 
   def forParams[Params, L <: Layout, RL <: Layout](f: Params => GExecution[Params, L, RL]): GExecution[Params, L, RL] =
-    FlatMap[Params, L, RL, RL](Pure[Params, L, RL](), (params: Params, _: RL) => f(params))
+    FlatMap[Params, L, L, RL](Pure[Params, L](), (params: Params, _: L) => f(params))
 
-  case class Pure[Params, L <: Layout, RL <: Layout]() extends GExecution[Params, L, RL]
+  case class Pure[Params, L <: Layout]() extends GExecution[Params, L, L]
 
   case class FlatMap[Params, L <: Layout, RL <: Layout, NRL <: Layout](
     execution: GExecution[Params, L, RL],

@@ -56,5 +56,3 @@ object SpirvProgram:
       val fis = use(new FileInputStream(file))
       val fc = use(fis.getChannel)
       fc.map(FileChannel.MapMode.READ_ONLY, 0, fc.size())
-
-  def compile[Params, L <: Layout: LayoutStruct](program: GioProgram[Params, L]): SpirvProgram[Params, L] = ???
