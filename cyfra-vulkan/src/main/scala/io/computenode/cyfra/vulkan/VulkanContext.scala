@@ -34,10 +34,10 @@ private[cyfra] class VulkanContext(enableSurfaceExtensions: Boolean = false) {
 
   def destroy(): Unit =
     commandPool.destroy()
-  descriptorPool.destroy()
-  allocator.destroy()
-  computeQueue.destroy()
-  device.destroy()
-  debugCallback.foreach(_.destroy())
-  instance.destroy()
+    descriptorPool.destroy()
+    allocator.destroy()
+    computeQueue.destroy()
+    device.destroy()
+    debugCallback.foreach(_.destroy())
+    instance.destroy()
 }

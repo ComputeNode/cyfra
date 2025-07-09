@@ -43,35 +43,45 @@ object Instance:
 private[cyfra] class Instance(enableValidationLayers: Boolean, enableSurfaceExtensions: Boolean = false) extends VulkanObject:
 
   private val instance: VkInstance = pushStack: stack =>
+    try
+      val appInfo = VkApplicationInfo
+        .calloc(stack)
+        .sType$Default()
+        .pNext(NULL)
+        .pApplicationName(stack.UTF8("cyfra MVP"))
+        .pEngineName(stack.UTF8("cyfra Computing Engine"))
+        .applicationVersion(VK_MAKE_VERSION(0, 1, 0))
+        .engineVersion(VK_MAKE_VERSION(0, 1, 0))
+        .apiVersion(Instance.version)
 
-    val appInfo = VkApplicationInfo
-      .calloc(stack)
-      .sType$Default()
-      .pNext(NULL)
-      .pApplicationName(stack.UTF8("cyfra MVP"))
-      .pEngineName(stack.UTF8("cyfra Computing Engine"))
-      .applicationVersion(VK_MAKE_VERSION(0, 1, 0))
-      .engineVersion(VK_MAKE_VERSION(0, 1, 0))
-      .apiVersion(Instance.version)
+      val ppEnabledExtensionNames = getInstanceExtensions(stack, enableSurfaceExtensions)
+      val ppEnabledLayerNames =
+        val layers = enabledLayers
+        val pointer = stack.callocPointer(layers.length)
+        layers.foreach(x => pointer.put(stack.ASCII(x)))
+        pointer.flip()
 
-    val ppEnabledExtensionNames = getInstanceExtensions(stack, enableSurfaceExtensions)
-    val ppEnabledLayerNames =
-      val layers = enabledLayers
-      val pointer = stack.callocPointer(layers.length)
-      layers.foreach(x => pointer.put(stack.ASCII(x)))
-      pointer.flip()
+      val pCreateInfo = VkInstanceCreateInfo
+        .calloc(stack)
+        .sType$Default()
+        .flags(VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR)
+        .pNext(NULL)
+        .pApplicationInfo(appInfo)
+        .ppEnabledExtensionNames(ppEnabledExtensionNames)
+        .ppEnabledLayerNames(ppEnabledLayerNames)
+      val pInstance = stack.mallocPointer(1)
+      val result = vkCreateInstance(pCreateInfo, null, pInstance)
 
-    val pCreateInfo = VkInstanceCreateInfo
-      .calloc(stack)
-      .sType$Default()
-      .flags(VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR)
-      .pNext(NULL)
-      .pApplicationInfo(appInfo)
-      .ppEnabledExtensionNames(ppEnabledExtensionNames)
-      .ppEnabledLayerNames(ppEnabledLayerNames)
-    val pInstance = stack.mallocPointer(1)
-    check(vkCreateInstance(pCreateInfo, null, pInstance), "Failed to create VkInstance")
-    new VkInstance(pInstance.get(0), pCreateInfo)
+      if result != VK_SUCCESS then throw new RuntimeException(s"Failed to create VkInstance: $result")
+
+      val instanceHandle = pInstance.get(0)
+      if instanceHandle == 0L then throw new RuntimeException("Created VkInstance handle is null")
+
+      new VkInstance(instanceHandle, pCreateInfo)
+    catch
+      case e: Exception =>
+        logger.error(s"Failed to create Vulkan instance: ${e.getMessage}")
+        throw e
 
   lazy val enabledLayers: Seq[String] = List
     .empty[String]
