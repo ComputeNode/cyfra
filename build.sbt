@@ -57,6 +57,8 @@ lazy val commonSettings = Seq(
 
 lazy val runnerSettings = Seq(libraryDependencies += "org.apache.logging.log4j" % "log4j-slf4j2-impl" % "2.24.3")
 
+lazy val fs2Settings = Seq(libraryDependencies ++= Seq("co.fs2" %% "fs2-core" % "3.12.0", "co.fs2" %% "fs2-io" % "3.12.0"))
+
 lazy val utility = (project in file("cyfra-utility"))
   .settings(commonSettings)
 
@@ -96,13 +98,17 @@ lazy val vscode = (project in file("cyfra-vscode"))
   .settings(commonSettings)
   .dependsOn(foton)
 
+lazy val fs2interop = (project in file("cyfra-fs2"))
+  .settings(commonSettings, fs2Settings)
+  .dependsOn(runtime)
+
 lazy val e2eTest = (project in file("cyfra-e2e-test"))
   .settings(commonSettings, runnerSettings)
-  .dependsOn(runtime)
+  .dependsOn(runtime, fs2interop)
 
 lazy val root = (project in file("."))
   .settings(name := "Cyfra")
-  .aggregate(compiler, dsl, foton, core, runtime, vulkan, examples)
+  .aggregate(compiler, dsl, foton, core, runtime, vulkan, examples, fs2interop)
 
 e2eTest / Test / javaOptions ++= Seq("-Dorg.lwjgl.system.stackSize=1024", "-DuniqueLibraryNames=true")
 
