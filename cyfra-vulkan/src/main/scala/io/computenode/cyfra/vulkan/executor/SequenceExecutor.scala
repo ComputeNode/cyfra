@@ -27,47 +27,7 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
   private val descriptorPool: DescriptorPool = context.descriptorPool
   private val commandPool: CommandPool = context.commandPool
 
-  private val pipelineToDescriptorSets: Map[ComputePipeline, Seq[DescriptorSet]] = pushStack: stack =>
-    val pipelines = computeSequence.sequence.collect:
-      case Compute(pipeline, _) => pipeline
-
-    val rawSets = pipelines.map(_.layoutInfo.sets)
-    val numbered = rawSets.flatten.zipWithIndex
-    val numberedSets = rawSets
-      .foldLeft((numbered, Seq.empty[Seq[(LayoutSet, Int)]])) { case ((remaining, acc), sequence) =>
-        val (current, rest) = remaining.splitAt(sequence.length)
-        (rest, acc :+ current)
-      }
-      ._2
-
-    val pipelineToIndex = pipelines.zipWithIndex.toMap
-    val dependencies = computeSequence.dependencies.map { case Dependency(from, fromSet, to, toSet) =>
-      (pipelineToIndex(from), fromSet, pipelineToIndex(to), toSet)
-    }
-    val resolvedSets = dependencies
-      .foldLeft(numberedSets.map(_.toArray)) { case (sets, (from, fromSet, to, toSet)) =>
-        val a = sets(from)(fromSet)
-        val b = sets(to)(toSet)
-        assert(a._1.bindings == b._1.bindings)
-        val nextIndex = a._2 min b._2
-        sets(from).update(fromSet, (a._1, nextIndex))
-        sets(to).update(toSet, (b._1, nextIndex))
-        sets
-      }
-      .map(_.toSeq.map(_._2))
-
-    val descriptorSetMap = resolvedSets
-      .zip(pipelines.map(_.descriptorSetLayouts))
-      .flatMap { case (sets, layouts) =>
-        sets.zip(layouts)
-      }
-      .distinctBy(_._1)
-      .map { case (set, (id, layout)) =>
-        (set, new DescriptorSet(id, layout.bindings, descriptorPool))
-      }
-      .toMap
-
-    pipelines.zip(resolvedSets.map(_.map(descriptorSetMap(_)))).toMap
+  private val pipelineToDescriptorSets: Map[ComputePipeline, Seq[DescriptorSet]] = ???
 
   private val descriptorSets = pipelineToDescriptorSets.toSeq.flatMap(_._2).distinctBy(_.get)
 
@@ -102,7 +62,7 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
       vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.get)
 
       val pDescriptorSets = stack.longs(pipelineToDescriptorSets(pipeline).map(_.get)*)
-      vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.pipelineLayout, 0, pDescriptorSets, null)
+      vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.pipelineLayout.id, 0, pDescriptorSets, null)
 
       vkCmdDispatch(commandBuffer, 8, 1, 1)
     }
@@ -111,35 +71,8 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
     commandBuffer
 
   private def createBuffers(): Map[DescriptorSet, Seq[Buffer]] =
-
-    val setToActions = computeSequence.sequence
-      .collect { case Compute(pipeline, bufferActions) =>
-        pipelineToDescriptorSets(pipeline).zipWithIndex.map { case (descriptorSet, i) =>
-          val descriptorBufferActions = descriptorSet.bindings
-            .map(_.id)
-            .map(LayoutLocation(i, _))
-            .map(bufferActions.getOrElse(_, BufferAction.DoNothing))
-          (descriptorSet, descriptorBufferActions)
-        }
-      }
-      .flatten
-      .groupMapReduce(_._1)(_._2)((a, b) => a.zip(b).map(x => x._1 | x._2))
-
-    val setToBuffers = descriptorSets
-      .map(set =>
-        val actions = setToActions(set)
-        val buffers = set.bindings.zip(actions).map { case (binding, action) =>
-          binding.size match
-            case InputBufferSize(elemSize) =>
-              new Buffer.DeviceBuffer(elemSize * 1024, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | action.action)
-            case UniformSize(size) =>
-              new Buffer.DeviceBuffer(size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | action.action)
-        }
-        set.update(buffers)
-        (set, buffers),
-      )
-      .toMap
-
+    val setToActions = ???
+    val setToBuffers = ???
     setToBuffers
 
   def execute(inputs: Seq[ByteBuffer]): Seq[ByteBuffer] = pushStack: stack =>
@@ -189,18 +122,29 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
 
       output
 
-  def destroy(): Unit =
-    descriptorSets.foreach(_.destroy())
+  def destroy(): Unit = ???
 
 object SequenceExecutor:
   private[cyfra] case class ComputationSequence(sequence: Seq[ComputationStep], dependencies: Seq[Dependency])
 
   private[cyfra] sealed trait ComputationStep
   case class Compute(pipeline: ComputePipeline, bufferActions: Map[LayoutLocation, BufferAction]) extends ComputationStep:
-    def pumpLayoutLocations: Seq[Seq[BufferAction]] =
-      pipeline.layoutInfo.sets
-        .map(x => x.bindings.map(y => (x.id, y.id)).map(x => bufferActions.getOrElse(LayoutLocation.apply.tupled(x), BufferAction.DoNothing)))
+    def pumpLayoutLocations: Seq[Seq[BufferAction]] = ???
 
   case class LayoutLocation(set: Int, binding: Int)
 
   case class Dependency(from: ComputePipeline, fromSet: Int, to: ComputePipeline, toSet: Int)
+
+  enum BufferAction(val action: Int):
+    case DoNothing extends BufferAction(0)
+    case LoadTo extends BufferAction(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+    case LoadFrom extends BufferAction(VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
+    case LoadFromTo extends BufferAction(VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+
+    private def findAction(action: Int): BufferAction = action match
+      case VK_BUFFER_USAGE_TRANSFER_DST_BIT => LoadTo
+      case VK_BUFFER_USAGE_TRANSFER_SRC_BIT => LoadFrom
+      case 3                                => LoadFromTo
+      case _                                => DoNothing
+
+    def |(other: BufferAction): BufferAction = findAction(this.action | other.action)

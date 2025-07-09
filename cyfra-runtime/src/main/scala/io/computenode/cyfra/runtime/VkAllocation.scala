@@ -1,7 +1,8 @@
 package io.computenode.cyfra.runtime
 
 import io.computenode.cyfra.core.layout.{Layout, LayoutStruct}
-import io.computenode.cyfra.core.{Allocation, GExecution}
+import io.computenode.cyfra.core.{Allocation, GExecution, GProgram}
+import io.computenode.cyfra.core.SpirvProgram
 import io.computenode.cyfra.dsl.Value
 import io.computenode.cyfra.dsl.Value.FromExpr
 import io.computenode.cyfra.dsl.binding.{GBinding, GBuffer, GUniform}
@@ -58,9 +59,8 @@ class VkAllocation(commandPool: CommandPool)(using Allocator) extends Allocation
       VkUniform[T]().tap(bindings += _)
 
   extension [Params, L <: Layout, RL <: Layout: LayoutStruct](execution: GExecution[Params, L, RL])
-    override def execute(params: Params, layout: L): RL =
-      ???
-
+    override def execute(params: Params, layout: L): RL = ???
+    
   private def getUnderlying(buffer: GBinding[?]): Buffer =
     buffer match
       case buffer: VkBuffer[?]   => buffer.underlying

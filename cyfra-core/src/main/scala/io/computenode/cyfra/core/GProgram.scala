@@ -13,28 +13,22 @@ import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.dsl.struct.GStruct.Empty
 import izumi.reflect.Tag
 
-sealed trait GProgram[Params, L <: Layout: LayoutStruct] extends GExecution[Params, L, L]:
+trait GProgram[Params, L <: Layout: LayoutStruct] extends GExecution[Params, L, L]:
   val layout: InitProgramLayout => Params => L
   val dispatch: (L, Params) => ProgramDispatch
   val workgroupSize: WorkDimensions
+  private[cyfra] def layoutStruct: LayoutStruct[L] = summon[LayoutStruct[L]]
+  private[cyfra] def cacheKey: String
 
 object GProgram:
 
-  class GioProgram[Params, L <: Layout: LayoutStruct](
-    val body: L => GIO[?],
-    val layout: InitProgramLayout => Params => L,
-    val dispatch: (L, Params) => ProgramDispatch,
-    val workgroupSize: WorkDimensions,
+  case class GioProgram[Params, L <: Layout: LayoutStruct](
+    body: L => GIO[?],
+    layout: InitProgramLayout => Params => L,
+    dispatch: (L, Params) => ProgramDispatch,
+    workgroupSize: WorkDimensions,
   ) extends GProgram[Params, L]:
-    private[cyfra] def layoutStruct: LayoutStruct[L] = summon[LayoutStruct[L]]
-
-  class SpirvProgram[Params, L <: Layout: LayoutStruct](
-    val code: ByteBuffer,
-    val layout: InitProgramLayout => Params => L,
-    val dispatch: (L, Params) => ProgramDispatch,
-    val workgroupSize: WorkDimensions,
-  ) extends GProgram[Params, L]:
-    private[cyfra] def layoutStruct: LayoutStruct[L] = summon[LayoutStruct[L]]
+    private[cyfra] def cacheKey: String = toString
 
   type WorkDimensions = (Int, Int, Int)
 
