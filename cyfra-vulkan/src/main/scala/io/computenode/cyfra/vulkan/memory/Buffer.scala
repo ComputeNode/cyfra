@@ -58,11 +58,11 @@ object Buffer:
         if flush then vmaFlushAllocation(this.allocator.get, this.allocation, 0, size)
         vmaUnmapMemory(this.allocator.get, this.allocation)
 
-  def copyBuffer(src: ByteBuffer, dst: HostBuffer, srcOffset: Int , dstOffset: Int , bytes: Int ): Unit =
+  def copyBuffer(src: ByteBuffer, dst: HostBuffer, srcOffset: Int, dstOffset: Int, bytes: Int): Unit =
     dst.mapped: destination =>
       memCopy(memAddress(src) + srcOffset, memAddress(destination) + dstOffset, bytes)
 
-  def copyBuffer(src: HostBuffer, dst: ByteBuffer, srcOffset: Int , dstOffset: Int , bytes: Int ): Unit =
+  def copyBuffer(src: HostBuffer, dst: ByteBuffer, srcOffset: Int, dstOffset: Int, bytes: Int): Unit =
     src.mappedNoFlush: source =>
       memCopy(memAddress(source) + srcOffset, memAddress(dst) + dstOffset, bytes)
 

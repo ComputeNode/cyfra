@@ -4,4 +4,4 @@ import io.computenode.cyfra.core.Allocation
 
 trait CyfraRuntime:
 
-  def withAllocation(f: Allocation => Unit): Unit 
+  def withAllocation(f: Allocation => Unit): Unit

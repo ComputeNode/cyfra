@@ -33,16 +33,17 @@ class ExecutionHandler(runtime: VkCyfraRuntime):
 
     check(vkBeginCommandBuffer(commandBuffer, commandBufferBeginInfo), "Failed to begin recording command buffer")
     check(vkEndCommandBuffer(commandBuffer), "Failed to finish recording command buffer")
-    ???
+
+    result
 
   private def interpret[Params, L <: Layout, RL <: Layout](execution: GExecution[Params, L, RL], params: Params, layout: L): (RL, Seq[ShaderCall]) =
     execution match
-      case GExecution.Pure()                                                          => (layout, Seq.empty)
-      case GExecution.Map(nextExecution, mapResult, contramapLayout, contramapParams) =>
-        val cParams = contramapParams(params)
-        val cLayout = contramapLayout(layout)
-        val (prevLayout, calls) = interpret(nextExecution, cParams, cLayout)
-        (mapResult(prevLayout), calls)
+      case GExecution.Pure()                           => (layout, Seq.empty)
+      case GExecution.Map(execution, map, cmap, cmapP) =>
+        val cParams = cmapP(params)
+        val cLayout = cmap(layout)
+        val (prevLayout, calls) = interpret(execution, cParams, cLayout)
+        (map(prevLayout), calls)
       case GExecution.FlatMap(execution, f) =>
         val (prevLayout, calls) = interpret(execution, params, layout)
         val nextExecution = f(params, prevLayout)
