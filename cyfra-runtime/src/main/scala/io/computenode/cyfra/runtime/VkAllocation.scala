@@ -17,7 +17,7 @@ import java.nio.ByteBuffer
 import scala.collection.mutable
 import scala.util.chaining.*
 
-class VkAllocation(commandPool: CommandPool)(using Allocator) extends Allocation:
+class VkAllocation(commandPool: CommandPool, executionHandler: ExecutionHandler)(using Allocator) extends Allocation:
   extension (buffer: GBinding[?])
     def read(bb: ByteBuffer, offset: Int = 0, size: Int = -1): Unit =
       val buf = getUnderlying(buffer)
@@ -59,8 +59,8 @@ class VkAllocation(commandPool: CommandPool)(using Allocator) extends Allocation
       VkUniform[T]().tap(bindings += _)
 
   extension [Params, L <: Layout, RL <: Layout: LayoutStruct](execution: GExecution[Params, L, RL])
-    override def execute(params: Params, layout: L): RL = ???
-    
+    override def execute(params: Params, layout: L): RL = executionHandler.handle(execution, params, layout)
+
   private def getUnderlying(buffer: GBinding[?]): Buffer =
     buffer match
       case buffer: VkBuffer[?]   => buffer.underlying
