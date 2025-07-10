@@ -2,14 +2,14 @@ package io.computenode.cyfra.vulkan.core
 
 import io.computenode.cyfra.utility.Logger.logger
 import io.computenode.cyfra.vulkan.VulkanContext.ValidationLayer
-import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
+import io.computenode.cyfra.vulkan.util.Util.*
 import io.computenode.cyfra.vulkan.util.VulkanObject
 import org.lwjgl.glfw.GLFWVulkan
 import org.lwjgl.system.MemoryStack
 import org.lwjgl.system.MemoryUtil.NULL
 import org.lwjgl.vulkan.*
 import org.lwjgl.vulkan.EXTDebugReport.VK_EXT_DEBUG_REPORT_EXTENSION_NAME
-import org.lwjgl.vulkan.KHRPortabilityEnumeration.{VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR, VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME}
+import org.lwjgl.vulkan.KHRPortabilityEnumeration.*
 import org.lwjgl.vulkan.VK10.*
 
 import java.nio.ByteBuffer
@@ -85,13 +85,12 @@ private[cyfra] class Instance(enableValidationLayers: Boolean, enableSurfaceExte
 
   lazy val enabledLayers: Seq[String] = List
     .empty[String]
-    .pipe { x =>
+    .pipe: x =>
       if Instance.layers.contains(ValidationLayer) && enableValidationLayers then ValidationLayer +: x
       else if enableValidationLayers then
         logger.error("Validation layers requested but not available")
         x
       else x
-    }
 
   def get: VkInstance = instance
 
@@ -106,30 +105,29 @@ private[cyfra] class Instance(enableValidationLayers: Boolean, enableSurfaceExte
 
     val availableExtensions =
       val buf = mutable.Buffer[String]()
-      buffer.forEach { ext =>
+      buffer.forEach: ext =>
         buf.addOne(ext.extensionNameString())
-      }
+
       buf.toSet
 
     val extensions = mutable.Buffer.from(Instance.MoltenVkExtensions)
     if enableValidationLayers then extensions.addAll(Instance.ValidationLayersExtensions)
 
-    if includeSurfaceExtensions then {
+    if includeSurfaceExtensions then
       val glfwExtensions = GLFWVulkan.glfwGetRequiredInstanceExtensions()
-      if glfwExtensions != null then {
-        val extensionNames = (0 until glfwExtensions.capacity()).map { i =>
+      if glfwExtensions != null then
+        val extensionNames = (0 until glfwExtensions.capacity()).map: i =>
           val extName = org.lwjgl.system.MemoryUtil.memUTF8(glfwExtensions.get(i))
           extensions.addOne(extName)
           extName
-        }
-      } else {}
-    } else {}
+      else {}
+    else {}
 
-    val filteredExtensions = extensions.filter { ext =>
-      availableExtensions.contains(ext).tap { x =>
-        if !x then logger.warn(s"Requested Vulkan instance extension '$ext' is not available")
-      }
-    }
+    val filteredExtensions = extensions.filter: ext =>
+      availableExtensions
+        .contains(ext)
+        .tap: x =>
+          if !x then logger.warn(s"Requested Vulkan instance extension '$ext' is not available")
 
     val ppEnabledExtensionNames = stack.callocPointer(filteredExtensions.size)
     filteredExtensions.foreach(x => ppEnabledExtensionNames.put(stack.ASCII(x)))

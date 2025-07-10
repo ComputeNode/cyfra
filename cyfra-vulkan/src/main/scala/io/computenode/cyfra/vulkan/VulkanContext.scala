@@ -2,9 +2,9 @@ package io.computenode.cyfra.vulkan
 
 import io.computenode.cyfra.utility.Logger.logger
 import io.computenode.cyfra.vulkan.VulkanContext.ValidationLayers
-import io.computenode.cyfra.vulkan.command.{CommandPool, Queue, StandardCommandPool}
-import io.computenode.cyfra.vulkan.core.{DebugCallback, Device, Instance}
-import io.computenode.cyfra.vulkan.memory.{Allocator, DescriptorPool}
+import io.computenode.cyfra.vulkan.command.*
+import io.computenode.cyfra.vulkan.core.*
+import io.computenode.cyfra.vulkan.memory.*
 
 /** @author
   *   MarconZet Created 13.04.2020
@@ -18,7 +18,7 @@ private[cyfra] object VulkanContext:
 
   def withSurfaceSupport(): VulkanContext = new VulkanContext(enableSurfaceExtensions = true)
 
-private[cyfra] class VulkanContext(enableSurfaceExtensions: Boolean = false) {
+private[cyfra] class VulkanContext(enableSurfaceExtensions: Boolean = false):
 
   val instance: Instance = new Instance(ValidationLayers, enableSurfaceExtensions)
   val debugCallback: Option[DebugCallback] = if ValidationLayers then Some(new DebugCallback(instance)) else None
@@ -40,4 +40,3 @@ private[cyfra] class VulkanContext(enableSurfaceExtensions: Boolean = false) {
     device.destroy()
     debugCallback.foreach(_.destroy())
     instance.destroy()
-}

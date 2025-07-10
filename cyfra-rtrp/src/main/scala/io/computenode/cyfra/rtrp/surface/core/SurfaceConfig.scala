@@ -8,7 +8,7 @@ case class SurfaceConfig(
   enableVSync: Boolean = true,
   minImageCount: Option[Int] = None,
   maxImageCount: Option[Int] = None,
-) {
+):
 
 // Create a copy with different format, present mode, VSync settings, or image count constraints
   def withFormat(format: SurfaceFormat): SurfaceConfig =
@@ -17,17 +17,15 @@ case class SurfaceConfig(
   def withPresentMode(mode: PresentMode): SurfaceConfig =
     copy(preferredPresentMode = mode)
 
-  def withVSync(enabled: Boolean): SurfaceConfig = {
+  def withVSync(enabled: Boolean): SurfaceConfig =
     val mode = if enabled then PresentMode.FIFO else PresentMode.IMMEDIATE
     copy(enableVSync = enabled, preferredPresentMode = mode)
-  }
 
   def withImageCount(min: Int, max: Int): SurfaceConfig =
     copy(minImageCount = Some(min), maxImageCount = Some(max))
-}
 
 // Predefined surface configurations.
-object SurfaceConfig {
+object SurfaceConfig:
 
   def default: SurfaceConfig = SurfaceConfig()
 
@@ -53,4 +51,3 @@ object SurfaceConfig {
     minImageCount = Some(1),
     maxImageCount = Some(2),
   )
-}

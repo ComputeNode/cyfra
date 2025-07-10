@@ -1,11 +1,11 @@
 package io.computenode.cyfra.rtrp.surface.core
 
-import io.computenode.cyfra.rtrp.window.core.{WindowEvent, WindowId}
+import io.computenode.cyfra.rtrp.window.core.*
 
 // Surface-specific events that extend window events
 sealed trait SurfaceEvent extends WindowEvent
 
-object SurfaceEvent {
+object SurfaceEvent:
   case class SurfaceCreated(windowId: WindowId, surfaceId: SurfaceId, capabilities: SurfaceCapabilities) extends SurfaceEvent
 
   case class SurfaceDestroyed(windowId: WindowId, surfaceId: SurfaceId) extends SurfaceEvent
@@ -22,4 +22,3 @@ object SurfaceEvent {
   case class SurfaceLost(windowId: WindowId, surfaceId: SurfaceId, error: String) extends SurfaceEvent
 
   case class SurfaceFormatChanged(windowId: WindowId, surfaceId: SurfaceId, oldFormat: SurfaceFormat, newFormat: SurfaceFormat) extends SurfaceEvent
-}

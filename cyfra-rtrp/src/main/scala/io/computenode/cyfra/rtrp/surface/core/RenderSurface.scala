@@ -1,10 +1,10 @@
 package io.computenode.cyfra.rtrp.surface.core
 
-import io.computenode.cyfra.rtrp.window.core.{Window, WindowId}
+import io.computenode.cyfra.rtrp.window.core.*
 import scala.util.Try
 
 // Render surface abstraction
-trait RenderSurface {
+trait RenderSurface:
   def id: SurfaceId
   def windowId: WindowId
   def nativeHandle: Long
@@ -20,8 +20,7 @@ trait RenderSurface {
   def isDestroyed: Boolean = !isValid
 
   def recreate(): Try[Unit] =
-    for {
+    for
       (width, height) <- currentSize
       _ <- resize(width, height)
-    } yield ()
-}
+    yield ()
