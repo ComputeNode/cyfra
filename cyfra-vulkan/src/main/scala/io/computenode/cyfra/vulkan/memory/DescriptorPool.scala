@@ -15,11 +15,17 @@ object DescriptorPool:
   val MAX_SETS = 100
 private[cyfra] class DescriptorPool(using device: Device) extends VulkanObjectHandle:
   protected val handle: Long = pushStack: stack =>
-    val descriptorPoolSize = VkDescriptorPoolSize.calloc(1, stack)
+    val descriptorPoolSize = VkDescriptorPoolSize.calloc(2, stack)
     descriptorPoolSize
-      .get(0)
-      .`type`(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER) // TODO this is sus when using with uniform buffers
+      .get()
+      .`type`(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
       .descriptorCount(2 * MAX_SETS)
+
+    descriptorPoolSize
+      .get()
+      .`type`(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+      .descriptorCount(2 * MAX_SETS)
+    descriptorPoolSize.rewind()
 
     val descriptorPoolCreateInfo = VkDescriptorPoolCreateInfo
       .calloc(stack)

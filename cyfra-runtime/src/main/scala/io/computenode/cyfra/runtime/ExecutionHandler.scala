@@ -1,8 +1,9 @@
 package io.computenode.cyfra.runtime
 
+import io.computenode.cyfra.core.GProgram.InitProgramLayout
 import io.computenode.cyfra.core.SpirvProgram.ShaderLayout
 import io.computenode.cyfra.core.{GExecution, GProgram}
-import io.computenode.cyfra.core.layout.Layout
+import io.computenode.cyfra.core.layout.{Layout, LayoutStruct}
 import io.computenode.cyfra.dsl.binding.GBinding
 import io.computenode.cyfra.runtime.ExecutionHandler.{Dispatch, DispatchType, ExecutionStep, PipelineBarrier, ShaderCall}
 import io.computenode.cyfra.runtime.ExecutionHandler.DispatchType.*
@@ -25,40 +26,47 @@ class ExecutionHandler(runtime: VkCyfraRuntime):
   private val descriptorPool: DescriptorPool = context.descriptorPool
   private val commandPool: CommandPool = context.commandPool
 
-  def handle[Params, L <: Layout, RL <: Layout](execution: GExecution[Params, L, RL], params: Params, layout: L): RL = pushStack: stack =>
-    val (result, shaderCalls) = interpret(execution, params, layout)
+  def handle[Params, L <: Layout, RL <: Layout](execution: GExecution[Params, L, RL], params: Params, layout: L)(using VkAllocation): RL = pushStack:
+    stack =>
+      val (result, shaderCalls) = interpret(execution, params, layout)
 
-    val descriptorSets = shaderCalls.map { case ShaderCall(pipeline, layout) =>
-      pipeline.pipelineLayout.sets.map(descriptorPool.allocate).zip(layout).map { case (set, bindings) =>
-        set.update(bindings.map(x => VkAllocation.getUnderlying(x.binding)))
-        set
+      val descriptorSets = shaderCalls.map { case ShaderCall(pipeline, layout, _) =>
+        pipeline.pipelineLayout.sets.map(descriptorPool.allocate).zip(layout).map { case (set, bindings) =>
+          set.update(bindings.map(x => VkAllocation.getUnderlying(x.binding)))
+          set
+        }
       }
-    }
 
-    val dispatches: Seq[Dispatch] = ???
+      val dispatches: Seq[Dispatch] = shaderCalls
+        .zip(descriptorSets)
+        .map:
+          case (ShaderCall(pipeline, layout, dispatch), sets) =>
+            Dispatch(pipeline, layout, sets, dispatch)
 
-    val (executeSteps, _) = dispatches.foldLeft((Seq.empty[ExecutionStep], Set.empty[GBinding[?]])):
-      case ((steps, dirty), step) =>
-        val bindings = step.layout.flatten.map(_.binding)
-        if bindings.exists(dirty.contains) then (steps.appendedAll(Seq(PipelineBarrier, step)), Set.empty[GBinding[?]])
-        else (steps.appended(step), dirty ++ bindings)
+      val (executeSteps, _) = dispatches.foldLeft((Seq.empty[ExecutionStep], Set.empty[GBinding[?]])):
+        case ((steps, dirty), step) =>
+          val bindings = step.layout.flatten.map(_.binding)
+          if bindings.exists(dirty.contains) then (steps.appendedAll(Seq(PipelineBarrier, step)), Set.empty[GBinding[?]])
+          else (steps.appended(step), dirty ++ bindings)
 
-    val commandBuffer = recordCommandBuffer(executeSteps)
+      val commandBuffer = recordCommandBuffer(executeSteps)
 
-    val pCommandBuffer = stack.callocPointer(1).put(0, commandBuffer)
-    val submitInfo = VkSubmitInfo
-      .calloc(stack)
-      .sType$Default()
-      .pCommandBuffers(pCommandBuffer)
+      val pCommandBuffer = stack.callocPointer(1).put(0, commandBuffer)
+      val submitInfo = VkSubmitInfo
+        .calloc(stack)
+        .sType$Default()
+        .pCommandBuffers(pCommandBuffer)
 
-    val fence = new Fence()
-    timed("Vulkan render command"):
-      check(vkQueueSubmit(queue.get, submitInfo, fence.get), "Failed to submit command buffer to queue")
-      fence.block().destroy()
+      val fence = new Fence()
+      timed("Vulkan render command"):
+        check(vkQueueSubmit(queue.get, submitInfo, fence.get), "Failed to submit command buffer to queue")
+        fence.block().destroy()
 
-    result
+      result
 
-  private def interpret[Params, L <: Layout, RL <: Layout](execution: GExecution[Params, L, RL], params: Params, layout: L): (RL, Seq[ShaderCall]) =
+  private def interpret[Params, L <: Layout, RL <: Layout](execution: GExecution[Params, L, RL], params: Params, layout: L)(using
+    VkAllocation,
+  ): (RL, Seq[ShaderCall]) =
     execution match
       case GExecution.Pure()                           => (layout, Seq.empty)
       case GExecution.Map(execution, map, cmap, cmapP) =>
@@ -72,13 +80,16 @@ class ExecutionHandler(runtime: VkCyfraRuntime):
         val (prevLayout2, calls2) = interpret(nextExecution, params, layout)
         (prevLayout2, calls ++ calls2)
       case program: GProgram[Params, L] =>
-//        val shader = runtime.getOrLoadProgram(program)
-        val shader = runtime.shaderCache(program.cacheKey).asInstanceOf[VkShader[L]]
-        program.dispatch(layout, params) match
+        given LayoutStruct[L] = program.layoutStruct
+        val shader = runtime.getOrLoadProgram(program)
+        val initProgram: InitProgramLayout = summon[VkAllocation].getInitProgramLayout
+        val layoutInit = program.layout(initProgram)(params).asInstanceOf[L]
+        ???
+        val dispatch = program.dispatch(layout, params) match
           case GProgram.DynamicDispatch(buffer, offset) => DispatchType.Indirect(buffer, offset)
           case GProgram.StaticDispatch(size)            => DispatchType.Direct(size._1, size._2, size._3)
         val rl = layout.asInstanceOf[RL]
-        (rl, Seq(ShaderCall(shader.underlying, shader.shaderBindings(layout))))
+        (rl, Seq(ShaderCall(shader.underlying, shader.shaderBindings(layout), dispatch)))
       case _ => ???
 
   private def recordCommandBuffer(steps: Seq[ExecutionStep]): VkCommandBuffer = pushStack: stack =>
@@ -121,7 +132,7 @@ class ExecutionHandler(runtime: VkCyfraRuntime):
     commandBuffer
 
 object ExecutionHandler:
-  case class ShaderCall(pipeline: ComputePipeline, layout: ShaderLayout)
+  case class ShaderCall(pipeline: ComputePipeline, layout: ShaderLayout, dispatch: DispatchType)
 
   sealed trait ExecutionStep
   case class Dispatch(pipeline: ComputePipeline, layout: ShaderLayout, descriptorSets: Seq[DescriptorSet], dispatch: DispatchType)

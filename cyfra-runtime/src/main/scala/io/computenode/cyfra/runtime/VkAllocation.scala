@@ -6,11 +6,15 @@ import io.computenode.cyfra.core.SpirvProgram
 import io.computenode.cyfra.dsl.Value
 import io.computenode.cyfra.dsl.Value.FromExpr
 import io.computenode.cyfra.dsl.binding.{GBinding, GBuffer, GUniform}
+import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.runtime.VkAllocation.getUnderlying
 import io.computenode.cyfra.spirv.SpirvTypes.typeStride
 import io.computenode.cyfra.vulkan.command.CommandPool
 import io.computenode.cyfra.vulkan.memory.{Allocator, Buffer}
+import io.computenode.cyfra.vulkan.util.Util.pushStack
 import izumi.reflect.Tag
+import org.lwjgl.BufferUtils
+import org.lwjgl.system.MemoryUtil
 import org.lwjgl.vulkan.VK10
 import org.lwjgl.vulkan.VK10.{VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_BUFFER_USAGE_TRANSFER_SRC_BIT}
 
@@ -60,7 +64,19 @@ class VkAllocation(commandPool: CommandPool, executionHandler: ExecutionHandler)
       VkUniform[T]().tap(bindings += _)
 
   extension [Params, L <: Layout, RL <: Layout: LayoutStruct](execution: GExecution[Params, L, RL])
-    override def execute(params: Params, layout: L): RL = executionHandler.handle(execution, params, layout)
+    override def execute(params: Params, layout: L): RL = executionHandler.handle(execution, params, layout)(using this)
+
+  private def direct[T <: Value: {Tag, FromExpr}](buff: ByteBuffer): GUniform[T] =
+    GUniform[T](buff)
+
+  def getInitProgramLayout: GProgram.InitProgramLayout =
+    new GProgram.InitProgramLayout:
+      extension (uniforms: GUniform.type)
+        def apply[T <: GStruct[T]: {Tag, FromExpr}](value: T): GUniform[T] = pushStack: stack =>
+          val bb = value.productElement(0) match
+            case x: Int => MemoryUtil.memByteBuffer(stack.ints(x))
+            case _      => ???
+          direct(bb)
 
   private val bindings = mutable.Buffer[VkUniform[?] | VkBuffer[?]]()
   private[cyfra] def close(): Unit = bindings.map(getUnderlying).foreach(_.destroy())

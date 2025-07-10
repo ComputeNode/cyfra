@@ -7,7 +7,7 @@ import io.computenode.cyfra.core.layout.Layout
 import java.nio.ByteBuffer
 import GProgram.*
 import io.computenode.cyfra.dsl.{Expression, Value}
-import io.computenode.cyfra.dsl.Value.{FromExpr, Int32}
+import io.computenode.cyfra.dsl.Value.{FromExpr, GBoolean, Int32}
 import io.computenode.cyfra.dsl.binding.{GBinding, GBuffer, GUniform}
 import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.dsl.struct.GStruct.Empty
@@ -28,7 +28,7 @@ object GProgram:
     dispatch: (L, Params) => ProgramDispatch,
     workgroupSize: WorkDimensions,
   ) extends GProgram[Params, L]:
-    private[cyfra] def cacheKey: String = if layoutStruct.elementTypes.contains(summon[Tag[Boolean]]) then "filter" else "emit"
+    private[cyfra] def cacheKey: String = if layoutStruct.elementTypes.contains(summon[Tag[GBoolean]]) then "filter" else "emit"
 
   type WorkDimensions = (Int, Int, Int)
 
@@ -40,8 +40,6 @@ object GProgram:
 
   private[cyfra] case class BufferSizeSpec[T <: Value: {Tag, FromExpr}](size: Int) extends GBuffer[T]
 
-  private[cyfra] case class ParamUniform[T <: GStruct[T]: {Tag, FromExpr}](value: T) extends GUniform[T]
-
   private[cyfra] case class DynamicUniform[T <: GStruct[T]: {Tag, FromExpr}]() extends GUniform[T]
 
   trait InitProgramLayout:
@@ -50,11 +48,9 @@ object GProgram:
         BufferSizeSpec[T](size)
 
     extension (uniforms: GUniform.type)
-      def apply[T <: GStruct[T]: {Tag, FromExpr}](value: T): GUniform[T] =
-        ParamUniform[T](value)
-
       def apply[T <: GStruct[T]: {Tag, FromExpr}](): GUniform[T] =
         DynamicUniform[T]()
+      def apply[T <: GStruct[T]: {Tag, FromExpr}](value: T): GUniform[T]
 
   def apply[Params, L <: Layout: LayoutStruct](
     layout: InitProgramLayout ?=> Params => L,
