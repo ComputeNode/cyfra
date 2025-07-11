@@ -26,8 +26,8 @@ class ExecutionHandler(runtime: VkCyfraRuntime):
   private val context = runtime.context
   import context.given
 
-  private val queue: Queue = context.computeQueue
-  private val descriptorPool: DescriptorPool = context.descriptorPool
+  private val queue: Queue = context.computeQueue // TODO queue multithreading
+  private val descriptorPool: DescriptorPool = context.descriptorPool // TODO descriptor pool manager
   private val commandPool: CommandPool = context.commandPool
 
   def handle[Params, L <: Layout, RL <: Layout](execution: GExecution[Params, L, RL], params: Params, layout: L)(using VkAllocation): RL = pushStack:
@@ -79,6 +79,7 @@ class ExecutionHandler(runtime: VkCyfraRuntime):
         case GExecution.Map(execution, map, cmap, cmapP) =>
           val cParams = cmapP(params)
           val cLayout = cmap(layout)
+          cLayout.bindings.foreach(x => bindingsAcc.getOrElseUpdate(x, mutable.Buffer.empty))
           val (prevLayout, calls) = interpretImpl(execution, cParams, cLayout)
           (map(prevLayout), calls)
         case GExecution.FlatMap(execution, f) =>
@@ -97,7 +98,7 @@ class ExecutionHandler(runtime: VkCyfraRuntime):
             .zip(layoutInit.bindings)
             .foreach:
               case (binding, initBinding) =>
-                bindingsAcc.getOrElseUpdate(binding, mutable.Buffer.empty).append(initBinding)
+                bindingsAcc(binding).append(initBinding)
           val dispatch = program.dispatch(layout, params) match
             case GProgram.DynamicDispatch(buffer, offset) => DispatchType.Indirect(buffer, offset)
             case GProgram.StaticDispatch(size)            => DispatchType.Direct(size._1, size._2, size._3)

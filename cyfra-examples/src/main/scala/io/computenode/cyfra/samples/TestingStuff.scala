@@ -34,7 +34,7 @@ object TestingStuff:
         out = GBuffer[Int32](params.inSize * params.emitN),
         args = GUniform(EmitProgramUniform(params.emitN)),
       ),
-    dispatch = (layout, args) => GProgram.StaticDispatch((args.inSize, 1, 1)),
+    dispatch = (layout, args) => GProgram.StaticDispatch((args.inSize / 128, 1, 1)),
   ): layout =>
     val EmitProgramUniform(emitN) = layout.args.read
     val invocId = GIO.invocationId
@@ -59,7 +59,7 @@ object TestingStuff:
         out = GBuffer[GBoolean](params.inSize),
         params = GUniform(FilterProgramUniform(params.filterValue)),
       ),
-    dispatch = (layout, args) => GProgram.StaticDispatch((args.inSize, 1, 1)),
+    dispatch = (layout, args) => GProgram.StaticDispatch((args.inSize / 128, 1, 1)),
   ): layout =>
     val invocId = GIO.invocationId
     val element = GIO.read(layout.in, invocId)
