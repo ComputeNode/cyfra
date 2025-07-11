@@ -81,7 +81,9 @@ class VkAllocation(commandPool: CommandPool, executionHandler: ExecutionHandler)
           direct(bb)
 
   private val bindings = mutable.Buffer[VkUniform[?] | VkBuffer[?]]()
-  private[cyfra] def close(): Unit = bindings.map(getUnderlying).foreach(_.destroy())
+  private[cyfra] def close(): Unit =
+    bindings.map(getUnderlying).foreach(_.destroy())
+    stagingBuffer.foreach(_.destroy())
 
   private var stagingBuffer: Option[Buffer.HostBuffer] = None
   private def getStagingBuffer(size: Int): Buffer.HostBuffer =

@@ -77,7 +77,7 @@ private[cyfra] class ComputePipeline(shaderCode: ByteBuffer, functionName: Strin
     vkDestroyPipeline(device.get, handle, null)
     vkDestroyPipelineLayout(device.get, pipelineLayout.id, null)
     pipelineLayout.sets.map(_.id).foreach(vkDestroyDescriptorSetLayout(device.get, _, null))
-    vkDestroyShaderModule(device.get, handle, null)
+    vkDestroyShaderModule(device.get, shader, null)
 
   private def createDescriptorSetLayout(set: DescriptorSetInfo): Long = pushStack: stack =>
     val descriptorSetLayoutBindings = VkDescriptorSetLayoutBinding.calloc(set.descriptors.length, stack)

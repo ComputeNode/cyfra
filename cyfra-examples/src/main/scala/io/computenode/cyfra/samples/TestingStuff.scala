@@ -123,6 +123,7 @@ object TestingStuff:
       ),
       onDone = layout => layout.filterBuffer.read(result),
     )
+    runtime.close()
 
     val actual = (0 until 2 * 1024).map(i => result.get(i * 1) != 0)
     val expected = (0 until 1024).flatMap(x => Seq.fill(emitFilterParams.emitN)(x)).map(_ == 42)

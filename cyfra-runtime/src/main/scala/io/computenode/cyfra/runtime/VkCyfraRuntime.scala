@@ -21,3 +21,7 @@ class VkCyfraRuntime extends CyfraRuntime:
     val allocation = new VkAllocation(context.commandPool, executionHandler)
     f(allocation)
     allocation.close()
+
+  def close(): Unit =
+    shaderCache.values.foreach(_.underlying.destroy())
+    context.destroy()
