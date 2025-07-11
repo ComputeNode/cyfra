@@ -1,6 +1,6 @@
 package io.computenode.cyfra.interpreter
 
-import io.computenode.cyfra.dsl.{*, given}, collections.GSeq
+import io.computenode.cyfra.dsl.{*, given}
 import binding.*, Value.*, gio.GIO, GIO.*
 import izumi.reflect.Tag
 
@@ -9,7 +9,7 @@ object Interpreter:
   case class Read(buffer: GBuffer[?], index: Int)
   case class InvocSimResult(
     invocId: Int,
-    instructions: List[Expression[?]],
+    instructions: List[Expression[?]] = Nil,
     values: List[Any] = Nil,
     writes: List[Write] = Nil,
     reads: List[Read] = Nil,
@@ -27,7 +27,13 @@ object Interpreter:
   def interpretPure(gio: Pure[?]): SimResult = gio match
     case Pure(value) =>
       val id = Simulate.sim(invocationId).asInstanceOf[Int]
-      val invocSimRes = InvocSimResult(invocId = id, instructions = ???, values = ???)
+      val invocSimRes = InvocSimResult(invocId = id, values = List(value))
+      SimResult(List(invocSimRes))
+
+  def interpretWriteBuffer(gio: Pure[?]): SimResult = gio match
+    case Pure(value) =>
+      val id = Simulate.sim(invocationId).asInstanceOf[Int]
+      val invocSimRes = InvocSimResult(invocId = id, values = List(value))
       SimResult(List(invocSimRes))
 
   def interpretOne(gio: GIO[?]): SimResult = gio match
