@@ -1,0 +1,48 @@
+#version 450
+
+layout (local_size_x = 128, local_size_y = 1, local_size_z = 1) in;
+
+layout (set = 0, binding = 0) buffer In1 {
+    int in1[];
+};
+layout (set = 0, binding = 1) buffer In2 {
+    int in2[];
+};
+layout (set = 0, binding = 2) buffer In3 {
+    int in3[];
+};
+layout (set = 0, binding = 3) buffer In4 {
+    int in4[];
+};
+layout (set = 0, binding = 4) buffer In5 {
+    int in5[];
+};
+layout (set = 0, binding = 5) buffer Out1 {
+    int out1[];
+};
+layout (set = 0, binding = 6) buffer Out2 {
+    int out2[];
+};
+layout (set = 0, binding = 7) buffer Out3 {
+    int out3[];
+};
+layout (set = 0, binding = 8) buffer Out4 {
+    int out4[];
+};
+layout (set = 0, binding = 9) buffer Out5 {
+    int out5[];
+};
+layout (set = 0, binding = 10) uniform U1 {
+    int a;
+};
+layout (set = 0, binding = 11) uniform U2 {
+    int b;
+};
+void main(void) {
+    uint index = gl_GlobalInvocationID.x;
+    out1[index] = in1[index] + a + b;
+    out2[index] = in2[index] + a + b;
+    out3[index] = in3[index] + a + b;
+    out4[index] = in4[index] + a + b;
+    out5[index] = in5[index] + a + b;
+}

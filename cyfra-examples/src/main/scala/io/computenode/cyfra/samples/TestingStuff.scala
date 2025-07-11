@@ -118,3 +118,110 @@ object TestingStuff:
       .zipWithIndex
       .foreach:
         case ((e, a), i) => assert(e == a, s"Mismatch at index $i: expected $e, got $a")
+
+// Test case: Use one program 10 times, copying values from five input buffers to five output buffers and adding values from two uniforms
+  case class AddProgramParams(bufferSize: Int, addA: Int, addB: Int)
+  case class AddProgramUniform(a: Int32) extends GStruct[AddProgramUniform]
+  case class AddProgramLayout(
+    in1: GBuffer[Int32],
+    in2: GBuffer[Int32],
+    in3: GBuffer[Int32],
+    in4: GBuffer[Int32],
+    in5: GBuffer[Int32],
+    out1: GBuffer[Int32],
+    out2: GBuffer[Int32],
+    out3: GBuffer[Int32],
+    out4: GBuffer[Int32],
+    out5: GBuffer[Int32],
+    u1: GUniform[AddProgramUniform] = GUniform.fromParams,
+    u2: GUniform[AddProgramUniform] = GUniform.fromParams,
+  ) extends Layout
+
+  case class AddProgramExecLayout(
+    in1: GBuffer[Int32],
+    in2: GBuffer[Int32],
+    in3: GBuffer[Int32],
+    in4: GBuffer[Int32],
+    in5: GBuffer[Int32],
+    out1: GBuffer[Int32],
+    out2: GBuffer[Int32],
+    out3: GBuffer[Int32],
+    out4: GBuffer[Int32],
+    out5: GBuffer[Int32],
+  ) extends Layout
+
+  val addProgram: GProgram[AddProgramParams, AddProgramLayout] = GioProgram[AddProgramParams, AddProgramLayout](
+    layout = params =>
+      AddProgramLayout(
+        in1 = GBuffer[Int32](params.bufferSize),
+        in2 = GBuffer[Int32](params.bufferSize),
+        in3 = GBuffer[Int32](params.bufferSize),
+        in4 = GBuffer[Int32](params.bufferSize),
+        in5 = GBuffer[Int32](params.bufferSize),
+        out1 = GBuffer[Int32](params.bufferSize),
+        out2 = GBuffer[Int32](params.bufferSize),
+        out3 = GBuffer[Int32](params.bufferSize),
+        out4 = GBuffer[Int32](params.bufferSize),
+        out5 = GBuffer[Int32](params.bufferSize),
+        u1 = GUniform(AddProgramUniform(params.addA)),
+        u2 = GUniform(AddProgramUniform(params.addB)),
+      ),
+    dispatch = (layout, args) => GProgram.StaticDispatch((args.bufferSize / 128, 1, 1)),
+  )(_ => ???)
+  def swap(l: AddProgramLayout): AddProgramLayout =
+    val AddProgramLayout(in1, in2, in3, in4, in5, out1, out2, out3, out4, out5, u1, u2) = l
+    AddProgramLayout(out1, out2, out3, out4, out5, in1, in2, in3, in4, in5, u1, u2)
+
+  def fromExecLayout(l: AddProgramExecLayout): AddProgramLayout =
+    val AddProgramExecLayout(in1, in2, in3, in4, in5, out1, out2, out3, out4, out5) = l
+    AddProgramLayout(in1, in2, in3, in4, in5, out1, out2, out3, out4, out5)
+
+  val execution = (0 until 11).foldLeft(
+    GExecution[AddProgramParams, AddProgramExecLayout]().asInstanceOf[GExecution[AddProgramParams, AddProgramExecLayout, AddProgramExecLayout]],
+  )((x, i) =>
+    if i % 2 == 0 then x.addProgram(addProgram)(mapParams = identity[AddProgramParams], mapLayout = fromExecLayout)
+    else x.addProgram(addProgram)(mapParams = identity, mapLayout = x => swap(fromExecLayout(x))),
+  )
+
+  @main
+  def testAddProgram10Times =
+    given runtime: VkCyfraRuntime = VkCyfraRuntime()
+    val bufferSize = 1280
+    val params = AddProgramParams(bufferSize, addA = 3, addB = 7)
+    val region = GBufferRegion
+      .allocate[AddProgramExecLayout]
+      .map: region =>
+        execution.execute(params, region)
+    val inData = (0 until bufferSize).toArray
+    val inBuffers = List.fill(5)(BufferUtils.createByteBuffer(bufferSize * 4))
+    inBuffers.foreach(_.asIntBuffer().put(inData).flip())
+    val outBuffers = List.fill(5)(BufferUtils.createIntBuffer(bufferSize))
+    val rbbList = outBuffers.map(MemoryUtil.memByteBuffer)
+    region.runUnsafe(
+      init = AddProgramExecLayout(
+        in1 = GBuffer[Int32](inBuffers(0)),
+        in2 = GBuffer[Int32](inBuffers(1)),
+        in3 = GBuffer[Int32](inBuffers(2)),
+        in4 = GBuffer[Int32](inBuffers(3)),
+        in5 = GBuffer[Int32](inBuffers(4)),
+        out1 = GBuffer[Int32](bufferSize),
+        out2 = GBuffer[Int32](bufferSize),
+        out3 = GBuffer[Int32](bufferSize),
+        out4 = GBuffer[Int32](bufferSize),
+        out5 = GBuffer[Int32](bufferSize),
+      ),
+      onDone = layout => {
+        layout.out1.read(rbbList(0))
+        layout.out2.read(rbbList(1))
+        layout.out3.read(rbbList(2))
+        layout.out4.read(rbbList(3))
+        layout.out5.read(rbbList(4))
+      },
+    )
+    runtime.close()
+    val expected = inData.map(_ + 11 * (params.addA + params.addB))
+    outBuffers.foreach { buf =>
+      (0 until bufferSize).foreach { i =>
+        assert(buf.get(i) == expected(i), s"Mismatch at index $i: expected ${expected(i)}, got ${buf.get(i)}")
+      }
+    }
