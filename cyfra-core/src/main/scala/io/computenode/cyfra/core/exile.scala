@@ -2,12 +2,13 @@ package io.computenode.cyfra.core
 
 import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.core.layout.LayoutStruct
-import io.computenode.cyfra.core.GProgram.{GioProgram, InitProgramLayout, ProgramDispatch, WorkDimensions}
+import io.computenode.cyfra.core.GProgram.{InitProgramLayout, ProgramDispatch, WorkDimensions}
 import io.computenode.cyfra.core.SpirvProgram.Operation.ReadWrite
 import io.computenode.cyfra.core.SpirvProgram.{Binding, ShaderLayout}
 import io.computenode.cyfra.dsl.Value
-import io.computenode.cyfra.dsl.Value.FromExpr
+import io.computenode.cyfra.dsl.Value.{FromExpr, GBoolean}
 import io.computenode.cyfra.dsl.binding.GBinding
+import io.computenode.cyfra.dsl.gio.GIO
 import izumi.reflect.Tag
 
 import java.io.File
@@ -59,3 +60,22 @@ object SpirvProgram:
       val fis = use(new FileInputStream(file))
       val fc = use(fis.getChannel)
       fc.map(FileChannel.MapMode.READ_ONLY, 0, fc.size())
+
+case class GioProgram[Params, L <: Layout: LayoutStruct](
+  body: L => GIO[?],
+  layout: InitProgramLayout => Params => L,
+  dispatch: (L, Params) => ProgramDispatch,
+  workgroupSize: WorkDimensions,
+) extends GProgram[Params, L]:
+  private[cyfra] def cacheKey: String = layoutStruct.elementTypes match
+    case x if x.size == 2                       => "addOne"
+    case x if x.contains(summon[Tag[GBoolean]]) => "filter"
+    case _                                      => "emit"
+
+object GioProgram:
+  def apply[Params, L <: Layout: LayoutStruct](
+    layout: InitProgramLayout ?=> Params => L,
+    dispatch: (L, Params) => ProgramDispatch,
+    workgroupSize: WorkDimensions = (128, 1, 1),
+  )(body: L => GIO[?]): GProgram[Params, L] =
+    new GioProgram[Params, L](body, s => layout(using s), dispatch, workgroupSize)

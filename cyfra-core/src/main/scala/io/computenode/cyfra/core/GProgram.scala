@@ -21,28 +21,13 @@ trait GProgram[Params, L <: Layout: LayoutStruct] extends GExecution[Params, L, 
   private[cyfra] def cacheKey: String // TODO better type
 
 object GProgram:
-
-  case class GioProgram[Params, L <: Layout: LayoutStruct](
-    body: L => GIO[?],
-    layout: InitProgramLayout => Params => L,
-    dispatch: (L, Params) => ProgramDispatch,
-    workgroupSize: WorkDimensions,
-  ) extends GProgram[Params, L]:
-    private[cyfra] def cacheKey: String = layoutStruct.elementTypes match
-      case x if x.size == 2                       => "addOne"
-      case x if x.contains(summon[Tag[GBoolean]]) => "filter"
-      case _                                      => "emit"
-
   type WorkDimensions = (Int, Int, Int)
 
   sealed trait ProgramDispatch
-
   case class DynamicDispatch[L <: Layout](buffer: GBinding[?], offset: Int) extends ProgramDispatch
-
   case class StaticDispatch(size: WorkDimensions) extends ProgramDispatch
 
   private[cyfra] case class BufferSizeSpec[T <: Value: {Tag, FromExpr}](length: Int) extends GBuffer[T]
-
   private[cyfra] case class DynamicUniform[T <: GStruct[T]: {Tag, FromExpr}]() extends GUniform[T]
 
   trait InitProgramLayout:
@@ -54,10 +39,3 @@ object GProgram:
       def apply[T <: GStruct[T]: {Tag, FromExpr}](): GUniform[T] =
         DynamicUniform[T]()
       def apply[T <: GStruct[T]: {Tag, FromExpr}](value: T): GUniform[T]
-
-  def apply[Params, L <: Layout: LayoutStruct](
-    layout: InitProgramLayout ?=> Params => L,
-    dispatch: (L, Params) => ProgramDispatch,
-    workgroupSize: WorkDimensions = (128, 1, 1),
-  )(body: L => GIO[?]): GProgram[Params, L] =
-    new GioProgram[Params, L](body, s => layout(using s), dispatch, workgroupSize)
