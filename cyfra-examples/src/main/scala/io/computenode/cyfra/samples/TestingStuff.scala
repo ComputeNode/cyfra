@@ -80,7 +80,7 @@ object TestingStuff:
       layout => EmitProgramLayout(in = layout.inBuffer, out = layout.emitBuffer),
     )
     .addProgram(filterProgram)(
-      params => FilterProgramParams(inSize = params.inSize, filterValue = params.filterValue),
+      params => FilterProgramParams(inSize = 2 * params.inSize, filterValue = params.filterValue),
       layout => FilterProgramLayout(in = layout.emitBuffer, out = layout.filterBuffer),
     )
 
@@ -88,20 +88,20 @@ object TestingStuff:
   def test =
     given runtime: VkCyfraRuntime = VkCyfraRuntime()
 
-    val filter = SpirvProgram[FilterProgramParams, FilterProgramLayout](
-      "filter.spv",
-      layout = (il: InitProgramLayout) ?=> filterProgram.layout(il),
-      dispatch = filterProgram.dispatch,
-    )
-
     val emit = SpirvProgram[EmitProgramParams, EmitProgramLayout](
       "emit.spv",
       layout = (il: InitProgramLayout) ?=> emitProgram.layout(il),
       dispatch = emitProgram.dispatch,
     )
 
-    runtime.getOrLoadProgram(filter)
+    val filter = SpirvProgram[FilterProgramParams, FilterProgramLayout](
+      "filter.spv",
+      layout = (il: InitProgramLayout) ?=> filterProgram.layout(il),
+      dispatch = filterProgram.dispatch,
+    )
+
     runtime.getOrLoadProgram(emit)
+    runtime.getOrLoadProgram(filter)
 
     val emitFilterParams = EmitFilterParams(inSize = 1024, emitN = 2, filterValue = 42)
 
@@ -110,7 +110,7 @@ object TestingStuff:
       .map: region =>
         emitFilterExecution.execute(emitFilterParams, region)
 
-    val data = (0 to 1024).toArray
+    val data = (0 until 1024).toArray
     val buffer = BufferUtils.createByteBuffer(data.length * 4)
     buffer.asIntBuffer().put(data).flip()
 
@@ -123,3 +123,11 @@ object TestingStuff:
       ),
       onDone = layout => layout.filterBuffer.read(result),
     )
+
+    val actual = (0 until 2 * 1024).map(i => result.get(i * 1) != 0)
+    val expected = (0 until 1024).flatMap(x => Seq.fill(emitFilterParams.emitN)(x)).map(_ == 42)
+    expected
+      .zip(actual)
+      .zipWithIndex
+      .foreach:
+        case ((e, a), i) => assert(e == a, s"Mismatch at index $i: expected $e, got $a")

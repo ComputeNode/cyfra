@@ -38,7 +38,7 @@ object GProgram:
 
   case class StaticDispatch(size: WorkDimensions) extends ProgramDispatch
 
-  private[cyfra] case class BufferSizeSpec[T <: Value: {Tag, FromExpr}](size: Int) extends GBuffer[T]
+  private[cyfra] case class BufferSizeSpec[T <: Value: {Tag, FromExpr}](length: Int) extends GBuffer[T]
 
   private[cyfra] case class DynamicUniform[T <: GStruct[T]: {Tag, FromExpr}]() extends GUniform[T]
 

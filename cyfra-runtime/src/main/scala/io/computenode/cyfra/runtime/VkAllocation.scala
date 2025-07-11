@@ -3,6 +3,7 @@ package io.computenode.cyfra.runtime
 import io.computenode.cyfra.core.layout.{Layout, LayoutStruct}
 import io.computenode.cyfra.core.{Allocation, GExecution, GProgram}
 import io.computenode.cyfra.core.SpirvProgram
+import io.computenode.cyfra.dsl.Expression.ConstInt32
 import io.computenode.cyfra.dsl.Value
 import io.computenode.cyfra.dsl.Value.FromExpr
 import io.computenode.cyfra.dsl.binding.{GBinding, GBuffer, GUniform}
@@ -12,6 +13,7 @@ import io.computenode.cyfra.spirv.SpirvTypes.typeStride
 import io.computenode.cyfra.vulkan.command.CommandPool
 import io.computenode.cyfra.vulkan.memory.{Allocator, Buffer}
 import io.computenode.cyfra.vulkan.util.Util.pushStack
+import io.computenode.cyfra.dsl.Value.Int32
 import izumi.reflect.Tag
 import org.lwjgl.BufferUtils
 import org.lwjgl.system.MemoryUtil
@@ -74,8 +76,8 @@ class VkAllocation(commandPool: CommandPool, executionHandler: ExecutionHandler)
       extension (uniforms: GUniform.type)
         def apply[T <: GStruct[T]: {Tag, FromExpr}](value: T): GUniform[T] = pushStack: stack =>
           val bb = value.productElement(0) match
-            case x: Int => MemoryUtil.memByteBuffer(stack.ints(x))
-            case _      => ???
+            case Int32(tree: ConstInt32) => MemoryUtil.memByteBuffer(stack.ints(tree.value))
+            case _                       => ???
           direct(bb)
 
   private val bindings = mutable.Buffer[VkUniform[?] | VkBuffer[?]]()

@@ -1,10 +1,11 @@
 package io.computenode.cyfra.runtime
 
 import io.computenode.cyfra.core.GProgram.InitProgramLayout
-import io.computenode.cyfra.core.SpirvProgram.ShaderLayout
+import io.computenode.cyfra.core.SpirvProgram.*
+import io.computenode.cyfra.core.binding.{BufferRef, UniformRef}
 import io.computenode.cyfra.core.{GExecution, GProgram}
 import io.computenode.cyfra.core.layout.{Layout, LayoutStruct}
-import io.computenode.cyfra.dsl.binding.GBinding
+import io.computenode.cyfra.dsl.binding.{GBinding, GBuffer, GUniform}
 import io.computenode.cyfra.runtime.ExecutionHandler.{Dispatch, DispatchType, ExecutionStep, PipelineBarrier, ShaderCall}
 import io.computenode.cyfra.runtime.ExecutionHandler.DispatchType.*
 import io.computenode.cyfra.utility.Utility.timed
@@ -17,6 +18,9 @@ import org.lwjgl.vulkan.KHRSynchronization2.vkCmdPipelineBarrier2KHR
 import org.lwjgl.vulkan.VK10.*
 import org.lwjgl.vulkan.VK13.{VK_ACCESS_2_SHADER_READ_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT}
 import org.lwjgl.vulkan.{VkCommandBuffer, VkCommandBufferBeginInfo, VkDependencyInfo, VkMemoryBarrier2, VkSubmitInfo}
+
+import scala.collection.immutable.{AbstractSeq, LinearSeq}
+import scala.collection.mutable
 
 class ExecutionHandler(runtime: VkCyfraRuntime):
   private val context = runtime.context
@@ -67,30 +71,86 @@ class ExecutionHandler(runtime: VkCyfraRuntime):
   private def interpret[Params, L <: Layout, RL <: Layout](execution: GExecution[Params, L, RL], params: Params, layout: L)(using
     VkAllocation,
   ): (RL, Seq[ShaderCall]) =
-    execution match
-      case GExecution.Pure()                           => (layout, Seq.empty)
-      case GExecution.Map(execution, map, cmap, cmapP) =>
-        val cParams = cmapP(params)
-        val cLayout = cmap(layout)
-        val (prevLayout, calls) = interpret(execution, cParams, cLayout)
-        (map(prevLayout), calls)
-      case GExecution.FlatMap(execution, f) =>
-        val (prevLayout, calls) = interpret(execution, params, layout)
-        val nextExecution = f(params, prevLayout)
-        val (prevLayout2, calls2) = interpret(nextExecution, params, layout)
-        (prevLayout2, calls ++ calls2)
-      case program: GProgram[Params, L] =>
-        given LayoutStruct[L] = program.layoutStruct
-        val shader = runtime.getOrLoadProgram(program)
-        val initProgram: InitProgramLayout = summon[VkAllocation].getInitProgramLayout
-        val layoutInit = program.layout(initProgram)(params).asInstanceOf[L]
-        ???
-        val dispatch = program.dispatch(layout, params) match
-          case GProgram.DynamicDispatch(buffer, offset) => DispatchType.Indirect(buffer, offset)
-          case GProgram.StaticDispatch(size)            => DispatchType.Direct(size._1, size._2, size._3)
-        val rl = layout.asInstanceOf[RL]
-        (rl, Seq(ShaderCall(shader.underlying, shader.shaderBindings(layout), dispatch)))
-      case _ => ???
+    val bindingsAcc: mutable.Map[GBinding[?], mutable.Buffer[GBinding[?]]] = mutable.Map.from(layout.bindings.map(x => (x, mutable.Buffer.empty)))
+
+    def interpretImpl[Params, L <: Layout, RL <: Layout](execution: GExecution[Params, L, RL], params: Params, layout: L): (RL, Seq[ShaderCall]) =
+      execution match
+        case GExecution.Pure()                           => (layout, Seq.empty)
+        case GExecution.Map(execution, map, cmap, cmapP) =>
+          val cParams = cmapP(params)
+          val cLayout = cmap(layout)
+          val (prevLayout, calls) = interpretImpl(execution, cParams, cLayout)
+          (map(prevLayout), calls)
+        case GExecution.FlatMap(execution, f) =>
+          val (prevLayout, calls) = interpretImpl(execution, params, layout)
+          val nextExecution = f(params, prevLayout)
+          val (prevLayout2, calls2) = interpretImpl(nextExecution, params, layout)
+          (prevLayout2, calls ++ calls2)
+        case program: GProgram[Params, L] =>
+          val shader =
+            given LayoutStruct[L] = program.layoutStruct
+            runtime.getOrLoadProgram(program)
+          val layoutInit =
+            val initProgram: InitProgramLayout = summon[VkAllocation].getInitProgramLayout
+            program.layout(initProgram)(params).asInstanceOf[L]
+          layout.bindings
+            .zip(layoutInit.bindings)
+            .foreach:
+              case (binding, initBinding) =>
+                bindingsAcc.getOrElseUpdate(binding, mutable.Buffer.empty).append(initBinding)
+          val dispatch = program.dispatch(layout, params) match
+            case GProgram.DynamicDispatch(buffer, offset) => DispatchType.Indirect(buffer, offset)
+            case GProgram.StaticDispatch(size)            => DispatchType.Direct(size._1, size._2, size._3)
+          val rl = layout.asInstanceOf[RL]
+          (rl, Seq(ShaderCall(shader.underlying, shader.shaderBindings(layout), dispatch)))
+        case _ => ???
+
+    val (rl, steps) = interpretImpl(execution, params, layout)
+    val bindingsMap = bindingsAcc.view.mapValues(_.toSeq).map(x => (x._1, interpretBinding(x._1, x._2))).toMap
+
+    val nextSteps = steps.map:
+      case ShaderCall(pipeline, layout, dispatch) =>
+        val nextLayout = layout.map:
+          _.map:
+            case Binding(binding, operation) => Binding(bindingsMap(binding), operation)
+        val nextDispatch = dispatch match
+          case x: Direct                => x
+          case Indirect(buffer, offset) => Indirect(bindingsMap(buffer), offset)
+        ShaderCall(pipeline, nextLayout, nextDispatch)
+
+    (rl, nextSteps)
+
+  private def interpretBinding(binding: GBinding[?], limiters: Seq[GBinding[?]])(using VkAllocation): GBinding[?] =
+    val bindings = limiters.appended(binding)
+    binding match
+      case buffer: GBuffer[?] =>
+        val (allocations, sizeSpec) = bindings.partitionMap:
+          case x: VkBuffer[?]                => Left(x)
+          case x: GProgram.BufferSizeSpec[?] => Right(x)
+          case _                             => throw new IllegalArgumentException(s"Unsupported binding type: ${binding.getClass.getName}")
+        if allocations.size > 1 then throw new IllegalArgumentException(s"Multiple allocations for buffer: (${allocations.size})")
+        val all = allocations.headOption
+
+        val maxi = sizeSpec.map(_.length).distinct
+        if maxi.size > 1 then throw new IllegalArgumentException(s"Multiple conflicting sizes for buffer: ($maxi)")
+        val max = maxi.headOption
+
+        (all, max) match
+          case (Some(buffer: VkBuffer[?]), Some(length)) =>
+            assert(buffer.length == length, s"Buffer length mismatch: ${buffer.length} != $length for binding $binding")
+            buffer
+          case (Some(buffer: VkBuffer[?]), None) => buffer
+          case (None, Some(length))              => ???
+          case (None, None)                      => throw new IllegalArgumentException(s"Cannot create buffer without size or allocation: $binding")
+
+      case uniform: GUniform[?] =>
+        val allocations = bindings.filter:
+          case uniform: VkUniform[?]       => true
+          case GProgram.DynamicUniform()   => false
+          case _: GUniform.ParamUniform[?] => false
+          case _                           => throw new IllegalArgumentException(s"Unsupported binding type: ${binding.getClass.getName}")
+        if allocations.size > 1 then throw new IllegalArgumentException(s"Multiple allocations for uniform: (${allocations.size})")
+        allocations.headOption.getOrElse(throw new IllegalArgumentException(s"Uniform never allocated: $binding"))
 
   private def recordCommandBuffer(steps: Seq[ExecutionStep]): VkCommandBuffer = pushStack: stack =>
     val commandBuffer = commandPool.createCommandBuffer()
@@ -102,7 +162,7 @@ class ExecutionHandler(runtime: VkCyfraRuntime):
     check(vkBeginCommandBuffer(commandBuffer, commandBufferBeginInfo), "Failed to begin recording command buffer")
 
     steps.foreach:
-      case PipelineBarrier =>
+      case PipelineBarrier => // TODO WaR and WaW errors
         val memoryBarrier = VkMemoryBarrier2
           .calloc(1, stack)
           .sType$Default()

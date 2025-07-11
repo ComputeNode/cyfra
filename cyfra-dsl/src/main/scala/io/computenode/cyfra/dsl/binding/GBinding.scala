@@ -23,6 +23,6 @@ trait GUniform[T <: Value: {Tag, FromExpr}] extends GBinding[T]:
 
 object GUniform:
 
-  case class ParamUniform[T <: GStruct[T]: {Tag, FromExpr}]() extends GUniform[T]
+  class ParamUniform[T <: GStruct[T]: {Tag, FromExpr}]() extends GUniform[T]
 
   def fromParams[T <: GStruct[T]: {Tag, FromExpr}] = ParamUniform[T]()
