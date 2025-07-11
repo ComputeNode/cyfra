@@ -53,7 +53,7 @@ object SpirvProgram:
       x.substring(0, x.lastIndexOf('.'))
     new SpirvProgram[Params, L]((il: InitProgramLayout) => layout(using il), dispatch, workgroupSize, code, main, f, cacheKey)
 
-  private def loadShader(path: String, classLoader: ClassLoader = getClass.getClassLoader): Try[ByteBuffer] =
+  def loadShader(path: String, classLoader: ClassLoader = getClass.getClassLoader): Try[ByteBuffer] =
     Using.Manager: use =>
       val file = new File(Objects.requireNonNull(classLoader.getResource(path)).getFile)
       val fis = use(new FileInputStream(file))

@@ -16,7 +16,7 @@ class SequenceExecutorTest extends FunSuite:
   import vulkanContext.given
 
   test("Memory barrier"):
-    val code = ComputePipeline.loadShader("copy_test.spv").get
+    val code = ???
     val layout =
       LayoutInfo(Seq(DescriptorSetInfo(Seq(DescriptorInfo(StorageBuffer))), DescriptorSetInfo(Seq(DescriptorInfo(StorageBuffer)))))
     val copy1 = new ComputePipeline(code, "main", layout)

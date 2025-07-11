@@ -28,7 +28,10 @@ object GProgram:
     dispatch: (L, Params) => ProgramDispatch,
     workgroupSize: WorkDimensions,
   ) extends GProgram[Params, L]:
-    private[cyfra] def cacheKey: String = if layoutStruct.elementTypes.contains(summon[Tag[GBoolean]]) then "filter" else "emit"
+    private[cyfra] def cacheKey: String = layoutStruct.elementTypes match
+      case x if x.size == 2                       => "addOne"
+      case x if x.contains(summon[Tag[GBoolean]]) => "filter"
+      case _                                      => "emit"
 
   type WorkDimensions = (Int, Int, Int)
 

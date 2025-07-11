@@ -106,8 +106,6 @@ private[cyfra] class ComputePipeline(shaderCode: ByteBuffer, functionName: Strin
     pDescriptorSetLayout.get(0)
 
 object ComputePipeline:
-  def loadShader(path: String): Try[ByteBuffer] = ???
-
   private[cyfra] case class PipelineLayout(id: Long, sets: Seq[DescriptorSetLayout])
   private[cyfra] case class DescriptorSetLayout(id: Long, set: DescriptorSetInfo)
 

@@ -3,13 +3,15 @@ package io.computenode.cyfra.runtime
 import io.computenode.cyfra.core.SpirvProgram
 import io.computenode.cyfra.core.SpirvProgram.*
 import io.computenode.cyfra.core.GProgram
-import io.computenode.cyfra.core.GProgram.GioProgram
+import io.computenode.cyfra.core.GProgram.{GioProgram, InitProgramLayout}
 import io.computenode.cyfra.core.layout.{Layout, LayoutStruct}
 import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
 import io.computenode.cyfra.vulkan.compute.ComputePipeline
 import io.computenode.cyfra.vulkan.compute.ComputePipeline.*
 import io.computenode.cyfra.vulkan.core.Device
 import izumi.reflect.Tag
+
+import scala.util.{Failure, Success}
 
 case class VkShader[L](underlying: ComputePipeline, shaderBindings: L => ShaderLayout)
 
@@ -33,4 +35,9 @@ object VkShader:
     val pipeline = ComputePipeline(code, entryPoint, LayoutInfo(sets))
     VkShader(pipeline, shaderBindings)
 
-  def compile[Params, L <: Layout: LayoutStruct](program: GioProgram[Params, L]): SpirvProgram[Params, L] = ???
+  def compile[Params, L <: Layout: LayoutStruct](program: GioProgram[Params, L]): SpirvProgram[Params, L] =
+    val GioProgram(_, layout, dispatch, workgroupSize) = program
+    val name = program.cacheKey + ".spv"
+    loadShader(name) match
+      case Failure(exception) => ???
+      case Success(value)     => SpirvProgram(name, (il: InitProgramLayout) ?=> layout(il), dispatch)
