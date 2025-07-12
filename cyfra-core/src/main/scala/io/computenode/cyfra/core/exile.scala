@@ -68,9 +68,10 @@ case class GioProgram[Params, L <: Layout: LayoutStruct](
   workgroupSize: WorkDimensions,
 ) extends GProgram[Params, L]:
   private[cyfra] def cacheKey: String = layoutStruct.elementTypes match
-    case x if x.size == 12                       => "addOne"
-    case x if x.contains(summon[Tag[GBoolean]]) => "filter"
-    case _                                      => "emit"
+    case x if x.size == 12                                     => "addOne"
+    case x if x.contains(summon[Tag[GBoolean]]) && x.size == 3 => "filter"
+    case x if x.size == 3                                      => "emit"
+    case _                                                     => ???
 
 object GioProgram:
   def apply[Params, L <: Layout: LayoutStruct](

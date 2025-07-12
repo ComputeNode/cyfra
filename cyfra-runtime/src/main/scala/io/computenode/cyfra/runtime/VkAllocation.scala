@@ -65,8 +65,8 @@ class VkAllocation(commandPool: CommandPool, executionHandler: ExecutionHandler)
     def apply[T <: Value: {Tag, FromExpr}](): GUniform[T] =
       VkUniform[T]().tap(bindings += _)
 
-  extension [Params, L <: Layout, RL <: Layout: LayoutStruct](execution: GExecution[Params, L, RL])
-    override def execute(params: Params, layout: L): RL = executionHandler.handle(execution, params, layout)(using this)
+  extension [Params, EL <: Layout, RL <: Layout: LayoutStruct](execution: GExecution[Params, EL, RL])
+    override def execute(params: Params, layout: EL): RL = executionHandler.handle(execution, params, layout)(using this)
 
   private def direct[T <: Value: {Tag, FromExpr}](buff: ByteBuffer): GUniform[T] =
     GUniform[T](buff)
@@ -100,4 +100,4 @@ object VkAllocation:
     buffer match
       case buffer: VkBuffer[?]   => buffer.underlying
       case uniform: VkUniform[?] => uniform.underlying
-      case _                     => ???
+      case _                     => throw new IllegalArgumentException(s"Tried to get underlying of non-VkBinding $buffer")

@@ -6,7 +6,7 @@ import io.computenode.cyfra.core.binding.{BufferRef, UniformRef}
 import io.computenode.cyfra.core.{GExecution, GProgram}
 import io.computenode.cyfra.core.layout.{Layout, LayoutStruct}
 import io.computenode.cyfra.dsl.binding.{GBinding, GBuffer, GUniform}
-import io.computenode.cyfra.runtime.ExecutionHandler.{Dispatch, DispatchType, ExecutionStep, PipelineBarrier, ShaderCall}
+import io.computenode.cyfra.runtime.ExecutionHandler.{BindingLogicError, Dispatch, DispatchType, ExecutionStep, PipelineBarrier, ShaderCall}
 import io.computenode.cyfra.runtime.ExecutionHandler.DispatchType.*
 import io.computenode.cyfra.utility.Utility.timed
 import io.computenode.cyfra.vulkan.command.{CommandPool, Fence}
@@ -30,8 +30,8 @@ class ExecutionHandler(runtime: VkCyfraRuntime):
   private val descriptorPool: DescriptorPool = context.descriptorPool // TODO descriptor pool manager
   private val commandPool: CommandPool = context.commandPool
 
-  def handle[Params, L <: Layout, RL <: Layout](execution: GExecution[Params, L, RL], params: Params, layout: L)(using VkAllocation): RL = pushStack:
-    stack =>
+  def handle[Params, EL <: Layout, RL <: Layout](execution: GExecution[Params, EL, RL], params: Params, layout: EL)(using VkAllocation): RL =
+    pushStack: stack =>
       val (result, shaderCalls) = interpret(execution, params, layout)
 
       val descriptorSets = shaderCalls.map { case ShaderCall(pipeline, layout, _) =>
@@ -71,12 +71,13 @@ class ExecutionHandler(runtime: VkCyfraRuntime):
 
       result
 
-  private def interpret[Params, L <: Layout, RL <: Layout](execution: GExecution[Params, L, RL], params: Params, layout: L)(using
+  private def interpret[Params, EL <: Layout, RL <: Layout](execution: GExecution[Params, EL, RL], params: Params, layout: EL)(using
     VkAllocation,
   ): (RL, Seq[ShaderCall]) =
     val bindingsAcc: mutable.Map[GBinding[?], mutable.Buffer[GBinding[?]]] = mutable.Map.from(layout.bindings.map(x => (x, mutable.Buffer.empty)))
 
-    def interpretImpl[Params, L <: Layout, RL <: Layout](execution: GExecution[Params, L, RL], params: Params, layout: L): (RL, Seq[ShaderCall]) =
+    // noinspection TypeParameterShadow
+    def interpretImpl[Params, EL <: Layout, RL <: Layout](execution: GExecution[Params, EL, RL], params: Params, layout: EL): (RL, Seq[ShaderCall]) =
       execution match
         case GExecution.Pure()                           => (layout, Seq.empty)
         case GExecution.Map(execution, map, cmap, cmapP) =>
@@ -90,13 +91,13 @@ class ExecutionHandler(runtime: VkCyfraRuntime):
           val nextExecution = f(params, prevLayout)
           val (prevLayout2, calls2) = interpretImpl(nextExecution, params, layout)
           (prevLayout2, calls ++ calls2)
-        case program: GProgram[Params, L] =>
+        case program: GProgram[Params, EL] =>
           val shader =
-            given LayoutStruct[L] = program.layoutStruct
+            given LayoutStruct[EL] = program.layoutStruct
             runtime.getOrLoadProgram(program)
           val layoutInit =
             val initProgram: InitProgramLayout = summon[VkAllocation].getInitProgramLayout
-            program.layout(initProgram)(params).asInstanceOf[L]
+            program.layout(initProgram)(params)
           layout.bindings
             .zip(layoutInit.bindings)
             .foreach:
@@ -105,6 +106,7 @@ class ExecutionHandler(runtime: VkCyfraRuntime):
           val dispatch = program.dispatch(layout, params) match
             case GProgram.DynamicDispatch(buffer, offset) => DispatchType.Indirect(buffer, offset)
             case GProgram.StaticDispatch(size)            => DispatchType.Direct(size._1, size._2, size._3)
+          // noinspection ScalaRedundantCast
           val rl = layout.asInstanceOf[RL]
           (rl, Seq(ShaderCall(shader.underlying, shader.shaderBindings(layout), dispatch)))
         case _ => ???
@@ -129,32 +131,33 @@ class ExecutionHandler(runtime: VkCyfraRuntime):
     binding match
       case buffer: GBuffer[?] =>
         val (allocations, sizeSpec) = bindings.partitionMap:
-          case x: VkBuffer[?]                => Left(x)
-          case x: GProgram.BufferSizeSpec[?] => Right(x)
-          case _                             => throw new IllegalArgumentException(s"Unsupported binding type: ${binding.getClass.getName}")
-        if allocations.size > 1 then throw new IllegalArgumentException(s"Multiple allocations for buffer: (${allocations.size})")
+          case x: VkBuffer[?]                  => Left(x)
+          case x: GProgram.BufferLengthSpec[?] => Right(x)
+          case x                               => throw BindingLogicError(x, "Unsupported buffer type")
+        if allocations.size > 1 then throw BindingLogicError(allocations, "Multiple allocations for buffer")
         val all = allocations.headOption
 
-        val maxi = sizeSpec.map(_.length).distinct
-        if maxi.size > 1 then throw new IllegalArgumentException(s"Multiple conflicting sizes for buffer: ($maxi)")
-        val max = maxi.headOption
+        val lengths = sizeSpec.distinctBy(_.length)
+        if lengths.size > 1 then throw BindingLogicError(lengths, "Multiple conflicting lengths for buffer")
+        val length = lengths.headOption
 
-        (all, max) match
-          case (Some(buffer: VkBuffer[?]), Some(length)) =>
-            assert(buffer.length == length, s"Buffer length mismatch: ${buffer.length} != $length for binding $binding")
+        (all, length) match
+          case (Some(buffer), Some(sizeSpec)) =>
+            if buffer.length != sizeSpec.length then
+              throw BindingLogicError(Seq(buffer, sizeSpec), s"Buffer length mismatch, ${buffer.length} != ${sizeSpec.length}")
             buffer
-          case (Some(buffer: VkBuffer[?]), None) => buffer
-          case (None, Some(length))              => ???
-          case (None, None)                      => throw new IllegalArgumentException(s"Cannot create buffer without size or allocation: $binding")
+          case (Some(buffer), None) => buffer
+          case (None, Some(length)) => ???
+          case (None, None)         => throw BindingLogicError(binding, "Cannot create buffer without size or allocation")
 
       case uniform: GUniform[?] =>
         val allocations = bindings.filter:
-          case uniform: VkUniform[?]       => true
-          case GProgram.DynamicUniform()   => false
-          case _: GUniform.ParamUniform[?] => false
-          case _                           => throw new IllegalArgumentException(s"Unsupported binding type: ${binding.getClass.getName}")
-        if allocations.size > 1 then throw new IllegalArgumentException(s"Multiple allocations for uniform: (${allocations.size})")
-        allocations.headOption.getOrElse(throw new IllegalArgumentException(s"Uniform never allocated: $binding"))
+          case _: VkUniform[?]               => true
+          case _: GProgram.DynamicUniform[?] => false
+          case _: GUniform.ParamUniform[?]   => false
+          case x                             => throw BindingLogicError(x, "Unsupported binding type")
+        if allocations.size > 1 then throw BindingLogicError(allocations, "Multiple allocations for uniform")
+        allocations.headOption.getOrElse(throw BindingLogicError(binding, "Uniform never allocated"))
 
   private def recordCommandBuffer(steps: Seq[ExecutionStep]): VkCommandBuffer = pushStack: stack =>
     val commandBuffer = commandPool.createCommandBuffer()
@@ -207,3 +210,8 @@ object ExecutionHandler:
   object DispatchType:
     case class Direct(x: Int, y: Int, z: Int) extends DispatchType
     case class Indirect(buffer: GBinding[?], offset: Int) extends DispatchType
+
+  case class BindingLogicError(bindings: Seq[GBinding[?]], message: String) extends RuntimeException(s"Error in binding logic for $bindings: $message")
+  object BindingLogicError:
+    def apply(binding: GBinding[?], message: String): BindingLogicError =
+      new BindingLogicError(Seq(binding), message)

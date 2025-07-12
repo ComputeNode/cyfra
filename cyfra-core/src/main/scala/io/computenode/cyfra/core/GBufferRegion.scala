@@ -1,7 +1,7 @@
 package io.computenode.cyfra.core
 
 import io.computenode.cyfra.core.Allocation
-import io.computenode.cyfra.core.GProgram.BufferSizeSpec
+import io.computenode.cyfra.core.GProgram.BufferLengthSpec
 import io.computenode.cyfra.core.layout.{Layout, LayoutStruct}
 import io.computenode.cyfra.dsl.Value
 import io.computenode.cyfra.dsl.Value.FromExpr

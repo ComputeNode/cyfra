@@ -27,13 +27,13 @@ object GProgram:
   case class DynamicDispatch[L <: Layout](buffer: GBinding[?], offset: Int) extends ProgramDispatch
   case class StaticDispatch(size: WorkDimensions) extends ProgramDispatch
 
-  private[cyfra] case class BufferSizeSpec[T <: Value: {Tag, FromExpr}](length: Int) extends GBuffer[T]
-  private[cyfra] case class DynamicUniform[T <: GStruct[T]: {Tag, FromExpr}]() extends GUniform[T]
+  private[cyfra] class BufferLengthSpec[T <: Value: {Tag, FromExpr}](val length: Int) extends GBuffer[T]
+  private[cyfra] class DynamicUniform[T <: GStruct[T]: {Tag, FromExpr}]() extends GUniform[T]
 
   trait InitProgramLayout:
     extension (buffers: GBuffer.type)
-      def apply[T <: Value: {Tag, FromExpr}](size: Int): GBuffer[T] =
-        BufferSizeSpec[T](size)
+      def apply[T <: Value: {Tag, FromExpr}](length: Int): GBuffer[T] =
+        BufferLengthSpec[T](length)
 
     extension (uniforms: GUniform.type)
       def apply[T <: GStruct[T]: {Tag, FromExpr}](): GUniform[T] =
