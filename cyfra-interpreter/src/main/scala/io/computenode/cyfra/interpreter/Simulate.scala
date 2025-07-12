@@ -37,7 +37,7 @@ object Simulate:
     case And(a, b)                    => simScalar(a) && simScalar(b)
     case Or(a, b)                     => simScalar(a) || simScalar(b)
     case Not(a)                       => simScalar(a).negate
-    case ExtractScalar(a, i)          => ??? // simVector(a), simConst(i.tree)
+    case ExtractScalar(a, i)          => simVector(a).apply(simValue(i).asInstanceOf[Int])
     case e: ConvertExpression[?, ?]   => simConvert(e)
     case e: Const[?]                  => simConst(e)
     case ComposeVec2(a, b)            => Vector(simScalar(a), simScalar(b))
@@ -100,7 +100,7 @@ object Simulate:
         case n: Int => n
         case _      => throw IllegalArgumentException("ToUInt32: wrong argument type")
 
-  private def simConst(e: Const[?])(using exprMap: MMap[Int, Result]): ScalarRes = e match
+  private def simConst(e: Const[?]): ScalarRes = e match
     case ConstFloat32(value) => value
     case ConstInt32(value)   => value
     case ConstUInt32(value)  => value
@@ -117,13 +117,13 @@ object Simulate:
     case GBoolean(source) => exprMap(source.treeid).asInstanceOf[Boolean]
 
   private def simVector(v: Vec[?])(using exprMap: MMap[Int, Result]) = v match
-    case Vec2(tree) => exprMap(v.tree.treeid)
-    case Vec3(tree) => exprMap(v.tree.treeid)
-    case Vec4(tree) => exprMap(v.tree.treeid)
+    case Vec2(tree) => exprMap(tree.treeid).asInstanceOf[Vector[ScalarRes]]
+    case Vec3(tree) => exprMap(tree.treeid).asInstanceOf[Vector[ScalarRes]]
+    case Vec4(tree) => exprMap(tree.treeid).asInstanceOf[Vector[ScalarRes]]
 
   private def simExtFunc(fn: FunctionName, args: List[Result])(using exprMap: MMap[Int, Result]): Result = ???
   private def simFunc(fn: FnIdentifier, body: Result, args: List[Result])(using exprMap: MMap[Int, Result]): Result = ???
-  private def simScope(body: Scope[?])(using exprMap: MMap[Int, Result]) = exprMap(body.expr.treeid)
+  private def simScope(body: Scope[?])(using exprMap: MMap[Int, Result]) = exprMap(body.rootTreeId)
 
   @annotation.tailrec
   private def whenHelper(
@@ -133,10 +133,10 @@ object Simulate:
     otherCaseCodes: List[Scope[?]],
     otherwise: Scope[?],
   )(using exprMap: MMap[Int, Result]): Result =
-    if exprMap(when.treeid).asInstanceOf[Boolean] then sim(thenCode.expr)
+    if exprMap(when.treeid).asInstanceOf[Boolean] then exprMap(thenCode.expr.treeid)
     else
       otherConds.headOption match
-        case None       => exprMap(otherwise.expr.treeid)
+        case None       => exprMap(otherwise.rootTreeId)
         case Some(cond) =>
           whenHelper(
             when = cond.expr,

@@ -11,7 +11,7 @@ object ScalarResult:
 
     infix def unary_~ : Int = sr match
       case n: Int => ~n
-      case _      => throw IllegalArgumentException("bitNeg: wrong argument type")
+      case _      => throw IllegalArgumentException("~: wrong argument type")
 
     infix def <<(by: ScalarRes): Int = (sr, by) match
       case (n: Int, b: Int) => n << b
@@ -89,4 +89,4 @@ object ScalarResult:
       case (f: Float, t: Float)     => Math.abs(f - t) < 0.001f
       case (n: Int, t: Int)         => n == t
       case (b: Boolean, t: Boolean) => b == t
-      case _                        => throw IllegalArgumentException("eqls: incompatible argument types")
+      case _                        => throw IllegalArgumentException("===: incompatible argument types")

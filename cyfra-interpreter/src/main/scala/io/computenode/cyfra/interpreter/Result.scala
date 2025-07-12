@@ -12,7 +12,7 @@ object Result:
 
     def bitNeg: Int = r match
       case sr: ScalarRes => ~sr
-      case _             => throw IllegalArgumentException("bitwiseNeg: wrong argument type")
+      case _             => throw IllegalArgumentException("bitNeg: wrong argument type")
 
     def shiftLeft(by: Result): Int = (r, by) match
       case (n: ScalarRes, b: ScalarRes) => n << b
@@ -78,17 +78,17 @@ object Result:
 
     def lt(that: Result): Boolean = (r, that) match
       case (sr: ScalarRes, t: ScalarRes) => sr < t
-      case _                             => throw IllegalArgumentException("gt: incompatible argument types")
+      case _                             => throw IllegalArgumentException("lt: incompatible argument types")
 
     def gteq(that: Result): Boolean = (r, that) match
       case (sr: ScalarRes, t: ScalarRes) => sr >= t
-      case _                             => throw IllegalArgumentException("gt: incompatible argument types")
+      case _                             => throw IllegalArgumentException("gteq: incompatible argument types")
 
     def lteq(that: Result): Boolean = (r, that) match
       case (sr: ScalarRes, t: ScalarRes) => sr <= t
-      case _                             => throw IllegalArgumentException("gt: incompatible argument types")
+      case _                             => throw IllegalArgumentException("lteq: incompatible argument types")
 
     def eql(that: Result): Boolean = (r, that) match
       case (sr: ScalarRes, t: ScalarRes)                => sr === t
       case (v: Vector[ScalarRes], t: Vector[ScalarRes]) => v eql t
-      case _                                            => throw IllegalArgumentException("gt: incompatible argument types")
+      case _                                            => throw IllegalArgumentException("eql: incompatible argument types")
