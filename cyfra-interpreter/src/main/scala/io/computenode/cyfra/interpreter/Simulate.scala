@@ -133,10 +133,10 @@ object Simulate:
     otherCaseCodes: List[Scope[?]],
     otherwise: Scope[?],
   )(using exprMap: MMap[Int, Result]): Result =
-    if exprMap(when.treeid).asInstanceOf[Boolean] then exprMap(thenCode.expr.treeid)
+    if sim(when).asInstanceOf[Boolean] then sim(thenCode.expr)
     else
       otherConds.headOption match
-        case None       => exprMap(otherwise.rootTreeId)
+        case None       => sim(otherwise.expr)
         case Some(cond) =>
           whenHelper(
             when = cond.expr,
