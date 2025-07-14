@@ -1,8 +1,9 @@
 package io.computenode.cyfra.e2e.interpreter
 
 import io.computenode.cyfra.interpreter.*, Result.*
-import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.dsl.{*, given}, binding.{ReadBuffer, GBuffer}
 import Value.FromExpr.fromExpr, control.Scope
+import izumi.reflect.Tag
 
 class SimulateE2eTest extends munit.FunSuite:
   test("simulate binary operation arithmetic"):
@@ -64,3 +65,20 @@ class SimulateE2eTest extends munit.FunSuite:
     val res = Simulate.sim(sum)
     val exp = 1000002
     assert(res == exp, s"Expected $exp, got $res")
+
+  test("simulate ReadBuffer"):
+    // We fake a GBuffer with an array
+    case class SimGBuffer[T <: Value: Tag: FromExpr]() extends GBuffer[T]
+    val buffer = SimGBuffer[Int32]()
+    val array = (0 until 1024).toArray[Result]
+
+    given sc: SimContext = SimContext()
+    sc.addBuffer(buffer, array)
+
+    val expr = ReadBuffer(buffer, 128)
+    val res = Simulate.sim(expr)(using sc)
+    val exp = 128
+    assert(res == exp, s"Expected $exp, got $res")
+
+    // the context should keep track of the read
+    assert(sc.reads.contains(Read(buffer, 128)))

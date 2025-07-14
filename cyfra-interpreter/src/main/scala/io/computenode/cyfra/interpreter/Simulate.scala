@@ -11,22 +11,18 @@ object Simulate:
   import Result.*
 
   def sim(v: Value): Result = sim(v.tree) // helpful wrapper for Value instead of Expression
-
-  def sim(e: Expression[?]): Result =
-    val exprMap = MMap.empty[Int, Result] // treeid of Expr -> result of evaluating that Expr
-    val blocks = buildBlock(e)
-    simIterate(blocks)(using exprMap)
+  def sim(e: Expression[?])(using sc: SimContext = SimContext()): Result = simIterate(buildBlock(e))
 
   @annotation.tailrec
-  def simIterate(blocks: List[Expression[?]])(using exprMap: MMap[Int, Result]): Result = blocks match
+  def simIterate(blocks: List[Expression[?]])(using sc: SimContext): Result = blocks match
     case head :: Nil  => simOne(head)
     case head :: next =>
       val result = simOne(head)
-      exprMap.addOne(head.treeid -> result)
+      sc.addResult(head.treeid, result)
       simIterate(next)
     case Nil => ??? // should not happen
 
-  def simOne(e: Expression[?])(using exprMap: MMap[Int, Result]): Result = e match
+  def simOne(e: Expression[?])(using sc: SimContext): Result = e match
     case e: PhantomExpression[?]      => simPhantom(e)
     case Negate(a)                    => simValue(a).negate
     case e: BinaryOpExpression[?]     => simBinOp(e)
@@ -57,46 +53,46 @@ object Simulate:
     case e: GetField[?, ?]            => simGetField(e)
     case _                            => throw IllegalArgumentException("sim: wrong argument")
 
-  private def simPhantom(e: PhantomExpression[?])(using exprMap: MMap[Int, Result]): Result = e match
+  private def simPhantom(e: PhantomExpression[?])(using sc: SimContext): Result = e match
     case CurrentElem(tid: Int)   => ???
     case AggregateElem(tid: Int) => ???
 
-  private def simBinOp(e: BinaryOpExpression[?])(using exprMap: MMap[Int, Result]): Result = e match
+  private def simBinOp(e: BinaryOpExpression[?])(using sc: SimContext): Result = e match
     case Sum(a, b)  => simValue(a).add(simValue(b)) // scalar or vector
     case Diff(a, b) => simValue(a).sub(simValue(b)) // scalar or vector
     case Mul(a, b)  => simScalar(a).mul(simScalar(b))
     case Div(a, b)  => simScalar(a).div(simScalar(b))
     case Mod(a, b)  => simScalar(a).mod(simScalar(b))
 
-  private def simBitwiseOp(e: BitwiseOpExpression[?])(using exprMap: MMap[Int, Result]): Int = e match
+  private def simBitwiseOp(e: BitwiseOpExpression[?])(using sc: SimContext): Int = e match
     case e: BitwiseBinaryOpExpression[?] => simBitwiseBinOp(e)
     case BitwiseNot(a)                   => simScalar(a).bitNeg
     case ShiftLeft(a, by)                => simScalar(a).shiftLeft(simScalar(by))
     case ShiftRight(a, by)               => simScalar(a).shiftRight(simScalar(by))
 
-  private def simBitwiseBinOp(e: BitwiseBinaryOpExpression[?])(using exprMap: MMap[Int, Result]): Int = e match
+  private def simBitwiseBinOp(e: BitwiseBinaryOpExpression[?])(using sc: SimContext): Int = e match
     case BitwiseAnd(a, b) => simScalar(a).bitAnd(simScalar(b))
     case BitwiseOr(a, b)  => simScalar(a).bitOr(simScalar(b))
     case BitwiseXor(a, b) => simScalar(a).bitXor(simScalar(b))
 
-  private def simCompareOp(e: ComparisonOpExpression[?])(using exprMap: MMap[Int, Result]): Boolean = e match
+  private def simCompareOp(e: ComparisonOpExpression[?])(using sc: SimContext): Boolean = e match
     case GreaterThan(a, b)      => simScalar(a).gt(simScalar(b))
     case LessThan(a, b)         => simScalar(a).lt(simScalar(b))
     case GreaterThanEqual(a, b) => simScalar(a).gteq(simScalar(b))
     case LessThanEqual(a, b)    => simScalar(a).lteq(simScalar(b))
     case Equal(a, b)            => simScalar(a).eql(simScalar(b))
 
-  private def simConvert(e: ConvertExpression[?, ?])(using exprMap: MMap[Int, Result]): Float | Int = e match
+  private def simConvert(e: ConvertExpression[?, ?])(using sc: SimContext): Float | Int = e match
     case ToFloat32(a) =>
-      exprMap(a.treeid) match
+      sc.lookup(a.treeid) match
         case f: Float => f
         case _        => throw IllegalArgumentException("ToFloat32: wrong argument type")
     case ToInt32(a) =>
-      exprMap(a.treeid) match
+      sc.lookup(a.treeid) match
         case n: Int => n
         case _      => throw IllegalArgumentException("ToInt32: wrong argument type")
     case ToUInt32(a) =>
-      exprMap(a.treeid) match
+      sc.lookup(a.treeid) match
         case n: Int => n
         case _      => throw IllegalArgumentException("ToUInt32: wrong argument type")
 
@@ -106,24 +102,23 @@ object Simulate:
     case ConstUInt32(value)  => value
     case ConstGB(value)      => value
 
-  private def simValue(v: Value)(using exprMap: MMap[Int, Result]): Result = v match
+  private def simValue(v: Value)(using sc: SimContext): Result = v match
     case v: Scalar => simScalar(v)
     case v: Vec[?] => simVector(v)
 
-  private def simScalar(v: Scalar)(using exprMap: MMap[Int, Result]): ScalarRes = v match
-    case v: FloatType     => exprMap(v.tree.treeid).asInstanceOf[Float]
-    case v: IntType       => exprMap(v.tree.treeid).asInstanceOf[Int]
-    case v: UIntType      => exprMap(v.tree.treeid).asInstanceOf[Int]
-    case GBoolean(source) => exprMap(source.treeid).asInstanceOf[Boolean]
+  private def simScalar(v: Scalar)(using sc: SimContext): ScalarRes = v match
+    case v: FloatType     => sc.lookup(v.tree.treeid).asInstanceOf[Float]
+    case v: IntType       => sc.lookup(v.tree.treeid).asInstanceOf[Int]
+    case v: UIntType      => sc.lookup(v.tree.treeid).asInstanceOf[Int]
+    case GBoolean(source) => sc.lookup(source.treeid).asInstanceOf[Boolean]
 
-  private def simVector(v: Vec[?])(using exprMap: MMap[Int, Result]) = v match
-    case Vec2(tree) => exprMap(tree.treeid).asInstanceOf[Vector[ScalarRes]]
-    case Vec3(tree) => exprMap(tree.treeid).asInstanceOf[Vector[ScalarRes]]
-    case Vec4(tree) => exprMap(tree.treeid).asInstanceOf[Vector[ScalarRes]]
+  private def simVector(v: Vec[?])(using sc: SimContext) = v match
+    case Vec2(tree) => sc.lookup(tree.treeid).asInstanceOf[Vector[ScalarRes]]
+    case Vec3(tree) => sc.lookup(tree.treeid).asInstanceOf[Vector[ScalarRes]]
+    case Vec4(tree) => sc.lookup(tree.treeid).asInstanceOf[Vector[ScalarRes]]
 
-  private def simExtFunc(fn: FunctionName, args: List[Result])(using exprMap: MMap[Int, Result]): Result = ???
-  private def simFunc(fn: FnIdentifier, body: Result, args: List[Result])(using exprMap: MMap[Int, Result]): Result = ???
-  private def simScope(body: Scope[?])(using exprMap: MMap[Int, Result]) = exprMap(body.rootTreeId)
+  private def simExtFunc(fn: FunctionName, args: List[Result])(using sc: SimContext): Result = ???
+  private def simFunc(fn: FnIdentifier, body: Result, args: List[Result])(using sc: SimContext): Result = ???
 
   @annotation.tailrec
   private def whenHelper(
@@ -132,7 +127,7 @@ object Simulate:
     otherConds: List[Scope[GBoolean]],
     otherCaseCodes: List[Scope[?]],
     otherwise: Scope[?],
-  )(using exprMap: MMap[Int, Result]): Result =
+  )(using sc: SimContext): Result =
     if sim(when).asInstanceOf[Boolean] then sim(thenCode.expr)
     else
       otherConds.headOption match
@@ -146,24 +141,28 @@ object Simulate:
             otherwise = otherwise,
           )
 
-  private def simWhen(e: WhenExpr[?])(using exprMap: MMap[Int, Result]): Result = e match
+  private def simWhen(e: WhenExpr[?])(using sc: SimContext): Result = e match
     case WhenExpr(when, thenCode, otherConds, otherCaseCodes, otherwise) =>
       whenHelper(when.tree, thenCode, otherConds, otherCaseCodes, otherwise)
 
-  private def simReadBuffer(buf: ReadBuffer[?])(using exprMap: MMap[Int, Result]): Result = buf match
-    case ReadBuffer(buffer, index) => ???
+  private def simReadBuffer(buf: ReadBuffer[?])(using sc: SimContext): Result = buf match
+    case ReadBuffer(buffer, index) =>
+      val i = sim(index).asInstanceOf[Int]
+      // sc.addBuffer(buffer, Array.fill(1024)(0)) // add a fake buffer represented by an array
+      sc.addRead(buffer, i)
+      sc.read(buffer, i)
 
-  private def simReadUniform(uni: ReadUniform[?])(using exprMap: MMap[Int, Result]): Result = uni match
+  private def simReadUniform(uni: ReadUniform[?])(using sc: SimContext): Result = uni match
     case ReadUniform(uniform) => ???
 
-  private def simGArrayElem(gElem: GArrayElem[?])(using exprMap: MMap[Int, Result]): Result = gElem match
+  private def simGArrayElem(gElem: GArrayElem[?])(using sc: SimContext): Result = gElem match
     case GArrayElem(index, i) => ???
 
-  private def simFoldSeq(seq: FoldSeq[?, ?])(using exprMap: MMap[Int, Result]): Result = seq match
+  private def simFoldSeq(seq: FoldSeq[?, ?])(using sc: SimContext): Result = seq match
     case FoldSeq(zero, fn, seq) => ???
 
-  private def simComposeStruct(cs: ComposeStruct[?])(using exprMap: MMap[Int, Result]): Result = cs match
+  private def simComposeStruct(cs: ComposeStruct[?])(using sc: SimContext): Result = cs match
     case ComposeStruct(fields, resultSchema) => ???
 
-  private def simGetField(gf: GetField[?, ?])(using exprMap: MMap[Int, Result]): Result = gf match
+  private def simGetField(gf: GetField[?, ?])(using sc: SimContext): Result = gf match
     case GetField(struct, fieldIndex) => ???
