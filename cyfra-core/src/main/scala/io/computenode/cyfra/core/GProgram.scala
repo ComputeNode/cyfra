@@ -34,9 +34,9 @@ object GProgram:
   )(body: L => GIO[?]): GProgram[Params, L] =
     new GioProgram[Params, L](body, s => layout(using s), dispatch, workgroupSize)
 
-  private[cyfra] case class BufferLengthSpec[T <: Value: {Tag, FromExpr}](length: Int) extends GBuffer[T]:
-    private[cyfra] def materialise(using x: Allocation): GBuffer[T] = GBuffer.apply[T](length)
-  private[cyfra] case class DynamicUniform[T <: GStruct[T]: {Tag, FromExpr}]() extends GUniform[T]
+  private[cyfra] class BufferLengthSpec[T <: Value: {Tag, FromExpr}](val length: Int) extends GBuffer[T]:
+    private[cyfra] def materialise()(using x: Allocation): GBuffer[T] = GBuffer.apply[T](length)
+  private[cyfra] class DynamicUniform[T <: GStruct[T]: {Tag, FromExpr}]() extends GUniform[T]
 
   trait InitProgramLayout:
     extension (buffers: GBuffer.type)
