@@ -26,9 +26,17 @@ object GProgram:
   sealed trait ProgramDispatch
   case class DynamicDispatch[L <: Layout](buffer: GBinding[?], offset: Int) extends ProgramDispatch
   case class StaticDispatch(size: WorkDimensions) extends ProgramDispatch
+ 
+  def apply[Params, L <: Layout: LayoutStruct](
+    layout: InitProgramLayout ?=> Params => L,
+    dispatch: (L, Params) => ProgramDispatch,
+    workgroupSize: WorkDimensions = (128, 1, 1),
+  )(body: L => GIO[?]): GProgram[Params, L] =
+    new GioProgram[Params, L](body, s => layout(using s), dispatch, workgroupSize)
 
-  private[cyfra] class BufferLengthSpec[T <: Value: {Tag, FromExpr}](val length: Int) extends GBuffer[T]
-  private[cyfra] class DynamicUniform[T <: GStruct[T]: {Tag, FromExpr}]() extends GUniform[T]
+  private[cyfra] case class BufferLengthSpec[T <: Value: {Tag, FromExpr}](length: Int) extends GBuffer[T]:
+    private[cyfra] def materialise(using x: Allocation): GBuffer[T] = GBuffer.apply[T](length)
+  private[cyfra] case class DynamicUniform[T <: GStruct[T]: {Tag, FromExpr}]() extends GUniform[T]
 
   trait InitProgramLayout:
     extension (buffers: GBuffer.type)

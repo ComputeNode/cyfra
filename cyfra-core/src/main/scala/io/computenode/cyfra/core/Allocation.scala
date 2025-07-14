@@ -18,7 +18,7 @@ trait Allocation:
   extension [Params, EL <: Layout, RL <: Layout: LayoutStruct](execution: GExecution[Params, EL, RL]) def execute(params: Params, layout: EL): RL
 
   extension (buffers: GBuffer.type)
-    def apply[T <: Value: {Tag, FromExpr}](size: Int): GBuffer[T]
+    def apply[T <: Value: {Tag, FromExpr}](length: Int): GBuffer[T]
 
     def apply[T <: Value: {Tag, FromExpr}](buff: ByteBuffer): GBuffer[T]
 

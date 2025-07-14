@@ -2,7 +2,7 @@ package io.computenode.cyfra.samples
 
 import io.computenode.cyfra.core.archive.GContext
 import io.computenode.cyfra.core.layout.*
-import io.computenode.cyfra.core.{GBufferRegion, GExecution, GProgram, GioProgram}
+import io.computenode.cyfra.core.{GBufferRegion, GExecution, GProgram}
 import io.computenode.cyfra.dsl.Value.{GBoolean, Int32}
 import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
 import io.computenode.cyfra.dsl.gio.GIO
@@ -27,7 +27,7 @@ object TestingStuff:
     args: GUniform[EmitProgramUniform] = GUniform.fromParams, // todo will be different in the future
   ) extends Layout
 
-  val emitProgram = GioProgram[EmitProgramParams, EmitProgramLayout](
+  val emitProgram = GProgram[EmitProgramParams, EmitProgramLayout](
     layout = params =>
       EmitProgramLayout(
         in = GBuffer[Int32](params.inSize),
@@ -52,7 +52,7 @@ object TestingStuff:
   case class FilterProgramLayout(in: GBuffer[Int32], out: GBuffer[GBoolean], params: GUniform[FilterProgramUniform] = GUniform.fromParams)
       extends Layout
 
-  val filterProgram = GioProgram[FilterProgramParams, FilterProgramLayout](
+  val filterProgram = GProgram[FilterProgramParams, FilterProgramLayout](
     layout = params =>
       FilterProgramLayout(
         in = GBuffer[Int32](params.inSize),
@@ -150,7 +150,7 @@ object TestingStuff:
     out5: GBuffer[Int32],
   ) extends Layout
 
-  val addProgram: GProgram[AddProgramParams, AddProgramLayout] = GioProgram[AddProgramParams, AddProgramLayout](
+  val addProgram: GProgram[AddProgramParams, AddProgramLayout] = GProgram[AddProgramParams, AddProgramLayout](
     layout = params =>
       AddProgramLayout(
         in1 = GBuffer[Int32](params.bufferSize),

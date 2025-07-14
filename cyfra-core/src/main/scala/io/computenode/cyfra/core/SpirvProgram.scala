@@ -60,23 +60,3 @@ object SpirvProgram:
       val fis = use(new FileInputStream(file))
       val fc = use(fis.getChannel)
       fc.map(FileChannel.MapMode.READ_ONLY, 0, fc.size())
-
-case class GioProgram[Params, L <: Layout: LayoutStruct](
-  body: L => GIO[?],
-  layout: InitProgramLayout => Params => L,
-  dispatch: (L, Params) => ProgramDispatch,
-  workgroupSize: WorkDimensions,
-) extends GProgram[Params, L]:
-  private[cyfra] def cacheKey: String = layoutStruct.elementTypes match
-    case x if x.size == 12                                     => "addOne"
-    case x if x.contains(summon[Tag[GBoolean]]) && x.size == 3 => "filter"
-    case x if x.size == 3                                      => "emit"
-    case _                                                     => ???
-
-object GioProgram:
-  def apply[Params, L <: Layout: LayoutStruct](
-    layout: InitProgramLayout ?=> Params => L,
-    dispatch: (L, Params) => ProgramDispatch,
-    workgroupSize: WorkDimensions = (128, 1, 1),
-  )(body: L => GIO[?]): GProgram[Params, L] =
-    new GioProgram[Params, L](body, s => layout(using s), dispatch, workgroupSize)
