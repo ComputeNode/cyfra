@@ -148,7 +148,6 @@ object Simulate:
   private def simReadBuffer(buf: ReadBuffer[?])(using sc: SimContext): Result = buf match
     case ReadBuffer(buffer, index) =>
       val i = sim(index).asInstanceOf[Int]
-      // sc.addBuffer(buffer, Array.fill(1024)(0)) // add a fake buffer represented by an array
       sc.addRead(buffer, i)
       sc.read(buffer, i)
 
