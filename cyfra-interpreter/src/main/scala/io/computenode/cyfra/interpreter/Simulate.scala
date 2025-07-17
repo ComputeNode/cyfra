@@ -23,16 +23,16 @@ object Simulate:
     case Nil => ??? // should not happen
 
   def simOne(e: Expression[?], sc: SimContext): (Result, SimContext) = e match
-    case e: PhantomExpression[?]      => simPhantom(e, sc)
-    case Negate(a)                    =>
+    case e: PhantomExpression[?] => simPhantom(e, sc)
+    case Negate(a)               =>
       val (res, newSc) = simValue(a, sc)
       (res.negate, newSc)
-    case e: BinaryOpExpression[?]     => simBinOp(e, sc)
-    case ScalarProd(a, b)             =>
+    case e: BinaryOpExpression[?] => simBinOp(e, sc)
+    case ScalarProd(a, b)         =>
       val (resA, scA) = simVector(a, sc)
       val (resB, scB) = simScalar(b, scA)
       (resA.scale(resB), scB)
-    case DotProd(a, b)                =>
+    case DotProd(a, b) =>
       val (resA, scA) = simVector(a, sc)
       val (resB, scB) = simVector(b, scA)
       (resA.dot(resB), scB)
@@ -42,29 +42,29 @@ object Simulate:
       val (resA, scA) = simScalar(a, sc)
       val (resB, scB) = simScalar(b, scA)
       (resA && resB, scB)
-    case Or(a, b)                     =>
+    case Or(a, b) =>
       val (resA, scA) = simScalar(a, sc)
       val (resB, scB) = simScalar(b, scA)
       (resA || resB, scB)
-    case Not(a)                       =>
+    case Not(a) =>
       val (res, newSc) = simScalar(a, sc)
       (res.negate, newSc)
-    case ExtractScalar(a, i)          =>
+    case ExtractScalar(a, i) =>
       val (resA, scA) = simVector(a, sc)
       val (index, scI) = simValue(i, scA)
       (resA.apply(index.asInstanceOf[Int]), scI)
-    case e: ConvertExpression[?, ?]   => simConvert(e, sc)
-    case e: Const[?]                  => (simConst(e), sc)
-    case ComposeVec2(a, b)            =>
+    case e: ConvertExpression[?, ?] => simConvert(e, sc)
+    case e: Const[?]                => (simConst(e), sc)
+    case ComposeVec2(a, b)          =>
       val (resA, scA) = simScalar(a, sc)
       val (resB, scB) = simScalar(b, scA)
       (Vector(resA, resB), scB)
-    case ComposeVec3(a, b, c)         =>
+    case ComposeVec3(a, b, c) =>
       val (resA, scA) = simScalar(a, sc)
       val (resB, scB) = simScalar(b, scA)
       val (resC, scC) = simScalar(c, scB)
       (Vector(resA, resB, resC), scC)
-    case ComposeVec4(a, b, c, d)      =>
+    case ComposeVec4(a, b, c, d) =>
       val (resA, scA) = simScalar(a, sc)
       val (resB, scB) = simScalar(b, scA)
       val (resC, scC) = simScalar(c, scB)
@@ -89,7 +89,7 @@ object Simulate:
     case AggregateElem(tid: Int) => ???
 
   private def simBinOp(e: BinaryOpExpression[?], sc: SimContext): (Result, SimContext) = e match
-    case Sum(a, b)  => // scalar or vector
+    case Sum(a, b) => // scalar or vector
       val (resA, scA) = simValue(a, sc)
       val (resB, scB) = simValue(b, scA)
       (resA.add(resB), scB)
@@ -97,15 +97,15 @@ object Simulate:
       val (resA, scA) = simValue(a, sc)
       val (resB, scB) = simValue(b, scA)
       (resA.sub(resB), scB)
-    case Mul(a, b)  =>
+    case Mul(a, b) =>
       val (resA, scA) = simScalar(a, sc)
       val (resB, scB) = simScalar(b, scA)
       (resA.mul(resB), scB)
-    case Div(a, b)  =>
+    case Div(a, b) =>
       val (resA, scA) = simScalar(a, sc)
       val (resB, scB) = simScalar(b, scA)
       (resA.div(resB), scB)
-    case Mod(a, b)  =>
+    case Mod(a, b) =>
       val (resA, scA) = simScalar(a, sc)
       val (resB, scB) = simScalar(b, scA)
       (resA.mod(resB), scB)
@@ -115,11 +115,11 @@ object Simulate:
     case BitwiseNot(a)                   =>
       val (res, newSc) = simScalar(a, sc)
       (res.bitNeg, newSc)
-    case ShiftLeft(a, by)                =>
+    case ShiftLeft(a, by) =>
       val (resA, scA) = simScalar(a, sc)
       val (resB, scB) = simScalar(by, scA)
       (resA.shiftLeft(resB), scB)
-    case ShiftRight(a, by)               =>
+    case ShiftRight(a, by) =>
       val (resA, scA) = simScalar(a, sc)
       val (resB, scB) = simScalar(by, scA)
       (resA.shiftRight(resB), scB)
@@ -129,7 +129,7 @@ object Simulate:
       val (resA, scA) = simScalar(a, sc)
       val (resB, scB) = simScalar(b, scA)
       (resA.bitAnd(resB), scB)
-    case BitwiseOr(a, b)  =>
+    case BitwiseOr(a, b) =>
       val (resA, scA) = simScalar(a, sc)
       val (resB, scB) = simScalar(b, scA)
       (resA.bitOr(resB), scB)
@@ -139,11 +139,11 @@ object Simulate:
       (resA.bitXor(resB), scB)
 
   private def simCompareOp(e: ComparisonOpExpression[?], sc: SimContext): (Boolean, SimContext) = e match
-    case GreaterThan(a, b)      =>
+    case GreaterThan(a, b) =>
       val (resA, scA) = simScalar(a, sc)
       val (resB, scB) = simScalar(b, scA)
       (resA.gt(resB), scB)
-    case LessThan(a, b)         =>
+    case LessThan(a, b) =>
       val (resA, scA) = simScalar(a, sc)
       val (resB, scB) = simScalar(b, scA)
       (resA.lt(resB), scB)
@@ -151,11 +151,11 @@ object Simulate:
       val (resA, scA) = simScalar(a, sc)
       val (resB, scB) = simScalar(b, scA)
       (resA.gteq(resB), scB)
-    case LessThanEqual(a, b)    =>
+    case LessThanEqual(a, b) =>
       val (resA, scA) = simScalar(a, sc)
       val (resB, scB) = simScalar(b, scA)
       (resA.lteq(resB), scB)
-    case Equal(a, b)            =>
+    case Equal(a, b) =>
       val (resA, scA) = simScalar(a, sc)
       val (resB, scB) = simScalar(b, scA)
       (resA.eql(resB), scB)
@@ -205,21 +205,22 @@ object Simulate:
     otherConds: List[Scope[GBoolean]],
     otherCaseCodes: List[Scope[?]],
     otherwise: Scope[?],
-    sc: SimContext
+    sc: SimContext,
   ): (Result, SimContext) =
     val (boolRes, newSc) = sim(when, sc)
     if boolRes.asInstanceOf[Boolean] then sim(thenCode.expr, newSc)
     else
       otherConds.headOption match
         case None       => sim(otherwise.expr, newSc)
-        case Some(cond) => whenHelper(
-          when = cond.expr,
-          thenCode = otherCaseCodes.head,
-          otherConds = otherConds.tail,
-          otherCaseCodes = otherCaseCodes.tail,
-          otherwise = otherwise,
-          sc = newSc
-        )
+        case Some(cond) =>
+          whenHelper(
+            when = cond.expr,
+            thenCode = otherCaseCodes.head,
+            otherConds = otherConds.tail,
+            otherCaseCodes = otherCaseCodes.tail,
+            otherwise = otherwise,
+            sc = newSc,
+          )
 
   private def simWhen(e: WhenExpr[?], sc: SimContext): (Result, SimContext) = e match
     case WhenExpr(when, thenCode, otherConds, otherCaseCodes, otherwise) =>

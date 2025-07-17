@@ -82,7 +82,7 @@ class SimulateWhenE2eTest extends munit.FunSuite:
       thenCode = Scope(expr1),
       otherConds = List(Scope(cond2), Scope(cond3)), // false false
       otherCaseCodes = List(Scope(expr1), Scope(expr2)), // 384, 68
-      otherwise = Scope(expr3) // 3
+      otherwise = Scope(expr3), // 3
     )
     val (res, newSc) = Simulate.sim(expr, sc)
     val exp = 3
