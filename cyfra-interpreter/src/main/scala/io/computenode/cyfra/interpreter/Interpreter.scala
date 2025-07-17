@@ -27,7 +27,7 @@ object Interpreter:
     case WriteBuffer(buffer, index, value) =>
       val i = Simulate.sim(index).asInstanceOf[Int] // reads happening here?
       val res = Simulate.sim(value) // reads happening here? (has its own SimContext)
-      sc.bufMap(buffer)(i) = res
+      // sc.bufMap(buffer)(i) = res
       val writes = List(Write(buffer, i, res))
       val reads = ??? // get all the reads from the SimContext?
       InterpretResult:
