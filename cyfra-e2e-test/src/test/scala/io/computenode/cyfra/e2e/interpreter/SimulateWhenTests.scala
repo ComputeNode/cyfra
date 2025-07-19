@@ -14,7 +14,7 @@ class SimulateWhenE2eTest extends munit.FunSuite:
       otherCaseCodes = List(Scope(ConstInt32(2)), Scope(ConstInt32(4))),
       otherwise = Scope(ConstInt32(3)),
     )
-    val (res1, _) = Simulate.sim(expr1)
+    val (res1, _) = Simulate.sim(expr1, SimContext())
     val exp1 = 1
     assert(res1 == exp1, s"Expected $exp1, got $res1")
 
@@ -26,7 +26,7 @@ class SimulateWhenE2eTest extends munit.FunSuite:
       otherCaseCodes = List(Scope(ConstInt32(2)), Scope(ConstInt32(4))),
       otherwise = Scope(ConstInt32(3)),
     )
-    val (res2, _) = Simulate.sim(expr2)
+    val (res2, _) = Simulate.sim(expr2, SimContext())
     val exp2 = 2
     assert(res2 == exp2, s"Expected $exp2, got $res2")
 
@@ -38,7 +38,7 @@ class SimulateWhenE2eTest extends munit.FunSuite:
       otherCaseCodes = List(Scope(ConstInt32(2)), Scope(ConstInt32(4))),
       otherwise = Scope(ConstInt32(3)),
     )
-    val (res3, _) = Simulate.sim(expr3)
+    val (res3, _) = Simulate.sim(expr3, SimContext())
     val exp3 = 4
     assert(res3 == exp3, s"Expected $exp3, got $res3")
 
@@ -50,7 +50,7 @@ class SimulateWhenE2eTest extends munit.FunSuite:
       otherCaseCodes = List(Scope(ConstInt32(2)), Scope(ConstInt32(4))),
       otherwise = Scope(ConstInt32(3)),
     )
-    val (res4, _) = Simulate.sim(expr4)
+    val (res4, _) = Simulate.sim(expr4, SimContext())
     val exp4 = 3
     assert(res4 == exp4, s"Expected $exp4, got $res4")
 
