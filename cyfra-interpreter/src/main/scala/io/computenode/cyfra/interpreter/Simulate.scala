@@ -10,7 +10,7 @@ import collection.mutable.Map as MMap
 object Simulate:
   import Result.*
 
-  def sim(v: Value): (Result, SimContext) = sim(v.tree)
+  def sim(v: Value, sc: SimContext): (Result, SimContext) = sim(v.tree, sc)
   def sim(e: Expression[?], sc: SimContext = SimContext()): (Result, SimContext) = simIterate(buildBlock(e), sc)(using Map())
 
   @annotation.tailrec
@@ -153,7 +153,7 @@ object Simulate:
   private def simReadBuffer(buf: ReadBuffer[?], sc: SimContext)(using exprMap: Map[Int, Result]): (Result, SimContext) = buf match
     case ReadBuffer(buffer, index) =>
       val i = exprMap(index.tree.treeid).asInstanceOf[Int]
-      val newSc = sc.addRead(buffer, i)
+      val newSc = sc.addRead(ReadBuf(buffer, i))
       (newSc.lookup(buffer, i), newSc)
 
   private def simReadUniform(uni: ReadUniform[?]): (Result, SimContext) = uni match

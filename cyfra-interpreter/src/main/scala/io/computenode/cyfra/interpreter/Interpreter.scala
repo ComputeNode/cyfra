@@ -8,54 +8,48 @@ import izumi.reflect.Tag
 case class InvocResult(
   invocId: Int,
   instructions: List[Expression[?]] = Nil,
-  values: List[Any] = Nil,
-  writes: List[Write] = Nil,
-  reads: List[Read] = Nil,
-):
-  def merge(that: InvocResult) = InvocResult(
-    invocId = invocId,
-    instructions = instructions ::: that.instructions,
-    values = values ::: that.values,
-    writes = writes ::: that.writes,
-    reads = reads ::: that.reads,
-  )
+  values: List[Result] = Nil,
+  writes: List[Writes] = Nil,
+  reads: List[Reads] = Nil,
+)
 
-case class InterpretResult(invocs: List[InvocResult] = Nil):
-  def add(that: InterpretResult) = InterpretResult(that.invocs ::: invocs)
+case class InterpretResult(invocs: List[InvocResult] = Nil)
 
 object Interpreter:
-  private def interpretPure(gio: Pure[?], invocId: Int, sc: SimContext): InvocResult = gio match
-    case Pure(value) => InvocResult(invocId, ???, List(value), sc.writes, sc.reads)
+  private def interpretPure(gio: Pure[?], sc: SimContext): SimContext = gio match
+    case Pure(value) => sc
 
-  private def interpretWriteBuffer(gio: WriteBuffer[?], invocId: Int, sc: SimContext): InvocResult = gio match
+  private def interpretWriteBuffer(gio: WriteBuffer[?], sc: SimContext): SimContext = gio match
     case WriteBuffer(buffer, index, value) =>
-      val (n, _) = Simulate.sim(index)
+      val (n, _) = Simulate.sim(index, SimContext()) // Int32, no reads/writes here, don't need resulting context
       val i = n.asInstanceOf[Int]
-      val (res, _) = Simulate.sim(value)
-      val newSc = sc.addWrite(buffer, i, res) // should we keep this around?
-      InvocResult(invocId, ???, List(value), newSc.writes, newSc.reads)
+      val (res, sc1) = Simulate.sim(value, sc)
+      sc1.addWrite(WriteBuf(buffer, i, res))
 
-  private def interpretWriteUniform(gio: WriteUniform[?], invocId: Int, sc: SimContext): InvocResult = gio match
-    case WriteUniform(uniform, value) => ???
+  private def interpretWriteUniform(gio: WriteUniform[?], sc: SimContext): SimContext = gio match
+    case WriteUniform(uniform, value) => ??? // simulate value, then sc.addWrite(WriteUni...)
 
-  private def interpretOne(gio: GIO[?], invocId: Int, sc: SimContext): InvocResult = gio match
-    case p: Pure[?]          => interpretPure(p, invocId, sc)
-    case wb: WriteBuffer[?]  => interpretWriteBuffer(wb, invocId, sc)
-    case wu: WriteUniform[?] => interpretWriteUniform(wu, invocId, sc)
+  private def interpretOne(gio: GIO[?], sc: SimContext): SimContext = gio match
+    case p: Pure[?]          => interpretPure(p, sc)
+    case wb: WriteBuffer[?]  => interpretWriteBuffer(wb, sc)
+    case wu: WriteUniform[?] => interpretWriteUniform(wu, sc)
     case _                   => throw IllegalArgumentException("interpretOne: invalid GIO")
 
   @annotation.tailrec
-  private def interpretMany(gios: List[GIO[?]], invocId: Int, res: InvocResult, sc: SimContext): InvocResult = gios match
-    case FlatMap(gio, next) :: tail => interpretMany(gio :: next :: tail, invocId, res, sc)
+  private def interpretMany(gios: List[GIO[?]], sc: SimContext): SimContext = gios match
+    case FlatMap(gio, next) :: tail => interpretMany(gio :: next :: tail, sc)
     case Repeat(n, f) :: tail       =>
-      val (i, _) = Simulate.sim(n)
+      val (i, _) = Simulate.sim(n, SimContext()) // just Int32, no reads/writes
       val int = i.asInstanceOf[Int]
       val newGios = (0 until int).map(i => f(i)).toList
-      interpretMany(newGios ::: tail, invocId, res, sc)
+      interpretMany(newGios ::: tail, sc)
     case head :: tail =>
-      val newRes = interpretOne(head, invocId, sc) // should we get the updated SimContext?
-      interpretMany(tail, invocId, res.merge(newRes), sc)
-    case Nil => res
+      val newSc = interpretOne(head, sc)
+      interpretMany(tail, newSc)
+    case Nil => sc
 
-  def interpret(gio: GIO[?], invocId: Int): InvocResult = interpretMany(List(gio), invocId, InvocResult(invocId), SimContext())
+  def interpret(gio: GIO[?], invocId: Int): InvocResult =
+    val sc = interpretMany(List(gio), SimContext())
+    InvocResult(invocId, ???, sc.values, sc.writes, sc.reads)
+
   def interpret(gio: GIO[?], invocIds: List[Int]): InterpretResult = InterpretResult(invocIds.map(interpret(gio, _)))

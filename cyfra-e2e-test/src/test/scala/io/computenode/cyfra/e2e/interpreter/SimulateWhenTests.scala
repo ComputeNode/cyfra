@@ -89,5 +89,5 @@ class SimulateWhenE2eTest extends munit.FunSuite:
     assert(res == exp, s"Expected $exp, got $res")
 
     // There should be 2 reads in the simulation context
-    assert(newSc.reads.contains(Read(buffer, 32)))
-    assert(newSc.reads.contains(Read(buffer, 64)))
+    assert(newSc.reads.contains(ReadBuf(buffer, 32)))
+    assert(newSc.reads.contains(ReadBuf(buffer, 64)))

@@ -82,4 +82,4 @@ class SimulateE2eTest extends munit.FunSuite:
     assert(res == exp, s"Expected $exp, got $res")
 
     // the context should keep track of the read
-    assert(newSc.reads.contains(Read(buffer, 128)), "missing read")
+    assert(newSc.reads.contains(ReadBuf(buffer, 128)), "missing read")
