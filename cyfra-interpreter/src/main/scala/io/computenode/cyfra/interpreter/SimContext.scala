@@ -16,6 +16,7 @@ export Writes.*
 
 case class SimContext(
   bufMap: Map[GBuffer[?], Array[Result]] = Map(),
+  uniMap: Map[GUniform[?], Result] = Map(),
   values: List[Result] = Nil,
   writes: List[Writes] = Nil,
   reads: List[Reads] = Nil,
@@ -24,14 +25,17 @@ case class SimContext(
 
   def addRead(read: Reads): SimContext = read match
     case ReadBuf(buffer, index) => copy(reads = ReadBuf(buffer, index) :: reads)
-    case ReadUni(uniform)       => ???
+    case ReadUni(uniform)       => copy(reads = ReadUni(uniform) :: reads)
 
   def addWrite(write: Writes): SimContext = write match
     case WriteBuf(buffer, index, value) =>
       val newArray = bufMap(buffer).updated(index, value)
       val newWrites = WriteBuf(buffer, index, value) :: writes
       copy(bufMap = bufMap.updated(buffer, newArray), writes = newWrites)
-    case WriteUni(uni, value) => ???
+    case WriteUni(uni, value) =>
+      val newWrites = WriteUni(uni, value) :: writes
+      copy(uniMap = uniMap.updated(uni, value), writes = newWrites)
 
   def addResult(res: Result) = copy(values = res :: values)
   def lookup(buffer: GBuffer[?], index: Int): Result = bufMap(buffer)(index)
+  def lookupUni(uniform: GUniform[?]): Result = uniMap(uniform)

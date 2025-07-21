@@ -17,17 +17,21 @@ case class InterpretResult(invocs: List[InvocResult] = Nil)
 
 object Interpreter:
   private def interpretPure(gio: Pure[?], sc: SimContext): SimContext = gio match
-    case Pure(value) => sc
+    case Pure(value) =>
+      val (result, newSc) = Simulate.sim(value.asInstanceOf[Value], sc) // TODO needs fixing
+      newSc.addResult(result)
 
   private def interpretWriteBuffer(gio: WriteBuffer[?], sc: SimContext): SimContext = gio match
     case WriteBuffer(buffer, index, value) =>
       val (n, _) = Simulate.sim(index, SimContext()) // Int32, no reads/writes here, don't need resulting context
       val i = n.asInstanceOf[Int]
-      val (res, sc1) = Simulate.sim(value, sc)
-      sc1.addWrite(WriteBuf(buffer, i, res))
+      val (res, newSc) = Simulate.sim(value, sc)
+      newSc.addWrite(WriteBuf(buffer, i, res))
 
   private def interpretWriteUniform(gio: WriteUniform[?], sc: SimContext): SimContext = gio match
-    case WriteUniform(uniform, value) => ??? // simulate value, then sc.addWrite(WriteUni...)
+    case WriteUniform(uniform, value) =>
+      val (result, newSc) = Simulate.sim(value.asInstanceOf[Value], sc) // TODO needs fixing
+      newSc.addWrite(WriteUni(uniform, result))
 
   private def interpretOne(gio: GIO[?], sc: SimContext): SimContext = gio match
     case p: Pure[?]          => interpretPure(p, sc)

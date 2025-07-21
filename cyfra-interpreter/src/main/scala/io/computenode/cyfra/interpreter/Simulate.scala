@@ -46,7 +46,7 @@ object Simulate:
     case Dynamic(source)              => ???
     case e: WhenExpr[?]               => simWhen(e, sc) // returns new SimContext
     case e: ReadBuffer[?]             => simReadBuffer(e, sc) // returns new SimContext
-    case e: ReadUniform[?]            => simReadUniform(e)
+    case e: ReadUniform[?]            => simReadUniform(e, sc) // returns new SimContext
     case e: GArrayElem[?]             => simGArrayElem(e)
     case e: FoldSeq[?, ?]             => simFoldSeq(e)
     case e: ComposeStruct[?]          => simComposeStruct(e)
@@ -150,14 +150,16 @@ object Simulate:
     case WhenExpr(when, thenCode, otherConds, otherCaseCodes, otherwise) =>
       whenHelper(when.tree, thenCode, otherConds, otherCaseCodes, otherwise, sc)
 
-  private def simReadBuffer(buf: ReadBuffer[?], sc: SimContext)(using exprMap: Map[Int, Result]): (Result, SimContext) = buf match
+  private def simReadBuffer(e: ReadBuffer[?], sc: SimContext)(using exprMap: Map[Int, Result]): (Result, SimContext) = e match
     case ReadBuffer(buffer, index) =>
       val i = exprMap(index.tree.treeid).asInstanceOf[Int]
       val newSc = sc.addRead(ReadBuf(buffer, i))
       (newSc.lookup(buffer, i), newSc)
 
-  private def simReadUniform(uni: ReadUniform[?]): (Result, SimContext) = uni match
-    case ReadUniform(uniform) => ???
+  private def simReadUniform(uni: ReadUniform[?], sc: SimContext): (Result, SimContext) = uni match
+    case ReadUniform(uniform) =>
+      val newSc = sc.addRead(ReadUni(uniform))
+      (newSc.lookupUni(uniform), newSc)
 
   private def simGArrayElem(gElem: GArrayElem[?]): (Result, SimContext) = gElem match
     case GArrayElem(index, i) => ???
