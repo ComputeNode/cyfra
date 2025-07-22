@@ -39,7 +39,7 @@ lazy val commonSettings = Seq(
   scalacOptions ++= Seq("-feature", "-deprecation", "-unchecked", "-language:implicitConversions"),
   resolvers += "maven snapshots" at "https://central.sonatype.com/repository/maven-snapshots/",
   libraryDependencies ++= Seq(
-    "dev.zio" % "izumi-reflect_3" % "2.3.10",
+    "dev.zio" % "izumi-reflect_3" % "3.0.5",
     "com.lihaoyi" % "pprint_3" % "0.9.0",
     "com.diogonunes" % "JColor" % "5.5.1",
     "org.lwjgl" % "lwjgl" % lwjglVersion,

@@ -10,15 +10,18 @@ import io.computenode.cyfra.spirv.compilers.ExpressionCompiler.UniformStructRef
 import izumi.reflect.Tag
 import GExecution.*
 
-trait GExecution[-Params, ExecLayout <: Layout, +ResLayout <: Layout]:
+trait GExecution[-Params, ExecLayout <: Layout: LayoutBinding, ResLayout <: Layout: LayoutBinding]:
 
-  def flatMap[NRL <: Layout, NP <: Params](f: ResLayout => GExecution[NP, ExecLayout, NRL]): GExecution[NP, ExecLayout, NRL] =
+  def layoutBinding: LayoutBinding[ExecLayout] = summon[LayoutBinding[ExecLayout]]
+  def resLayoutBinding: LayoutBinding[ResLayout] = summon[LayoutBinding[ResLayout]]
+
+  def flatMap[NRL <: Layout: LayoutBinding, NP <: Params](f: ResLayout => GExecution[NP, ExecLayout, NRL]): GExecution[NP, ExecLayout, NRL] =
     FlatMap(this, (p, r) => f(r))
 
-  def map[NRL <: Layout](f: ResLayout => NRL): GExecution[Params, ExecLayout, NRL] =
+  def map[NRL <: Layout: LayoutBinding](f: ResLayout => NRL): GExecution[Params, ExecLayout, NRL] =
     Map(this, f, identity, identity)
 
-  def contramap[NEL <: Layout](f: NEL => ExecLayout): GExecution[Params, NEL, ResLayout] =
+  def contramap[NEL <: Layout: LayoutBinding](f: NEL => ExecLayout): GExecution[Params, NEL, ResLayout] =
     Map(this, identity, f, identity)
 
   def contramapParams[NP](f: NP => Params): GExecution[NP, ExecLayout, ResLayout] =
@@ -32,31 +35,33 @@ trait GExecution[-Params, ExecLayout <: Layout, +ResLayout <: Layout]:
 
 object GExecution:
 
-  def apply[Params, L <: Layout]() =
+  def apply[Params, L <: Layout: LayoutBinding]() =
     Pure[Params, L]()
 
-  def forParams[Params, EL <: Layout, RL <: Layout](f: Params => GExecution[Params, EL, RL]): GExecution[Params, EL, RL] =
+  def forParams[Params, EL <: Layout: LayoutBinding, RL <: Layout: LayoutBinding](
+    f: Params => GExecution[Params, EL, RL],
+  ): GExecution[Params, EL, RL] =
     FlatMap[Params, EL, EL, RL](Pure[Params, EL](), (params: Params, _: EL) => f(params))
 
-  case class Pure[Params, L <: Layout]() extends GExecution[Params, L, L]
+  case class Pure[Params, L <: Layout: LayoutBinding]() extends GExecution[Params, L, L]
 
-  case class FlatMap[Params, EL <: Layout, RL <: Layout, NRL <: Layout](
+  case class FlatMap[Params, EL <: Layout: LayoutBinding, RL <: Layout: LayoutBinding, NRL <: Layout: LayoutBinding](
     execution: GExecution[Params, EL, RL],
     f: (Params, RL) => GExecution[Params, EL, NRL],
   ) extends GExecution[Params, EL, NRL]
 
-  case class Map[P, NP, EL <: Layout, NEL <: Layout, RL <: Layout, NRL <: Layout](
+  case class Map[P, NP, EL <: Layout: LayoutBinding, NEL <: Layout: LayoutBinding, RL <: Layout: LayoutBinding, NRL <: Layout: LayoutBinding](
     execution: GExecution[P, EL, RL],
     mapResult: RL => NRL,
     contramapLayout: NEL => EL,
     contramapParams: NP => P,
   ) extends GExecution[NP, NEL, NRL]:
 
-    override def map[NNRL <: Layout](f: NRL => NNRL): GExecution[NP, NEL, NNRL] =
+    override def map[NNRL <: Layout: LayoutBinding](f: NRL => NNRL): GExecution[NP, NEL, NNRL] =
       Map(execution, mapResult andThen f, contramapLayout, contramapParams)
 
     override def contramapParams[NNP](f: NNP => NP): GExecution[NNP, NEL, NRL] =
       Map(execution, mapResult, contramapLayout, f andThen contramapParams)
 
-    override def contramap[NNL <: Layout](f: NNL => NEL): GExecution[NP, NNL, NRL] =
+    override def contramap[NNL <: Layout: LayoutBinding](f: NNL => NEL): GExecution[NP, NNL, NRL] =
       Map(execution, mapResult, f andThen contramapLayout, contramapParams)

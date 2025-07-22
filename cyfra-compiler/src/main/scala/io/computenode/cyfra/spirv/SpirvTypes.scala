@@ -57,7 +57,7 @@ private[cyfra] object SpirvTypes:
       vecSize(v) * typeStride(v.typeArgs.head)
 
   def typeStride(tag: Tag[?]): Int = typeStride(tag.tag)
-  
+
   def totalStride(gs: GStructSchema[?]): Int = gs.fields.map {
     case (_, fromExpr, t) if t <:< gs.gStructTag =>
       val constructor = fromExpr.asInstanceOf[GStructConstructor[?]]

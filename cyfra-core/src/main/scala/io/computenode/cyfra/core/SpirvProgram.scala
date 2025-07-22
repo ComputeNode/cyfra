@@ -1,7 +1,6 @@
 package io.computenode.cyfra.core
 
-import io.computenode.cyfra.core.layout.Layout
-import io.computenode.cyfra.core.layout.LayoutStruct
+import io.computenode.cyfra.core.layout.{Layout, LayoutBinding, LayoutStruct}
 import io.computenode.cyfra.core.GProgram.{InitProgramLayout, ProgramDispatch, WorkDimensions}
 import io.computenode.cyfra.core.SpirvProgram.Operation.ReadWrite
 import io.computenode.cyfra.core.SpirvProgram.{Binding, ShaderLayout}
@@ -20,7 +19,7 @@ import scala.util.Try
 import scala.util.Using
 import scala.util.chaining.*
 
-case class SpirvProgram[Params, L <: Layout: LayoutStruct] private (
+case class SpirvProgram[Params, L <: Layout: {LayoutBinding, LayoutStruct}] private (
   layout: InitProgramLayout => Params => L,
   dispatch: (L, Params) => ProgramDispatch,
   workgroupSize: WorkDimensions,
@@ -38,7 +37,7 @@ object SpirvProgram:
     case Write
     case ReadWrite
 
-  def apply[Params, L <: Layout: LayoutStruct](
+  def apply[Params, L <: Layout: {LayoutBinding, LayoutStruct}](
     path: String,
     layout: InitProgramLayout ?=> Params => L,
     dispatch: (L, Params) => ProgramDispatch,

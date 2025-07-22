@@ -1,6 +1,6 @@
 package io.computenode.cyfra.runtime
 
-import io.computenode.cyfra.core.layout.{Layout, LayoutStruct}
+import io.computenode.cyfra.core.layout.{Layout, LayoutBinding}
 import io.computenode.cyfra.core.{Allocation, GExecution, GProgram}
 import io.computenode.cyfra.core.SpirvProgram
 import io.computenode.cyfra.dsl.Expression.ConstInt32
@@ -25,6 +25,8 @@ import scala.collection.mutable
 import scala.util.chaining.*
 
 class VkAllocation(commandPool: CommandPool, executionHandler: ExecutionHandler)(using Allocator) extends Allocation:
+  given VkAllocation = this
+
   extension (buffer: GBinding[?])
     def read(bb: ByteBuffer, offset: Int = 0, size: Int = -1): Unit =
       val buf = getUnderlying(buffer)
@@ -65,8 +67,8 @@ class VkAllocation(commandPool: CommandPool, executionHandler: ExecutionHandler)
     def apply[T <: Value: {Tag, FromExpr}](): GUniform[T] =
       VkUniform[T]().tap(bindings += _)
 
-  extension [Params, EL <: Layout, RL <: Layout: LayoutStruct](execution: GExecution[Params, EL, RL])
-    override def execute(params: Params, layout: EL): RL = executionHandler.handle(execution, params, layout)(using this)
+  extension [Params, EL <: Layout: LayoutBinding, RL <: Layout: LayoutBinding](execution: GExecution[Params, EL, RL])
+    def execute(params: Params, layout: EL): RL = executionHandler.handle(execution, params, layout)
 
   private def direct[T <: Value: {Tag, FromExpr}](buff: ByteBuffer): GUniform[T] =
     GUniform[T](buff)
