@@ -6,6 +6,7 @@ import io.computenode.cyfra.rtrp.window.core.*
 import io.computenode.cyfra.vulkan.VulkanContext
 import scala.collection.mutable
 import scala.util.*
+import io.computenode.cyfra.utility.Logger.logger
 
 // High-level surface manager that integrates with the window system
 class SurfaceManager(vulkanContext: VulkanContext):
@@ -74,37 +75,31 @@ class SurfaceManager(vulkanContext: VulkanContext):
   def handleWindowEvent(event: WindowEvent): Try[Unit] = Try:
     event match
       case WindowEvent.Resized(windowId, width, height) =>
-        activeSurfaces
-          .get(windowId)
-          .foreach: surface =>
-            surface.resize(width, height) match
-              case Success(_) =>
-                // Surface resized successfully, capabilities might have changed
-                surface
-                  .getCapabilities()
-                  .foreach: newCapabilities =>
-                    // Fire capabilities changed event (we'd need to compare with old capabilities)
-                    fireEvent(
-                      SurfaceEvent.SurfaceCapabilitiesChanged(
-                        windowId,
-                        surface.id,
-                        newCapabilities,
-                        newCapabilities, // TODO: track old capabilities
-                      ),
-                    )
+        val result = for
+          surface <- activeSurfaces.get(windowId).toRight(new NoSuchElementException(s"No surface for window $windowId")).toTry
+          _ <- surface.resize(width, height)
+          newCapabilities <- surface.getCapabilities()
+        yield fireEvent(
+          SurfaceEvent.SurfaceCapabilitiesChanged(
+            windowId,
+            surface.id,
+            newCapabilities,
+            newCapabilities, // TODO: track old capabilities
+          ),
+        )
 
-              case Failure(ex) =>
-                println(s"Warning: Failed to resize surface for window $windowId: ${ex.getMessage}")
+        result.recover:
+          case ex => logger.error(s"Failed to resize surface for window $windowId: ${ex.getMessage}")
 
       case WindowEvent.CloseRequested(windowId) =>
-        destroySurface(windowId).recover { case ex =>
-          println(s"Warning: Failed to destroy surface for closing window $windowId: ${ex.getMessage}")
-        }
+        destroySurface(windowId).recover:
+          case ex =>
+            logger.error(s"Failed to destroy surface for closing window $windowId: ${ex.getMessage}")
 
       case WindowEvent.Destroyed(windowId) =>
-        destroySurface(windowId).recover { case ex =>
-          println(s"Warning: Failed to destroy surface for destroyed window $windowId: ${ex.getMessage}")
-        }
+        destroySurface(windowId).recover:
+          case ex =>
+            logger.error(s"Failed to destroy surface for destroyed window $windowId: ${ex.getMessage}")
 
       case _ =>
       // Ignore other events
