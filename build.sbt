@@ -98,7 +98,7 @@ lazy val vscode = (project in file("cyfra-vscode"))
 
 lazy val interpreter = (project in file("cyfra-interpreter"))
   .settings(commonSettings)
-  .dependsOn(core)
+  .dependsOn(dsl, compiler)
 
 lazy val e2eTest = (project in file("cyfra-e2e-test"))
   .settings(commonSettings, runnerSettings)
