@@ -3,8 +3,10 @@
 Library provides a way to compile Scala 3 DSL to SPIR-V and to run it with Vulkan runtime on GPUs.
 
 It is multiplatform. It works on:
- - Linux, Windows, and Mac (for Mac requires installation of moltenvk).
- - Any dedicated or integrated GPUs that support Vulkan. In practice, it means almost all moderately modern devices from most manufacturers including Nvidia, AMD, Intel, Apple.
+
+- Linux, Windows, and Mac (for Mac requires installation of moltenvk).
+- Any dedicated or integrated GPUs that support Vulkan. In practice, it means almost all moderately modern devices from
+  most manufacturers including Nvidia, AMD, Intel, Apple.
 
 Library is in an early stage - alpha release and proper documentation are coming.
 
@@ -15,12 +17,15 @@ Included Foton library provides a clean and fun way to animate functions and ray
 ## Examples
 
 ### Ray traced animation
+
 ![output](https://github.com/user-attachments/assets/3eac9f7f-72df-4a5d-b768-9117d651c78d)
 
 [code](https://github.com/ComputeNode/cyfra/blob/50aecea/cyfra-examples/src/main/scala/io/computenode/samples/cyfra/foton/AnimatedRaytrace.scala)
-(this is API usage, to see ray tracing implementation look at [RtRenderer](https://github.com/ComputeNode/cyfra/blob/50aecea132188776021afe0b407817665676a021/cyfra-foton/src/main/scala/io/computenode/cyfra/foton/rt/RtRenderer.scala))
+(this is API usage, to see ray tracing implementation look
+at [RtRenderer](https://github.com/ComputeNode/cyfra/blob/50aecea132188776021afe0b407817665676a021/cyfra-foton/src/main/scala/io/computenode/cyfra/foton/rt/RtRenderer.scala))
 
 ### Animated Julia set
+
 <img src="assets/julia.gif" width="360">
 
 [code](https://github.com/ComputeNode/cyfra/blob/50aecea132188776021afe0b407817665676a021/cyfra-examples/src/main/scala/io/computenode/samples/cyfra/foton/AnimatedJulia.scala)
@@ -28,9 +33,11 @@ Included Foton library provides a clean and fun way to animate functions and ray
 ## Animation features examples
 
 ### Custom animated functions
+
 <img src="https://github.com/user-attachments/assets/1030d968-014a-4c2c-8f21-26b999fe57fc" width="650">
 
 ### Animated ray traced scene
+
 <img src="https://github.com/user-attachments/assets/a4189bc3-e2a9-4e52-9363-93f83b530595" width="750">
 
 ## Coding features examples
@@ -48,9 +55,15 @@ Included Foton library provides a clean and fun way to animate functions and ray
 
 ## Development
 
-To enable validation layers for vulkan, you need to install vulkan SKD. After installing, set the following VM options:
+To enable validation layers for vulkan, you need to install vulkan SKD. After installing, set the following VM option:
+
+```
+-Dio.computenode.cyfra.vulkan.validation=true
+```
+
+If you are on MacOs, then also add:
+
 ```
 -Dorg.lwjgl.vulkan.libname=libvulkan.1.dylib
--Dio.computenode.cyfra.vulkan.validation=true
 -Djava.library.path=$VULKAN_SDK/lib
 ```

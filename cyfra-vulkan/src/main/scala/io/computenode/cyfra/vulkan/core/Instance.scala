@@ -4,10 +4,11 @@ import io.computenode.cyfra.utility.Logger.logger
 import io.computenode.cyfra.vulkan.VulkanContext.ValidationLayer
 import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import io.computenode.cyfra.vulkan.util.VulkanObject
-import org.lwjgl.system.MemoryStack
+import org.lwjgl.system.{MemoryStack, MemoryUtil}
 import org.lwjgl.system.MemoryUtil.NULL
 import org.lwjgl.vulkan.*
 import org.lwjgl.vulkan.EXTDebugReport.VK_EXT_DEBUG_REPORT_EXTENSION_NAME
+import org.lwjgl.vulkan.EXTLayerSettings.VK_LAYER_SETTING_TYPE_BOOL32_EXT
 import org.lwjgl.vulkan.KHRPortabilityEnumeration.{VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR, VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME}
 import org.lwjgl.vulkan.VK10.*
 
@@ -67,6 +68,19 @@ private[cyfra] class Instance(enableValidationLayers: Boolean) extends VulkanObj
       .pApplicationInfo(appInfo)
       .ppEnabledExtensionNames(ppEnabledExtensionNames)
       .ppEnabledLayerNames(ppEnabledLayerNames)
+
+    if enableValidationLayers then
+      val layerSettings = VkLayerSettingEXT.calloc(1, stack)
+      layerSettings
+        .get(0)
+        .pLayerName(stack.ASCII(ValidationLayer))
+        .pSettingName(stack.ASCII("validate_sync"))
+        .`type`(VK_LAYER_SETTING_TYPE_BOOL32_EXT)
+        .valueCount(1)
+        .pValues(MemoryUtil.memByteBuffer(stack.ints(1)))
+      val layerSettingsCI = VkLayerSettingsCreateInfoEXT.calloc(stack).sType$Default().pSettings(layerSettings)
+      pCreateInfo.pNext(layerSettingsCI)
+
     val pInstance = stack.mallocPointer(1)
     check(vkCreateInstance(pCreateInfo, null, pInstance), "Failed to create VkInstance")
     new VkInstance(pInstance.get(0), pCreateInfo)
@@ -103,7 +117,7 @@ private[cyfra] class Instance(enableValidationLayers: Boolean) extends VulkanObj
     if enableValidationLayers then extensions.addAll(Instance.ValidationLayersExtensions)
 
     val filteredExtensions = extensions.filter(ext =>
-      availableExtensions.contains(ext).tap { x =>
+      availableExtensions.contains(ext).tap { x => // TODO detect when this extension is needed
         if !x then logger.warn(s"Requested Vulkan instance extension '$ext' is not available")
       },
     )
