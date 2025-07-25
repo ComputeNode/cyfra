@@ -35,7 +35,7 @@ private[cyfra] class DebugCallback(instance: Instance) extends VulkanObjectHandl
           case VK_DEBUG_REPORT_DEBUG_BIT_EXT =>
             logger.debug(decodedMessage)
           case VK_DEBUG_REPORT_ERROR_BIT_EXT =>
-            logger.error(decodedMessage, new RuntimeException())
+            logger.error(decodedMessage)
           case VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT =>
             logger.warn(decodedMessage)
           case VK_DEBUG_REPORT_INFORMATION_BIT_EXT =>

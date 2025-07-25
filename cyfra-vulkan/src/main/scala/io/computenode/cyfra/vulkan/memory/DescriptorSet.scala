@@ -1,6 +1,6 @@
 package io.computenode.cyfra.vulkan.memory
 
-import io.computenode.cyfra.vulkan.compute.{Binding, InputBufferSize, LayoutSet, UniformSize}
+import io.computenode.cyfra.vulkan.compute.ComputePipeline.{BindingType, DescriptorSetInfo, DescriptorSetLayout}
 import io.computenode.cyfra.vulkan.core.Device
 import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import io.computenode.cyfra.vulkan.util.VulkanObjectHandle
@@ -10,11 +10,11 @@ import org.lwjgl.vulkan.{VkDescriptorBufferInfo, VkDescriptorSetAllocateInfo, Vk
 /** @author
   *   MarconZet Created 15.04.2020
   */
-private[cyfra] class DescriptorSet(descriptorSetLayout: Long, val bindings: Seq[Binding], descriptorPool: DescriptorPool)(using device: Device)
+private[cyfra] class DescriptorSet(descriptorSetLayout: DescriptorSetLayout, descriptorPool: DescriptorPool)(using device: Device)
     extends VulkanObjectHandle:
 
   protected val handle: Long = pushStack: stack =>
-    val pSetLayout = stack.callocLong(1).put(0, descriptorSetLayout)
+    val pSetLayout = stack.callocLong(1).put(0, descriptorSetLayout.id)
     val descriptorSetAllocateInfo = VkDescriptorSetAllocateInfo
       .calloc(stack)
       .sType$Default()
@@ -26,22 +26,23 @@ private[cyfra] class DescriptorSet(descriptorSetLayout: Long, val bindings: Seq[
     pDescriptorSet.get()
 
   def update(buffers: Seq[Buffer]): Unit = pushStack: stack =>
+    val bindings = descriptorSetLayout.set.descriptors
     assert(buffers.length == bindings.length, s"Number of buffers (${buffers.length}) does not match number of bindings (${bindings.length})")
     val writeDescriptorSet = VkWriteDescriptorSet.calloc(buffers.length, stack)
-    buffers.zip(bindings).foreach { case (buffer, binding) =>
+    buffers.zip(bindings).zipWithIndex.foreach { case ((buffer, binding), idx) =>
       val descriptorBufferInfo = VkDescriptorBufferInfo
         .calloc(1, stack)
         .buffer(buffer.get)
         .offset(0)
         .range(VK_WHOLE_SIZE)
-      val descriptorType = binding.size match
-        case InputBufferSize(elemSize) => VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-        case UniformSize(size)         => VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
+      val descriptorType = binding.kind match
+        case BindingType.StorageBuffer => VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+        case BindingType.Uniform       => VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
       writeDescriptorSet
         .get()
         .sType$Default()
         .dstSet(handle)
-        .dstBinding(binding.id)
+        .dstBinding(idx)
         .descriptorCount(1)
         .descriptorType(descriptorType)
         .pBufferInfo(descriptorBufferInfo)
