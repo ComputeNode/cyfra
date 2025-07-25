@@ -3,8 +3,10 @@ package io.computenode.cyfra.e2e.fs2interop
 import io.computenode.cyfra.core.archive.*, mem.*, GMem.fRGBA
 import io.computenode.cyfra.dsl.{*, given}, algebra.VectorAlgebra
 import io.computenode.cyfra.fs2interop.*, GPipe.*, Bridge.given
+import io.computenode.cyfra.core.CyfraRuntime
+import io.computenode.cyfra.runtime.VkCyfraRuntime
 
-import fs2.*
+import fs2.{io as fs2io, *}
 
 extension (f: fRGBA)
   def neg = (-f._1, -f._2, -f._3, -f._4)
@@ -14,7 +16,7 @@ extension (f: fRGBA)
     Math.abs(f._1 - g._1) < eps && Math.abs(f._2 - g._2) < eps && Math.abs(f._3 - g._3) < eps && Math.abs(f._4 - g._4) < eps
 
 class Fs2Tests extends munit.FunSuite:
-  given gc: GContext = GContext()
+  given cr: CyfraRuntime = VkCyfraRuntime()
 
   test("fs2 through gPipeMap, just ints"):
     val inSeq = (0 until 256).toSeq
@@ -38,7 +40,9 @@ class Fs2Tests extends munit.FunSuite:
       .foreach: (res, exp) =>
         assert(res.close(exp)(0.001f), s"Expected $exp, got $res")
 
-  // legacy tests
+class Fs2LegacyTests extends munit.FunSuite:
+  given gc: GContext = GContext()
+
   test("fs2 Float stream (legacy)"):
     val inSeq = (0 to 255).map(_.toFloat)
     val inStream = Stream.emits(inSeq)

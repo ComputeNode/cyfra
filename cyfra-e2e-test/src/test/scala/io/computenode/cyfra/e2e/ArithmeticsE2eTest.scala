@@ -7,10 +7,10 @@ import io.computenode.cyfra.dsl.algebra.VectorAlgebra
 import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.dsl.{*, given}
 
-class ArithmeticsE2eTest extends munit.FunSuite:
+class ArithmeticsE2eLegacyTest extends munit.FunSuite:
   given gc: GContext = GContext()
 
-  test("Float32 arithmetics"):
+  test("Float32 arithmetics (legacy)"):
     val gf: GFunction[GStruct.Empty, Float32, Float32] = GFunction: fl =>
       (fl + 1.2f) * (fl - 3.4f) / 5.6f
 
@@ -25,7 +25,7 @@ class ArithmeticsE2eTest extends munit.FunSuite:
       .foreach: (res, exp) =>
         assert(Math.abs(res - exp) < 0.001f, s"Expected $exp but got $res")
 
-  test("Int32 arithmetics"):
+  test("Int32 arithmetics (legacy)"):
     val gf: GFunction[GStruct.Empty, Int32, Int32] = GFunction: n =>
       ((n + 2) * (n - 3) / 5).mod(7)
 
@@ -43,7 +43,7 @@ class ArithmeticsE2eTest extends munit.FunSuite:
       .foreach: (res, exp) =>
         assert(res == exp, s"Expected $exp but got $res")
 
-  test("Vec4Float32 arithmetics"):
+  test("Vec4Float32 arithmetics (legacy)"):
     val f1 = (1.2f, 2.3f, 3.4f, 4.5f)
     val f2 = (5.6f, 6.7f, 7.8f, 8.9f)
     val f3 = (-5.3f, 6.2f, -4.7f, 9.1f)

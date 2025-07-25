@@ -5,10 +5,10 @@ import io.computenode.cyfra.core.archive.*
 import mem.*
 import io.computenode.cyfra.dsl.{*, given}
 
-class WhenE2eTest extends munit.FunSuite:
+class WhenE2eLegacyTest extends munit.FunSuite:
   given gc: GContext = GContext()
 
-  test("when elseWhen otherwise"):
+  test("when elseWhen otherwise (legacy)"):
     val oneHundred = 100.0f
     val twoHundred = 200.0f
     val gf: GFunction[GStruct.Empty, Float32, Float32] = GFunction: f =>

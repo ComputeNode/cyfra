@@ -6,10 +6,10 @@ import io.computenode.cyfra.core.archive.*
 import mem.*
 import io.computenode.cyfra.dsl.{*, given}
 
-class GseqE2eTest extends munit.FunSuite:
+class GseqE2eLegacyTest extends munit.FunSuite:
   given gc: GContext = GContext()
 
-  test("GSeq gen limit map fold"):
+  test("GSeq gen limit map fold (legacy)"):
     val gf: GFunction[GStruct.Empty, Float32, Float32] = GFunction: f =>
       GSeq
         .gen(f, _ + 1.0f)
@@ -27,7 +27,7 @@ class GseqE2eTest extends munit.FunSuite:
       .foreach: (res, exp) =>
         assert(Math.abs(res - exp) < 0.001f, s"Expected $exp but got $res")
 
-  test("GSeq of takeWhile filter count"):
+  test("GSeq of takeWhile filter count (legacy)"):
     val gf: GFunction[GStruct.Empty, Int32, Int32] = GFunction: n =>
       GSeq
         .of(List.iterate(n, 10)(_ + 1))

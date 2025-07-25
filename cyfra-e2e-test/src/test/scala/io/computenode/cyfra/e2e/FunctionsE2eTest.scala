@@ -5,10 +5,10 @@ import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.dsl.{*, given}
 import GMem.fRGBA
 
-class FunctionsE2eTest extends munit.FunSuite:
+class FunctionsE2eLegacyTest extends munit.FunSuite:
   given gc: GContext = GContext()
 
-  test("Functions"):
+  test("Functions (legacy)"):
     val gf: GFunction[GStruct.Empty, Float32, Float32] = GFunction: f =>
       val res1 = pow(sqrt(exp(sin(cos(tan(f))))), 2f)
       val res2 = logn(asin(acos(atan(f) / 2f) / 4f) + 2f)
@@ -28,7 +28,7 @@ class FunctionsE2eTest extends munit.FunSuite:
       .foreach: (res, exp) =>
         assert(Math.abs(res - exp) < 0.05f, s"Expected $exp but got $res")
 
-  test("smoothstep clamp mix reflect refract normalize"):
+  test("smoothstep clamp mix reflect refract normalize (legacy)"):
     val gf: GFunction[GStruct.Empty, Float32, Float32] = GFunction: f =>
       val f1 = smoothstep(f - 1.2f, f + 3.4f, f)
       val f2 = mix(f, f + 1f, f1)

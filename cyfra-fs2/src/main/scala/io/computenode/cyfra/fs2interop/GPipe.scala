@@ -32,8 +32,8 @@ object GPipe:
         dispatch = (layout, params) => GProgram.StaticDispatch((params.inSize, 1, 1)),
       ): layout =>
         val invocId = GIO.invocationId
-        val element = GIO.read(layout.in, invocId)
-        GIO.write(layout.out, invocId, f(element)) // implicit bug
+        val element = GIO.read[C1](layout.in, invocId)
+        GIO.write[C2](layout.out, invocId, f(element)) // implicit bug
 
       val execution = GExecution[Params, PLayout]()
         .addProgram(gProg)(params => Params(params.inSize), layout => PLayout(layout.in, layout.out))
