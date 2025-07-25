@@ -2,7 +2,6 @@ package io.computenode.cyfra.spirv
 
 import io.computenode.cyfra.dsl.Value
 import io.computenode.cyfra.dsl.Value.*
-import io.computenode.cyfra.dsl.struct.{GStructConstructor, GStructSchema}
 import io.computenode.cyfra.spirv.Opcodes.*
 import izumi.reflect.Tag
 import izumi.reflect.macrortti.{LTag, LightTypeTag}
@@ -57,14 +56,6 @@ private[cyfra] object SpirvTypes:
       vecSize(v) * typeStride(v.typeArgs.head)
 
   def typeStride(tag: Tag[?]): Int = typeStride(tag.tag)
-
-  def totalStride(gs: GStructSchema[?]): Int = gs.fields.map {
-    case (_, fromExpr, t) if t <:< gs.gStructTag =>
-      val constructor = fromExpr.asInstanceOf[GStructConstructor[?]]
-      totalStride(constructor.schema)
-    case (_, _, t) =>
-      typeStride(t)
-  }.sum
 
   def toWord(tpe: Tag[?], value: Any): Words = tpe match
     case t if t == Int32Tag =>
