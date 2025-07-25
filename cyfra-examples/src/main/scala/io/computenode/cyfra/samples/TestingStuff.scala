@@ -187,23 +187,26 @@ object TestingStuff:
   def testAddProgram10Times =
     given runtime: VkCyfraRuntime = VkCyfraRuntime()
     val bufferSize = 1280
-    val params = AddProgramParams(bufferSize, addA = 3, addB = 7)
+    val params = AddProgramParams(bufferSize, addA = 0, addB = 1)
     val region = GBufferRegion
       .allocate[AddProgramExecLayout]
       .map: region =>
         execution.execute(params, region)
-    val inData = (0 until bufferSize).toArray
-    val inBuffers = List.fill(5)(BufferUtils.createByteBuffer(bufferSize * 4))
-    inBuffers.foreach(_.asIntBuffer().put(inData).flip())
+
+    val inBuffers = List.fill(5)(BufferUtils.createIntBuffer(bufferSize))
+    val wbbList = inBuffers.map(MemoryUtil.memByteBuffer)
     val outBuffers = List.fill(5)(BufferUtils.createIntBuffer(bufferSize))
     val rbbList = outBuffers.map(MemoryUtil.memByteBuffer)
+
+    val inData = (0 until bufferSize).toArray
+    inBuffers.foreach(_.put(inData).flip())
     region.runUnsafe(
       init = AddProgramExecLayout(
-        in1 = GBuffer[Int32](inBuffers(0)),
-        in2 = GBuffer[Int32](inBuffers(1)),
-        in3 = GBuffer[Int32](inBuffers(2)),
-        in4 = GBuffer[Int32](inBuffers(3)),
-        in5 = GBuffer[Int32](inBuffers(4)),
+        in1 = GBuffer[Int32](wbbList(0)),
+        in2 = GBuffer[Int32](wbbList(1)),
+        in3 = GBuffer[Int32](wbbList(2)),
+        in4 = GBuffer[Int32](wbbList(3)),
+        in5 = GBuffer[Int32](wbbList(4)),
         out1 = GBuffer[Int32](bufferSize),
         out2 = GBuffer[Int32](bufferSize),
         out3 = GBuffer[Int32](bufferSize),

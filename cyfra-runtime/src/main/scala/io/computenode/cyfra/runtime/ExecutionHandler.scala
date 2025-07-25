@@ -61,7 +61,7 @@ class ExecutionHandler(runtime: VkCyfraRuntime):
     val (executeSteps, _) = dispatches.foldLeft((Seq.empty[ExecutionStep], Set.empty[GBinding[?]])):
       case ((steps, dirty), step) =>
         val bindings = step.layout.flatten.map(_.binding)
-        if bindings.exists(dirty.contains) then (steps.appendedAll(Seq(PipelineBarrier, step)), Set.empty[GBinding[?]])
+        if bindings.exists(dirty.contains) then (steps.appendedAll(Seq(PipelineBarrier, step)), bindings.toSet)
         else (steps.appended(step), dirty ++ bindings)
 
     val commandBuffer = recordCommandBuffer(executeSteps)
