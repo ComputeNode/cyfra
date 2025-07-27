@@ -6,6 +6,8 @@ on:
     tags:
       - "v*"
   pull_request:
+    branches:
+      - dev
 
 jobs:
   format_and_compile:
