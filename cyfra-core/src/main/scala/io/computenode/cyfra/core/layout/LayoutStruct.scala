@@ -60,11 +60,11 @@ object LayoutStruct:
             ftype match
               case '[type tg <: GBuffer[?]; tg] =>
                 '{
-                  BufferRef[t](${ Expr(i) }, ${ tag.asExprOf[Tag[t]] })(using summon[Tag[t]], ${ fromExpr.asExprOf[FromExpr[t]] })
+                  BufferRef[t](${ Expr(i) }, ${ tag.asExprOf[Tag[t]] })(using ${ tag.asExprOf[Tag[t]] }, ${ fromExpr.asExprOf[FromExpr[t]] })
                 }
               case '[type tg <: GUniform[?]; tg] =>
                 '{
-                  UniformRef[t](${ Expr(i) }, ${ tag.asExprOf[Tag[t]] })(using summon[Tag[t]], ${ fromExpr.asExprOf[FromExpr[t]] })
+                  UniformRef[t](${ Expr(i) }, ${ tag.asExprOf[Tag[t]] })(using ${ tag.asExprOf[Tag[t]] }, ${ fromExpr.asExprOf[FromExpr[t]] })
                 }
 
     val constructor = sym.primaryConstructor

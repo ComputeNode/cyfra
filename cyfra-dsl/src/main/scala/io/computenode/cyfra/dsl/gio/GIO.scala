@@ -6,6 +6,7 @@ import io.computenode.cyfra.dsl.Value.FromExpr.fromExpr
 import io.computenode.cyfra.dsl.binding.{GBuffer, ReadBuffer, WriteBuffer}
 import io.computenode.cyfra.dsl.collections.GSeq
 import io.computenode.cyfra.dsl.gio.GIO.*
+import io.computenode.cyfra.dsl.control.When
 import izumi.reflect.Tag
 
 trait GIO[T]:
@@ -34,6 +35,11 @@ object GIO:
 
   def repeat(n: Int32)(f: Int32 => GIO[?]): GIO[Unit] =
     Repeat(n, f)
+
+  def when(cond: GBoolean)(thenCode: GIO[?]): GIO[Unit] =
+    val n = When.when(cond)(1: Int32).otherwise(0)
+    repeat(n): _ =>
+      thenCode
 
   def write[T <: Value](buffer: GBuffer[T], index: Int32, value: T): GIO[Unit] =
     WriteBuffer(buffer, index, value)
