@@ -36,7 +36,6 @@ class ExecutionHandler(runtime: VkCyfraRuntime):
   private val context = runtime.context
   import context.given
 
-  private val queue: Queue = context.computeQueue // TODO multiple queues - multithreading support
   private val descriptorPool: DescriptorPool = context.descriptorPool // TODO descriptor pool manager - descriptor allocation and reclamation support
   private val commandPool: CommandPool = context.commandPool // TODO multiple command pools - different command pools for different workloads
 
@@ -74,7 +73,7 @@ class ExecutionHandler(runtime: VkCyfraRuntime):
 
       val fence = new Fence()
       timed("Vulkan render command"):
-        check(vkQueueSubmit(queue.get, submitInfo, fence.get), "Failed to submit command buffer to queue")
+        check(vkQueueSubmit(commandPool.queue.get, submitInfo, fence.get), "Failed to submit command buffer to queue")
         fence.block().destroy()
     commandPool.freeCommandBuffer(commandBuffer)
     result

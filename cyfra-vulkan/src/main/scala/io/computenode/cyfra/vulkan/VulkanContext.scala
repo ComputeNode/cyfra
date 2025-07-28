@@ -3,7 +3,7 @@ package io.computenode.cyfra.vulkan
 import io.computenode.cyfra.utility.Logger.logger
 import io.computenode.cyfra.vulkan.VulkanContext.ValidationLayers
 import io.computenode.cyfra.vulkan.command.CommandPool
-import io.computenode.cyfra.vulkan.core.{DebugCallback, Device, Instance, Queue}
+import io.computenode.cyfra.vulkan.core.{DebugCallback, Device, Instance, PhysicalDevice, Queue}
 import io.computenode.cyfra.vulkan.memory.{Allocator, DescriptorPool}
 import org.lwjgl.system.Configuration
 
@@ -12,26 +12,29 @@ import org.lwjgl.system.Configuration
   */
 private[cyfra] object VulkanContext:
   val ValidationLayer: String = "VK_LAYER_KHRONOS_validation"
-  val SyncLayer: String = "VK_LAYER_KHRONOS_synchronization2"
   private val ValidationLayers: Boolean = System.getProperty("io.computenode.cyfra.vulkan.validation", "false").toBoolean
   if Configuration.STACK_SIZE.get() < 100 then logger.warn(s"Small stack size. Increase with org.lwjgl.system.stackSize")
 
 private[cyfra] class VulkanContext:
-  val instance: Instance = new Instance(ValidationLayers)
-  val debugCallback: Option[DebugCallback] = if ValidationLayers then Some(new DebugCallback(instance)) else None
-  given device: Device = new Device(instance)
-  given allocator: Allocator = new Allocator(instance, device)
-  val computeQueue: Queue = new Queue(device.computeQueueFamily, 0, device)
+  private val instance: Instance = new Instance(ValidationLayers)
+  private val debugCallback: Option[DebugCallback] = if ValidationLayers then Some(new DebugCallback(instance)) else None
+  private val physicalDevice = new PhysicalDevice(instance)
+  physicalDevice.assertRequirements()
+
+  given device: Device = new Device(instance, physicalDevice)
+  given allocator: Allocator = new Allocator(instance, physicalDevice, device)
+
+  val queues = device.getQueues
   val descriptorPool: DescriptorPool = new DescriptorPool()
-  val commandPool: CommandPool = new CommandPool.Standard(computeQueue)
+  val commandPool: CommandPool = new CommandPool.Standard(queues.head)
 
   logger.debug("Vulkan context created")
-  logger.debug("Running on device: " + device.physicalDeviceName)
+  logger.debug("Running on device: " + physicalDevice.name)
 
   def destroy(): Unit =
     commandPool.destroy()
     descriptorPool.destroy()
-    computeQueue.destroy()
+    queues.foreach(_.destroy())
     allocator.destroy()
     device.destroy()
     debugCallback.foreach(_.destroy())

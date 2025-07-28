@@ -40,9 +40,9 @@ object Instance:
 
   lazy val version: Int = VK.getInstanceVersionSupported
 
-private[cyfra] class Instance(enableValidationLayers: Boolean) extends VulkanObject:
+private[cyfra] class Instance(enableValidationLayers: Boolean) extends VulkanObject[VkInstance]:
 
-  private val instance: VkInstance = pushStack: stack =>
+  protected val handle: VkInstance = pushStack: stack =>
     val appInfo = VkApplicationInfo
       .calloc(stack)
       .sType$Default()
@@ -55,9 +55,8 @@ private[cyfra] class Instance(enableValidationLayers: Boolean) extends VulkanObj
 
     val ppEnabledExtensionNames = getInstanceExtensions(stack)
     val ppEnabledLayerNames =
-      val layers = enabledLayers
-      val pointer = stack.callocPointer(layers.length)
-      layers.foreach(x => pointer.put(stack.ASCII(x)))
+      val pointer = stack.callocPointer(enabledLayers.length)
+      enabledLayers.foreach(x => pointer.put(stack.ASCII(x)))
       pointer.flip()
 
     val pCreateInfo = VkInstanceCreateInfo
@@ -95,10 +94,8 @@ private[cyfra] class Instance(enableValidationLayers: Boolean) extends VulkanObj
       else x
     }
 
-  def get: VkInstance = instance
-
   override protected def close(): Unit =
-    vkDestroyInstance(instance, null)
+    vkDestroyInstance(handle, null)
 
   private def getInstanceExtensions(stack: MemoryStack) =
     val n = stack.callocInt(1)

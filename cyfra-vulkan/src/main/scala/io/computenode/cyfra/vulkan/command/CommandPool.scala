@@ -9,7 +9,7 @@ import org.lwjgl.vulkan.VK10.*
 /** @author
   *   MarconZet Created 13.04.2020 Copied from Wrap
   */
-private[cyfra] abstract class CommandPool private (flags: Int, queue: Queue)(using device: Device) extends VulkanObjectHandle:
+private[cyfra] abstract class CommandPool private (flags: Int, val queue: Queue)(using device: Device) extends VulkanObjectHandle:
   protected val handle: Long = pushStack: stack =>
     val createInfo = VkCommandPoolCreateInfo
       .calloc(stack)
@@ -40,10 +40,9 @@ private[cyfra] abstract class CommandPool private (flags: Int, queue: Queue)(usi
     0 until n map (i => pointerBuffer.get(i)) map (new VkCommandBuffer(_, device.get))
 
   def executeCommand(block: VkCommandBuffer => Unit): Fence =
-    pushStack: stack =>
-      val commandBuffer = beginSingleTimeCommands()
-      block(commandBuffer)
-      endSingleTimeCommands(commandBuffer)
+    val commandBuffer = beginSingleTimeCommands()
+    block(commandBuffer)
+    endSingleTimeCommands(commandBuffer)
 
   private def beginSingleTimeCommands(): VkCommandBuffer =
     pushStack: stack =>
@@ -80,7 +79,7 @@ private[cyfra] abstract class CommandPool private (flags: Int, queue: Queue)(usi
     vkDestroyCommandPool(device.get, commandPool, null)
 
 object CommandPool:
-  private[cyfra] class OneTime(queue: Queue)(using device: Device)
+  private[cyfra] class Transient(queue: Queue)(using device: Device)
       extends CommandPool(VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, queue)(using device: Device) // TODO check if flags should be used differently
 
   private[cyfra] class Standard(queue: Queue)(using device: Device) extends CommandPool(0, queue)(using device: Device)
