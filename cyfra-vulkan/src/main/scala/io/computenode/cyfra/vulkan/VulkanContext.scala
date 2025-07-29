@@ -4,8 +4,12 @@ import io.computenode.cyfra.utility.Logger.logger
 import io.computenode.cyfra.vulkan.VulkanContext.ValidationLayers
 import io.computenode.cyfra.vulkan.command.CommandPool
 import io.computenode.cyfra.vulkan.core.{DebugCallback, Device, Instance, PhysicalDevice, Queue}
-import io.computenode.cyfra.vulkan.memory.{Allocator, DescriptorPool}
+import io.computenode.cyfra.vulkan.memory.{Allocator, DescriptorPool, DescriptorPoolManager}
 import org.lwjgl.system.Configuration
+
+import java.util.concurrent.{ArrayBlockingQueue, BlockingQueue}
+import scala.util.chaining.*
+import scala.jdk.CollectionConverters.*
 
 /** @author
   *   MarconZet Created 13.04.2020
@@ -24,17 +28,22 @@ private[cyfra] class VulkanContext:
   given device: Device = new Device(instance, physicalDevice)
   given allocator: Allocator = new Allocator(instance, physicalDevice, device)
 
-  val queues = device.getQueues
-  val descriptorPool: DescriptorPool = new DescriptorPool()
-  val commandPool: CommandPool = new CommandPool.Standard(queues.head)
+  private val descriptorPoolManager = new DescriptorPoolManager()
+  private val commandPools = device.getQueues.map(new CommandPool.Transient(_))
 
   logger.debug("Vulkan context created")
   logger.debug("Running on device: " + physicalDevice.name)
 
+  private val blockingQueue: BlockingQueue[CommandPool] = new ArrayBlockingQueue[CommandPool](commandPools.length).tap(_.addAll(commandPools.asJava))
+  def withThreadContext[T](f: VulkanThreadContext => T): T =
+    val commandPool = blockingQueue.take()
+    val threadContext = new VulkanThreadContext(commandPool, descriptorPoolManager)
+    try f(threadContext)
+    finally threadContext.destroy()
+
   def destroy(): Unit =
-    commandPool.destroy()
-    descriptorPool.destroy()
-    queues.foreach(_.destroy())
+    commandPools.foreach(_.destroy())
+    descriptorPoolManager.destroy()
     allocator.destroy()
     device.destroy()
     debugCallback.foreach(_.destroy())

@@ -31,14 +31,13 @@ private[cyfra] class DescriptorPool(using device: Device) extends VulkanObjectHa
       .calloc(stack)
       .sType$Default()
       .maxSets(MAX_SETS)
-      .flags(VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT)
       .pPoolSizes(descriptorPoolSize)
 
     val pDescriptorPool = stack.callocLong(1)
     check(vkCreateDescriptorPool(device.get, descriptorPoolCreateInfo, null, pDescriptorPool), "Failed to create descriptor pool")
     pDescriptorPool.get()
 
-  def allocate(descriptorSetLayout: DescriptorSetLayout): DescriptorSet = DescriptorSet(descriptorSetLayout, this)
+  def allocate(layout: DescriptorSetLayout): Option[DescriptorSet] = DescriptorSet(layout, this)
 
   override protected def close(): Unit =
     vkDestroyDescriptorPool(device.get, handle, null)

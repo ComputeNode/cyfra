@@ -20,10 +20,11 @@ import io.computenode.cyfra.runtime.ExecutionHandler.{
 import io.computenode.cyfra.runtime.ExecutionHandler.DispatchType.*
 import io.computenode.cyfra.runtime.ExecutionHandler.ExecutionBinding.{BufferBinding, UniformBinding}
 import io.computenode.cyfra.utility.Utility.timed
+import io.computenode.cyfra.vulkan.{VulkanContext, VulkanThreadContext}
 import io.computenode.cyfra.vulkan.command.{CommandPool, Fence}
 import io.computenode.cyfra.vulkan.compute.ComputePipeline
 import io.computenode.cyfra.vulkan.core.Queue
-import io.computenode.cyfra.vulkan.memory.{DescriptorPool, DescriptorSet}
+import io.computenode.cyfra.vulkan.memory.{DescriptorPool, DescriptorPoolManager, DescriptorSet, DescriptorSetManager}
 import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import izumi.reflect.Tag
 import org.lwjgl.vulkan.VK10.*
@@ -32,12 +33,11 @@ import org.lwjgl.vulkan.{VkCommandBuffer, VkCommandBufferBeginInfo, VkDependency
 
 import scala.collection.mutable
 
-class ExecutionHandler(runtime: VkCyfraRuntime):
-  private val context = runtime.context
+class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadContext, context: VulkanContext):
   import context.given
 
-  private val descriptorPool: DescriptorPool = context.descriptorPool // TODO descriptor pool manager - descriptor allocation and reclamation support
-  private val commandPool: CommandPool = context.commandPool // TODO multiple command pools - different command pools for different workloads
+  private val descriptorPool: DescriptorSetManager = threadContext.descriptorSetManager
+  private val commandPool: CommandPool = threadContext.commandPool
 
   def handle[Params, EL <: Layout: LayoutBinding, RL <: Layout: LayoutBinding](execution: GExecution[Params, EL, RL], params: Params, layout: EL)(
     using VkAllocation,
