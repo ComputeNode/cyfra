@@ -51,7 +51,7 @@ lazy val commonSettings = Seq(
     "org.scalameta" % "munit_3" % "1.0.0" % Test,
     "com.lihaoyi" %% "sourcecode" % "0.4.3-M5",
     "org.slf4j" % "slf4j-api" % "2.0.17",
-    "org.apache.logging.log4j" % "log4j-slf4j2-impl" % "2.24.3" % Test,
+    "org.apache.logging.log4j" % "log4j-slf4j2-impl" % "2.24.3",
   ) ++ vulkanNatives,
 )
 
@@ -67,6 +67,7 @@ lazy val spirvTools = (project in file("cyfra-spirv-tools"))
 lazy val vulkan = (project in file("cyfra-vulkan"))
   .settings(commonSettings)
   .dependsOn(utility)
+  .settings(libraryDependencies ++= Seq("org.lwjgl" % "lwjgl-glfw" % lwjglVersion, "org.lwjgl" % "lwjgl-glfw" % lwjglVersion classifier lwjglNatives))
 
 lazy val dsl = (project in file("cyfra-dsl"))
   .settings(commonSettings)
@@ -96,9 +97,20 @@ lazy val e2eTest = (project in file("cyfra-e2e-test"))
   .settings(commonSettings, runnerSettings)
   .dependsOn(runtime)
 
+lazy val rtrp = (project in file("cyfra-rtrp"))
+  .settings(commonSettings)
+  .dependsOn(utility, vulkan)
+  .settings(
+    libraryDependencies ++= Seq(
+      "org.lwjgl" % "lwjgl-glfw" % lwjglVersion,
+      "org.lwjgl" % "lwjgl-glfw" % lwjglVersion classifier lwjglNatives,
+      "org.scalatest" %% "scalatest" % "3.2.15" % Test,
+    ),
+  )
+
 lazy val root = (project in file("."))
   .settings(name := "Cyfra")
-  .aggregate(compiler, dsl, foton, runtime, vulkan, examples)
+  .aggregate(compiler, dsl, foton, runtime, vulkan, examples, rtrp)
 
 e2eTest / Test / javaOptions ++= Seq("-Dorg.lwjgl.system.stackSize=1024", "-DuniqueLibraryNames=true")
 
