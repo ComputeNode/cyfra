@@ -1,7 +1,7 @@
 package io.computenode.cyfra.rtrp.window.core
 
 // Base trait for all window events
-sealed trait WindowEvent:
+trait WindowEvent:
   def windowId: WindowId
 
 // Window lifecycle events
