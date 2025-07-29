@@ -228,3 +228,44 @@ object TestingStuff:
         assert(buf.get(i) == expected(i), s"Mismatch at index $i: expected ${expected(i)}, got ${buf.get(i)}")
       }
     }
+
+  @main
+  def enduranceTest =
+    given runtime: VkCyfraRuntime = VkCyfraRuntime()
+    val bufferSize = 1280
+    val params = AddProgramParams(bufferSize, addA = 0, addB = 1)
+    val region = GBufferRegion
+      .allocate[AddProgramExecLayout]
+      .map: region =>
+        execution.execute(params, region)
+    (1 to 1000).foreach: _ =>
+      val inBuffers = List.fill(5)(BufferUtils.createIntBuffer(bufferSize))
+      val wbbList = inBuffers.map(MemoryUtil.memByteBuffer)
+      val outBuffers = List.fill(5)(BufferUtils.createIntBuffer(bufferSize))
+      val rbbList = outBuffers.map(MemoryUtil.memByteBuffer)
+
+      val inData = (0 until bufferSize).toArray
+      inBuffers.foreach(_.put(inData).flip())
+      region.runUnsafe(
+        init = AddProgramExecLayout(
+          in1 = GBuffer[Int32](wbbList(0)),
+          in2 = GBuffer[Int32](wbbList(1)),
+          in3 = GBuffer[Int32](wbbList(2)),
+          in4 = GBuffer[Int32](wbbList(3)),
+          in5 = GBuffer[Int32](wbbList(4)),
+          out1 = GBuffer[Int32](bufferSize),
+          out2 = GBuffer[Int32](bufferSize),
+          out3 = GBuffer[Int32](bufferSize),
+          out4 = GBuffer[Int32](bufferSize),
+          out5 = GBuffer[Int32](bufferSize),
+        ),
+        onDone = layout => {
+          layout.out1.read(rbbList(0))
+          layout.out2.read(rbbList(1))
+          layout.out3.read(rbbList(2))
+          layout.out4.read(rbbList(3))
+          layout.out5.read(rbbList(4))
+        },
+      )
+    runtime.close()
+    println("Endurance test completed successfully")

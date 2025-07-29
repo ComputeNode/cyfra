@@ -39,7 +39,9 @@ private[cyfra] class VulkanContext:
     val commandPool = blockingQueue.take()
     val threadContext = new VulkanThreadContext(commandPool, descriptorPoolManager)
     try f(threadContext)
-    finally threadContext.destroy()
+    finally
+      threadContext.destroy()
+      blockingQueue.put(commandPool)
 
   def destroy(): Unit =
     commandPools.foreach(_.destroy())

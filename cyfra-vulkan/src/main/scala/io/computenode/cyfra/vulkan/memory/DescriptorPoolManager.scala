@@ -10,8 +10,9 @@ class DescriptorPoolManager(using Device) {
       case Some(value) => value
       case None        => new DescriptorPool()
     }
-  def free(pool: DescriptorPool*): Unit = synchronized:
-    freePools.enqueueAll(pool)
+  def free(pools: DescriptorPool*): Unit = synchronized:
+    pools.foreach(_.reset())
+    freePools.enqueueAll(pools)
 
   def destroy(): Unit = synchronized:
     freePools.foreach(_.destroy())
