@@ -11,6 +11,8 @@ import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.runtime.VkCyfraRuntime
 import org.lwjgl.BufferUtils
 import org.lwjgl.system.MemoryUtil
+import scala.collection.parallel.CollectionConverters.given
+
 object TestingStuff:
 
   given GContext = GContext()
