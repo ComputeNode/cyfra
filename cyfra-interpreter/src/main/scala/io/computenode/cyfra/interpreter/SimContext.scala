@@ -2,42 +2,16 @@ package io.computenode.cyfra.interpreter
 
 import io.computenode.cyfra.dsl.{*, given}
 import binding.{GBuffer, GUniform}
-import Result.Result
 
-enum Reads:
-  case ReadBuf(buffer: GBuffer[?], index: Int)
-  case ReadUni(uniform: GUniform[?])
-export Reads.*
+case class SimContext(bufMap: Map[GBuffer[?], Array[Result]] = Map(), uniMap: Map[GUniform[?], Result] = Map()):
+  def addBuffer(buffer: GBuffer[?], array: Array[Result]) = copy(bufMap = bufMap + (buffer -> array))
+  def addUniform(uniform: GUniform[?], value: Result) = copy(uniMap = uniMap + (uniform -> value))
 
-enum Writes:
-  case WriteBuf(buffer: GBuffer[?], index: Int, value: Result)
-  case WriteUni(uni: GUniform[?], value: Result)
-export Writes.*
-
-case class InvocResult(invocId: Int, sc: SimContext)
-
-case class SimContext(
-  bufMap: Map[GBuffer[?], Array[Result]] = Map(),
-  uniMap: Map[GUniform[?], Result] = Map(),
-  values: List[Result] = Nil,
-  writes: List[Writes] = Nil,
-  reads: List[Reads] = Nil,
-):
-  def addBuffer(buffer: GBuffer[?], array: Array[Result]): SimContext = copy(bufMap = bufMap + (buffer -> array))
-
-  def addRead(read: Reads): SimContext = read match
-    case ReadBuf(buffer, index) => copy(reads = ReadBuf(buffer, index) :: reads)
-    case ReadUni(uniform)       => copy(reads = ReadUni(uniform) :: reads)
-
-  def addWrite(write: Writes): SimContext = write match
-    case WriteBuf(buffer, index, value) =>
-      val newArray = bufMap(buffer).updated(index, value)
-      val newWrites = WriteBuf(buffer, index, value) :: writes
-      copy(bufMap = bufMap.updated(buffer, newArray), writes = newWrites)
-    case WriteUni(uni, value) =>
-      val newWrites = WriteUni(uni, value) :: writes
-      copy(uniMap = uniMap.updated(uni, value), writes = newWrites)
-
-  def addResult(res: Result) = copy(values = res :: values)
   def lookup(buffer: GBuffer[?], index: Int): Result = bufMap(buffer)(index)
   def lookupUni(uniform: GUniform[?]): Result = uniMap(uniform)
+
+  def addWrite(write: Write): SimContext = write match
+    case WriteBuf(_, buffer, index, value) =>
+      val newArray = bufMap(buffer).updated(index, value)
+      copy(bufMap = bufMap.updated(buffer, newArray))
+    case WriteUni(_, uni, value) => copy(uniMap = uniMap.updated(uni, value))

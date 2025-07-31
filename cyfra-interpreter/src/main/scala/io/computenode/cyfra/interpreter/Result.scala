@@ -1,9 +1,9 @@
 package io.computenode.cyfra.interpreter
 
+type Result = ScalarRes | Vector[ScalarRes]
+
 object Result:
   export ScalarResult.*, VectorResult.*
-
-  type Result = ScalarRes | Vector[ScalarRes]
 
   extension (r: Result)
     def negate: Result = r match

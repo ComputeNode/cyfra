@@ -1,8 +1,8 @@
 package io.computenode.cyfra.interpreter
 
-object ScalarResult:
-  type ScalarRes = Float | Int | Boolean
+type ScalarRes = Float | Int | Boolean
 
+object ScalarResult:
   extension (sr: ScalarRes)
     def neg: ScalarRes = sr match
       case f: Float   => -f
