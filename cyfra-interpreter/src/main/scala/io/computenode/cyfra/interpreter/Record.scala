@@ -21,6 +21,7 @@ case class Record(cache: Cache = Map(), writes: List[Write] = Nil, reads: List[R
   def addResult(treeId: TreeId, res: Result) = copy(cache = cache.updated(treeId, res))
 
 extension (records: Records)
+  def apply(invocIds: Seq[InvocId]): Records = invocIds.map(invocId => invocId -> Record()).toMap
   def updateResults(treeid: TreeId, results: Results): Records =
     records.map: (invocId, record) =>
       results.get(invocId) match

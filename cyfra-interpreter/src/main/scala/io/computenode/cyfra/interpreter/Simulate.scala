@@ -24,6 +24,7 @@ object Simulate:
       simIterate(next, newRecords, newResults)
     case Nil => SimRes(results, records, sc)
 
+  // in these cases, the records don't change since there are no reads.
   def simOne(e: Expression[?])(using records: Records, sc: SimContext): Results = e match
     case e: PhantomExpression[?]      => simPhantom(e)
     case Negate(a)                    => simValue(a).view.mapValues(_.negate).toMap
@@ -123,7 +124,7 @@ object Simulate:
 
   private def simExtFunc(fn: FunctionName, args: List[Result], records: Records): (Result, Records) = ???
   private def simFunc(fn: FnIdentifier, body: Result, args: List[Result], records: Records): (Result, Records) = ???
-  private def simInvocId(records: Records): Results = records.map((invocId, _) => invocId -> invocId)
+  private def simInvocId(records: Records): Map[InvocId, InvocId] = records.map((invocId, _) => invocId -> invocId)
 
   // @annotation.tailrec
   private def whenHelper(
