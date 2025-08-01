@@ -9,23 +9,23 @@ import io.computenode.cyfra.spirv.BlockBuilder.buildBlock
 object Simulate:
   import Result.*
 
-  def sim(v: Value, records: Records = Map())(using sc: SimContext = SimContext()): SimRes = sim(v.tree, records)
-  def sim(e: Expression[?], records: Records)(using SimContext): SimRes = simIterate(buildBlock(e), records)
+  def sim(v: Value, records: Records)(using data: SimData = SimData()): SimContext = sim(v.tree, records)
+  def sim(e: Expression[?], records: Records)(using SimData): SimContext = simIterate(buildBlock(e), records)
 
   @annotation.tailrec
-  def simIterate(blocks: List[Expression[?]], records: Records, results: Results = Map())(using sc: SimContext): SimRes = blocks match
+  def simIterate(blocks: List[Expression[?]], records: Records, results: Results = Map())(using data: SimData): SimContext = blocks match
     case head :: next => // reads have to be treated specially, since they will update the records
       val (newResults, records1) = head match
         case e: ReadBuffer[?]  => simReadBuffer(e, records) // records updated with reads
         case e: ReadUniform[?] => simReadUniform(e, records) // records updated with reads
-        case e: WhenExpr[?]    => simWhen(e, records)
+        case e: WhenExpr[?]    => simWhen(e, records) // records updated with reads
         case _                 => (simOne(head)(using records), records) // no reads, records not updated
       val newRecords = records1.updateResults(head.treeid, newResults) // update caches with new results
       simIterate(next, newRecords, newResults)
-    case Nil => SimRes(results, records, sc)
+    case Nil => SimContext(results, records, data)
 
   // in these cases, the records don't change since there are no reads.
-  def simOne(e: Expression[?])(using records: Records, sc: SimContext): Results = e match
+  def simOne(e: Expression[?])(using records: Records, data: SimData): Results = e match
     case e: PhantomExpression[?]      => simPhantom(e)
     case Negate(a)                    => simValue(a).view.mapValues(_.negate).toMap
     case e: BinaryOpExpression[?]     => simBinOp(e)
@@ -56,8 +56,8 @@ object Simulate:
         .map: invocId =>
           invocId -> Vector(aRes(invocId), bRes(invocId), cRes(invocId), dRes(invocId))
         .toMap
-    case ExtFunctionCall(fn, args)    => ??? // simExtFunc(fn, args.map(simValue)
-    case FunctionCall(fn, body, args) => ??? // simFunc(fn, simScope(body), args.map(simValue)
+    case ExtFunctionCall(fn, args)    => ??? // simExtFunc(fn, args.map(simValue))
+    case FunctionCall(fn, body, args) => ??? // simFunc(fn, simScope(body), args.map(simValue))
     case InvocationId                 => simInvocId(records)
     case Pass(value)                  => ???
     case Dynamic(source)              => ???
@@ -122,11 +122,11 @@ object Simulate:
     case Vec3(tree) => records.view.mapValues(_.cache(tree.treeid).asInstanceOf[Vector[ScalarRes]]).toMap
     case Vec4(tree) => records.view.mapValues(_.cache(tree.treeid).asInstanceOf[Vector[ScalarRes]]).toMap
 
-  private def simExtFunc(fn: FunctionName, args: List[Result], records: Records): (Result, Records) = ???
-  private def simFunc(fn: FnIdentifier, body: Result, args: List[Result], records: Records): (Result, Records) = ???
+  private def simExtFunc(fn: FunctionName, args: List[Result], records: Records): Results = ???
+  private def simFunc(fn: FnIdentifier, body: Result, args: List[Result], records: Records): Results = ???
   private def simInvocId(records: Records): Map[InvocId, InvocId] = records.map((invocId, _) => invocId -> invocId)
 
-  // @annotation.tailrec
+  @annotation.tailrec
   private def whenHelper(
     when: Expression[GBoolean],
     thenCode: Scope[?],
@@ -136,23 +136,23 @@ object Simulate:
     resultsSoFar: Results,
     finishedRecords: Records,
     pendingRecords: Records,
-  )(using SimContext): (Results, Records) =
+  )(using SimData): (Results, Records) =
     if pendingRecords.isEmpty then (resultsSoFar, finishedRecords)
     else
       // scopes are not included in caches, they have to be simulated from scratch.
       // there could be reads happening in scopes, records have to be updated.
-      // scopes can still read from the outer SimContext.
-      val SimRes(boolResults, records1, _) = sim(when, pendingRecords) // SimContext does not change.
+      // scopes can still read from the outer SimData.
+      val SimContext(boolResults, records1, _) = sim(when, pendingRecords) // SimData does not change.
 
       // Split invocations that enter this branch.
       val (enterRecords, newPendingRecords) = records1.partition((invocId, _) => boolResults(invocId).asInstanceOf[Boolean])
 
       // Only those invocs that enter the branch will have their records updated with thenCode result.
-      val SimRes(thenResults, thenRecords, _) = sim(thenCode.expr, enterRecords)
+      val SimContext(thenResults, thenRecords, _) = sim(thenCode.expr, enterRecords)
 
       otherConds.headOption match
         case None => // run pending invocs on otherwise, collect all results and records, done
-          val SimRes(owResults, owRecords, _) = sim(otherwise.expr, newPendingRecords)
+          val SimContext(owResults, owRecords, _) = sim(otherwise.expr, newPendingRecords)
           (resultsSoFar ++ thenResults ++ owResults, finishedRecords ++ thenRecords ++ owRecords)
         case Some(cond) =>
           whenHelper(
@@ -166,21 +166,21 @@ object Simulate:
             pendingRecords = newPendingRecords,
           )
 
-  private def simWhen(e: WhenExpr[?], records: Records)(using SimContext): (Results, Records) = e match
+  private def simWhen(e: WhenExpr[?], records: Records)(using SimData): (Results, Records) = e match
     case WhenExpr(when, thenCode, otherConds, otherCaseCodes, otherwise) =>
       whenHelper(when.tree, thenCode, otherConds, otherCaseCodes, otherwise, Map(), Map(), records)
 
-  private def simReadBuffer(e: ReadBuffer[?], records: Records)(using sc: SimContext): (Results, Records) = e match
+  private def simReadBuffer(e: ReadBuffer[?], records: Records)(using data: SimData): (Results, Records) = e match
     case ReadBuffer(buffer, index) =>
       val indices = records.view.mapValues(_.cache(index.tree.treeid).asInstanceOf[Int]).toMap
-      val readValues = indices.view.mapValues(i => sc.lookup(buffer, i)).toMap
+      val readValues = indices.view.mapValues(i => data.lookup(buffer, i)).toMap
       val newRecords = records.map: (invocId, record) =>
         invocId -> record.addRead(ReadBuf(e.treeid, buffer, indices(invocId), readValues(invocId)))
       (readValues, newRecords)
 
-  private def simReadUniform(e: ReadUniform[?], records: Records)(using sc: SimContext): (Results, Records) = e match
+  private def simReadUniform(e: ReadUniform[?], records: Records)(using data: SimData): (Results, Records) = e match
     case ReadUniform(uniform) =>
-      val readValue = sc.lookupUni(uniform) // same for all invocs
+      val readValue = data.lookupUni(uniform) // same for all invocs
       val newResults = records.map((invocId, _) => invocId -> readValue)
       val newRecords = records.map: (invocId, record) =>
         invocId -> record.addRead(ReadUni(e.treeid, uniform, readValue))

@@ -7,7 +7,7 @@ import izumi.reflect.Tag
 
 class SimulateE2eTest extends munit.FunSuite:
   test("simulate binary operation arithmetic, record cache"):
-    given SimContext = SimContext() // no buffers, reads/writes here
+    given SimData = SimData() // no buffers, reads/writes here
     val startingRecords = Map(0 -> Record()) // running with only 1 invocation
 
     val a: Int32 = 1
@@ -22,7 +22,7 @@ class SimulateE2eTest extends munit.FunSuite:
     val e4 = Div(fromExpr(e3), d) // 3
     val expr = Mod(e, fromExpr(e4)) // 5 % ((6 * ((1 - 2) + 3)) / 4)
 
-    val SimRes(results, records, _) = Simulate.sim(expr, startingRecords)
+    val SimContext(results, records, _) = Simulate.sim(expr, startingRecords)
     val expected = 2
     assert(results(0) == expected, s"Expected $expected, got $results")
 
@@ -42,34 +42,34 @@ class SimulateE2eTest extends munit.FunSuite:
     assert(records(0).cache == map)
 
   test("simulate Vec4, scalar, dot, extract scalar"):
-    given SimContext = SimContext() // no buffers, reads/writes here
+    given SimData = SimData() // no buffers, reads/writes here
     val startingRecords = Map(0 -> Record()) // running with only 1 invocation
 
     val v1 = ComposeVec4[Float32](1f, 2f, 3f, 4f)
-    val SimRes(res1, records1, _) = Simulate.sim(v1, startingRecords)
+    val SimContext(res1, records1, _) = Simulate.sim(v1, startingRecords)
     val exp1 = Vector(1f, 2f, 3f, 4f)
     assert(res1(0) == exp1, s"Expected $exp1, got ${res1(0)}")
 
     val i: Int32 = 2
     val expr = ExtractScalar(fromExpr(v1), i)
-    val SimRes(res2, records2, _) = Simulate.sim(expr, records1)
+    val SimContext(res2, records2, _) = Simulate.sim(expr, records1)
     val exp2 = 3f
     assert(res2(0) == exp2, s"Expected $exp2, got ${res2(0)}")
 
     val v2 = ScalarProd(fromExpr(v1), -1f)
-    val SimRes(res3, records3, _) = Simulate.sim(v2, records2)
+    val SimContext(res3, records3, _) = Simulate.sim(v2, records2)
     val exp3 = Vector(-1f, -2f, -3f, -4f)
     assert(res3(0) == exp3, s"Expected $exp3, got ${res3(0)}")
 
     val v3 = ComposeVec4[Float32](-4f, -3f, 2f, 1f)
     val dot = DotProd(fromExpr(v1), fromExpr(v3))
-    val SimRes(results, records4, _) = Simulate.sim(dot, records3)
+    val SimContext(results, records4, _) = Simulate.sim(dot, records3)
     val exp4 = 0f
     val res4 = results(0).asInstanceOf[Float]
     assert(Math.abs(res4 - exp4) < 0.001f, s"Expected $exp4, got $res4")
 
   test("simulate bitwise ops"):
-    given SimContext = SimContext() // no buffers, reads/writes here
+    given SimData = SimData() // no buffers, reads/writes here
     val startingRecords = Map(0 -> Record()) // running with only 1 invocation
 
     val a: Int32 = 5
@@ -81,18 +81,18 @@ class SimulateE2eTest extends munit.FunSuite:
     val or = BitwiseOr(fromExpr(left), fromExpr(right))
     val xor = BitwiseXor(fromExpr(and), fromExpr(or))
 
-    val SimRes(res, records1, _) = Simulate.sim(xor, startingRecords)
+    val SimContext(res, records1, _) = Simulate.sim(xor, startingRecords)
     val exp = ((~5 << 3) & (~5 >> 3)) ^ ((~5 << 3) | (~5 >> 3))
     assert(res(0) == exp, s"Expected $exp, got ${res(0)}")
 
   test("simulate should not stack overflow"):
-    given SimContext = SimContext() // no buffers, reads/writes here
+    given SimData = SimData() // no buffers, reads/writes here
     val startingRecords = Map(0 -> Record()) // running with only 1 invocation
 
     val a: Int32 = 1
     var sum = Sum(a, a) // 2
     for _ <- 0 until 1000000 do sum = Sum(a, fromExpr(sum))
-    val SimRes(res, records, _) = Simulate.sim(sum, startingRecords)
+    val SimContext(res, records, _) = Simulate.sim(sum, startingRecords)
     val exp = 1000002
     assert(res(0) == exp, s"Expected $exp, got ${res(0)}")
 
@@ -102,11 +102,11 @@ class SimulateE2eTest extends munit.FunSuite:
     val buffer = SimGBuffer[Int32]()
     val array = (0 until 1024).toArray[Result]
 
-    given SimContext = SimContext().addBuffer(buffer, array)
+    given SimData = SimData().addBuffer(buffer, array)
     val startingRecords = Map(0 -> Record()) // running with only 1 invocation
 
     val expr = ReadBuffer(buffer, 128)
-    val SimRes(res, records, _) = Simulate.sim(expr, startingRecords)
+    val SimContext(res, records, _) = Simulate.sim(expr, startingRecords)
     val exp = 128
     assert(res(0) == exp, s"Expected $exp, got $res")
 

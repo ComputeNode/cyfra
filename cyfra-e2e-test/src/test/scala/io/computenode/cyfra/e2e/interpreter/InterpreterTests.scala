@@ -10,7 +10,7 @@ class InterpreterE2eTest extends munit.FunSuite:
     val pure = Pure(0)
     var gio = FlatMap(pure, pure)
     for _ <- 0 until 1000000 do gio = FlatMap(pure, gio)
-    val result = Interpreter.interpret(gio, 0)
+    val result = Interpreter.interpret(gio, SimContext())
     val res = 0
     val exp = 0
     assert(res == exp, s"Expected $exp, got $res")

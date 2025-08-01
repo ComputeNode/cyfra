@@ -7,7 +7,7 @@ import izumi.reflect.Tag
 
 class SimulateWhenE2eTest extends munit.FunSuite:
   test("simulate when"):
-    given SimContext = SimContext() // no buffers, reads/writes here
+    given SimData = SimData() // no buffers, reads/writes here
     val startingRecords = Map(0 -> Record()) // running with only 1 invocation
 
     val expr = WhenExpr(
@@ -17,12 +17,12 @@ class SimulateWhenE2eTest extends munit.FunSuite:
       otherCaseCodes = List(Scope(ConstInt32(2)), Scope(ConstInt32(4))),
       otherwise = Scope(ConstInt32(3)),
     )
-    val SimRes(res, _, _) = Simulate.sim(expr, startingRecords)
+    val SimContext(res, _, _) = Simulate.sim(expr, startingRecords)
     val exp = 1
     assert(res(0) == exp, s"Expected $exp, got ${res(0)}")
 
   test("simulate elseWhen first"):
-    given SimContext = SimContext() // no buffers, reads/writes here
+    given SimData = SimData() // no buffers, reads/writes here
     val startingRecords = Map(0 -> Record()) // running with only 1 invocation
 
     val expr = WhenExpr(
@@ -32,12 +32,12 @@ class SimulateWhenE2eTest extends munit.FunSuite:
       otherCaseCodes = List(Scope(ConstInt32(2)), Scope(ConstInt32(4))),
       otherwise = Scope(ConstInt32(3)),
     )
-    val SimRes(res, _, _) = Simulate.sim(expr, startingRecords)
+    val SimContext(res, _, _) = Simulate.sim(expr, startingRecords)
     val exp = 2
     assert(res(0) == exp, s"Expected $exp, got ${res(0)}")
 
   test("simulate elseWhen second"):
-    given SimContext = SimContext() // no buffers, reads/writes here
+    given SimData = SimData() // no buffers, reads/writes here
     val startingRecords = Map(0 -> Record()) // running with only 1 invocation
 
     val expr = WhenExpr(
@@ -47,12 +47,12 @@ class SimulateWhenE2eTest extends munit.FunSuite:
       otherCaseCodes = List(Scope(ConstInt32(2)), Scope(ConstInt32(4))),
       otherwise = Scope(ConstInt32(3)),
     )
-    val SimRes(res, _, _) = Simulate.sim(expr, startingRecords)
+    val SimContext(res, _, _) = Simulate.sim(expr, startingRecords)
     val exp = 4
     assert(res(0) == exp, s"Expected $exp, got $res")
 
   test("simulate otherwise"):
-    given SimContext = SimContext() // no buffers, reads/writes here
+    given SimData = SimData() // no buffers, reads/writes here
     val startingRecords = Map(0 -> Record()) // running with only 1 invocation
 
     val expr = WhenExpr(
@@ -62,7 +62,7 @@ class SimulateWhenE2eTest extends munit.FunSuite:
       otherCaseCodes = List(Scope(ConstInt32(2)), Scope(ConstInt32(4))),
       otherwise = Scope(ConstInt32(3)),
     )
-    val SimRes(res, _, _) = Simulate.sim(expr, startingRecords)
+    val SimContext(res, _, _) = Simulate.sim(expr, startingRecords)
     val exp = 3
     assert(res(0) == exp, s"Expected $exp, got $res")
 
@@ -71,7 +71,7 @@ class SimulateWhenE2eTest extends munit.FunSuite:
     val buffer = SimGBuffer[Int32]()
     val array = (0 until 3).toArray[Result]
 
-    given SimContext = SimContext().addBuffer(buffer, array)
+    given SimData = SimData().addBuffer(buffer, array)
     val startingRecords = Map(0 -> Record(), 1 -> Record(), 2 -> Record()) // running 3 invocations
 
     val a: Int32 = 4
@@ -93,6 +93,6 @@ class SimulateWhenE2eTest extends munit.FunSuite:
       otherCaseCodes = List(Scope(expr2)), // _ _ 12
       otherwise = Scope(expr3), // _ 3 _
     )
-    val SimRes(res, records, _) = Simulate.sim(expr, startingRecords)
+    val SimContext(res, records, _) = Simulate.sim(expr, startingRecords)
     val exp = Map(0 -> 0, 1 -> 3, 2 -> 12)
     assert(res == exp, s"Expected $exp, got $res")
