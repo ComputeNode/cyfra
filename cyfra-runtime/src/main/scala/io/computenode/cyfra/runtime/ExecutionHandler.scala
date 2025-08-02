@@ -75,6 +75,7 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
       check(vkQueueSubmit(commandPool.queue.get, submitInfo, fence.get), "Failed to submit command buffer to queue")
       fence.block().destroy()
     commandPool.freeCommandBuffer(commandBuffer)
+    descriptorSets.flatten.foreach(descriptorPool.free)
     result
 
   private def interpret[Params, EL <: Layout: LayoutBinding, RL <: Layout: LayoutBinding](
