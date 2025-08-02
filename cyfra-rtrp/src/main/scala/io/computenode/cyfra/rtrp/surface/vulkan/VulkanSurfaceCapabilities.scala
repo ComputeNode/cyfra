@@ -17,14 +17,11 @@ class VulkanSurfaceCapabilities(vulkanContext: VulkanContext, surface: VulkanSur
   private val vkFormats = queryAvailableFormats()
   private val vkPresentModes = queryPresentModes()
 
-  override def supportedFormats: List[SurfaceFormat] =
-    vkFormats.map(convertVulkanFormat).distinct
+  override def supportedFormats: List[Int] = vkFormats.map(_.format())
 
-  override def supportedColorSpaces: List[ColorSpace] =
-    vkFormats.map(convertVulkanColorSpace).distinct
+  override def supportedColorSpaces: List[Int] = vkFormats.map(_.colorSpace())
 
-  override def supportedPresentModes: List[PresentMode] =
-    vkPresentModes.map(convertVulkanPresentMode)
+  override def supportedPresentModes: List[Int] = vkPresentModes
 
   override def minImageExtent: (Int, Int) =
     (vkCapabilities.minImageExtent().width(), vkCapabilities.minImageExtent().height())
@@ -34,10 +31,8 @@ class VulkanSurfaceCapabilities(vulkanContext: VulkanContext, surface: VulkanSur
 
   override def currentExtent: (Int, Int) =
     val extent = vkCapabilities.currentExtent()
-    // If width/height is 0xFFFFFFFF, then surface size will be determined by the swapchain
     if extent.width() == 0xffffffff || extent.height() == 0xffffffff then
-      // Return a reasonable default
-      (800, 600)
+      (-1, -1)
     else (extent.width(), extent.height())
 
   override def minImageCount: Int = vkCapabilities.minImageCount()
@@ -104,27 +99,3 @@ class VulkanSurfaceCapabilities(vulkanContext: VulkanContext, surface: VulkanSur
 
       (0 until modeCount).map(modes.get).toList
     finally MemoryStack.stackPop()
-
-  // Conversion methods
-
-  private def convertVulkanFormat(vkFormat: VkSurfaceFormatKHR): SurfaceFormat =
-    vkFormat.format() match
-      case VK_FORMAT_B8G8R8A8_SRGB  => SurfaceFormat.B8G8R8A8_SRGB
-      case VK_FORMAT_B8G8R8A8_UNORM => SurfaceFormat.B8G8R8A8_UNORM
-      case VK_FORMAT_R8G8B8A8_SRGB  => SurfaceFormat.R8G8B8A8_SRGB
-      case VK_FORMAT_R8G8B8A8_UNORM => SurfaceFormat.R8G8B8A8_UNORM
-      case _                        => SurfaceFormat.B8G8R8A8_SRGB // Default fallback
-
-  private def convertVulkanColorSpace(vkFormat: VkSurfaceFormatKHR): ColorSpace =
-    vkFormat.colorSpace() match
-      case VK_COLOR_SPACE_SRGB_NONLINEAR_KHR => ColorSpace.SRGB_NONLINEAR
-      case 1000104001                        => ColorSpace.DISPLAY_P3_NONLINEAR // VK_COLOR_SPACE_DISPLAY_P3_NONLINEAR_EXT
-      case _                                 => ColorSpace.SRGB_NONLINEAR // Default fallback
-
-  private def convertVulkanPresentMode(vkMode: Int): PresentMode =
-    vkMode match
-      case VK_PRESENT_MODE_IMMEDIATE_KHR    => PresentMode.IMMEDIATE
-      case VK_PRESENT_MODE_MAILBOX_KHR      => PresentMode.MAILBOX
-      case VK_PRESENT_MODE_FIFO_KHR         => PresentMode.FIFO
-      case VK_PRESENT_MODE_FIFO_RELAXED_KHR => PresentMode.FIFO_RELAXED
-      case _                                => PresentMode.FIFO // Default fallback

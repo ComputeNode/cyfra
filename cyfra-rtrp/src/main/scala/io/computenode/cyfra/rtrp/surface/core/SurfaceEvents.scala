@@ -21,4 +21,4 @@ object SurfaceEvent:
 
   case class SurfaceLost(windowId: WindowId, surfaceId: SurfaceId, error: String) extends SurfaceEvent
 
-  case class SurfaceFormatChanged(windowId: WindowId, surfaceId: SurfaceId, oldFormat: SurfaceFormat, newFormat: SurfaceFormat) extends SurfaceEvent
+  case class FormatChanged(windowId: WindowId, surfaceId: SurfaceId, oldFormat: Int, newFormat: Int) extends SurfaceEvent

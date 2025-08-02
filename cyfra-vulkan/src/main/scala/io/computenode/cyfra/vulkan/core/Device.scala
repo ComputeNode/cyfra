@@ -1,7 +1,7 @@
 package io.computenode.cyfra.vulkan.core
 
 import io.computenode.cyfra.vulkan.VulkanContext.ValidationLayer
-import Device.{MacOsExtension, SyncExtension}
+import Device.{MacOsExtension, SwapchainExtension, SyncExtension}
 import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import io.computenode.cyfra.vulkan.util.VulkanObject
 import org.lwjgl.vulkan.*
@@ -9,6 +9,7 @@ import org.lwjgl.vulkan.KHRPortabilitySubset.VK_KHR_PORTABILITY_SUBSET_EXTENSION
 import org.lwjgl.vulkan.KHRSynchronization2.VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME
 import org.lwjgl.vulkan.VK10.*
 import org.lwjgl.vulkan.VK11.*
+import org.lwjgl.vulkan.KHRSwapchain.VK_KHR_SWAPCHAIN_EXTENSION_NAME
 
 import java.nio.ByteBuffer
 import scala.jdk.CollectionConverters.given
@@ -20,6 +21,7 @@ import scala.jdk.CollectionConverters.given
 object Device:
   final val MacOsExtension = VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME
   final val SyncExtension = VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME
+  final val SwapchainExtension = VK_KHR_SWAPCHAIN_EXTENSION_NAME
 
 private[cyfra] class Device(instance: Instance) extends VulkanObject:
 
@@ -106,7 +108,7 @@ private[cyfra] class Device(instance: Instance) extends VulkanObject:
       .queueFamilyIndex(computeQueueFamily)
       .pQueuePriorities(pQueuePriorities)
 
-    val extensions = Seq(MacOsExtension, SyncExtension).filter(deviceExtensionsSet)
+    val extensions = Seq(MacOsExtension, SwapchainExtension, SyncExtension).filter(deviceExtensionsSet)
     val ppExtensionNames = stack.callocPointer(extensions.length)
     extensions.foreach(extension => ppExtensionNames.put(stack.ASCII(extension)))
     ppExtensionNames.flip()
