@@ -6,24 +6,35 @@ import izumi.reflect.Tag
 
 object Interpreter:
   private def interpretPure(gio: Pure[?], sc: SimContext): SimContext = gio match
-    case Pure(value) =>
-      val SimContext(results, records, _) = Simulate.sim(value.asInstanceOf[Value], sc.records)(using sc.data) // TODO needs fixing
-      // newSc.addResult(result)
-      ???
+    // TODO needs fixing, throws ClassCastException, Pure[T] should be Pure[T <: Value]
+    case Pure(value) => Simulate.sim(value.asInstanceOf[Value], sc) // no writes here
 
   private def interpretWriteBuffer(gio: WriteBuffer[?], sc: SimContext): SimContext = gio match
     case WriteBuffer(buffer, index, value) =>
-      val SimContext(n, _, _) = Simulate.sim(index, sc.records)(using sc.data) // Int32, no reads/writes here, don't need resulting context
-      val i = n.asInstanceOf[Int]
-      val SimContext(res, _, newSc) = Simulate.sim(value, sc.records)(using sc.data)
-      // newSc.addWrite(WriteBuf(buffer, i, res))
-      ???
+      val sc1 = Simulate.sim(index, sc) // get the write index for each invocation
+      val SimContext(writeVals, records, data) = Simulate.sim(value, sc1) // get the values to be written
+
+      // write the values to the buffer, update records with writes
+      val indices = sc1.results
+      val newData = data.writeToBuffer(buffer, indices, writeVals)
+      val writes = indices.map: (invocId, ind) =>
+        invocId -> WriteBuf(buffer, ind.asInstanceOf[Int], writeVals(invocId))
+      val newRecords = records.addWrites(writes)
+
+      SimContext(writeVals, newRecords, newData)
 
   private def interpretWriteUniform(gio: WriteUniform[?], sc: SimContext): SimContext = gio match
     case WriteUniform(uniform, value) =>
-      val SimContext(results, records, newSc) = Simulate.sim(value, sc.records)(using sc.data)
-      // newSc.addWrite(WriteUni(uniform, result))
-      ???
+      // get the uniform value to be written (same for all invocations)
+      val SimContext(writeVals, records, data) = Simulate.sim(value, sc)
+
+      // write the (single) value to the uniform, update records with writes
+      val uniVal = writeVals.values.head
+      val writes = writeVals.map((invocId, res) => invocId -> WriteUni(uniform, res))
+      val newData = data.write(WriteUni(uniform, uniVal))
+      val newRecords = records.addWrites(writes)
+
+      SimContext(writeVals, newRecords, newData)
 
   private def interpretOne(gio: GIO[?], sc: SimContext): SimContext = gio match
     case p: Pure[?]          => interpretPure(p, sc)
@@ -34,11 +45,13 @@ object Interpreter:
   @annotation.tailrec
   private def interpretMany(gios: List[GIO[?]], sc: SimContext): SimContext = gios match
     case FlatMap(gio, next) :: tail => interpretMany(gio :: next :: tail, sc)
-    case Repeat(n, f) :: tail       => // is this n ever a complex expression? Or just a plain int?
-      val SimContext(results, _, _) = Simulate.sim(n, sc.records)(using sc.data) // just Int32, no reads/writes
-      val repeat = results(0).asInstanceOf[Int]
+    case Repeat(n, f) :: tail       =>
+      // does the value of n vary by invocation?
+      // can different invocations run different numbers of GIOs?
+      val newSc = Simulate.sim(n, sc)
+      val repeat = newSc.results.values.head.asInstanceOf[Int]
       val newGios = (0 until repeat).map(i => f(i)).toList
-      interpretMany(newGios ::: tail, sc)
+      interpretMany(newGios ::: tail, newSc)
     case head :: tail => interpretMany(tail, interpretOne(head, sc))
     case Nil          => sc
 

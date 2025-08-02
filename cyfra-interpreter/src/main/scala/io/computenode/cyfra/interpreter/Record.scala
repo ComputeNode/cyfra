@@ -15,15 +15,22 @@ case class Record(cache: Cache = Map(), writes: List[Write] = Nil, reads: List[R
     case ReadUni(_, _, _)    => copy(reads = read :: reads)
 
   def addWrite(write: Write): Record = write match
-    case WriteBuf(_, _, _, _) => copy(writes = write :: writes)
-    case WriteUni(_, _, _)    => copy(writes = write :: writes)
+    case WriteBuf(_, _, _) => copy(writes = write :: writes)
+    case WriteUni(_, _)    => copy(writes = write :: writes)
 
   def addResult(treeId: TreeId, res: Result) = copy(cache = cache.updated(treeId, res))
 
 extension (records: Records)
   def apply(invocIds: Seq[InvocId]): Records = invocIds.map(invocId => invocId -> Record()).toMap
+
   def updateResults(treeid: TreeId, results: Results): Records =
     records.map: (invocId, record) =>
       results.get(invocId) match
+        case None         => invocId -> record
+        case Some(result) => invocId -> record.addResult(treeid, result)
+
+  def addWrites(writes: Map[InvocId, Write]) =
+    records.map: (invocId, record) =>
+      writes.get(invocId) match
+        case Some(write) => invocId -> record.addWrite(write)
         case None        => invocId -> record
-        case Some(value) => invocId -> record.addResult(treeid, value)

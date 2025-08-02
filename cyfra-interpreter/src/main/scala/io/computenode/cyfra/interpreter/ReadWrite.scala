@@ -9,6 +9,6 @@ enum Read:
 export Read.*
 
 enum Write:
-  case WriteBuf(id: Int, buffer: GBuffer[?], index: Int, value: Result)
-  case WriteUni(id: Int, uni: GUniform[?], value: Result)
+  case WriteBuf(buffer: GBuffer[?], index: Int, value: Result)
+  case WriteUni(uni: GUniform[?], value: Result)
 export Write.*

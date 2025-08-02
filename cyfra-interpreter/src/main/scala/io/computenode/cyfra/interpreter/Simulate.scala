@@ -9,7 +9,11 @@ import io.computenode.cyfra.spirv.BlockBuilder.buildBlock
 object Simulate:
   import Result.*
 
+  // Some helpful overloads to simulate values instead of expressions
+  def sim(v: Value, sc: SimContext): SimContext = sim(v, sc.records)(using sc.data)
   def sim(v: Value, records: Records)(using data: SimData = SimData()): SimContext = sim(v.tree, records)
+
+  // for evaluating expressions that don't cause any writes (therefore don't change data)
   def sim(e: Expression[?], records: Records)(using SimData): SimContext = simIterate(buildBlock(e), records)
 
   @annotation.tailrec
@@ -17,9 +21,9 @@ object Simulate:
     case head :: next => // reads have to be treated specially, since they will update the records
       val (newResults, records1) = head match
         case e: ReadBuffer[?]  => simReadBuffer(e, records) // records updated with reads
-        case e: ReadUniform[?] => simReadUniform(e, records) // records updated with reads
-        case e: WhenExpr[?]    => simWhen(e, records) // records updated with reads
-        case _                 => (simOne(head)(using records), records) // no reads, records not updated
+        case e: ReadUniform[?] => simReadUniform(e, records)
+        case e: WhenExpr[?]    => simWhen(e, records)
+        case _                 => (simOne(head)(using records), records) // no reads, records don't change
       val newRecords = records1.updateResults(head.treeid, newResults) // update caches with new results
       simIterate(next, newRecords, newResults)
     case Nil => SimContext(results, records, data)

@@ -8,4 +8,4 @@ extension (r: Results)
     r.map: (invocId, res) =>
       invocId -> op(res, that(invocId))
 
-case class SimContext(results: Results = Map(), records: Records = Map(), data: SimData = SimData())
+case class SimContext(results: Results, records: Records, data: SimData)
