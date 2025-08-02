@@ -20,6 +20,7 @@ class VkCyfraRuntime extends CyfraRuntime:
       val executionHandler = new ExecutionHandler(this, threadContext, context)
       val allocation = new VkAllocation(threadContext.commandPool, executionHandler)
       f(allocation)
+      threadContext.descriptorSetManager.destroy()
       allocation.close()
 
   def close(): Unit =

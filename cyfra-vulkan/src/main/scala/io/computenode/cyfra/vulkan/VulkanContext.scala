@@ -36,12 +36,17 @@ private[cyfra] class VulkanContext:
 
   private val blockingQueue: BlockingQueue[CommandPool] = new ArrayBlockingQueue[CommandPool](commandPools.length).tap(_.addAll(commandPools.asJava))
   def withThreadContext[T](f: VulkanThreadContext => T): T =
+    assert(
+      VulkanThreadContext.guard.get() == 0,
+      "VulkanThreadContext is not thread-safe. Each thread can have only one VulkanThreadContext at a time. You cannot stack VulkanThreadContext.",
+    )
     val commandPool = blockingQueue.take()
     val threadContext = new VulkanThreadContext(commandPool, descriptorPoolManager)
+    VulkanThreadContext.guard.set(threadContext.hashCode())
     try f(threadContext)
     finally
-      threadContext.destroy()
       blockingQueue.put(commandPool)
+      VulkanThreadContext.guard.set(0)
 
   def destroy(): Unit =
     commandPools.foreach(_.destroy())
