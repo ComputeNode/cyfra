@@ -38,7 +38,7 @@ private[cyfra] class DescriptorPool(using device: Device) extends VulkanObjectHa
     pDescriptorPool.get()
 
   def allocate(layout: DescriptorSetLayout): Option[DescriptorSet] = DescriptorSet(layout, this)
-  
+
   def reset(): Unit = check(vkResetDescriptorPool(device.get, handle, 0), "Failed to reset descriptor pool")
 
   override protected def close(): Unit =
