@@ -13,9 +13,6 @@ import org.lwjgl.BufferUtils
 import org.lwjgl.system.MemoryUtil
 
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.{Executors, Semaphore}
-import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.collection.parallel.CollectionConverters.given
 
 object TestingStuff:
@@ -249,8 +246,7 @@ object TestingStuff:
     (1 to 10000).par.foreach: i =>
       val inBuffers = List.fill(5)(BufferUtils.createIntBuffer(bufferSize))
       val wbbList = inBuffers.map(MemoryUtil.memByteBuffer)
-      val outBuffers = List.fill(5)(BufferUtils.createIntBuffer(bufferSize))
-      val rbbList = outBuffers.map(MemoryUtil.memByteBuffer)
+      val rbbList = List.fill(5)(BufferUtils.createByteBuffer(bufferSize * 4))
 
       val inData = (0 until bufferSize).toArray
       inBuffers.foreach(_.put(inData).flip())

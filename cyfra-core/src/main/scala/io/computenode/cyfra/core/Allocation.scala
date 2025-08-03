@@ -11,9 +11,9 @@ import java.nio.ByteBuffer
 
 trait Allocation:
   extension (buffer: GBinding[?])
-    def read(bb: ByteBuffer, offset: Int = 0, size: Int = -1): Unit
+    def read(bb: ByteBuffer, offset: Int = 0): Unit
 
-    def write(bb: ByteBuffer, offset: Int = 0, size: Int = -1): Unit
+    def write(bb: ByteBuffer, offset: Int = 0): Unit
 
   extension [Params, EL <: Layout: LayoutBinding, RL <: Layout: LayoutBinding](execution: GExecution[Params, EL, RL])
     def execute(params: Params, layout: EL): RL

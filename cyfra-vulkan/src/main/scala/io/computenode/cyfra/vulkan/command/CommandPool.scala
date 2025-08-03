@@ -39,10 +39,11 @@ private[cyfra] abstract class CommandPool private (flags: Int, val queue: Queue)
     check(vkAllocateCommandBuffers(device.get, allocateInfo, pointerBuffer), "Failed to allocate command buffers")
     0 until n map (i => pointerBuffer.get(i)) map (new VkCommandBuffer(_, device.get))
 
-  def executeCommand(block: VkCommandBuffer => Unit): Fence =
+  def executeCommand(block: VkCommandBuffer => Unit): Unit =
     val commandBuffer = beginSingleTimeCommands()
     block(commandBuffer)
-    endSingleTimeCommands(commandBuffer)
+    endSingleTimeCommands(commandBuffer).block().destroy()
+    freeCommandBuffer(commandBuffer)
 
   private def beginSingleTimeCommands(): VkCommandBuffer =
     pushStack: stack =>
@@ -64,7 +65,7 @@ private[cyfra] abstract class CommandPool private (flags: Int, val queue: Queue)
         .calloc(stack)
         .sType$Default()
         .pCommandBuffers(pointerBuffer)
-      val fence = new Fence(0, () => freeCommandBuffer(commandBuffer))
+      val fence = Fence()
       check(vkQueueSubmit(queue.get, submitInfo, fence.get), "Failed to submit single time command buffer")
       fence
 
