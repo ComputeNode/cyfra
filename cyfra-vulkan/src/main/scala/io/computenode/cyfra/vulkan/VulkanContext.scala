@@ -4,7 +4,7 @@ import io.computenode.cyfra.utility.Logger.logger
 import io.computenode.cyfra.vulkan.VulkanContext.ValidationLayers
 import io.computenode.cyfra.vulkan.command.CommandPool
 import io.computenode.cyfra.vulkan.core.{DebugCallback, Device, Instance, PhysicalDevice, Queue}
-import io.computenode.cyfra.vulkan.memory.{Allocator, DescriptorPool, DescriptorPoolManager}
+import io.computenode.cyfra.vulkan.memory.{Allocator, DescriptorPool, DescriptorPoolManager, DescriptorSetManager}
 import org.lwjgl.system.Configuration
 
 import java.util.concurrent.{ArrayBlockingQueue, BlockingQueue}
@@ -41,11 +41,13 @@ private[cyfra] class VulkanContext:
       "VulkanThreadContext is not thread-safe. Each thread can have only one VulkanThreadContext at a time. You cannot stack VulkanThreadContext.",
     )
     val commandPool = blockingQueue.take()
-    val threadContext = new VulkanThreadContext(commandPool, descriptorPoolManager)
+    val descriptorSetManager = new DescriptorSetManager(descriptorPoolManager)
+    val threadContext = new VulkanThreadContext(commandPool, descriptorSetManager)
     VulkanThreadContext.guard.set(threadContext.hashCode())
     try f(threadContext)
     finally
       blockingQueue.put(commandPool)
+      descriptorSetManager.destroy()
       VulkanThreadContext.guard.set(0)
 
   def destroy(): Unit =

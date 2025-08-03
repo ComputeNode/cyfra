@@ -12,14 +12,14 @@ import org.lwjgl.vulkan.{VkDescriptorPoolCreateInfo, VkDescriptorPoolSize}
   *   MarconZet Created 14.04.2019
   */
 object DescriptorPool:
-  val MAX_SETS = 100
+  val MAX_SETS = 1000
 private[cyfra] class DescriptorPool(using device: Device) extends VulkanObjectHandle:
   protected val handle: Long = pushStack: stack =>
     val descriptorPoolSize = VkDescriptorPoolSize.calloc(2, stack)
     descriptorPoolSize
       .get()
       .`type`(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
-      .descriptorCount(2 * MAX_SETS)
+      .descriptorCount(10 * MAX_SETS)
 
     descriptorPoolSize
       .get()

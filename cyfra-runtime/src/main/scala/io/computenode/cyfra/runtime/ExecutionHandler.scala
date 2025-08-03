@@ -36,7 +36,7 @@ import scala.collection.mutable
 class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadContext, context: VulkanContext):
   import context.given
 
-  private val descriptorPool: DescriptorSetManager = threadContext.descriptorSetManager
+  private val dsManager: DescriptorSetManager = threadContext.descriptorSetManager
   private val commandPool: CommandPool = threadContext.commandPool
 
   def handle[Params, EL <: Layout: LayoutBinding, RL <: Layout: LayoutBinding](execution: GExecution[Params, EL, RL], params: Params, layout: EL)(
@@ -45,7 +45,7 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
     val (result, shaderCalls) = interpret(execution, params, layout)
 
     val descriptorSets = shaderCalls.map { case ShaderCall(pipeline, layout, _) =>
-      pipeline.pipelineLayout.sets.map(descriptorPool.allocate).zip(layout).map { case (set, bindings) =>
+      pipeline.pipelineLayout.sets.map(dsManager.allocate).zip(layout).map { case (set, bindings) =>
         set.update(bindings.map(x => VkAllocation.getUnderlying(x.binding)))
         set
       }
@@ -75,7 +75,7 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
       check(vkQueueSubmit(commandPool.queue.get, submitInfo, fence.get), "Failed to submit command buffer to queue")
       fence.block().destroy()
     commandPool.freeCommandBuffer(commandBuffer)
-    descriptorSets.flatten.foreach(descriptorPool.free)
+    descriptorSets.flatten.foreach(dsManager.free)
     result
 
   private def interpret[Params, EL <: Layout: LayoutBinding, RL <: Layout: LayoutBinding](

@@ -12,9 +12,11 @@ import io.computenode.cyfra.runtime.VkCyfraRuntime
 import org.lwjgl.BufferUtils
 import org.lwjgl.system.MemoryUtil
 
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{Executors, Semaphore}
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.collection.parallel.CollectionConverters.given
 
 object TestingStuff:
 
@@ -243,48 +245,38 @@ object TestingStuff:
       .allocate[AddProgramExecLayout]
       .map: region =>
         execution.execute(params, region)
-    val x = () =>
-      (1 to 10000).foreach: i =>
-        val inBuffers = List.fill(5)(BufferUtils.createIntBuffer(bufferSize))
-        val wbbList = inBuffers.map(MemoryUtil.memByteBuffer)
-        val outBuffers = List.fill(5)(BufferUtils.createIntBuffer(bufferSize))
-        val rbbList = outBuffers.map(MemoryUtil.memByteBuffer)
+    val aInt = new AtomicInteger(0)
+    (1 to 10000).par.foreach: i =>
+      val inBuffers = List.fill(5)(BufferUtils.createIntBuffer(bufferSize))
+      val wbbList = inBuffers.map(MemoryUtil.memByteBuffer)
+      val outBuffers = List.fill(5)(BufferUtils.createIntBuffer(bufferSize))
+      val rbbList = outBuffers.map(MemoryUtil.memByteBuffer)
 
-        val inData = (0 until bufferSize).toArray
-        inBuffers.foreach(_.put(inData).flip())
-        region.runUnsafe(
-          init = AddProgramExecLayout(
-            in1 = GBuffer[Int32](wbbList(0)),
-            in2 = GBuffer[Int32](wbbList(1)),
-            in3 = GBuffer[Int32](wbbList(2)),
-            in4 = GBuffer[Int32](wbbList(3)),
-            in5 = GBuffer[Int32](wbbList(4)),
-            out1 = GBuffer[Int32](bufferSize),
-            out2 = GBuffer[Int32](bufferSize),
-            out3 = GBuffer[Int32](bufferSize),
-            out4 = GBuffer[Int32](bufferSize),
-            out5 = GBuffer[Int32](bufferSize),
-          ),
-          onDone = layout => {
-            layout.out1.read(rbbList(0))
-            layout.out2.read(rbbList(1))
-            layout.out3.read(rbbList(2))
-            layout.out4.read(rbbList(3))
-            layout.out5.read(rbbList(4))
-          },
-        )
-        println(s"Iteration $i completed")
+      val inData = (0 until bufferSize).toArray
+      inBuffers.foreach(_.put(inData).flip())
+      region.runUnsafe(
+        init = AddProgramExecLayout(
+          in1 = GBuffer[Int32](wbbList(0)),
+          in2 = GBuffer[Int32](wbbList(1)),
+          in3 = GBuffer[Int32](wbbList(2)),
+          in4 = GBuffer[Int32](wbbList(3)),
+          in5 = GBuffer[Int32](wbbList(4)),
+          out1 = GBuffer[Int32](bufferSize),
+          out2 = GBuffer[Int32](bufferSize),
+          out3 = GBuffer[Int32](bufferSize),
+          out4 = GBuffer[Int32](bufferSize),
+          out5 = GBuffer[Int32](bufferSize),
+        ),
+        onDone = layout => {
+          layout.out1.read(rbbList(0))
+          layout.out2.read(rbbList(1))
+          layout.out3.read(rbbList(2))
+          layout.out4.read(rbbList(3))
+          layout.out5.read(rbbList(4))
+        },
+      )
+      val prev = aInt.getAndAdd(1)
+      if prev % 100 == 0 then println(s"Iteration $prev completed")
 
-
-//    val t = new Thread:
-//      override def run(): Unit = x()
-//    t.start()
-//    t.join()
-    x()
-
-
-//    given ExecutionContext = ExecutionContext.global
-//    val fut = Future(x())
-//    Await.result(fut, Duration.Inf)
     runtime.close()
     println("Endurance test completed successfully")
