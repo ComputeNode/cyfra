@@ -11,22 +11,27 @@ object Interpreter:
 
   private def interpretWriteBuffer(gio: WriteBuffer[?], sc: SimContext): SimContext = gio match
     case WriteBuffer(buffer, index, value) =>
-      val sc1 = Simulate.sim(index, sc) // get the write index for each invocation
-      val SimContext(writeVals, records, data) = Simulate.sim(value, sc1) // get the values to be written
+      val indexSc = Simulate.sim(index, sc) // get the write index for each invocation
+      val SimContext(writeVals, records, data, profs) = Simulate.sim(value, indexSc) // get the values to be written
 
       // write the values to the buffer, update records with writes
-      val indices = sc1.results
+      val indices = indexSc.results
       val newData = data.writeToBuffer(buffer, indices, writeVals)
       val writes = indices.map: (invocId, ind) =>
         invocId -> WriteBuf(buffer, ind.asInstanceOf[Int], writeVals(invocId))
       val newRecords = records.addWrites(writes)
 
-      SimContext(writeVals, newRecords, newData)
+      // check if the write addresses coalesced or not
+      val addresses = indices.values.toSeq.map(_.asInstanceOf[Int])
+      val profile = WriteProfile(buffer, addresses)
+      val coalesceProfile = CoalesceProfile(addresses, profile)
+
+      SimContext(writeVals, newRecords, newData, coalesceProfile :: profs)
 
   private def interpretWriteUniform(gio: WriteUniform[?], sc: SimContext): SimContext = gio match
     case WriteUniform(uniform, value) =>
       // get the uniform value to be written (same for all invocations)
-      val SimContext(writeVals, records, data) = Simulate.sim(value, sc)
+      val SimContext(writeVals, records, data, profs) = Simulate.sim(value, sc)
 
       // write the (single) value to the uniform, update records with writes
       val uniVal = writeVals.values.head
@@ -34,7 +39,7 @@ object Interpreter:
       val newData = data.write(WriteUni(uniform, uniVal))
       val newRecords = records.addWrites(writes)
 
-      SimContext(writeVals, newRecords, newData)
+      SimContext(writeVals, newRecords, newData, profs)
 
   private def interpretOne(gio: GIO[?], sc: SimContext): SimContext = gio match
     case p: Pure[?]          => interpretPure(p, sc)
