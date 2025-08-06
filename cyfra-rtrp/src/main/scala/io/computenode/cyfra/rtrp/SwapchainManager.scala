@@ -14,27 +14,18 @@ import scala.util.{Try, Success, Failure}
 
 import scala.collection.mutable.ArrayBuffer
 
-private[cyfra] class SwapchainManager (context: VulkanContext, surface: Surface) extends VulkanObjectHandle:
+private[cyfra] class SwapchainManager (context: VulkanContext, surface: Surface) : Swapchain = (
 
     private val device = context.device
     private val physicalDevice = device.physicalDevice
     private var swapchainHandle: Long = VK_NULL_HANDLE
     private var swapchainImages: Array[Long] = _
-        
-    override protected def close(): Unit =
-        if swapchainHandle != VK_NULL_HANDLE then
-            vkDestroySwapchainKHR(device.get, swapchainHandle, null)
-            swapchainHandle = VK_NULL_HANDLE
-
-    override def get: Long = 
-        if !alive then
-            throw new IllegalStateException()
-        swapchainHandle
 
     private var swapchainImageFormat: Int = _
     private var swapchainColorSpace: Int = _
     private var swapchainPresentMode: Int = _
     private var swapchainExtent: VkExtent2D = _
+    private var swapchainImageViews: Array[Long] = _
 
     // Get the raw Vulkan capabilities for low-level access
     private val vkCapabilities = pushStack: stack =>
@@ -55,7 +46,7 @@ private[cyfra] class SwapchainManager (context: VulkanContext, surface: Surface)
     val minImageExtent = vkCapabilities.minImageExtent()
     val maxImageExtent = vkCapabilities.maxImageExtent()
 
-    def initialize (surfaceConfig: SurfaceConfig): Boolean = pushStack: stack =>
+    def initialize (surfaceConfig: SurfaceConfig): Swapchain = pushStack: stack =>
         //cleanup()
         
         val preferredPresentMode = surfaceConfig.preferredPresentMode
@@ -125,7 +116,6 @@ private[cyfra] class SwapchainManager (context: VulkanContext, surface: Surface)
             throw new VulkanAssertionError("Failed to create swap chain", result)
 
         swapchainHandle = pSwapchain.get(0)
-        alive = true
 
         // Get swap chain images
         val pImageCount = stack.callocInt(1)
@@ -139,6 +129,55 @@ private[cyfra] class SwapchainManager (context: VulkanContext, surface: Surface)
         for (i <- 0 until actualImageCount)
             swapchainImages(i) = pSwapchainImages.get(i)
 
-        // createImageViews() 
+        createImageViews() 
 
-        true
+        Swapchain(
+            handle = swapchainHandle
+            images = swapchainImages
+            imageViews = swapchainImageViews
+            format = swapchainImageFormat,
+            colorSpace = swapchainColorSpace,
+            extent = swapchainExtent
+        )
+
+    private def createImageViews(): Unit = pushStack: Stack => 
+        if (swapchainImages == null || swapchainImages.isEmpty)
+            throw new VulkanAssertionError("Cannot create image views: swap chain images not initialized", -1)
+
+        if (swapchainImageViews != null) 
+            swapchainImageViews.foreach(imageView => 
+                if (imageView != VK_NULL_HANDLE) 
+                    vkDestroyImageView(device.get, imageView, null)
+            )
+
+        swapchainImageViews = new Array[Long](swapchainImages.length)
+
+        for (i <- swapchainImages.indices)
+            val createInfo = VkImageViewCreateInfo.calloc(stack)
+                .sType$Default()
+                .image(swapchainImages(i))
+                .viewType(VK_IMAGE_VIEW_TYPE_2D)
+                .format(swapchainImageFormat)
+
+            createInfo.components: components =>
+                components
+                  .r(VK_COMPONENT_SWIZZLE_IDENTITY)
+                  .g(VK_COMPONENT_SWIZZLE_IDENTITY)
+                  .b(VK_COMPONENT_SWIZZLE_IDENTITY)
+                  .a(VK_COMPONENT_SWIZZLE_IDENTITY)
+
+            createInfo.subresourceRange: range =>
+              range
+                .aspectMask(VK_IMAGE_ASPECT_COLOR_BIT)
+                .baseMipLevel(0)
+                .levelCount(1)
+                .baseArrayLayer(0)
+                .layerCount(1)
+            
+            val pImageView = stack.callocLong(1)
+            check (
+                vkCreateImageView(device.get, createInfo, null, pImageView), 
+                s"Failed to create image view for swap chain image $i"
+            )
+            swapchainImageViews(i) = pImageView.get(i)
+)
