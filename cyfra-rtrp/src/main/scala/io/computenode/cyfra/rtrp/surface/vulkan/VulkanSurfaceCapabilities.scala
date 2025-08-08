@@ -31,8 +31,7 @@ class VulkanSurfaceCapabilities(vulkanContext: VulkanContext, surface: VulkanSur
 
   override def currentExtent: (Int, Int) =
     val extent = vkCapabilities.currentExtent()
-    if extent.width() == 0xffffffff || extent.height() == 0xffffffff then
-      (-1, -1)
+    if extent.width() == 0xffffffff || extent.height() == 0xffffffff then (-1, -1)
     else (extent.width(), extent.height())
 
   override def minImageCount: Int = vkCapabilities.minImageCount()

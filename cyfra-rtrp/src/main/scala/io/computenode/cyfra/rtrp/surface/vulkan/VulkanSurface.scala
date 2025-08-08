@@ -11,8 +11,7 @@ import scala.util.*
 import java.util.concurrent.atomic.AtomicBoolean
 
 // Vulkan implementation of Surface
-class VulkanSurface(val id: SurfaceId, val windowId: WindowId, val nativeHandle: Long, private val vulkanContext: VulkanContext)
-    extends Surface:
+class VulkanSurface(val id: SurfaceId, val windowId: WindowId, val nativeHandle: Long, private val vulkanContext: VulkanContext) extends Surface:
 
   private val destroyed = new AtomicBoolean(false)
   private var surfaceCapabilities: Option[VulkanSurfaceCapabilities] = None

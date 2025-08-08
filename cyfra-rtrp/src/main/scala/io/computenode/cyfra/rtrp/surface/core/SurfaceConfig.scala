@@ -42,7 +42,7 @@ object SurfaceConfig:
 
   def quality: SurfaceConfig = SurfaceConfig(
     preferredFormat = VK_FORMAT_R8G8B8A8_SRGB,
-    preferredColorSpace = 1000104001 ,
+    preferredColorSpace = 1000104001,
     preferredPresentMode = VK_PRESENT_MODE_FIFO_KHR,
     enableVSync = true,
   )
