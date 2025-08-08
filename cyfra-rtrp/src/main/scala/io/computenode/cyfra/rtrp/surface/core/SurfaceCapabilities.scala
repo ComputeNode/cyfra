@@ -2,9 +2,9 @@ package io.computenode.cyfra.rtrp.surface.core
 
 // Surface capabilities - what the surface can do
 trait SurfaceCapabilities:
-  def supportedFormats: List[SurfaceFormat]
-  def supportedColorSpaces: List[ColorSpace]
-  def supportedPresentModes: List[PresentMode]
+  def supportedFormats: List[Int]
+  def supportedColorSpaces: List[Int]
+  def supportedPresentModes: List[Int]
   def minImageExtent: (Int, Int)
   def maxImageExtent: (Int, Int)
   def currentExtent: (Int, Int)
@@ -13,16 +13,16 @@ trait SurfaceCapabilities:
   def supportsAlpha: Boolean
   def supportsTransform: Boolean
 
-  def supportsFormat(format: SurfaceFormat): Boolean =
+  def supportsFormat(format: Int): Boolean =
     supportedFormats.contains(format)
 
-  def supportsPresentMode(mode: PresentMode): Boolean =
+  def supportsPresentMode(mode: Int): Boolean =
     supportedPresentModes.contains(mode)
 
-  def chooseBestFormat(preferences: List[SurfaceFormat]): Option[SurfaceFormat] =
+  def chooseBestFormat(preferences: List[Int]): Option[Int] =
     preferences.find(supportsFormat)
 
-  def chooseBestPresentMode(preferences: List[PresentMode]): Option[PresentMode] =
+  def chooseBestPresentMode(preferences: List[Int]): Option[Int] =
     preferences.find(supportsPresentMode)
 
   // Check if the given extent is within supported bounds

@@ -12,12 +12,12 @@ import io.computenode.cyfra.utility.Logger.logger
 class SurfaceManager(vulkanContext: VulkanContext):
 
   private val surfaceFactory = new VulkanSurfaceFactory(vulkanContext)
-  private val activeSurfaces = mutable.Map[WindowId, RenderSurface]()
+  private val activeSurfaces = mutable.Map[WindowId, Surface]()
   private val surfaceConfigs = mutable.Map[WindowId, SurfaceConfig]()
   private val eventHandlers = mutable.Map[Class[? <: SurfaceEvent], SurfaceEvent => Unit]()
 
   // Create a surface for a window.
-  def createSurface(window: Window, config: SurfaceConfig = SurfaceConfig.default): Try[RenderSurface] =
+  def createSurface(window: Window, config: SurfaceConfig = SurfaceConfig.default): Try[Surface] =
     if activeSurfaces.contains(window.id) then return Failure(new IllegalStateException(s"Surface already exists for window ${window.id}"))
 
     surfaceFactory
@@ -33,7 +33,7 @@ class SurfaceManager(vulkanContext: VulkanContext):
 
         surface
 
-  def createSurfaces(windows: List[Window], config: SurfaceConfig = SurfaceConfig.default): Try[List[RenderSurface]] =
+  def createSurfaces(windows: List[Window], config: SurfaceConfig = SurfaceConfig.default): Try[List[Surface]] =
     val results = windows.map(createSurface(_, config))
 
     val failures = results.collect { case Failure(ex) => ex }
@@ -42,10 +42,10 @@ class SurfaceManager(vulkanContext: VulkanContext):
       Failure(new RuntimeException(s"Failed to create ${failures.size} surfaces"))
     else Success(results.collect { case Success(surface) => surface })
 
-  def getSurface(windowId: WindowId): Option[RenderSurface] =
+  def getSurface(windowId: WindowId): Option[Surface] =
     activeSurfaces.get(windowId)
 
-  def getActiveSurfaces(): Map[WindowId, RenderSurface] = activeSurfaces.toMap
+  def getActiveSurfaces(): Map[WindowId, Surface] = activeSurfaces.toMap
 
   def getSurfaceConfig(windowId: WindowId): Option[SurfaceConfig] =
     surfaceConfigs.get(windowId)

@@ -85,7 +85,7 @@ object SurfaceIntegrationExample:
 
   private def createTestWindows(
     manager: WindowManager,
-  ): List[(io.computenode.cyfra.rtrp.window.core.Window, io.computenode.cyfra.rtrp.surface.core.RenderSurface)] =
+  ): List[(io.computenode.cyfra.rtrp.window.core.Window, io.computenode.cyfra.rtrp.surface.core.Surface)] =
     val configs = List(
       // Main window - gaming configuration
       (WindowConfig(width = 1024, height = 768, title = "Main Window", position = Some(WindowPosition.Centered)), SurfaceConfig.gaming),
@@ -104,7 +104,7 @@ object SurfaceIntegrationExample:
         List.empty
 
   private def inspectSurfaceCapabilities(
-    windowSurfacePairs: List[(io.computenode.cyfra.rtrp.window.core.Window, io.computenode.cyfra.rtrp.surface.core.RenderSurface)],
+    windowSurfacePairs: List[(io.computenode.cyfra.rtrp.window.core.Window, io.computenode.cyfra.rtrp.surface.core.Surface)],
   ): Unit =
     windowSurfacePairs.foreach { case (window, surface) =>
       println(s"\n  Surface ${surface.id} (Window: ${window.properties.title}):")
@@ -127,7 +127,7 @@ object SurfaceIntegrationExample:
 
   private def runMainLoop(
     manager: WindowManager,
-    windowSurfacePairs: List[(io.computenode.cyfra.rtrp.window.core.Window, io.computenode.cyfra.rtrp.surface.core.RenderSurface)],
+    windowSurfacePairs: List[(io.computenode.cyfra.rtrp.window.core.Window, io.computenode.cyfra.rtrp.surface.core.Surface)],
   ): Unit =
     var frameCount = 0
     val maxFrames = 300 // 5 seconds at 60fps
@@ -159,7 +159,7 @@ object SurfaceIntegrationExample:
 
     logger.info("Main loop completed")
 
-  private def testSurfaceRecreation(manager: WindowManager, surface: io.computenode.cyfra.rtrp.surface.core.RenderSurface): Unit =
+  private def testSurfaceRecreation(manager: WindowManager, surface: io.computenode.cyfra.rtrp.surface.core.Surface): Unit =
     logger.info(s"Testing recreation of surface ${surface.id}...")
 
     manager.getSurfaceManager() match

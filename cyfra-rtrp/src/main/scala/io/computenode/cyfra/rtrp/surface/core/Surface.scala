@@ -3,8 +3,11 @@ package io.computenode.cyfra.rtrp.surface.core
 import io.computenode.cyfra.rtrp.window.core.*
 import scala.util.Try
 
+// Unique id for surfaces
+case class SurfaceId(value: Long) extends AnyVal
+
 // Render surface abstraction
-trait RenderSurface:
+trait Surface:
   def id: SurfaceId
   def windowId: WindowId
   def nativeHandle: Long

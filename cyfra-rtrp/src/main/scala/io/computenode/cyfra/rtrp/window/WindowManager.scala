@@ -51,7 +51,7 @@ class WindowManager:
   def createWindowWithSurface(
     windowConfig: WindowConfig = WindowConfig(),
     surfaceConfig: SurfaceConfig = SurfaceConfig.default,
-  ): Try[(Window, RenderSurface)] =
+  ): Try[(Window, Surface)] =
 
     surfaceManager match
       case Some(surfMgr) =>
@@ -64,7 +64,7 @@ class WindowManager:
         Failure(new IllegalStateException("Surface manager not initialized. Call initializeWithVulkan() first."))
 
   // Create multiple windows with surfaces (All-or-nothing approach for now)
-  def createWindowsWithSurfaces(configs: List[(WindowConfig, SurfaceConfig)]): Try[List[(Window, RenderSurface)]] =
+  def createWindowsWithSurfaces(configs: List[(WindowConfig, SurfaceConfig)]): Try[List[(Window, Surface)]] =
     val results = configs.map { case (winConfig, surfConfig) =>
       createWindowWithSurface(winConfig, surfConfig)
     }
