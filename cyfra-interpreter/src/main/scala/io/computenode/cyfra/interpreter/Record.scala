@@ -9,7 +9,9 @@ type Cache = Map[TreeId, Result]
 type InvocId = Int
 type Records = Map[InvocId, Record]
 
-case class Record(cache: Cache = Map(), writes: List[Write] = Nil, reads: List[Read] = Nil):
+case class Idle(treeid: TreeId, length: Int)
+
+case class Record(cache: Cache = Map(), writes: List[Write] = Nil, reads: List[Read] = Nil, idles: List[Idle] = Nil):
   def addRead(read: Read): Record = read match
     case ReadBuf(_, _, _, _) => copy(reads = read :: reads)
     case ReadUni(_, _, _)    => copy(reads = read :: reads)
@@ -18,7 +20,9 @@ case class Record(cache: Cache = Map(), writes: List[Write] = Nil, reads: List[R
     case WriteBuf(_, _, _) => copy(writes = write :: writes)
     case WriteUni(_, _)    => copy(writes = write :: writes)
 
-  def addResult(treeId: TreeId, res: Result) = copy(cache = cache.updated(treeId, res))
+  def addResult(treeid: TreeId, res: Result) = copy(cache = cache.updated(treeid, res))
+
+  def addIdle(treeid: TreeId, length: Int) = copy(idles = Idle(treeid, length) :: idles)
 
 extension (records: Records)
   def apply(invocIds: Seq[InvocId]): Records = invocIds.map(invocId => invocId -> Record()).toMap

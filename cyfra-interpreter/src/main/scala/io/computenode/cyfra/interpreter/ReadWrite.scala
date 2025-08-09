@@ -19,12 +19,18 @@ enum Profile:
 export Profile.*
 
 enum CoalesceProfile:
+  case RaceCondition(profile: Profile)
   case Coalesced(startAddress: Int, endAddress: Int, profile: Profile)
   case NotCoalesced(profile: Profile)
 import CoalesceProfile.*
 
 object CoalesceProfile:
   def apply(addresses: Seq[Int], profile: Profile): CoalesceProfile =
-    val (start, end) = (addresses.min, addresses.max)
-    val coalesced = end - start + 1 == addresses.length
-    if coalesced then Coalesced(start, end, profile) else NotCoalesced(profile)
+    val length = addresses.length
+    val distinct = addresses.distinct.length == length
+    if !distinct then RaceCondition(profile)
+    else
+      val (start, end) = (addresses.min, addresses.max)
+      val coalesced = end - start + 1 == length
+      if coalesced then Coalesced(start, end, profile)
+      else NotCoalesced(profile)
