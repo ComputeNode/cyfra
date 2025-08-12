@@ -3,7 +3,7 @@ package io.computenode.cyfra.fs2interop
 import io.computenode.cyfra.core.archive.*, mem.*, GMem.fRGBA
 import io.computenode.cyfra.core.{Allocation, layout}, layout.Layout
 import io.computenode.cyfra.core.{CyfraRuntime, GBufferRegion, GExecution, GProgram}
-import io.computenode.cyfra.dsl.{*, given}, gio.GIO, binding.GBuffer
+import io.computenode.cyfra.dsl.{*, given}, gio.GIO, binding.{GBuffer, GUniform, GBinding}
 import io.computenode.cyfra.spirv.SpirvTypes.typeStride
 import struct.GStruct, GStruct.Empty, Empty.given
 
@@ -33,15 +33,15 @@ object GPipe:
       ): layout =>
         val invocId = GIO.invocationId
         val element = GIO.read[C1](layout.in, invocId)
-        GIO.write[C2](layout.out, invocId, f(element)) // implicit bug
+        GIO.write[C2](layout.out, invocId, f(element))
 
       val execution = GExecution[Params, PLayout]()
         .addProgram(gProg)(params => Params(params.inSize), layout => PLayout(layout.in, layout.out))
 
       val region = GBufferRegion
-        .allocate[PLayout] // implicit bug
+        .allocate[PLayout]
         .map: pLayout =>
-          execution.execute(params, pLayout) // implicit bug
+          execution.execute(params, pLayout)
 
       // these are allocated once, reused for many chunks
       val inBuf = BufferUtils.createByteBuffer(params.inSize * inTypeSize)
@@ -57,6 +57,73 @@ object GPipe:
   // Syntax sugar for convenient single type version
   def gPipeMap[F[_], C <: Value: FromExpr: Tag, S: ClassTag](f: C => C)(using CyfraRuntime, Bridge[C, S]): Pipe[F, S, S] =
     gPipeMap[F, C, C, S, S](f)
+
+  // https://developer.nvidia.com/gpugems/gpugems3/part-vi-gpu-computing/chapter-39-parallel-prefix-sum-scan-cuda
+  // Prefix Sum and Stream Compaction
+  //            11
+  //  012345678901   index
+  // [abcdefghijkl]  starting collection
+  // [tfftfftttftf]  convert to booleans
+  // [100100111010]  integer equivalent
+  // [0111222345566] scan prefixsum, last number tells us the size of filtered collection
+  // [x..x..xxx.x.]  take the indexes where the next scan number is 1 bigger.
+  // [adhijl]        compact the collection
+  //  012345         prefixsum results are the new indices in compacted collection
+  def gPipeFilter[F[_], C <: Value: FromExpr: Tag, S: ClassTag](pred: C => GBoolean)(using cr: CyfraRuntime, bridge: Bridge[C, S]): Pipe[F, S, S] =
+    (stream: Stream[F, S]) =>
+      case class Params(inSize: Int, intervalSize: Int)
+      case class PredLayout(cIn: GBuffer[C], boolOut: GBuffer[Int32]) extends Layout
+      case class ScanArgs(intervalSize: Int32) extends GStruct[ScanArgs]
+      case class ScanLayout(intIn: GBuffer[Int32], intOut: GBuffer[Int32], intervalSize: GUniform[ScanArgs]) extends Layout
+      case class CompactionLayout(cIn: GBuffer[C], intIn: GBuffer[Int32], out: GBuffer[C]) extends Layout
+      case class FilterResult(cOut: GBuffer[C]) extends Layout
+
+      val predicateProgram = GProgram[Params, PredLayout](
+        layout = params => PredLayout(cIn = GBuffer[C](params.inSize), boolOut = GBuffer[Int32](params.inSize)),
+        dispatch = (layout, params) => GProgram.StaticDispatch((params.inSize, 1, 1)),
+      ): layout =>
+        val invocId = GIO.invocationId
+        val element = GIO.read[C](layout.cIn, invocId)
+        GIO.write[Int32](layout.boolOut, invocId, when(pred(element))(1: Int32).otherwise(0))
+
+      val upsweep = GProgram[Params, ScanLayout](
+        layout = params =>
+          ScanLayout(
+            intIn = GBuffer[Int32](params.inSize / params.intervalSize),
+            intOut = GBuffer[Int32](params.inSize),
+            intervalSize = GUniform(ScanArgs(params.intervalSize)),
+          ),
+        dispatch = (layout, params) => GProgram.StaticDispatch((params.inSize / params.intervalSize, 1, 1)),
+      ): layout =>
+        val ScanArgs(size) = layout.intervalSize.read
+        val invocId = GIO.invocationId
+        val root = invocId * size
+        val mid = root + (size / 2) - 1
+        val end = root + size - 1
+        val oldValue = GIO.read[Int32](layout.intOut, end)
+        val addValue = GIO.read[Int32](layout.intOut, mid)
+        val newValue = oldValue + addValue
+        GIO.write[Int32](layout.intOut, end, newValue)
+
+      val downsweep = GProgram[Params, ScanLayout](
+        layout = params =>
+          ScanLayout(
+            intIn = GBuffer[Int32](params.inSize / params.intervalSize),
+            intOut = GBuffer[Int32](params.inSize),
+            intervalSize = GUniform(ScanArgs(params.intervalSize)),
+          ),
+        dispatch = (layout, params) => GProgram.StaticDispatch((params.inSize / params.intervalSize, 1, 1)),
+      ): layout =>
+        val ScanArgs(size) = layout.intervalSize.read
+        val invocId = GIO.invocationId
+        val root = invocId * size - 1 // if invocId = 0, this is -1 (out of bounds)
+        val mid = root + (size / 2)
+        val oldValue = GIO.read[Int32](layout.intOut, mid)
+        val addValue = when(root > 0)(GIO.read[Int32](layout.intOut, root)).otherwise(0)
+        val newValue = oldValue + addValue
+        GIO.write[Int32](layout.intOut, mid, newValue)
+
+      ???
 
   // legacy stuff working with GFunction
   extension (stream: Stream[Pure, Float])
