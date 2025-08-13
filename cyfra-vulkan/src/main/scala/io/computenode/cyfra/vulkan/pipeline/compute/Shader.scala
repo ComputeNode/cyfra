@@ -1,6 +1,7 @@
-package io.computenode.cyfra.vulkan.compute
+package io.computenode.cyfra.vulkan.pipeline.compute
 
 import io.computenode.cyfra.vulkan.core.Device
+import io.computenode.cyfra.vulkan.pipeline.LayoutInfo
 import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import io.computenode.cyfra.vulkan.util.VulkanObjectHandle
 import org.joml.Vector3ic

@@ -6,7 +6,7 @@ import org.lwjgl.vulkan.KHRSwapchain.vkDestroySwapchainKHR
 import org.lwjgl.vulkan.VK10.vkDestroyImageView
 import io.computenode.cyfra.vulkan.util.VulkanObjectHandle
 
-class Swapchain(
+private[cyfra] class Swapchain(
   val device: VkDevice,
   override val handle: Long,
   val images: Array[Long],
