@@ -61,21 +61,21 @@ object GPipe:
   // https://developer.nvidia.com/gpugems/gpugems3/part-vi-gpu-computing/chapter-39-parallel-prefix-sum-scan-cuda
   // Prefix Sum and Stream Compaction
   //            11
-  //  012345678901   index
-  // [abcdefghijkl]  starting collection
-  // [tfftfftttftf]  convert to booleans
-  // [100100111010]  integer equivalent
-  // [0111222345566] scan prefixsum, last number tells us the size of filtered collection
-  // [x..x..xxx.x.]  take the indexes where the next scan number is 1 bigger.
-  // [adhijl]        compact the collection
-  //  012345         prefixsum results are the new indices in compacted collection
+  //  012345678901  index
+  // [abcdefghijkl] starting collection
+  // [tfftfftttftf] convert to booleans
+  // [100100111010] integer equivalent
+  // [111222345566] prefixsum, last number tells us the size of filtered collection
+  // [x..x..xxx.x.] take the ones that are 1 bigger than previous.
+  // [adhijl]       compact the collection
+  //  012345        (prefixsum result - 1) are the new indices in compacted collection
   def gPipeFilter[F[_], C <: Value: FromExpr: Tag, S: ClassTag](pred: C => GBoolean)(using cr: CyfraRuntime, bridge: Bridge[C, S]): Pipe[F, S, S] =
     (stream: Stream[F, S]) =>
       case class Params(inSize: Int, intervalSize: Int)
       case class PredLayout(cIn: GBuffer[C], boolOut: GBuffer[Int32]) extends Layout
       case class ScanArgs(intervalSize: Int32) extends GStruct[ScanArgs]
       case class ScanLayout(intIn: GBuffer[Int32], intOut: GBuffer[Int32], intervalSize: GUniform[ScanArgs]) extends Layout
-      case class CompactionLayout(cIn: GBuffer[C], intIn: GBuffer[Int32], out: GBuffer[C]) extends Layout
+      case class CompactLayout(cIn: GBuffer[C], intIn: GBuffer[Int32], out: GBuffer[C]) extends Layout
       case class FilterResult(cOut: GBuffer[C]) extends Layout
 
       val predicateProgram = GProgram[Params, PredLayout](
@@ -85,6 +85,9 @@ object GPipe:
         val invocId = GIO.invocationId
         val element = GIO.read[C](layout.cIn, invocId)
         GIO.write[Int32](layout.boolOut, invocId, when(pred(element))(1: Int32).otherwise(0))
+
+      val predicateExec = GExecution[Params, PredLayout]()
+        .addProgram(predicateProgram)(params => Params(256, 2), layout => PredLayout(layout.cIn, layout.boolOut))
 
       val upsweep = GProgram[Params, ScanLayout](
         layout = params =>
@@ -122,6 +125,31 @@ object GPipe:
         val addValue = when(root > 0)(GIO.read[Int32](layout.intOut, root)).otherwise(0)
         val newValue = oldValue + addValue
         GIO.write[Int32](layout.intOut, mid, newValue)
+
+      @annotation.tailrec
+      def upsweepPhases(exec: GExecution[Params, ScanLayout, ?], inSize: Int, intervalSize: Int): GExecution[Params, ScanLayout, ?] =
+        if intervalSize >= inSize then exec
+        else
+          val newExec = exec.addProgram(upsweep)(params => Params(inSize, intervalSize), layout => layout)
+          upsweepPhases(newExec, inSize, intervalSize * 2)
+
+      val upsweepInitialExec = GExecution[Params, ScanLayout]()
+      val upsweepExec = upsweepPhases(upsweepInitialExec, 256, 2)
+
+      @annotation.tailrec
+      def downsweepPhases(exec: GExecution[Params, ScanLayout, ?], inSize: Int, intervalSize: Int): GExecution[Params, ScanLayout, ?] =
+        if intervalSize < 2 then exec
+        else
+          val newExec = exec.addProgram(downsweep)(params => Params(inSize, intervalSize), layout => layout)
+          downsweepPhases(newExec, inSize, intervalSize / 2)
+
+      val downsweepExec = downsweepPhases(upsweepInitialExec, 256, 128)
+
+      val startParams = Params(256, 2)
+      // val region = GBufferRegion
+      //   .allocate[ScanLayout]
+      //   .map: region =>
+      //     upsweepExec.execute(startParams, region)
 
       ???
 
