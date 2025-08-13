@@ -1,6 +1,6 @@
 package io.computenode.cyfra.rtrp
 
-private[cyfra] class renderPass(context: VulkanContext) extends VulkanObjectHandle:
+private[cyfra] class RenderPass(context: VulkanContext) extends VulkanObjectHandle:
 
     private val device = conetxt.device
     protected val handle: Long = pushStack: stack =>

@@ -1,4 +1,4 @@
-package io.computenode.cyfra.vulkan.pipeline
+package io.computenode.cyfra.vulkan.compute
 
 /** @author
   *   MarconZet Created 25.04.2020

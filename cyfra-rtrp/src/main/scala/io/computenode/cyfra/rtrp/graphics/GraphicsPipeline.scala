@@ -1,6 +1,6 @@
-package io.computenode.cyfra.vulkan.pipeline.graphics
+package io.computenode.cyfra.rtrp.graphics
 
-import io.computenode.cyfra.vulkan.pipeline.LayoutInfo
+import io.computenode.cyfra.vulkan.compute.LayoutInfo
 import io.computenode.cyfra.vulkan.VulkanContext
 import io.computenode.cyfra.vulkan.VulkanObjectHandle
 import io.computenode.cyfra.vulkan.device.Device
@@ -8,7 +8,7 @@ import org.lwjgl.system.MemoryStack.stackPush
 import org.lwjgl.vulkan.VK10.*
 import org.lwjgl.vulkan.*
 
-private[cyfra] class GraphicsPipeline (vertShader: Shader, fragShader: Shader, context: VulkanContext) extends VulkanObjectHandle:
+private[cyfra] class GraphicsPipeline (vertShader: Shader, fragShader: Shader, context: VulkanContext, renderPass: RenderPass) extends VulkanObjectHandle:
 
     private val device: Device = context.device
 
@@ -151,7 +151,7 @@ private[cyfra] class GraphicsPipeline (vertShader: Shader, fragShader: Shader, c
             .pColorBlendState(colorBlending)
             .pDynamicState(dynamicState)
             .layout(pipelineLayout)
-            .renderPass(/)
+            .renderPass(renderPass.get)
             .subpass(0)
             .basePipelineHandle(VK_NULL_HANDLE) // Optional
             .basePipelineIndex(-1)  // Optional

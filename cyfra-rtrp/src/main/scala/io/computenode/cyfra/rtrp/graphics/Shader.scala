@@ -1,6 +1,5 @@
-package io.computenode.cyfra.vulkan.pipeline.graphics
+package io.computenode.cyfra.rtrp.graphics
 
-import io.computenode.cyfra.vulkan.pipeline.LayoutInfo
 import io.computenode.cyfra.vulkan.core.Device
 import io.computenode.cyfra.vulkan.util.VulkanObjectHandle
 import org.lwjgl.system.MemoryStack.stackPush
