@@ -1,11 +1,18 @@
 package io.computenode.cyfra.rtrp.graphics
 
 import io.computenode.cyfra.vulkan.core.Device
+import io.computenode.cyfra.vulkan.compute.LayoutInfo
+import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import io.computenode.cyfra.vulkan.util.VulkanObjectHandle
-import org.lwjgl.system.MemoryStack.stackPush
+import org.joml.Vector3ic
 import org.lwjgl.vulkan.VK10.*
 import org.lwjgl.vulkan.VkShaderModuleCreateInfo
+
+import java.io.{File, FileInputStream, IOException}
 import java.nio.ByteBuffer
+import java.nio.channels.FileChannel
+import java.util.Objects
+
 
 private[cyfra] class Shader(
     shaderCode: ByteBuffer,
@@ -14,21 +21,22 @@ private[cyfra] class Shader(
     device: Device
 ) extends VulkanObjectHandle:
   
-  protected val handle: Long = stackPush: stack =>
+  protected val handle: Long = pushStack: stack =>
     val moduleCreateInfo = VkShaderModuleCreateInfo
       .calloc(stack)
       .sType$Default()
-      .codeSize(shaderCode.capacity());
+      .pNext(0)
+      .flags(0)
       .pCode(shaderCode)
 
     val pShaderModule = stack.mallocLong(1)
-    if (vkCreateShaderModule(device.handle, moduleCreateInfo, null, pShaderModule) != VK_SUCCESS)
+    if (vkCreateShaderModule(device.get, moduleCreateInfo, null, pShaderModule) != VK_SUCCESS)
       throw new RuntimeException("Failed to create shader module")
     pShaderModule.get(0)
 
   
   override protected def close(): Unit = 
-    vkDestroyShaderModule(device.handle, handle, null)
+    vkDestroyShaderModule(device.get, handle, null)
 
 object Shader:
 

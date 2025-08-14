@@ -2,34 +2,34 @@ package io.computenode.cyfra.rtrp.graphics
 
 import io.computenode.cyfra.vulkan.compute.LayoutInfo
 import io.computenode.cyfra.vulkan.VulkanContext
-import io.computenode.cyfra.vulkan.VulkanObjectHandle
-import io.computenode.cyfra.vulkan.device.Device
-import org.lwjgl.system.MemoryStack.stackPush
+import io.computenode.cyfra.rtrp.{RenderPass, Swapchain}
+import io.computenode.cyfra.vulkan.util.VulkanObjectHandle
+import io.computenode.cyfra.vulkan.core.Device
+import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
+import org.lwjgl.system.MemoryUtil
 import org.lwjgl.vulkan.VK10.*
 import org.lwjgl.vulkan.*
 
-private[cyfra] class GraphicsPipeline (vertShader: Shader, fragShader: Shader, context: VulkanContext, renderPass: RenderPass) extends VulkanObjectHandle:
+private[cyfra] class GraphicsPipeline (swapchain: Swapchain, vertShader: Shader, fragShader: Shader, context: VulkanContext, renderPass: RenderPass) extends VulkanObjectHandle:
 
     private val device: Device = context.device
 
     protected val handle: Long = pushStack: stack =>
         val shaderStages = VkPipelineShaderStageCreateInfo.calloc(2, stack)
 
-        val vertStageInfo = shaderStages(0)
-        vertStage
-            .calloc(stack)
+        val vertStageInfo = shaderStages.get(0)
+        vertStageInfo
             .sType$Default()
             .stage(VK_SHADER_STAGE_VERTEX_BIT)
             .module(vertShader.get)
-            .pName(vertShader.functionName)
+            .pName(MemoryUtil.memUTF8(vertShader.functionName))
         
-        val fragStageInfo = shaderStages(1)
-        fragStage
-            .calloc(stack)
+        val fragStageInfo = shaderStages.get(1)
+        fragStageInfo
             .sType$Default()
             .stage(VK_SHADER_STAGE_FRAGMENT_BIT)
             .module(fragShader.get)
-            .pName(fragShader.functionName)
+            .pName(MemoryUtil.memUTF8(fragShader.functionName))
 
         
         // val vertexInputInfo = VkPipelineVertexInputStateCreateInfo 
@@ -49,13 +49,13 @@ private[cyfra] class GraphicsPipeline (vertShader: Shader, fragShader: Shader, c
         val rasterizer = VkPipelineRasterizationStateCreateInfo 
             .calloc(stack)
             .sType$Default()
-            .depthClampEnable(VK_FALSE)
-            .rasterizerDiscardEnable(VK_FALSE)
+            .depthClampEnable(false)
+            .rasterizerDiscardEnable(false)
             .polygonMode(VK_POLYGON_MODE_FILL)
             .lineWidth(1.0f)
             .cullMode(VK_CULL_MODE_BACK_BIT)
             .frontFace(VK_FRONT_FACE_CLOCKWISE)
-            .depthBiasEnable(VK_FALSE)
+            .depthBiasEnable(false)
             .depthBiasConstantFactor(0.0f)      // Optional
             .depthBiasClamp(0.0f)               // Optional
             .depthBiasSlopeFactor(0.0f)         // Optional
@@ -63,17 +63,17 @@ private[cyfra] class GraphicsPipeline (vertShader: Shader, fragShader: Shader, c
         val multisampling = VkPipelineMultisampleStateCreateInfo 
             .calloc(stack)
             .sType$Default()
-            .sampleShadingEnable(VK_FALSE)
+            .sampleShadingEnable(false)
             .rasterizationSamples(VK_SAMPLE_COUNT_1_BIT)
             .minSampleShading(1.0f) // Optional
             .pSampleMask(null) // Optional
-            .alphaToCoverageEnable(VK_FALSE) // Optional
-            .alphaToOneEnable(VK_FALSE) // Optional            
+            .alphaToCoverageEnable(false) // Optional
+            .alphaToOneEnable(false) // Optional            
 
         val colorBlendAttachment = VkPipelineColorBlendAttachmentState 
-            .calloc(stack)
+            .calloc(1, stack)
             .colorWriteMask(VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT)
-            .blendEnable(VK_FALSE)
+            .blendEnable(false)
             .srcColorBlendFactor(VK_BLEND_FACTOR_ONE) // Optional
             .dstColorBlendFactor(VK_BLEND_FACTOR_ZERO) // Optional
             .colorBlendOp(VK_BLEND_OP_ADD) // Optional
@@ -84,14 +84,11 @@ private[cyfra] class GraphicsPipeline (vertShader: Shader, fragShader: Shader, c
         val colorBlending = VkPipelineColorBlendStateCreateInfo 
             .calloc(stack)
             .sType$Default()
-            .logicOpEnable(VK_FALSE)
+            .logicOpEnable(false)
             .logicOp(VK_LOGIC_OP_COPY) // Optional
             .attachmentCount(1)
             .pAttachments(colorBlendAttachment)
-            .blendConstants[0](0.0f) // Optional
-            .blendConstants[1](0.0f) // Optional
-            .blendConstants[2](0.0f) // Optional
-            .blendConstants[3](0.0f) // Optional            
+            .blendConstants(stack.floats(0.0f, 0.0f, 0.0f, 0.0f))          
         
         val dynamicStates = stack.ints(
             VK_DYNAMIC_STATE_VIEWPORT,
@@ -101,36 +98,34 @@ private[cyfra] class GraphicsPipeline (vertShader: Shader, fragShader: Shader, c
         val dynamicState = VkPipelineDynamicStateCreateInfo
             .calloc(stack)
             .sType$Default()
-            .dynamicStateCount(dynamicStates.capacity())
             .pDynamicStates(dynamicStates)
 
         val inputAssembly = VkPipelineInputAssemblyStateCreateInfo 
             .calloc(stack)
             .sType$Default()
             .topology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-            .primitiveRestartEnable(VK_FALSE)
+            .primitiveRestartEnable(false)
 
         val viewport = VkViewport 
             .calloc(stack)
             .x(0.0f)
             .y(0.0f)
-            .width(/)
-            .height(/)
+            .width(swapchain.extent.width().toFloat)
+            .height(swapchain.extent.height().toFloat)
             .minDepth(0.0f)
             .maxDepth(1.0f)
         
         val scissor = VkRect2D
             .calloc(stack)
-            .offset(0,0)
-            .extent(/)
+            .offset(VkOffset2D.calloc(stack).set(0, 0))
+            .extent(swapchain.extent)
 
-        val pipelineLayout: VkPipelineLayout  =
-            val pipelineLayoutInfo = VkPipelineLayoutCreateInfo.calloc(stack)
-            pipelineLayoutInfo
+        val pipelineLayout: Long  =
+            val pipelineLayoutInfo = VkPipelineLayoutCreateInfo
+                .calloc(stack)
                 .sType$Default()
                 .setLayoutCount(0) // Optional
                 .pSetLayouts(null) // Optional
-                .pushConstantRangeCount(0) // Optional
                 .pPushConstantRanges(null) // Optional
             val pPipelineLayout = stack.mallocLong(1)
             if (vkCreatePipelineLayout(device.get, pipelineLayoutInfo, null, pPipelineLayout) != VK_SUCCESS) then
@@ -156,7 +151,7 @@ private[cyfra] class GraphicsPipeline (vertShader: Shader, fragShader: Shader, c
             .basePipelineHandle(VK_NULL_HANDLE) // Optional
             .basePipelineIndex(-1)  // Optional
         
-        val pGraphicsPipeline = stack.callocLong(1, stack)
+        val pGraphicsPipeline = stack.callocLong(1)
         if (vkCreateGraphicsPipelines(device.get, VK_NULL_HANDLE, 1, pipelineInfo, null, pGraphicsPipeline) != VK_SUCCESS) then
-            throw std::runtime_error("failed to create graphics pipeline!")
+            throw new RuntimeException("failed to create graphics pipeline!")
         pGraphicsPipeline.get(0)

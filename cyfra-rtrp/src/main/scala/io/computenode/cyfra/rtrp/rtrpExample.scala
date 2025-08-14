@@ -1,14 +1,19 @@
 package io.computenode.cyfra.rtrp
 
-    val context = new vulkanContext() 
-    // shader modules
-    val vertShaderCode = Shader.loadShader("shaders/vert.spv");
-    val fragShaderCode = Shader.loadShader("shaders/frag.spv");
+import io.computenode.cyfra.rtrp.graphics.Shader
+import io.computenode.cyfra.vulkan.core.Device
 
-    val vLayoutInfo = LayoutInfo
-    val fLayoutInfo = LayoutInfo
 
-    val vertShader = new Shader(vertShaderCode, vLayoutInfo, "main", device)
-    val fragShader = new Shader(fragShaderCode, fLayoutInfo, "main", device)
+    // val context = new vulkanContext() 
+    // val device = context.device
+    // // shader modules
+    // val vertShaderCode = Shader.loadShader("shaders/vert.spv");
+    // val fragShaderCode = Shader.loadShader("shaders/frag.spv");
 
-    val pipeline(vertShader, fragShader, context)
+    // val vLayoutInfo = LayoutInfo
+    // val fLayoutInfo = LayoutInfo
+
+    // val vertShader = new Shader(vertShaderCode, vLayoutInfo, "main", device)
+    // val fragShader = new Shader(fragShaderCode, fLayoutInfo, "main", device)
+
+    // val pipeline(vertShader, fragShader, context)

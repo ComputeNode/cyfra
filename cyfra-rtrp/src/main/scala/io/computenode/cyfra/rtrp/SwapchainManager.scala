@@ -17,6 +17,7 @@ import org.lwjgl.vulkan.{
   VkPresentInfoKHR,
   VkSemaphoreCreateInfo,
   VkSurfaceCapabilitiesKHR,
+  VkFramebufferCreateInfo,
 }
 import scala.util.{Try, Success, Failure}
 
@@ -174,3 +175,25 @@ private[cyfra] class SwapchainManager(context: VulkanContext, surface: Surface):
       val pImageView = Stack.callocLong(1)
       check(vkCreateImageView(device.get, createInfo, null, pImageView), s"Failed to create image view for swap chain image $i")
       swapchainImageViews(i) = pImageView.get(i)
+
+  def createFramebuffers(swapchain: Swapchain, renderPass: RenderPass): Array[Long] = pushStack: Stack =>
+    val swapchainFramebuffers = Array[Long](swapchain.imageViews.length)
+    for i <- 0 until swapchain.imageViews.length do
+      val attachments = Stack.longs(swapchainImageViews: _*)
+
+      val framebufferInfo = VkFramebufferCreateInfo 
+      .calloc(Stack)
+      .sType$Default
+      .renderPass(renderPass.get)
+      .attachmentCount(1)
+      .pAttachments(attachments)
+      .width(swapchain.extent.width())
+      .height(swapchain.extent.height())
+      .layers(1)
+
+      val pFrameBuffer = Stack.callocLong(1)
+      if (vkCreateFramebuffer(device.get, framebufferInfo, null, pFrameBuffer) != VK_SUCCESS) then
+        throw new RuntimeException("Failed to create framebuffer")
+      swapchainFramebuffers(i) = pFrameBuffer.get(0)
+
+    swapchainFramebuffers
