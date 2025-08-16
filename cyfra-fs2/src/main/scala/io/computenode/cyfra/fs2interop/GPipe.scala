@@ -51,7 +51,7 @@ object GPipe:
         .chunkMin(params.inSize)
         .flatMap: chunk =>
           bridge1.toByteBuffer(inBuf, chunk)
-          region.runUnsafe(init = PLayout(in = GBuffer[C1](inBuf), out = GBuffer[C2](outBuf)), onDone = layout => layout.out.read(outBuf)) // implicit bug
+          region.runUnsafe(init = PLayout(in = GBuffer[C1](inBuf), out = GBuffer[C2](outBuf)), onDone = layout => layout.out.read(outBuf))
           Stream.emits(bridge2.fromByteBuffer(outBuf, new Array[S2](params.inSize)))
 
   // Syntax sugar for convenient single type version
@@ -71,31 +71,31 @@ object GPipe:
   //  012345        (prefixsum result - 1) are the new indices in compacted collection
   def gPipeFilter[F[_], C <: Value: FromExpr: Tag, S: ClassTag](pred: C => GBoolean)(using cr: CyfraRuntime, bridge: Bridge[C, S]): Pipe[F, S, S] =
     (stream: Stream[F, S]) =>
-      case class Params(inSize: Int, intervalSize: Int)
-      case class PredLayout(cIn: GBuffer[C], boolOut: GBuffer[Int32]) extends Layout
-      case class ScanArgs(intervalSize: Int32) extends GStruct[ScanArgs]
-      case class ScanLayout(intIn: GBuffer[Int32], intOut: GBuffer[Int32], intervalSize: GUniform[ScanArgs]) extends Layout
-      case class CompactLayout(cIn: GBuffer[C], intIn: GBuffer[Int32], out: GBuffer[C]) extends Layout
-      case class FilterResult(cOut: GBuffer[C]) extends Layout
 
-      val predicateProgram = GProgram[Params, PredLayout](
-        layout = params => PredLayout(cIn = GBuffer[C](params.inSize), boolOut = GBuffer[Int32](params.inSize)),
+      // Predicate mapping
+      case class PredParams(inSize: Int)
+      case class PredLayout(in: GBuffer[C], out: GBuffer[Int32]) extends Layout
+
+      val predicateProgram = GProgram[PredParams, PredLayout](
+        layout = params => PredLayout(in = GBuffer[C](params.inSize), out = GBuffer[Int32](params.inSize)),
         dispatch = (layout, params) => GProgram.StaticDispatch((params.inSize, 1, 1)),
       ): layout =>
         val invocId = GIO.invocationId
-        val element = GIO.read[C](layout.cIn, invocId)
-        GIO.write[Int32](layout.boolOut, invocId, when(pred(element))(1: Int32).otherwise(0))
+        val element = GIO.read[C](layout.in, invocId)
+        val result = when(pred(element))(1: Int32).otherwise(0)
+        GIO.write[Int32](layout.out, invocId, result)
 
-      val predicateExec = GExecution[Params, PredLayout]()
-        .addProgram(predicateProgram)(params => Params(256, 2), layout => PredLayout(layout.cIn, layout.boolOut))
+      val predExec = GExecution[PredParams, PredLayout]()
+        .addProgram(predicateProgram)(params => params, layout => layout)
+      val predParams = PredParams(256)
 
-      val upsweep = GProgram[Params, ScanLayout](
-        layout = params =>
-          ScanLayout(
-            intIn = GBuffer[Int32](params.inSize / params.intervalSize),
-            intOut = GBuffer[Int32](params.inSize),
-            intervalSize = GUniform(ScanArgs(params.intervalSize)),
-          ),
+      // Prefix sum (inclusive), upsweep/downsweep
+      case class ScanParams(inSize: Int, intervalSize: Int)
+      case class ScanArgs(intervalSize: Int32) extends GStruct[ScanArgs]
+      case class ScanLayout(ints: GBuffer[Int32], intervalSize: GUniform[ScanArgs]) extends Layout
+
+      val upsweep = GProgram[ScanParams, ScanLayout](
+        layout = params => ScanLayout(ints = GBuffer[Int32](params.inSize), intervalSize = GUniform(ScanArgs(params.intervalSize))),
         dispatch = (layout, params) => GProgram.StaticDispatch((params.inSize / params.intervalSize, 1, 1)),
       ): layout =>
         val ScanArgs(size) = layout.intervalSize.read
@@ -103,83 +103,69 @@ object GPipe:
         val root = invocId * size
         val mid = root + (size / 2) - 1
         val end = root + size - 1
-        val oldValue = GIO.read[Int32](layout.intOut, end)
-        val addValue = GIO.read[Int32](layout.intOut, mid)
+        val oldValue = GIO.read[Int32](layout.ints, end)
+        val addValue = GIO.read[Int32](layout.ints, mid)
         val newValue = oldValue + addValue
-        GIO.write[Int32](layout.intOut, end, newValue)
+        GIO.write[Int32](layout.ints, end, newValue)
 
-      val downsweep = GProgram[Params, ScanLayout](
-        layout = params =>
-          ScanLayout(
-            intIn = GBuffer[Int32](params.inSize / params.intervalSize),
-            intOut = GBuffer[Int32](params.inSize),
-            intervalSize = GUniform(ScanArgs(params.intervalSize)),
-          ),
+      val downsweep = GProgram[ScanParams, ScanLayout](
+        layout = params => ScanLayout(ints = GBuffer[Int32](params.inSize), intervalSize = GUniform(ScanArgs(params.intervalSize))),
         dispatch = (layout, params) => GProgram.StaticDispatch((params.inSize / params.intervalSize, 1, 1)),
       ): layout =>
         val ScanArgs(size) = layout.intervalSize.read
         val invocId = GIO.invocationId
         val root = invocId * size - 1 // if invocId = 0, this is -1 (out of bounds)
         val mid = root + (size / 2)
-        val oldValue = GIO.read[Int32](layout.intOut, mid)
-        val addValue = when(root > 0)(GIO.read[Int32](layout.intOut, root)).otherwise(0)
+        val oldValue = GIO.read[Int32](layout.ints, mid)
+        val addValue = when(root > 0)(GIO.read[Int32](layout.ints, root)).otherwise(0)
         val newValue = oldValue + addValue
-        GIO.write[Int32](layout.intOut, mid, newValue)
+        GIO.write[Int32](layout.ints, mid, newValue)
 
       @annotation.tailrec
-      def upsweepPhases(exec: GExecution[Params, ScanLayout, ?], inSize: Int, intervalSize: Int): GExecution[Params, ScanLayout, ?] =
+      def upsweepPhases(exec: GExecution[ScanParams, ScanLayout, ?], inSize: Int, intervalSize: Int): GExecution[ScanParams, ScanLayout, ?] =
         if intervalSize >= inSize then exec
         else
-          val newExec = exec.addProgram(upsweep)(params => Params(inSize, intervalSize), layout => layout)
+          val newExec = exec.addProgram(upsweep)(params => ScanParams(inSize, intervalSize), layout => layout)
           upsweepPhases(newExec, inSize, intervalSize * 2)
 
-      val upsweepInitialExec = GExecution[Params, ScanLayout]()
+      val upsweepInitialExec = GExecution[ScanParams, ScanLayout]()
       val upsweepExec = upsweepPhases(upsweepInitialExec, 256, 2)
 
       @annotation.tailrec
-      def downsweepPhases(exec: GExecution[Params, ScanLayout, ?], inSize: Int, intervalSize: Int): GExecution[Params, ScanLayout, ?] =
+      def downsweepPhases(exec: GExecution[ScanParams, ScanLayout, ?], inSize: Int, intervalSize: Int): GExecution[ScanParams, ScanLayout, ?] =
         if intervalSize < 2 then exec
         else
-          val newExec = exec.addProgram(downsweep)(params => Params(inSize, intervalSize), layout => layout)
+          val newExec = exec.addProgram(downsweep)(params => ScanParams(inSize, intervalSize), layout => layout)
           downsweepPhases(newExec, inSize, intervalSize / 2)
 
       val downsweepExec = downsweepPhases(upsweepInitialExec, 256, 128)
+      val scanParams = ScanParams(256, 2)
 
-      val startParams = Params(256, 2)
-      // val region = GBufferRegion
-      //   .allocate[ScanLayout]
-      //   .map: region =>
-      //     upsweepExec.execute(startParams, region)
+      // Stream compaction
+      case class CompactLayout(in: GBuffer[C], intIn: GBuffer[Int32], out: GBuffer[C]) extends Layout
+      case class FilterResult(cOut: GBuffer[C]) extends Layout
+      // TODO implement compaction
 
+      // TODO: connect all the layouts/executions into one
+      case class PredScanCompactLayout() extends Layout
+      case class Result(out: GBuffer[C]) extends Layout
+
+      val region = GBufferRegion // TODO fix this!
+        .allocate[PredLayout]
+        .map: layout =>
+          predExec.execute(predParams, layout)
+
+      val typeSize = typeStride(Tag.apply[C])
+
+      // these are allocated once, reused for many chunks
+      val inBuf = BufferUtils.createByteBuffer(predParams.inSize * typeSize)
+      val outBuf = BufferUtils.createByteBuffer(predParams.inSize * typeSize) // TODO wrong size
+
+      // stream
+      //   .chunkMin(predParams.inSize)
+      //   .flatMap: chunk =>
+      //     bridge.toByteBuffer(inBuf, chunk)
+      //     region.runUnsafe(init = PredLayout(in = GBuffer[C](inBuf), out = GBuffer[Int32](outBuf)), onDone = layout => layout.out.read(outBuf))
+      //     val arr = bridge.fromByteBuffer(outBuf, new Array[S](params.inSize))
+      //     Stream.emits(arr)
       ???
-
-  // legacy stuff working with GFunction
-  extension (stream: Stream[Pure, Float])
-    def gPipeFloat(fn: Float32 => Float32)(using GContext): Stream[Pure, Float] =
-      val gf: GFunction[Empty, Float32, Float32] = GFunction(fn)
-      stream
-        .chunkMin(256)
-        .flatMap: chunk =>
-          val gmem = FloatMem(chunk.toArray)
-          val res = gmem.map(gf).asInstanceOf[FloatMem].toArray
-          Stream.emits(res)
-
-  extension (stream: Stream[Pure, Int])
-    def gPipeInt(fn: Int32 => Int32)(using GContext): Stream[Pure, Int] =
-      val gf: GFunction[Empty, Int32, Int32] = GFunction(fn)
-      stream
-        .chunkMin(256)
-        .flatMap: chunk =>
-          val gmem = IntMem(chunk.toArray)
-          val res = gmem.map(gf).asInstanceOf[IntMem].toArray
-          Stream.emits(res)
-
-  extension (stream: Stream[Pure, fRGBA])
-    def gPipeVec4(fn: Vec4[Float32] => Vec4[Float32])(using GContext): Stream[Pure, fRGBA] =
-      val gf: GFunction[Empty, Vec4[Float32], Vec4[Float32]] = GFunction(fn)
-      stream
-        .chunkMin(256)
-        .flatMap: chunk =>
-          val gmem = Vec4FloatMem(chunk.toArray)
-          val res = gmem.map(gf).asInstanceOf[Vec4FloatMem].toArray
-          Stream.emits(res)

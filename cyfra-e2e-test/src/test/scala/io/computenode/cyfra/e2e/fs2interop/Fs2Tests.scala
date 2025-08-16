@@ -42,6 +42,7 @@ class Fs2Tests extends munit.FunSuite:
 
 class Fs2LegacyTests extends munit.FunSuite:
   given gc: GContext = GContext()
+  import GPipeLegacy.*
 
   test("fs2 Float stream (legacy)"):
     val inSeq = (0 to 255).map(_.toFloat)
