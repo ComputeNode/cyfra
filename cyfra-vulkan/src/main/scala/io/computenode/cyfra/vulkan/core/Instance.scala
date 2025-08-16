@@ -86,13 +86,12 @@ private[cyfra] class Instance(enableValidationLayers: Boolean) extends VulkanObj
 
   lazy val enabledLayers: Seq[String] = List
     .empty[String]
-    .pipe { x =>
+    .pipe: x =>
       if Instance.layers.contains(ValidationLayer) && enableValidationLayers then ValidationLayer +: x
       else if enableValidationLayers then
         logger.error("Validation layers requested but not available")
         x
       else x
-    }
 
   override protected def close(): Unit =
     vkDestroyInstance(handle, null)
@@ -105,18 +104,18 @@ private[cyfra] class Instance(enableValidationLayers: Boolean) extends VulkanObj
 
     val availableExtensions =
       val buf = mutable.Buffer[String]()
-      buffer.forEach { ext =>
+      buffer.forEach: ext =>
         buf.addOne(ext.extensionNameString())
-      }
       buf.toSet
 
     val extensions = mutable.Buffer.from(Instance.MoltenVkExtensions)
     if enableValidationLayers then extensions.addAll(Instance.ValidationLayersExtensions)
 
     val filteredExtensions = extensions.filter(ext =>
-      availableExtensions.contains(ext).tap { x => // TODO detect when this extension is needed
-        if !x then logger.warn(s"Requested Vulkan instance extension '$ext' is not available")
-      },
+      availableExtensions
+        .contains(ext)
+        .tap: x => // TODO detect when this extension is needed
+          if !x then logger.warn(s"Requested Vulkan instance extension '$ext' is not available"),
     )
 
     val ppEnabledExtensionNames = stack.callocPointer(extensions.size)

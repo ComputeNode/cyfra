@@ -17,24 +17,27 @@ private[cyfra] class DescriptorSet private (protected val handle: Long, val layo
     val bindings = layout.set.descriptors
     assert(buffers.length == bindings.length, s"Number of buffers (${buffers.length}) does not match number of bindings (${bindings.length})")
     val writeDescriptorSet = VkWriteDescriptorSet.calloc(buffers.length, stack)
-    buffers.zip(bindings).zipWithIndex.foreach { case ((buffer, binding), idx) =>
-      val descriptorBufferInfo = VkDescriptorBufferInfo
-        .calloc(1, stack)
-        .buffer(buffer.get)
-        .offset(0)
-        .range(VK_WHOLE_SIZE)
-      val descriptorType = binding.kind match
-        case BindingType.StorageBuffer => VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-        case BindingType.Uniform       => VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
-      writeDescriptorSet
-        .get()
-        .sType$Default()
-        .dstSet(handle)
-        .dstBinding(idx)
-        .descriptorCount(1)
-        .descriptorType(descriptorType)
-        .pBufferInfo(descriptorBufferInfo)
-    }
+    buffers
+      .zip(bindings)
+      .zipWithIndex
+      .foreach:
+        case ((buffer, binding), idx) =>
+          val descriptorBufferInfo = VkDescriptorBufferInfo
+            .calloc(1, stack)
+            .buffer(buffer.get)
+            .offset(0)
+            .range(VK_WHOLE_SIZE)
+          val descriptorType = binding.kind match
+            case BindingType.StorageBuffer => VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+            case BindingType.Uniform       => VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
+          writeDescriptorSet
+            .get()
+            .sType$Default()
+            .dstSet(handle)
+            .dstBinding(idx)
+            .descriptorCount(1)
+            .descriptorType(descriptorType)
+            .pBufferInfo(descriptorBufferInfo)
     writeDescriptorSet.rewind()
     vkUpdateDescriptorSets(device.get, writeDescriptorSet, null)
 

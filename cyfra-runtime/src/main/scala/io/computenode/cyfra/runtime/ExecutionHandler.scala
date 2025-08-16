@@ -44,12 +44,15 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
   ): RL =
     val (result, shaderCalls) = interpret(execution, params, layout)
 
-    val descriptorSets = shaderCalls.map { case ShaderCall(pipeline, layout, _) =>
-      pipeline.pipelineLayout.sets.map(dsManager.allocate).zip(layout).map { case (set, bindings) =>
-        set.update(bindings.map(x => VkAllocation.getUnderlying(x.binding)))
-        set
-      }
-    }
+    val descriptorSets = shaderCalls.map:
+      case ShaderCall(pipeline, layout, _) =>
+        pipeline.pipelineLayout.sets
+          .map(dsManager.allocate)
+          .zip(layout)
+          .map:
+            case (set, bindings) =>
+              set.update(bindings.map(x => VkAllocation.getUnderlying(x.binding)))
+              set
 
     val dispatches: Seq[Dispatch] = shaderCalls
       .zip(descriptorSets)

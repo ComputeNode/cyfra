@@ -19,7 +19,7 @@ class PhysicalDevice(instance: Instance) extends VulkanObject[VkPhysicalDevice] 
     check(vkEnumeratePhysicalDevices(instance.get, pPhysicalDeviceCount, pPhysicalDevices), "Failed to get physical devices")
     new VkPhysicalDevice(pPhysicalDevices.get(), instance.get)
 
-  override protected def close(): Unit = {}
+  override protected def close(): Unit = ()
 
   private val pdp: VkPhysicalDeviceProperties =
     val pProperties = VkPhysicalDeviceProperties.create()
