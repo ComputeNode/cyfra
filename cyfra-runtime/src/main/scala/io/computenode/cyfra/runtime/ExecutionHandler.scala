@@ -20,10 +20,11 @@ import io.computenode.cyfra.runtime.ExecutionHandler.{
 import io.computenode.cyfra.runtime.ExecutionHandler.DispatchType.*
 import io.computenode.cyfra.runtime.ExecutionHandler.ExecutionBinding.{BufferBinding, UniformBinding}
 import io.computenode.cyfra.utility.Utility.timed
+import io.computenode.cyfra.vulkan.{VulkanContext, VulkanThreadContext}
 import io.computenode.cyfra.vulkan.command.{CommandPool, Fence}
 import io.computenode.cyfra.vulkan.compute.ComputePipeline
 import io.computenode.cyfra.vulkan.core.Queue
-import io.computenode.cyfra.vulkan.memory.{DescriptorPool, DescriptorSet}
+import io.computenode.cyfra.vulkan.memory.{DescriptorPool, DescriptorPoolManager, DescriptorSet, DescriptorSetManager}
 import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import izumi.reflect.Tag
 import org.lwjgl.vulkan.VK10.*
@@ -32,25 +33,26 @@ import org.lwjgl.vulkan.{VkCommandBuffer, VkCommandBufferBeginInfo, VkDependency
 
 import scala.collection.mutable
 
-class ExecutionHandler(runtime: VkCyfraRuntime):
-  private val context = runtime.context
+class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadContext, context: VulkanContext):
   import context.given
 
-  private val queue: Queue = context.computeQueue // TODO multiple queues - multithreading support
-  private val descriptorPool: DescriptorPool = context.descriptorPool // TODO descriptor pool manager - descriptor allocation and reclamation support
-  private val commandPool: CommandPool = context.commandPool // TODO multiple command pools - different command pools for different workloads
+  private val dsManager: DescriptorSetManager = threadContext.descriptorSetManager
+  private val commandPool: CommandPool = threadContext.commandPool
 
   def handle[Params, EL <: Layout: LayoutBinding, RL <: Layout: LayoutBinding](execution: GExecution[Params, EL, RL], params: Params, layout: EL)(
     using VkAllocation,
   ): RL =
     val (result, shaderCalls) = interpret(execution, params, layout)
 
-    val descriptorSets = shaderCalls.map { case ShaderCall(pipeline, layout, _) =>
-      pipeline.pipelineLayout.sets.map(descriptorPool.allocate).zip(layout).map { case (set, bindings) =>
-        set.update(bindings.map(x => VkAllocation.getUnderlying(x.binding)))
-        set
-      }
-    }
+    val descriptorSets = shaderCalls.map:
+      case ShaderCall(pipeline, layout, _) =>
+        pipeline.pipelineLayout.sets
+          .map(dsManager.allocate)
+          .zip(layout)
+          .map:
+            case (set, bindings) =>
+              set.update(bindings.map(x => VkAllocation.getUnderlying(x.binding)))
+              set
 
     val dispatches: Seq[Dispatch] = shaderCalls
       .zip(descriptorSets)
@@ -74,9 +76,10 @@ class ExecutionHandler(runtime: VkCyfraRuntime):
 
       val fence = new Fence()
       timed("Vulkan render command"):
-        check(vkQueueSubmit(queue.get, submitInfo, fence.get), "Failed to submit command buffer to queue")
+        check(vkQueueSubmit(commandPool.queue.get, submitInfo, fence.get), "Failed to submit command buffer to queue")
         fence.block().destroy()
     commandPool.freeCommandBuffer(commandBuffer)
+    descriptorSets.flatten.foreach(dsManager.free)
     result
 
   private def interpret[Params, EL <: Layout: LayoutBinding, RL <: Layout: LayoutBinding](

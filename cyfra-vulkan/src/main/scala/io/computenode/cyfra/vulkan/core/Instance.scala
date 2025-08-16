@@ -40,9 +40,9 @@ object Instance:
 
   lazy val version: Int = VK.getInstanceVersionSupported
 
-private[cyfra] class Instance(enableValidationLayers: Boolean) extends VulkanObject:
+private[cyfra] class Instance(enableValidationLayers: Boolean) extends VulkanObject[VkInstance]:
 
-  private val instance: VkInstance = pushStack: stack =>
+  protected val handle: VkInstance = pushStack: stack =>
     val appInfo = VkApplicationInfo
       .calloc(stack)
       .sType$Default()
@@ -55,9 +55,8 @@ private[cyfra] class Instance(enableValidationLayers: Boolean) extends VulkanObj
 
     val ppEnabledExtensionNames = getInstanceExtensions(stack)
     val ppEnabledLayerNames =
-      val layers = enabledLayers
-      val pointer = stack.callocPointer(layers.length)
-      layers.foreach(x => pointer.put(stack.ASCII(x)))
+      val pointer = stack.callocPointer(enabledLayers.length)
+      enabledLayers.foreach(x => pointer.put(stack.ASCII(x)))
       pointer.flip()
 
     val pCreateInfo = VkInstanceCreateInfo
@@ -87,18 +86,15 @@ private[cyfra] class Instance(enableValidationLayers: Boolean) extends VulkanObj
 
   lazy val enabledLayers: Seq[String] = List
     .empty[String]
-    .pipe { x =>
+    .pipe: x =>
       if Instance.layers.contains(ValidationLayer) && enableValidationLayers then ValidationLayer +: x
       else if enableValidationLayers then
         logger.error("Validation layers requested but not available")
         x
       else x
-    }
-
-  def get: VkInstance = instance
 
   override protected def close(): Unit =
-    vkDestroyInstance(instance, null)
+    vkDestroyInstance(handle, null)
 
   private def getInstanceExtensions(stack: MemoryStack) =
     val n = stack.callocInt(1)
@@ -108,18 +104,18 @@ private[cyfra] class Instance(enableValidationLayers: Boolean) extends VulkanObj
 
     val availableExtensions =
       val buf = mutable.Buffer[String]()
-      buffer.forEach { ext =>
+      buffer.forEach: ext =>
         buf.addOne(ext.extensionNameString())
-      }
       buf.toSet
 
     val extensions = mutable.Buffer.from(Instance.MoltenVkExtensions)
     if enableValidationLayers then extensions.addAll(Instance.ValidationLayersExtensions)
 
     val filteredExtensions = extensions.filter(ext =>
-      availableExtensions.contains(ext).tap { x => // TODO detect when this extension is needed
-        if !x then logger.warn(s"Requested Vulkan instance extension '$ext' is not available")
-      },
+      availableExtensions
+        .contains(ext)
+        .tap: x => // TODO detect when this extension is needed
+          if !x then logger.warn(s"Requested Vulkan instance extension '$ext' is not available"),
     )
 
     val ppEnabledExtensionNames = stack.callocPointer(extensions.size)

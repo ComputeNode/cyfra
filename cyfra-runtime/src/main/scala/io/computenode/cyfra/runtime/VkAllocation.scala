@@ -28,27 +28,23 @@ class VkAllocation(commandPool: CommandPool, executionHandler: ExecutionHandler)
   given VkAllocation = this
 
   extension (buffer: GBinding[?])
-    def read(bb: ByteBuffer, offset: Int = 0, size: Int = -1): Unit =
-      val buf = getUnderlying(buffer)
-      val s = if size < 0 then buf.size - offset else size
-
-      buf match
-        case buffer: Buffer.HostBuffer   => Buffer.copyBuffer(buffer, bb, offset, 0, s)
+    def read(bb: ByteBuffer, offset: Int = 0): Unit =
+      val size = bb.remaining()
+      getUnderlying(buffer) match
+        case buffer: Buffer.HostBuffer   => buffer.copyTo(bb, offset)
         case buffer: Buffer.DeviceBuffer =>
-          val stagingBuffer = getStagingBuffer(s)
-          Buffer.copyBuffer(buffer, stagingBuffer, offset, 0, s, commandPool).block().destroy()
-          Buffer.copyBuffer(stagingBuffer, bb, 0, 0, s)
+          val stagingBuffer = getStagingBuffer(size)
+          Buffer.copyBuffer(buffer, stagingBuffer, offset, 0, size, commandPool)
+          stagingBuffer.copyTo(bb, 0)
 
-    def write(bb: ByteBuffer, offset: Int = 0, size: Int = -1): Unit =
-      val buf = getUnderlying(buffer)
-      val s = if size < 0 then bb.remaining() else size
-
-      buf match
-        case buffer: Buffer.HostBuffer   => Buffer.copyBuffer(bb, buffer, offset, 0, s)
+    def write(bb: ByteBuffer, offset: Int = 0): Unit =
+      val size = bb.remaining()
+      getUnderlying(buffer) match
+        case buffer: Buffer.HostBuffer   => buffer.copyFrom(bb, offset)
         case buffer: Buffer.DeviceBuffer =>
-          val stagingBuffer = getStagingBuffer(s)
-          Buffer.copyBuffer(bb, stagingBuffer, 0, 0, s)
-          Buffer.copyBuffer(stagingBuffer, buffer, 0, offset, s, commandPool).block().destroy()
+          val stagingBuffer = getStagingBuffer(size)
+          stagingBuffer.copyFrom(bb, offset)
+          Buffer.copyBuffer(stagingBuffer, buffer, 0, offset, size, commandPool)
 
   extension (buffers: GBuffer.type)
     def apply[T <: Value: {Tag, FromExpr}](length: Int): GBuffer[T] =

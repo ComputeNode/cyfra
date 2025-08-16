@@ -23,12 +23,12 @@ object VkShader:
 
     val shaderLayout = shaderBindings(summon[LayoutStruct[L]].layoutRef)
     val sets = shaderLayout.map: set =>
-      val descriptors = set.map { case Binding(binding, op) =>
-        val kind = binding match
-          case buffer: GBuffer[?]   => BindingType.StorageBuffer
-          case uniform: GUniform[?] => BindingType.Uniform
-        DescriptorInfo(kind)
-      }
+      val descriptors = set.map:
+        case Binding(binding, op) =>
+          val kind = binding match
+            case buffer: GBuffer[?]   => BindingType.StorageBuffer
+            case uniform: GUniform[?] => BindingType.Uniform
+          DescriptorInfo(kind)
       DescriptorSetInfo(descriptors)
 
     val pipeline = ComputePipeline(code, entryPoint, LayoutInfo(sets))
