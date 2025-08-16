@@ -45,10 +45,7 @@ object Buffer:
 
   private[cyfra] class HostBuffer(size: Int, usage: Int)(using allocator: Allocator)
       extends Buffer(size, usage, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)(using allocator):
-    def mapped(f: ByteBuffer => Unit): Unit = mappedImpl(f, flush = true)
-    def mappedNoFlush(f: ByteBuffer => Unit): Unit = mappedImpl(f, flush = false)
-
-    private def mappedImpl(f: ByteBuffer => Unit, flush: Boolean): Unit = pushStack: stack =>
+    def mapped(flush: Boolean)(f: ByteBuffer => Unit): Unit = pushStack: stack =>
       val pData = stack.callocPointer(1)
       check(vmaMapMemory(this.allocator.get, this.allocation, pData), "Failed to map buffer to memory")
       val data = pData.get()
@@ -58,15 +55,13 @@ object Buffer:
         if flush then vmaFlushAllocation(this.allocator.get, this.allocation, 0, size)
         vmaUnmapMemory(this.allocator.get, this.allocation)
 
-  def copyBuffer(src: ByteBuffer, dst: HostBuffer, srcOffset: Int, dstOffset: Int, bytes: Int): Unit =
-    dst.mapped: destination =>
-      memCopy(memAddress(src) + srcOffset, memAddress(destination) + dstOffset, bytes)
+    def copyTo(dst: ByteBuffer, srcOffset: Int): Unit = pushStack: stack =>
+      vmaCopyAllocationToMemory(allocator.get, allocation, srcOffset, dst)
 
-  def copyBuffer(src: HostBuffer, dst: ByteBuffer, srcOffset: Int, dstOffset: Int, bytes: Int): Unit =
-    src.mappedNoFlush: source =>
-      memCopy(memAddress(source) + srcOffset, memAddress(dst) + dstOffset, bytes)
+    def copyFrom(src: ByteBuffer, dstOffset: Int): Unit = pushStack: stack =>
+      vmaCopyMemoryToAllocation(allocator.get, src, allocation, dstOffset)
 
-  def copyBuffer(src: Buffer, dst: Buffer, srcOffset: Int, dstOffset: Int, bytes: Int, commandPool: CommandPool): Fence =
+  def copyBuffer(src: Buffer, dst: Buffer, srcOffset: Int, dstOffset: Int, bytes: Int, commandPool: CommandPool): Unit =
     commandPool.executeCommand: commandBuffer =>
       pushStack: stack =>
         val copyRegion = VkBufferCopy
