@@ -16,7 +16,7 @@ private[cyfra] class Swapchain(
   val extent: VkExtent2D,
 ) extends VulkanObjectHandle:
 
-  override protected def close(): Unit =
+  override def close(): Unit =
     if imageViews != null then
       imageViews.foreach: imageView =>
         if imageView != 0L then vkDestroyImageView(device, imageView, null)

@@ -36,11 +36,21 @@ private[cyfra] class RenderPass(context: VulkanContext, swapchain: Swapchain) ex
             .colorAttachmentCount(1)
             .pColorAttachments(colorAttachmentRef)
         
+        val dependency = VkSubpassDependency
+            .calloc(1, stack)
+            .srcSubpass(VK_SUBPASS_EXTERNAL)
+            .dstSubpass(0)
+            .srcStageMask(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
+            .srcAccessMask(0)
+            .dstStageMask(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
+            .dstAccessMask(VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
+        
         val renderPassInfo = VkRenderPassCreateInfo 
             .calloc(stack)
             .sType$Default()
             .pAttachments(colorAttachment)
             .pSubpasses(subpass)
+            .pDependencies(dependency)
 
         val pRenderPass = stack.callocLong(1)
         if (vkCreateRenderPass(device.get, renderPassInfo, null, pRenderPass) != VK_SUCCESS) then
@@ -51,7 +61,7 @@ private[cyfra] class RenderPass(context: VulkanContext, swapchain: Swapchain) ex
     
     private val renderPass = handle
 
-    private val swapchainFramebuffers = SwapchainManager.createFramebuffers(swapchain, renderPass)
+    val swapchainFramebuffers = SwapchainManager.createFramebuffers(swapchain, renderPass)
 
     def recordCommandBuffer(commandBuffer: VkCommandBuffer, imageIndex: Int, graphicsPipeline: Long): Unit = pushStack: stack =>
         val beginInfo = VkCommandBufferBeginInfo 
@@ -103,6 +113,6 @@ private[cyfra] class RenderPass(context: VulkanContext, swapchain: Swapchain) ex
         
         vkCmdEndRenderPass(commandBuffer)
 
-    override protected def close(): Unit = 
+    override def close(): Unit = 
         vkDestroyRenderPass(device.get, renderPass, null)
         alive = false

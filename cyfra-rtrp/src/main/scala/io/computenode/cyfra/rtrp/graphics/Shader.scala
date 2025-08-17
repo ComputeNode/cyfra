@@ -16,7 +16,6 @@ import java.util.Objects
 
 private[cyfra] class Shader(
     shaderCode: ByteBuffer,
-    val layoutInfo: LayoutInfo,
     val functionName: String,
     device: Device
 ) extends VulkanObjectHandle:
@@ -44,11 +43,7 @@ object Shader:
     loadShader(path, getClass.getClassLoader)
 
   private def loadShader(path: String, classLoader: ClassLoader): ByteBuffer =
-    try
-      val file = new File(Objects.requireNonNull(classLoader.getResource(path)).getFile)
-      val fis = new FileInputStream(file)
-      val fc = fis.getChannel
-      fc.map(FileChannel.MapMode.READ_ONLY, 0, fc.size())
-    catch
-      case e: IOException =>
-        throw new RuntimeException(e)
+    val stream = classLoader.getResourceAsStream(path)
+    if stream == null then throw new RuntimeException(s"Shader resource not found: $path")
+    val bytes = stream.readAllBytes()
+    ByteBuffer.wrap(bytes)

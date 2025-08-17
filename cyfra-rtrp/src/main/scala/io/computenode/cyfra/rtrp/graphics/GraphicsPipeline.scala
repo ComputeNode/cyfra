@@ -14,6 +14,18 @@ private[cyfra] class GraphicsPipeline (swapchain: Swapchain, vertShader: Shader,
 
     private val device: Device = context.device
 
+    val pipelineLayout: Long  = pushStack: stack =>
+        val pipelineLayoutInfo = VkPipelineLayoutCreateInfo
+            .calloc(stack)
+            .sType$Default()
+            .setLayoutCount(0) // Optional
+            .pSetLayouts(null) // Optional
+            .pPushConstantRanges(null) // Optional
+        val pPipelineLayout = stack.mallocLong(1)
+        if (vkCreatePipelineLayout(device.get, pipelineLayoutInfo, null, pPipelineLayout) != VK_SUCCESS) then
+            throw new RuntimeException("Failed to create pipeline layout")
+        pPipelineLayout.get(0)
+
     protected val handle: Long = pushStack: stack =>
         val shaderStages = VkPipelineShaderStageCreateInfo.calloc(2, stack)
 
@@ -117,18 +129,6 @@ private[cyfra] class GraphicsPipeline (swapchain: Swapchain, vertShader: Shader,
             .offset(VkOffset2D.calloc(stack).set(0, 0))
             .extent(swapchain.extent)
 
-        val pipelineLayout: Long  =
-            val pipelineLayoutInfo = VkPipelineLayoutCreateInfo
-                .calloc(stack)
-                .sType$Default()
-                .setLayoutCount(0) // Optional
-                .pSetLayouts(null) // Optional
-                .pPushConstantRanges(null) // Optional
-            val pPipelineLayout = stack.mallocLong(1)
-            if (vkCreatePipelineLayout(device.get, pipelineLayoutInfo, null, pPipelineLayout) != VK_SUCCESS) then
-                throw new RuntimeException("Failed to create pipeline layout")
-            pPipelineLayout.get(0)
-
         val pipelineInfo = VkGraphicsPipelineCreateInfo
             .calloc(1, stack)
             .sType$Default()
@@ -155,6 +155,7 @@ private[cyfra] class GraphicsPipeline (swapchain: Swapchain, vertShader: Shader,
     
     private val graphicsPipeline = handle
 
-    override protected def close(): Unit = 
+    override def close(): Unit = 
         vkDestroyPipeline(device.get, graphicsPipeline, null)
+        vkDestroyPipelineLayout(device.get, pipelineLayout, null)
         alive = false

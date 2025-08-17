@@ -23,20 +23,20 @@ private[cyfra] class VulkanContext(enableSurfaceExtensions: Boolean = false):
   val instance: Instance = new Instance(ValidationLayers, enableSurfaceExtensions)
   val debugCallback: Option[DebugCallback] = if ValidationLayers then Some(new DebugCallback(instance)) else None
   val device: Device = new Device(instance)
-  val computeQueue: Queue = new Queue(device.computeQueueFamily, 0, device)
+  val graphicsQueue: Queue = new Queue(device.graphicsQueueFamily, 0, device)
   val allocator: Allocator = new Allocator(instance, device)
   val descriptorPool: DescriptorPool = new DescriptorPool(device)
-  val commandPool: CommandPool = new StandardCommandPool(device, computeQueue)
+  val commandPool: CommandPool = new ResettableCommandPool(device, graphicsQueue)
 
   if enableSurfaceExtensions then logger.debug("Vulkan context created with surface extension support")
-  else logger.debug("Vulkan context created (compute-only)")
+  else logger.debug("Vulkan context created (graphics-only)")
   logger.debug("Running on device: " + device.physicalDeviceName)
 
   def destroy(): Unit =
     commandPool.destroy()
     descriptorPool.destroy()
     allocator.destroy()
-    computeQueue.destroy()
+    graphicsQueue.destroy()
     device.destroy()
     debugCallback.foreach(_.destroy())
     instance.destroy()

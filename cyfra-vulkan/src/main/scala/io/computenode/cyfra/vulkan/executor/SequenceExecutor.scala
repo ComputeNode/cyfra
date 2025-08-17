@@ -22,7 +22,7 @@ import java.nio.ByteBuffer
   */
 private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, context: VulkanContext):
   private val device: Device = context.device
-  private val queue: Queue = context.computeQueue
+  private val queue: Queue = context.graphicsQueue
   private val allocator: Allocator = context.allocator
   private val descriptorPool: DescriptorPool = context.descriptorPool
   private val commandPool: CommandPool = context.commandPool

@@ -7,6 +7,7 @@ import io.computenode.cyfra.vulkan.util.VulkanObject
 import org.lwjgl.vulkan.*
 import org.lwjgl.vulkan.KHRPortabilitySubset.VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME
 import org.lwjgl.vulkan.KHRSynchronization2.VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME
+import org.lwjgl.vulkan.KHRSurface.vkGetPhysicalDeviceSurfaceSupportKHR
 import org.lwjgl.vulkan.VK10.*
 import org.lwjgl.vulkan.VK11.*
 import org.lwjgl.vulkan.KHRSwapchain.VK_KHR_SWAPCHAIN_EXTENSION_NAME
@@ -39,7 +40,7 @@ private[cyfra] class Device(instance: Instance) extends VulkanObject:
     vkGetPhysicalDeviceProperties(physicalDevice, pProperties)
     pProperties.deviceNameString()
 
-  val computeQueueFamily: Int = pushStack: stack =>
+  val graphicsQueueFamily: Int = pushStack: stack =>
     val pQueueFamilyCount = stack.callocInt(1)
     vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, pQueueFamilyCount, null)
     val queueFamilyCount = pQueueFamilyCount.get(0)
@@ -55,6 +56,24 @@ private[cyfra] class Device(instance: Instance) extends VulkanObject:
         (VK_QUEUE_GRAPHICS_BIT & maskedFlags) > 0
       }
       .getOrElse(throw new AssertionError("No suitable queue family found for computing"))
+
+  def findPresentQueueFamily(surface: Long): Int = pushStack: stack =>
+    val pQueueFamilyCount = stack.callocInt(1)
+    vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, pQueueFamilyCount, null)
+    val queueFamilyCount = pQueueFamilyCount.get(0)
+
+    val pSupported = stack.callocInt(1)
+    vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, graphicsQueueFamily, surface, pSupported)
+    if pSupported.get(0) == VK_TRUE then
+      return graphicsQueueFamily
+
+    val queues = 0 until queueFamilyCount
+    queues
+      .find { i =>
+        vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, surface, pSupported)
+        pSupported.get(0) == VK_TRUE
+      }
+      .getOrElse(throw new AssertionError("No queue family with presentation support found"))
 
   private val device: VkDevice = pushStack: stack =>
     val pPropertiesCount = stack.callocInt(1)
@@ -100,7 +119,7 @@ private[cyfra] class Device(instance: Instance) extends VulkanObject:
       .sType$Default()
       .pNext(0)
       .flags(0)
-      .queueFamilyIndex(computeQueueFamily)
+      .queueFamilyIndex(graphicsQueueFamily)
       .pQueuePriorities(pQueuePriorities)
 
     val extensions = Seq(MacOsExtension, SwapchainExtension, SyncExtension).filter(deviceExtensionsSet)
@@ -132,5 +151,5 @@ private[cyfra] class Device(instance: Instance) extends VulkanObject:
 
   def get: VkDevice = device
 
-  override protected def close(): Unit =
+  override def close(): Unit =
     vkDestroyDevice(device, null)

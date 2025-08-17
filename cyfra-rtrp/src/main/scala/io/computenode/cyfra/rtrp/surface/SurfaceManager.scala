@@ -4,6 +4,7 @@ import io.computenode.cyfra.rtrp.surface.core.*
 import io.computenode.cyfra.rtrp.surface.vulkan.VulkanSurfaceFactory
 import io.computenode.cyfra.rtrp.window.core.*
 import io.computenode.cyfra.vulkan.VulkanContext
+import io.computenode.cyfra.vulkan.command.Queue
 import scala.collection.mutable
 import scala.util.*
 import io.computenode.cyfra.utility.Logger.logger
@@ -15,6 +16,17 @@ class SurfaceManager(vulkanContext: VulkanContext):
   private val activeSurfaces = mutable.Map[WindowId, Surface]()
   private val surfaceConfigs = mutable.Map[WindowId, SurfaceConfig]()
   private val eventHandlers = mutable.Map[Class[? <: SurfaceEvent], SurfaceEvent => Unit]()
+
+  def initializePresentQueue(surface: Surface): Try[Queue] = Try {
+    val device = vulkanContext.device
+    val presentQueueFamily = device.findPresentQueueFamily(surface.nativeHandle)
+
+    if (presentQueueFamily == device.graphicsQueueFamily) {
+      vulkanContext.graphicsQueue
+    } else {
+      new Queue(presentQueueFamily, 0, device)
+    }
+  }
 
   // Create a surface for a window.
   def createSurface(window: Window, config: SurfaceConfig = SurfaceConfig.default): Try[Surface] =

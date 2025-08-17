@@ -176,6 +176,7 @@ private[cyfra] class SwapchainManager(context: VulkanContext, surface: Surface):
       check(vkCreateImageView(device.get, createInfo, null, pImageView), s"Failed to create image view for swap chain image $i")
       swapchainImageViews(i) = pImageView.get(i)
 
+
 object SwapchainManager:
   def createFramebuffers(swapchain: Swapchain, renderPass: Long): Array[Long] = pushStack: Stack =>
     val swapchainFramebuffers = new Array[Long](swapchain.imageViews.length)

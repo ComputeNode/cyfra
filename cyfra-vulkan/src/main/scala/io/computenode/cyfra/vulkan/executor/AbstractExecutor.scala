@@ -14,7 +14,7 @@ import java.nio.ByteBuffer
 
 private[cyfra] abstract class AbstractExecutor(dataLength: Int, val bufferActions: Seq[BufferAction], context: VulkanContext):
   protected val device: Device = context.device
-  protected val queue: Queue = context.computeQueue
+  protected val queue: Queue = context.graphicsQueue
   protected val allocator: Allocator = context.allocator
   protected val descriptorPool: DescriptorPool = context.descriptorPool
   protected val commandPool: CommandPool = context.commandPool
