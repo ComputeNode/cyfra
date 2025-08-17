@@ -52,13 +52,8 @@ private[cyfra] class Device(instance: Instance) extends VulkanObject:
       .find { i =>
         val queueFamily = pQueueFamilies.get(i)
         val maskedFlags = ~(VK_QUEUE_TRANSFER_BIT | VK_QUEUE_SPARSE_BINDING_BIT) & queueFamily.queueFlags()
-        ~(VK_QUEUE_GRAPHICS_BIT & maskedFlags) > 0 && (VK_QUEUE_COMPUTE_BIT & maskedFlags) > 0
+        (VK_QUEUE_GRAPHICS_BIT & maskedFlags) > 0
       }
-      .orElse(queues.find { i =>
-        val queueFamily = pQueueFamilies.get(i)
-        val maskedFlags = ~(VK_QUEUE_TRANSFER_BIT | VK_QUEUE_SPARSE_BINDING_BIT) & queueFamily.queueFlags()
-        (VK_QUEUE_COMPUTE_BIT & maskedFlags) > 0
-      })
       .getOrElse(throw new AssertionError("No suitable queue family found for computing"))
 
   private val device: VkDevice = pushStack: stack =>

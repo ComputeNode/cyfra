@@ -31,14 +31,11 @@ private[cyfra] class GraphicsPipeline (swapchain: Swapchain, vertShader: Shader,
             .module(fragShader.get)
             .pName(MemoryUtil.memUTF8(fragShader.functionName))
 
-        
-        // val vertexInputInfo = VkPipelineVertexInputStateCreateInfo 
-        //     .calloc(stack)
-        //     .sType$Default()
-        //     .vertexBindingDescriptionCount(0)
-        //     .pVertexBindingDescriptions(null) // Optional
-        //     .vertexAttributeDescriptionCount(0)
-        //     .pVertexAttributeDescriptions(null) // Optional
+        val vertexInputInfo = VkPipelineVertexInputStateCreateInfo 
+            .calloc(stack)
+            .sType$Default()
+            .pVertexBindingDescriptions(null) // Optional
+            .pVertexAttributeDescriptions(null) // Optional
 
         val viewportState = VkPipelineViewportStateCreateInfo 
             .calloc(stack)
@@ -132,8 +129,8 @@ private[cyfra] class GraphicsPipeline (swapchain: Swapchain, vertShader: Shader,
                 throw new RuntimeException("Failed to create pipeline layout")
             pPipelineLayout.get(0)
 
-        val pipelineInfo = VkGraphicsPipelineCreateInfo 
-            .calloc(stack)
+        val pipelineInfo = VkGraphicsPipelineCreateInfo
+            .calloc(1, stack)
             .sType$Default()
             .stageCount(2)
             .pStages(shaderStages)            
@@ -152,6 +149,12 @@ private[cyfra] class GraphicsPipeline (swapchain: Swapchain, vertShader: Shader,
             .basePipelineIndex(-1)  // Optional
         
         val pGraphicsPipeline = stack.callocLong(1)
-        if (vkCreateGraphicsPipelines(device.get, VK_NULL_HANDLE, 1, pipelineInfo, null, pGraphicsPipeline) != VK_SUCCESS) then
+        if (vkCreateGraphicsPipelines(device.get, VK_NULL_HANDLE, pipelineInfo, null, pGraphicsPipeline) != VK_SUCCESS) then
             throw new RuntimeException("failed to create graphics pipeline!")
         pGraphicsPipeline.get(0)
+    
+    private val graphicsPipeline = handle
+
+    override protected def close(): Unit = 
+        vkDestroyPipeline(device.get, graphicsPipeline, null)
+        alive = false

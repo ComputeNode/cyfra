@@ -1,6 +1,8 @@
 package io.computenode.cyfra.rtrp
 
 import org.lwjgl.vulkan.VK10.*
+import io.computenode.cyfra.rtrp.*
+import io.computenode.cyfra.rtrp.graphics.*
 import io.computenode.cyfra.vulkan.util.VulkanObjectHandle
 import io.computenode.cyfra.vulkan.VulkanContext
 import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
@@ -44,3 +46,63 @@ private[cyfra] class RenderPass(context: VulkanContext, swapchain: Swapchain) ex
         if (vkCreateRenderPass(device.get, renderPassInfo, null, pRenderPass) != VK_SUCCESS) then
             throw new RuntimeException("failed to create render pass!")
         pRenderPass.get(0)
+
+    
+    
+    private val renderPass = handle
+
+    private val swapchainFramebuffers = SwapchainManager.createFramebuffers(swapchain, renderPass)
+
+    def recordCommandBuffer(commandBuffer: VkCommandBuffer, imageIndex: Int, graphicsPipeline: Long): Unit = pushStack: stack =>
+        val beginInfo = VkCommandBufferBeginInfo 
+            .calloc(stack)
+            .sType$Default
+            .flags(0) // Optional
+            .pInheritanceInfo(null)
+        
+        if (vkBeginCommandBuffer(commandBuffer, beginInfo) != VK_SUCCESS) then
+            throw new RuntimeException("failed to begin recording command buffer!")
+        
+        val renderArea = VkRect2D.calloc(stack)
+            .offset(VkOffset2D.calloc(stack).set(0, 0))
+            .extent(swapchain.extent)
+
+        val renderPassInfo = VkRenderPassBeginInfo 
+            .calloc(stack)
+            .sType$Default
+            .renderPass(renderPass)
+            .framebuffer(swapchainFramebuffers(imageIndex))
+            .renderArea(renderArea)
+
+        val clearColor = VkClearValue.calloc(1, stack)
+        clearColor.get(0).color().float32(stack.floats(0.0f, 0.0f, 0.0f, 1.0f))
+
+        renderPassInfo
+            .clearValueCount(1)
+            .pClearValues(clearColor)
+
+        vkCmdBeginRenderPass(commandBuffer, renderPassInfo, VK_SUBPASS_CONTENTS_INLINE)
+            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline)
+            val viewport = VkViewport 
+                .calloc(1, stack)
+                .x(0.0f)
+                .y(0.0f)
+                .width(swapchain.extent.width().toFloat)
+                .height(swapchain.extent.height().toFloat)
+                .minDepth(0.0f)
+                .maxDepth(1.0f)
+            vkCmdSetViewport(commandBuffer, 0, viewport)
+
+            val scissor = VkRect2D 
+                .calloc(1, stack)
+                .offset(VkOffset2D.calloc(stack).set(0,0))
+                .extent(swapchain.extent)
+            vkCmdSetScissor(commandBuffer, 0, scissor)
+
+            vkCmdDraw(commandBuffer, 3, 1, 0, 0)
+        
+        vkCmdEndRenderPass(commandBuffer)
+
+    override protected def close(): Unit = 
+        vkDestroyRenderPass(device.get, renderPass, null)
+        alive = false

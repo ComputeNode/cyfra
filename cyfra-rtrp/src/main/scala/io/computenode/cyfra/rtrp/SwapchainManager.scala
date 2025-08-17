@@ -176,23 +176,24 @@ private[cyfra] class SwapchainManager(context: VulkanContext, surface: Surface):
       check(vkCreateImageView(device.get, createInfo, null, pImageView), s"Failed to create image view for swap chain image $i")
       swapchainImageViews(i) = pImageView.get(i)
 
-  def createFramebuffers(swapchain: Swapchain, renderPass: RenderPass): Array[Long] = pushStack: Stack =>
-    val swapchainFramebuffers = Array[Long](swapchain.imageViews.length)
-    for i <- 0 until swapchain.imageViews.length do
-      val attachments = Stack.longs(swapchainImageViews: _*)
+object SwapchainManager:
+  def createFramebuffers(swapchain: Swapchain, renderPass: Long): Array[Long] = pushStack: Stack =>
+    val swapchainFramebuffers = new Array[Long](swapchain.imageViews.length)
+    for i <- swapchain.imageViews.indices do
+      val attachments = Stack.longs(swapchain.imageViews: _*)
 
-      val framebufferInfo = VkFramebufferCreateInfo 
-      .calloc(Stack)
-      .sType$Default
-      .renderPass(renderPass.get)
-      .attachmentCount(1)
-      .pAttachments(attachments)
-      .width(swapchain.extent.width())
-      .height(swapchain.extent.height())
-      .layers(1)
+      val framebufferInfo = VkFramebufferCreateInfo
+        .calloc(Stack)
+        .sType$Default()
+        .renderPass(renderPass)
+        .attachmentCount(1)
+        .pAttachments(attachments)
+        .width(swapchain.extent.width())
+        .height(swapchain.extent.height())
+        .layers(1)
 
       val pFrameBuffer = Stack.callocLong(1)
-      if (vkCreateFramebuffer(device.get, framebufferInfo, null, pFrameBuffer) != VK_SUCCESS) then
+      if (vkCreateFramebuffer(swapchain.device, framebufferInfo, null, pFrameBuffer) != VK_SUCCESS) then
         throw new RuntimeException("Failed to create framebuffer")
       swapchainFramebuffers(i) = pFrameBuffer.get(0)
 
