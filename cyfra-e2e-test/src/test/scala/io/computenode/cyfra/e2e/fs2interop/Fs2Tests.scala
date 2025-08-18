@@ -2,7 +2,7 @@ package io.computenode.cyfra.e2e.fs2interop
 
 import io.computenode.cyfra.core.archive.*, mem.*, GMem.fRGBA
 import io.computenode.cyfra.dsl.{*, given}, algebra.VectorAlgebra
-import io.computenode.cyfra.fs2interop.*, GPipe.*, Bridge.given
+import io.computenode.cyfra.fs2interop.*, Bridge.given
 import io.computenode.cyfra.core.CyfraRuntime
 import io.computenode.cyfra.runtime.VkCyfraRuntime
 
@@ -18,10 +18,10 @@ extension (f: fRGBA)
 class Fs2Tests extends munit.FunSuite:
   given cr: CyfraRuntime = VkCyfraRuntime()
 
-  test("fs2 through gPipeMap, just ints"):
+  test("fs2 through GPipe map, just ints"):
     val inSeq = (0 until 256).toSeq
     val stream = Stream.emits(inSeq)
-    val pipe = gPipeMap[Pure, Int32, Int](_ + 1)
+    val pipe = GPipe.map[Pure, Int32, Int](_ + 1)
     val result = stream.through(pipe).compile.toList
     val expected = inSeq.map(_ + 1)
     result
@@ -29,16 +29,27 @@ class Fs2Tests extends munit.FunSuite:
       .foreach: (res, exp) =>
         assert(res == exp, s"Expected $exp, got $res")
 
-  test("fs2 through gPipeMap, floats and vectors"):
+  test("fs2 through GPipe map, floats and vectors"):
     val inSeq = (0 to 255).map(_.toFloat).toSeq
     val stream = Stream.emits(inSeq)
-    val pipe = gPipeMap[Pure, Float32, Vec4[Float32], Float, fRGBA](f => (f, f + 1f, f + 2f, f + 3f))
+    val pipe = GPipe.map[Pure, Float32, Vec4[Float32], Float, fRGBA](f => (f, f + 1f, f + 2f, f + 3f))
     val result = stream.through(pipe).compile.toList
     val expected = inSeq.map(f => (f, f + 1f, f + 2f, f + 3f))
     result
       .zip(expected)
       .foreach: (res, exp) =>
         assert(res.close(exp)(0.001f), s"Expected $exp, got $res")
+
+  test("fs2 through GPipe filter, just ints"):
+    val inSeq = (0 until 256).toSeq
+    val stream = Stream.emits(inSeq)
+    val pipe = GPipe.filter[Pure, Int32, Int](_.mod(2) === 0)
+    val result = stream.through(pipe).compile.toList
+    val expected = inSeq.filter(_ % 2 == 0)
+    result
+      .zip(expected)
+      .foreach: (res, exp) =>
+        assert(res == exp, s"Expected $exp, got $res")
 
 class Fs2LegacyTests extends munit.FunSuite:
   given gc: GContext = GContext()

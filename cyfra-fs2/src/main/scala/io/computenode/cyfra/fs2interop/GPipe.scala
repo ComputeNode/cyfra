@@ -1,6 +1,5 @@
 package io.computenode.cyfra.fs2interop
 
-import io.computenode.cyfra.core.archive.*, mem.*, GMem.fRGBA
 import io.computenode.cyfra.core.{Allocation, layout}, layout.Layout
 import io.computenode.cyfra.core.{CyfraRuntime, GBufferRegion, GExecution, GProgram}
 import io.computenode.cyfra.dsl.{*, given}, gio.GIO, binding.{GBuffer, GUniform, GBinding}
@@ -15,13 +14,12 @@ import izumi.reflect.Tag
 import scala.reflect.ClassTag
 
 object GPipe:
-  def gPipeMap[F[_], C1 <: Value: FromExpr: Tag, C2 <: Value: FromExpr: Tag, S1: ClassTag, S2: ClassTag](
+  def map[F[_], C1 <: Value: FromExpr: Tag, C2 <: Value: FromExpr: Tag, S1: ClassTag, S2: ClassTag](
     f: C1 => C2,
   )(using cr: CyfraRuntime, bridge1: Bridge[C1, S1], bridge2: Bridge[C2, S2]): Pipe[F, S1, S2] =
     (stream: Stream[F, S1]) =>
       case class Params(inSize: Int)
       case class PLayout(in: GBuffer[C1], out: GBuffer[C2]) extends Layout
-      case class PResult(out: GBuffer[C2]) extends Layout
 
       val params = Params(inSize = 256)
       val inTypeSize = typeStride(Tag.apply[C1])
@@ -54,24 +52,12 @@ object GPipe:
           region.runUnsafe(init = PLayout(in = GBuffer[C1](inBuf), out = GBuffer[C2](outBuf)), onDone = layout => layout.out.read(outBuf))
           Stream.emits(bridge2.fromByteBuffer(outBuf, new Array[S2](params.inSize)))
 
-  // Syntax sugar for convenient single type version
-  def gPipeMap[F[_], C <: Value: FromExpr: Tag, S: ClassTag](f: C => C)(using CyfraRuntime, Bridge[C, S]): Pipe[F, S, S] =
-    gPipeMap[F, C, C, S, S](f)
+  // Overload for convenient single type version
+  def map[F[_], C <: Value: FromExpr: Tag, S: ClassTag](f: C => C)(using CyfraRuntime, Bridge[C, S]): Pipe[F, S, S] =
+    map[F, C, C, S, S](f)
 
-  // https://developer.nvidia.com/gpugems/gpugems3/part-vi-gpu-computing/chapter-39-parallel-prefix-sum-scan-cuda
-  // Prefix Sum and Stream Compaction
-  //            11
-  //  012345678901  index
-  // [abcdefghijkl] starting collection
-  // [tfftfftttftf] convert to booleans
-  // [100100111010] integer equivalent
-  // [111222345566] prefixsum, last number tells us the size of filtered collection
-  // [x..x..xxx.x.] take the ones that are 1 bigger than previous.
-  // [adhijl]       compact the collection
-  //  012345        (prefixsum result - 1) are the new indices in compacted collection
-  def gPipeFilter[F[_], C <: Value: FromExpr: Tag, S: ClassTag](pred: C => GBoolean)(using cr: CyfraRuntime, bridge: Bridge[C, S]): Pipe[F, S, S] =
+  def filter[F[_], C <: Value: FromExpr: Tag, S: ClassTag](pred: C => GBoolean)(using cr: CyfraRuntime, bridge: Bridge[C, S]): Pipe[F, S, S] =
     (stream: Stream[F, S]) =>
-
       // Predicate mapping
       case class PredParams(inSize: Int)
       case class PredLayout(in: GBuffer[C], out: GBuffer[Int32]) extends Layout
@@ -85,9 +71,9 @@ object GPipe:
         val result = when(pred(element))(1: Int32).otherwise(0)
         GIO.write[Int32](layout.out, invocId, result)
 
+      val predParams = PredParams(256)
       val predExec = GExecution[PredParams, PredLayout]()
         .addProgram(predicateProgram)(params => params, layout => layout)
-      val predParams = PredParams(256)
 
       // Prefix sum (inclusive), upsweep/downsweep
       case class ScanParams(inSize: Int, intervalSize: Int)
@@ -114,10 +100,10 @@ object GPipe:
       ): layout =>
         val ScanArgs(size) = layout.intervalSize.read
         val invocId = GIO.invocationId
-        val root = invocId * size - 1 // if invocId = 0, this is -1 (out of bounds)
-        val mid = root + (size / 2)
+        val end = invocId * size - 1 // if invocId = 0, this is -1 (out of bounds)
+        val mid = end + (size / 2)
         val oldValue = GIO.read[Int32](layout.ints, mid)
-        val addValue = when(root > 0)(GIO.read[Int32](layout.ints, root)).otherwise(0)
+        val addValue = when(end > 0)(GIO.read[Int32](layout.ints, end)).otherwise(0)
         val newValue = oldValue + addValue
         GIO.write[Int32](layout.ints, mid, newValue)
 
@@ -141,31 +127,42 @@ object GPipe:
       val downsweepExec = downsweepPhases(upsweepInitialExec, 256, 128)
       val scanParams = ScanParams(256, 2)
 
-      // Stream compaction
-      case class CompactLayout(in: GBuffer[C], intIn: GBuffer[Int32], out: GBuffer[C]) extends Layout
-      case class FilterResult(cOut: GBuffer[C]) extends Layout
       // TODO implement compaction
+      case class CompactParams()
+      case class CompactLayout(in: GBuffer[C], intIn: GBuffer[Int32], out: GBuffer[C]) extends Layout
+      val compactedStreamSize: Int = ??? // TODO how to get this out of prefix sum results
+
+      val compactProgram = GProgram[CompactParams, CompactLayout](layout = params => ???, dispatch = (layout, params) => ???): compactLayout =>
+        ???
+      val compactExec = GExecution[CompactParams, CompactLayout]()
 
       // TODO: connect all the layouts/executions into one
-      case class PredScanCompactLayout() extends Layout
-      case class Result(out: GBuffer[C]) extends Layout
+      case class PredScanCompactParams(inSize: Int)
+      case class PredScanCompactLayout(in: GBuffer[C], scan: GBuffer[Int32], out: GBuffer[C]) extends Layout
 
-      val region = GBufferRegion // TODO fix this!
-        .allocate[PredLayout]
+      val predScanCompactExec = GExecution[PredScanCompactParams, PredScanCompactLayout]() // TODO
+      val predScanCompactParams = PredScanCompactParams(256) // TODO
+
+      val region = GBufferRegion
+        .allocate[PredScanCompactLayout]
         .map: layout =>
-          predExec.execute(predParams, layout)
+          predScanCompactExec.execute(predScanCompactParams, layout)
 
       val typeSize = typeStride(Tag.apply[C])
+      val intSize = typeStride(Tag.apply[Int32])
 
       // these are allocated once, reused for many chunks
-      val inBuf = BufferUtils.createByteBuffer(predParams.inSize * typeSize)
-      val outBuf = BufferUtils.createByteBuffer(predParams.inSize * typeSize) // TODO wrong size
+      val predBuf = BufferUtils.createByteBuffer(predParams.inSize * typeSize)
+      val scanBuf = BufferUtils.createByteBuffer(predParams.inSize * intSize)
+      val compactBuf = BufferUtils.createByteBuffer(compactedStreamSize * typeSize)
 
-      // stream
-      //   .chunkMin(predParams.inSize)
-      //   .flatMap: chunk =>
-      //     bridge.toByteBuffer(inBuf, chunk)
-      //     region.runUnsafe(init = PredLayout(in = GBuffer[C](inBuf), out = GBuffer[Int32](outBuf)), onDone = layout => layout.out.read(outBuf))
-      //     val arr = bridge.fromByteBuffer(outBuf, new Array[S](params.inSize))
-      //     Stream.emits(arr)
-      ???
+      stream
+        .chunkMin(predScanCompactParams.inSize)
+        .flatMap: chunk =>
+          bridge.toByteBuffer(predBuf, chunk)
+          region.runUnsafe(
+            init = PredScanCompactLayout(in = GBuffer[C](predBuf), scan = GBuffer[Int32](scanBuf), out = GBuffer[C](compactBuf)),
+            onDone = layout => layout.out.read(compactBuf),
+          )
+          val arr = bridge.fromByteBuffer(compactBuf, new Array[S](compactedStreamSize))
+          Stream.emits(arr)
