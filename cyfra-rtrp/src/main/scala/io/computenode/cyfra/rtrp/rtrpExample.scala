@@ -62,21 +62,21 @@ class rtrpExample:
     private def run(): Unit =
         init()
         mainLoop()
-        cleanup()
 
     private def init(): Unit =
+        windowManager = WindowManager.create().get
         context = VulkanContext.withSurfaceSupport()
         device = context.device
         graphicsQueue = context.graphicsQueue.get
+        windowManager.initializeWithVulkan(context).get
 
-        val vertShaderCode = Shader.loadShader("shaders/shader.vert")
-        val fragShaderCode = Shader.loadShader("shaders/shader.frag")
+        val vertShaderCode = Shader.loadShader("shaders/vert.spv")
+        val fragShaderCode = Shader.loadShader("shaders/frag.spv")
 
         // Assuming shaders don't require special layout info for this example
         vertShader = new Shader(vertShaderCode, "main", device)
         fragShader = new Shader(fragShaderCode, "main", device)
 
-        windowManager = WindowManager.createWithVulkan(context).get
         val result = windowManager.createWindowWithSurface()
         val (window, surface) = result.get
         surfaceManager = windowManager.getSurfaceManager().get
@@ -147,19 +147,23 @@ class rtrpExample:
             vkQueuePresentKHR(presentQueue, presentInfo)
 
     def cleanup(): Unit =
+        if (device != null && device.get != null) then
+            vkDeviceWaitIdle(device.get)
         Option(renderFinishedSemaphore).foreach(_.close())
         Option(imageAvailableSemaphore).foreach(_.close())
         Option(inFlightFence).foreach(_.close())
         Option(commandPool).foreach(_.close())
+        Option(graphicsPipeline).foreach(_.close())
         Option(swapchainFramebuffers).foreach(_.foreach(framebuffer =>
             vkDestroyFramebuffer(device.get, framebuffer, null)
         ))
-        Option(graphicsPipeline).foreach(_.close())
         Option(renderPass).foreach(_.close())
         Option(swapchain).foreach(_.close())
         Option(device).foreach(_.close())
         Option(surface).foreach(_.destroy())
-        Option(context).foreach(_.destroy())
         Option(window).foreach(_.close())
-        Option(surfaceManager).foreach(_.shutdown())
+        Option(swapchainManager).foreach(_.cleanup())
+        Option(vertShader).foreach(_.close())
+        Option(fragShader).foreach(_.close())
         Option(windowManager).foreach(_.shutdown())
+        Option(context).foreach(_.destroy())

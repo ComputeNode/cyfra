@@ -26,7 +26,8 @@ class WindowManager:
 
   // Initialize with Vulkan surface support
   def initializeWithVulkan(vkContext: VulkanContext): Try[Unit] =
-    initialize().map: _ =>
+    val initResult = if windowSystem.isDefined then Success(()) else initialize()
+    initResult.map: _ =>      
       vulkanContext = Some(vkContext)
       surfaceManager = Some(new SurfaceManager(vkContext))
 

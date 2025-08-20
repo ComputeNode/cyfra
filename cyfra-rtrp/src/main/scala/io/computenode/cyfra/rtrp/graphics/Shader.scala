@@ -1,13 +1,11 @@
 package io.computenode.cyfra.rtrp.graphics
 
 import io.computenode.cyfra.vulkan.core.Device
-import io.computenode.cyfra.vulkan.compute.LayoutInfo
 import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import io.computenode.cyfra.vulkan.util.VulkanObjectHandle
-import org.joml.Vector3ic
 import org.lwjgl.vulkan.VK10.*
 import org.lwjgl.vulkan.VkShaderModuleCreateInfo
-
+import org.lwjgl.BufferUtils
 import java.io.{File, FileInputStream, IOException}
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
@@ -34,7 +32,7 @@ private[cyfra] class Shader(
     pShaderModule.get(0)
 
   
-  override protected def close(): Unit = 
+  override def close(): Unit = 
     vkDestroyShaderModule(device.get, handle, null)
 
 object Shader:
@@ -46,4 +44,7 @@ object Shader:
     val stream = classLoader.getResourceAsStream(path)
     if stream == null then throw new RuntimeException(s"Shader resource not found: $path")
     val bytes = stream.readAllBytes()
-    ByteBuffer.wrap(bytes)
+    val buffer = BufferUtils.createByteBuffer(bytes.length)
+    buffer.put(bytes)
+    buffer.flip()
+    buffer

@@ -36,6 +36,15 @@ private[cyfra] class SwapchainManager(context: VulkanContext, surface: Surface):
   private var swapchainExtent: VkExtent2D = _
   private var swapchainImageViews: Array[Long] = _
 
+  def cleanup(): Unit =
+    if swapchainImageViews != null then
+      swapchainImageViews.foreach { iv => if iv != VK_NULL_HANDLE then vkDestroyImageView(device.get, iv, null) }
+      swapchainImageViews = null
+
+    if swapchainHandle != VK_NULL_HANDLE then
+      vkDestroySwapchainKHR(device.get, swapchainHandle, null)
+      swapchainHandle = VK_NULL_HANDLE
+
   // Get the raw Vulkan capabilities for low-level access
   private val vkCapabilities = pushStack: Stack =>
     val vkCapabilities = VkSurfaceCapabilitiesKHR.calloc(Stack)

@@ -106,6 +106,10 @@ lazy val rtrp = (project in file("cyfra-rtrp"))
       "org.lwjgl" % "lwjgl-glfw" % lwjglVersion classifier lwjglNatives,
       "org.scalatest" %% "scalatest" % "3.2.15" % Test,
     ),
+    +    run / fork := true,
++    run / javaOptions ++= Seq(
++      "-Dio.computenode.cyfra.vulkan.validation=true"
++    ) ++ sys.env.get("VULKAN_SDK").map(sdk => s"-Djava.library.path=$sdk\\Lib").toSeq,
   )
 
 lazy val root = (project in file("."))
