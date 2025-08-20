@@ -19,8 +19,8 @@ object SpirvCross extends SpirvTool("spirv-cross"):
             None
           case Right(crossCompiledCode) =>
             toolOutput match
-              case Ignore                       =>
-              case toFile @ SpirvTool.ToFile(_) =>
+              case Ignore                          =>
+              case toFile @ SpirvTool.ToFile(_, _) =>
                 toFile.write(crossCompiledCode)
                 logger.debug(s"Saved cross compiled shader code in ${toFile.filePath}.")
               case ToLogger => logger.debug(s"SPIR-V Cross Compilation result:\n$crossCompiledCode")

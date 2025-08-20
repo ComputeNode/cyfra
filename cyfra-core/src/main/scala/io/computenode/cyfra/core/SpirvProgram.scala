@@ -14,6 +14,8 @@ import java.io.File
 import java.io.FileInputStream
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
+import java.nio.file.Path
+import java.security.MessageDigest
 import java.util.Objects
 import scala.util.Try
 import scala.util.Using
@@ -26,8 +28,27 @@ case class SpirvProgram[Params, L <: Layout: {LayoutBinding, LayoutStruct}] priv
   code: ByteBuffer,
   entryPoint: String,
   shaderBindings: L => ShaderLayout,
-  cacheKey: String,
-) extends GProgram[Params, L]
+) extends GProgram[Params, L]:
+
+  /** A hash of the shader code, entry point, workgroup size, and layout bindings. Layout and dispatch are not taken into account.
+    */
+  lazy val shaderHash: (Long, Long) =
+    val md = MessageDigest.getInstance("SHA-256")
+    md.update(code)
+    code.rewind()
+    md.update(entryPoint.getBytes)
+    md.update(
+      workgroupSize.toList
+        .flatMap(BigInt(_).toByteArray)
+        .toArray,
+    )
+    val layout = shaderBindings(summon[LayoutStruct[L]].layoutRef)
+    layout.flatten.foreach: binding =>
+      md.update(binding.binding.tag.toString.getBytes)
+      md.update(binding.operation.toString.getBytes)
+    val digest = md.digest()
+    val bb = java.nio.ByteBuffer.wrap(digest)
+    (bb.getLong(), bb.getLong())
 
 object SpirvProgram:
   type ShaderLayout = Seq[Seq[Binding]]
@@ -38,24 +59,13 @@ object SpirvProgram:
     case ReadWrite
 
   def apply[Params, L <: Layout: {LayoutBinding, LayoutStruct}](
-    path: String,
     layout: InitProgramLayout ?=> Params => L,
     dispatch: (L, Params) => ProgramDispatch,
+    code: ByteBuffer,
   ): SpirvProgram[Params, L] =
-    val code = loadShader(path).get
-    val workgroupSize = (128, 1, 1) // TODO Extract form shader
+    val workgroupSize = (128, 1, 1) // TODO  Extract form shader
     val main = "main"
     val f: L => ShaderLayout = { case layout: Product =>
       layout.productIterator.zipWithIndex.map { case (binding: GBinding[?], i) => Binding(binding, ReadWrite) }.toSeq.pipe(Seq(_))
     }
-    val cacheKey =
-      val x = new File(path).getName
-      x.substring(0, x.lastIndexOf('.'))
-    new SpirvProgram[Params, L]((il: InitProgramLayout) => layout(using il), dispatch, workgroupSize, code, main, f, cacheKey)
-
-  def loadShader(path: String, classLoader: ClassLoader = getClass.getClassLoader): Try[ByteBuffer] =
-    Using.Manager: use =>
-      val file = new File(Objects.requireNonNull(classLoader.getResource(path)).getFile)
-      val fis = use(new FileInputStream(file))
-      val fc = use(fis.getChannel)
-      fc.map(FileChannel.MapMode.READ_ONLY, 0, fc.size())
+    new SpirvProgram[Params, L]((il: InitProgramLayout) => layout(using il), dispatch, workgroupSize, code, main, f)

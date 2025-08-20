@@ -4,7 +4,6 @@ import io.computenode.cyfra
 import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.core.archive.GFunction
-import io.computenode.cyfra.core.archive.mem.GMem.fRGBA
 import io.computenode.cyfra.utility.ImageUtility
 import io.computenode.cyfra.utility.Units.Milliseconds
 import io.computenode.cyfra.utility.Utility.timed

@@ -20,7 +20,7 @@ class SpirvToolsRunner(
       SpirvValidator.validateSpirv(code, validator)
 
     originalSpirvOutput match
-      case toFile @ SpirvTool.ToFile(_) =>
+      case toFile @ SpirvTool.ToFile(_, _) =>
         toFile.write(shaderCode)
         logger.debug(s"Saved original shader code in ${toFile.filePath}.")
       case Ignore =>

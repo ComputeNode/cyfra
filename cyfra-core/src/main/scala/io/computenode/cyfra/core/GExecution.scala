@@ -1,12 +1,10 @@
 package io.computenode.cyfra.core
 
 import io.computenode.cyfra.core.GExecution.*
-import io.computenode.cyfra.core.archive.GContext
 import io.computenode.cyfra.core.layout.*
 import io.computenode.cyfra.dsl.binding.GBuffer
 import io.computenode.cyfra.dsl.gio.GIO
 import io.computenode.cyfra.dsl.struct.{GStruct, GStructSchema}
-import io.computenode.cyfra.spirv.compilers.ExpressionCompiler.UniformStructRef
 import izumi.reflect.Tag
 import GExecution.*
 
