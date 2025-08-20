@@ -75,7 +75,7 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
         .pCommandBuffers(pCommandBuffer)
 
       val fence = new Fence()
-      timed("Vulkan render command"):
+      timed("Vulkan execute command"):
         check(vkQueueSubmit(commandPool.queue.get, submitInfo, fence.get), "Failed to submit command buffer to queue")
         fence.block().destroy()
     commandPool.freeCommandBuffer(commandBuffer)

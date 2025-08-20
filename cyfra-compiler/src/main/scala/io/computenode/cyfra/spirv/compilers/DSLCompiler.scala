@@ -47,23 +47,23 @@ private[cyfra] object DSLCompiler:
     allScopesCache(root.treeid) = result
     result
 
-  def compile(tree: Value, inTypes: List[Tag[?]], outTypes: List[Tag[?]], uniformSchema: GStructSchema[?]): ByteBuffer =
+  def compile(tree: Value, buffers: List[Tag[?]], uniformSchemaIns: List[GStructSchema[?]]): ByteBuffer =
     val treeExpr = tree.tree
     val allExprs = getAllExprsFlattened(treeExpr, visitDetached = true)
     val typesInCode = allExprs.map(_.tag).distinct
-    val allTypes = (typesInCode ::: inTypes ::: outTypes).distinct
+    val allTypes = (typesInCode ::: buffers).distinct
     def scalarTypes = allTypes.filter(_.tag <:< summon[Tag[Scalar]].tag)
     val (typeDefs, typedContext) = defineScalarTypes(scalarTypes, Context.initialContext)
     val structsInCode =
       (allExprs.collect {
         case cs: ComposeStruct[?] => cs.resultSchema
         case gf: GetField[?, ?]   => gf.resultSchema
-      } :+ uniformSchema).distinct
+      } ::: uniformSchemaIns).distinct
     val (structDefs, structCtx) = defineStructTypes(structsInCode, typedContext)
     val structNames = getStructNames(structsInCode, structCtx)
-    val (decorations, uniformDefs, uniformContext) = initAndDecorateUniforms(inTypes, outTypes, structCtx)
-    val (uniformStructDecorations, uniformStructInsns, uniformStructContext) = createAndInitUniformBlock(uniformSchema, uniformContext)
-    val blockNames = getBlockNames(uniformContext, uniformSchema)
+    val (decorations, uniformDefs, uniformContext) = initAndDecorateBuffers(buffers, structCtx)
+    val (uniformStructDecorations, uniformStructInsns, uniformStructContext) = createAndInitUniformBlocks(uniformSchemaIns, uniformContext)
+    val blockNames = getBlockNames(uniformContext, uniformSchemaIns)
     val (inputDefs, inputContext) = createInvocationId(uniformStructContext)
     val (constDefs, constCtx) = defineConstants(allExprs, inputContext)
     val (varDefs, varCtx) = defineVarNames(constCtx)

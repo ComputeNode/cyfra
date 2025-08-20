@@ -101,13 +101,7 @@ private[cyfra] object SpirvProgramCompiler:
     )
     val ctxWithVoid = context.copy(voidTypeRef = TYPE_VOID_REF, voidFuncTypeRef = VOID_FUNC_TYPE_REF)
     (voidDef, ctxWithVoid)
-
-  def initAndDecorateUniforms(ins: List[Tag[?]], outs: List[Tag[?]], context: Context): (List[Words], List[Words], Context) =
-    val (inDecor, inDef, inCtx) = createAndInitBlocks(ins, in = true, context)
-    val (outDecor, outDef, outCtx) = createAndInitBlocks(outs, in = false, inCtx)
-    val (voidsDef, voidCtx) = defineVoids(outCtx)
-    (inDecor ::: outDecor, voidsDef ::: inDef ::: outDef, voidCtx)
-
+    
   def createInvocationId(context: Context): (List[Words], Context) =
     val definitionInstructions = List(
       Instruction(Op.OpConstant, List(ResultRef(context.valueTypeMap(UInt32Tag.tag)), ResultRef(context.nextResultId + 0), IntWord(localSizeX))),
@@ -125,8 +119,14 @@ private[cyfra] object SpirvProgramCompiler:
       ),
     )
     (definitionInstructions, context.copy(nextResultId = context.nextResultId + 3))
+  def initAndDecorateBuffers(buffers: List[Tag[?]], context: Context): (List[Words], List[Words], Context) =
+    val (blockDecor, blockDef, inCtx) = createAndInitBlocks(buffers, context)
+    val (voidsDef, voidCtx) = defineVoids(inCtx)
+    (blockDecor, voidsDef ::: blockDef, voidCtx)
 
-  def createAndInitBlocks(blocks: List[Tag[?]], in: Boolean, context: Context): (List[Words], List[Words], Context) =
+
+
+  def createAndInitBlocks(blocks: List[Tag[?]], context: Context): (List[Words], List[Words], Context) =
     val (decoration, definition, newContext) = blocks.foldLeft((List[Words](), List[Words](), context)) { case ((decAcc, insnAcc, ctx), tpe) =>
       val block = ArrayBufferBlock(ctx.nextResultId, ctx.nextResultId + 1, ctx.nextResultId + 2, ctx.nextResultId + 3, ctx.nextBinding)
 
@@ -146,7 +146,7 @@ private[cyfra] object SpirvProgramCompiler:
       )
 
       val contextWithBlock =
-        if in then ctx.copy(inBufferBlocks = block :: ctx.inBufferBlocks) else ctx.copy(outBufferBlocks = block :: ctx.outBufferBlocks)
+        ctx.copy(bufferBlocks = block :: ctx.bufferBlocks)
       (
         decAcc ::: decorationInstructions,
         insnAcc ::: definitionInstructions,
@@ -155,58 +155,61 @@ private[cyfra] object SpirvProgramCompiler:
     }
     (decoration, definition, newContext)
 
-  def getBlockNames(context: Context, uniformSchema: GStructSchema[?]): List[Words] =
+  def getBlockNames(context: Context, uniformSchemas: List[GStructSchema[?]]): List[Words] =
     def namesForBlock(block: ArrayBufferBlock, tpe: String): List[Words] =
       Instruction(Op.OpName, List(ResultRef(block.structTypeRef), Text(s"Buffer$tpe"))) ::
         Instruction(Op.OpName, List(ResultRef(block.blockVarRef), Text(s"data$tpe"))) :: Nil
     // todo name uniform
     context.inBufferBlocks.flatMap(namesForBlock(_, "In")) ::: context.outBufferBlocks.flatMap(namesForBlock(_, "Out"))
 
-  def createAndInitUniformBlock(schema: GStructSchema[?], ctx: Context): (List[Words], List[Words], Context) =
-    def totalStride(gs: GStructSchema[?]): Int = gs.fields
-      .map:
-        case (_, fromExpr, t) if t <:< gs.gStructTag =>
-          val constructor = fromExpr.asInstanceOf[GStructConstructor[?]]
-          totalStride(constructor.schema)
-        case (_, _, t) =>
-          typeStride(t)
-      .sum
-    val uniformStructTypeRef = ctx.valueTypeMap(schema.structTag.tag)
+  def totalStride(gs: GStructSchema[?]): Int = gs.fields
+    .map:
+      case (_, fromExpr, t) if t <:< gs.gStructTag =>
+        val constructor = fromExpr.asInstanceOf[GStructConstructor[?]]
+        totalStride(constructor.schema)
+      case (_, _, t) =>
+        typeStride(t)
+    .sum
 
-    val (offsetDecorations, _) = schema.fields.zipWithIndex.foldLeft[(List[Words], Int)](List.empty[Word], 0):
-      case ((acc, offset), ((name, fromExpr, tag), idx)) =>
-        val stride =
-          if tag <:< schema.gStructTag then
-            val constructor = fromExpr.asInstanceOf[GStructConstructor[?]]
-            totalStride(constructor.schema)
-          else typeStride(tag)
-        val offsetDecoration = Instruction(Op.OpMemberDecorate, List(ResultRef(uniformStructTypeRef), IntWord(idx), Decoration.Offset, IntWord(offset)))
-        (acc :+ offsetDecoration, offset + stride)
+  def createAndInitUniformBlocks(schemas: List[GStructSchema[?]], ctx: Context): (List[Words], List[Words], Context) =
+    schemas.foldLeft((List.empty[Words], List.empty[Words], ctx)) { case ((decorationsAcc, definitionsAcc, currentCtx), schema) =>
+      val uniformStructTypeRef = currentCtx.valueTypeMap(schema.structTag.tag)
+      val currentBinding = currentCtx.nextBinding
 
-    val uniformBlockDecoration = Instruction(Op.OpDecorate, List(ResultRef(uniformStructTypeRef), Decoration.Block))
+      val (offsetDecorations, _) = schema.fields.zipWithIndex.foldLeft[(List[Words], Int)](List.empty[Words], 0):
+        case ((acc, offset), ((name, fromExpr, tag), idx)) =>
+          val stride =
+            if tag <:< schema.gStructTag then
+              val constructor = fromExpr.asInstanceOf[GStructConstructor[?]]
+              totalStride(constructor.schema)
+            else typeStride(tag)
+          val offsetDecoration = Instruction(Op.OpMemberDecorate, List(ResultRef(uniformStructTypeRef), IntWord(idx), Decoration.Offset, IntWord(offset)))
+          (acc :+ offsetDecoration, offset + stride)
 
-    val uniformPointerUniformRef = ctx.nextResultId
-    val uniformPointerUniform =
-      Instruction(Op.OpTypePointer, List(ResultRef(uniformPointerUniformRef), StorageClass.Uniform, ResultRef(uniformStructTypeRef)))
+      val uniformBlockDecoration = Instruction(Op.OpDecorate, List(ResultRef(uniformStructTypeRef), Decoration.Block))
 
-    val uniformVarRef = ctx.nextResultId + 1
-    val uniformVar = Instruction(Op.OpVariable, List(ResultRef(uniformPointerUniformRef), ResultRef(uniformVarRef), StorageClass.Uniform))
+      val uniformPointerUniformRef = currentCtx.nextResultId
+      val uniformPointerUniform =
+        Instruction(Op.OpTypePointer, List(ResultRef(uniformPointerUniformRef), StorageClass.Uniform, ResultRef(uniformStructTypeRef)))
 
-    val uniformDecorateDescriptorSet = Instruction(Op.OpDecorate, List(ResultRef(uniformVarRef), Decoration.DescriptorSet, IntWord(0)))
+      val uniformVarRef = currentCtx.nextResultId + 1
+      val uniformVar = Instruction(Op.OpVariable, List(ResultRef(uniformPointerUniformRef), ResultRef(uniformVarRef), StorageClass.Uniform))
 
-    assert(ctx.nextBinding == 2, "Currently the only legal layout is (in, out, uniform)")
-    val uniformDecorateBinding = Instruction(Op.OpDecorate, List(ResultRef(uniformVarRef), Decoration.Binding, IntWord(ctx.nextBinding)))
+      val uniformDecorateDescriptorSet = Instruction(Op.OpDecorate, List(ResultRef(uniformVarRef), Decoration.DescriptorSet, IntWord(0)))
+      val uniformDecorateBinding = Instruction(Op.OpDecorate, List(ResultRef(uniformVarRef), Decoration.Binding, IntWord(currentBinding)))
 
-    (
-      offsetDecorations ::: List(uniformDecorateDescriptorSet, uniformDecorateBinding, uniformBlockDecoration),
-      List(uniformPointerUniform, uniformVar),
-      ctx.copy(
-        nextResultId = ctx.nextResultId + 2,
-        nextBinding = ctx.nextBinding + 1,
-        uniformVarRef = uniformVarRef,
-        uniformPointerMap = ctx.uniformPointerMap + (uniformStructTypeRef -> uniformPointerUniformRef),
-      ),
-    )
+      val newDecorations = decorationsAcc ::: offsetDecorations ::: List(uniformDecorateDescriptorSet, uniformDecorateBinding, uniformBlockDecoration)
+      val newDefinitions = definitionsAcc ::: List(uniformPointerUniform, uniformVar)
+      val newCtx = currentCtx.copy(
+        nextResultId = currentCtx.nextResultId + 2,
+        nextBinding = currentCtx.nextBinding + 1,
+        uniformVarRefs = currentCtx.uniformVarRefs + (currentBinding -> uniformVarRef),
+        uniformPointerMap = currentCtx.uniformPointerMap + (uniformStructTypeRef -> uniformPointerUniformRef),
+        bindingToStructType = currentCtx.bindingToStructType + (currentBinding -> uniformStructTypeRef)
+      )
+
+      (newDecorations, newDefinitions, newCtx)
+    }
 
   val predefinedConsts = List((Int32Tag, 0), (UInt32Tag, 0), (Int32Tag, 1))
   def defineConstants(exprs: List[E[?]], ctx: Context): (List[Words], Context) =

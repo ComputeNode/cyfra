@@ -9,7 +9,6 @@ import io.computenode.cyfra.dsl.collections.GArray
 import io.computenode.cyfra.dsl.struct.*
 import io.computenode.cyfra.spirv.SpirvTypes.typeStride
 import io.computenode.cyfra.spirv.compilers.DSLCompiler
-import io.computenode.cyfra.spirv.compilers.ExpressionCompiler.{UniformStructRef, WorkerIndex}
 import io.computenode.cyfra.spirvtools.SpirvToolsRunner
 
 import izumi.reflect.Tag
