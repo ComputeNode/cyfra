@@ -140,7 +140,11 @@ object GPipe:
       case class PredScanCompactParams(inSize: Int)
       case class PredScanCompactLayout(in: GBuffer[C], scan: GBuffer[Int32], out: GBuffer[C]) extends Layout
 
-      val predScanCompactExec = GExecution[PredScanCompactParams, PredScanCompactLayout]() // TODO
+      // How to "connect" many GExecutions? with flatMap?
+      val predScanCompactExec = GExecution[PredScanCompactParams, PredScanCompactLayout]()
+      // predExec
+      //   .flatMap(predLayout => ???) // add downsweepExec
+      //   .flatMap(layout => ???) // add compactExec
       val predScanCompactParams = PredScanCompactParams(256) // TODO
 
       val region = GBufferRegion
