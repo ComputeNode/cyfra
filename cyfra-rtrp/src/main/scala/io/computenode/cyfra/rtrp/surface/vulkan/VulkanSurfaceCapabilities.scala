@@ -9,92 +9,170 @@ import org.lwjgl.vulkan.*
 import scala.jdk.CollectionConverters.*
 import scala.util.*
 
-// Vulkan-specific surface capabilities implementation
-class VulkanSurfaceCapabilities(vulkanContext: VulkanContext, surface: VulkanSurface) extends SurfaceCapabilities:
+class VulkanSurfaceCapabilities(
+    vulkanContext: VulkanContext,
+    surface: VulkanSurface
+) extends SurfaceCapabilities:
 
-  // Query Vulkan for capabilities
-  private val vkCapabilities = queryVulkanCapabilities()
-  private val vkFormats = queryAvailableFormats()
-  private val vkPresentModes = queryPresentModes()
-
-  override def supportedFormats: List[Int] = vkFormats.map(_.format())
-
-  override def supportedColorSpaces: List[Int] = vkFormats.map(_.colorSpace())
-
-  override def supportedPresentModes: List[Int] = vkPresentModes
-
-  override def minImageExtent: (Int, Int) =
-    (vkCapabilities.minImageExtent().width(), vkCapabilities.minImageExtent().height())
-
-  override def maxImageExtent: (Int, Int) =
-    (vkCapabilities.maxImageExtent().width(), vkCapabilities.maxImageExtent().height())
-
-  override def currentExtent: (Int, Int) =
-    val extent = vkCapabilities.currentExtent()
-    if extent.width() == 0xffffffff || extent.height() == 0xffffffff then (-1, -1)
-    else (extent.width(), extent.height())
-
-  override def minImageCount: Int = vkCapabilities.minImageCount()
-
-  override def maxImageCount: Int =
-    val max = vkCapabilities.maxImageCount()
-    if max == 0 then Int.MaxValue else max // 0 means no limit
-
-  override def supportsAlpha: Boolean = (vkCapabilities.supportedCompositeAlpha() & VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR) != 0
-
-  override def supportsTransform: Boolean = (vkCapabilities.supportedTransforms() & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR) != 0
-
-  // Private methods to query Vulkan
-
-  private def queryVulkanCapabilities(): VkSurfaceCapabilitiesKHR =
+  // Query and copy primitive capability values into safe fields
+  private val (
+    minImageExtentTuple,
+    maxImageExtentTuple,
+    currentExtentTuple,
+    minImageCountVal,
+    maxImageCountVal,
+    supportsAlphaVal,
+    supportsTransformVal
+  ) = {
     MemoryStack.stackPush()
     try
       val stack = MemoryStack.stackGet()
-      val capabilities = VkSurfaceCapabilitiesKHR.callocStack(stack)
+      val caps = VkSurfaceCapabilitiesKHR.callocStack(stack)
+      val result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
+        vulkanContext.device.physicalDevice,
+        surface.nativeHandle,
+        caps
+      )
+      if result != VK_SUCCESS then
+        throw new RuntimeException(s"Failed to get surface capabilities: $result")
 
-      val result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vulkanContext.device.physicalDevice, surface.nativeHandle, capabilities)
+      val minExtent = (caps.minImageExtent().width(), caps.minImageExtent().height())
+      val maxExtent = (caps.maxImageExtent().width(), caps.maxImageExtent().height())
+      val curExtent = caps.currentExtent()
+      val current =
+        if curExtent.width() == 0xffffffff || curExtent.height() == 0xffffffff then
+          (-1, -1)
+        else
+          (curExtent.width(), curExtent.height())
 
-      if result != VK_SUCCESS then throw new RuntimeException(s"Failed to get surface capabilities: $result")
+      val supportsAlpha =
+        (caps.supportedCompositeAlpha() & VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR) != 0
+      val supportsTransform =
+        (caps.supportedTransforms() & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR) != 0
 
-      capabilities
+      val minImageCount = caps.minImageCount()
+      val maxImageCount =
+        if caps.maxImageCount() == 0 then Int.MaxValue else caps.maxImageCount()
+
+      (
+        minExtent,
+        maxExtent,
+        current,
+        minImageCount,
+        maxImageCount,
+        supportsAlpha,
+        supportsTransform
+      )
     finally MemoryStack.stackPop()
+  }
 
-  private def queryAvailableFormats(): List[VkSurfaceFormatKHR] =
+  // Query formats and present modes once and copy into safe lists of ints
+  private val (
+    formatsList,
+    colorSpacesList,
+    presentModesList
+  ) = {
     MemoryStack.stackPush()
     try
       val stack = MemoryStack.stackGet()
+
+      // Surface formats
       val pFormatCount = stack.callocInt(1)
-
-      // First call: get count
-      vkGetPhysicalDeviceSurfaceFormatsKHR(vulkanContext.device.physicalDevice, surface.nativeHandle, pFormatCount, null)
-
+      vkGetPhysicalDeviceSurfaceFormatsKHR(
+        vulkanContext.device.physicalDevice,
+        surface.nativeHandle,
+        pFormatCount,
+        null
+      )
       val formatCount = pFormatCount.get(0)
-      if formatCount == 0 then return List.empty
+      val formats =
+        if formatCount == 0 then List.empty[(Int, Int)]
+        else
+          val fmtBuf = VkSurfaceFormatKHR.callocStack(formatCount, stack)
+          vkGetPhysicalDeviceSurfaceFormatsKHR(
+            vulkanContext.device.physicalDevice,
+            surface.nativeHandle,
+            pFormatCount,
+            fmtBuf
+          )
+          (0 until formatCount).map { i =>
+            (fmtBuf.get(i).format(), fmtBuf.get(i).colorSpace())
+          }.toList
 
-      val formats = VkSurfaceFormatKHR.callocStack(formatCount, stack)
+      val (formatOnly, colorSpaceOnly) = formats.unzip
 
-      // Second call: get actual formats
-      vkGetPhysicalDeviceSurfaceFormatsKHR(vulkanContext.device.physicalDevice, surface.nativeHandle, pFormatCount, formats)
-
-      (0 until formatCount).map(formats.get).toList
-    finally MemoryStack.stackPop()
-
-  private def queryPresentModes(): List[Int] =
-    MemoryStack.stackPush()
-    try
-      val stack = MemoryStack.stackGet()
+      // Present modes
       val pModeCount = stack.callocInt(1)
-
-      // First call: get count
-      vkGetPhysicalDeviceSurfacePresentModesKHR(vulkanContext.device.physicalDevice, surface.nativeHandle, pModeCount, null)
-
+      vkGetPhysicalDeviceSurfacePresentModesKHR(
+        vulkanContext.device.physicalDevice,
+        surface.nativeHandle,
+        pModeCount,
+        null
+      )
       val modeCount = pModeCount.get(0)
-      if modeCount == 0 then return List.empty
+      val presentModes =
+        if modeCount == 0 then List.empty[Int]
+        else
+          val modesBuf = stack.callocInt(modeCount)
+          vkGetPhysicalDeviceSurfacePresentModesKHR(
+            vulkanContext.device.physicalDevice,
+            surface.nativeHandle,
+            pModeCount,
+            modesBuf
+          )
+          (0 until modeCount).map(modesBuf.get).toList
 
-      val modes = stack.callocInt(modeCount)
-
-      // Second call: get actual modes
-      vkGetPhysicalDeviceSurfacePresentModesKHR(vulkanContext.device.physicalDevice, surface.nativeHandle, pModeCount, modes)
-
-      (0 until modeCount).map(modes.get).toList
+      (formatOnly, colorSpaceOnly, presentModes)
     finally MemoryStack.stackPop()
+  }
+
+  // SurfaceCapabilities trait implementations (safe, heap-backed)
+  override def supportedFormats: List[Int] = formatsList
+  override def supportedColorSpaces: List[Int] = colorSpacesList
+  override def supportedPresentModes: List[Int] = presentModesList
+
+  override def minImageExtent: (Int, Int) = minImageExtentTuple
+  override def maxImageExtent: (Int, Int) = maxImageExtentTuple
+  override def currentExtent: (Int, Int) = currentExtentTuple
+
+  override def minImageCount: Int = minImageCountVal
+  override def maxImageCount: Int = maxImageCountVal
+  override def supportsAlpha: Boolean = supportsAlphaVal
+  override def supportsTransform: Boolean = supportsTransformVal
+
+  override def vkSurfaceFormats: List[VkSurfaceFormatKHR] =
+    val stack = MemoryStack.stackGet()
+    if stack == null then
+      throw new RuntimeException("vkSurfaceFormats must be called with an active MemoryStack")
+    val pFormatCount = stack.callocInt(1)
+    vkGetPhysicalDeviceSurfaceFormatsKHR(
+      vulkanContext.device.physicalDevice,
+      surface.nativeHandle,
+      pFormatCount,
+      null
+    )
+    val fmtCount = pFormatCount.get(0)
+    if fmtCount == 0 then List.empty
+    else
+      val fmtBuf = VkSurfaceFormatKHR.calloc(fmtCount, stack)
+      vkGetPhysicalDeviceSurfaceFormatsKHR(
+        vulkanContext.device.physicalDevice,
+        surface.nativeHandle,
+        pFormatCount,
+        fmtBuf
+      )
+      (0 until fmtCount).map(fmtBuf.get).toList
+
+  // Helpers used by higher-level code
+  override def isExtentSupported(w: Int, h: Int): Boolean =
+    val (minW, minH) = minImageExtent
+    val (maxW, maxH) = maxImageExtent
+    w >= minW && h >= minH && w <= maxW && h <= maxH
+
+  override def clampExtent(w: Int, h: Int): (Int, Int) =
+    val (minW, minH) = minImageExtent
+    val (maxW, maxH) = maxImageExtent
+    (
+      Math.max(minW, Math.min(w, maxW)),
+      Math.max(minH, Math.min(h, maxH))
+    )

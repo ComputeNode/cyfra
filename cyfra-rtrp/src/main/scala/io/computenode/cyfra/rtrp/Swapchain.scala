@@ -13,7 +13,8 @@ private[cyfra] class Swapchain(
   val imageViews: Array[Long],
   val format: Int,
   val colorSpace: Int,
-  val extent: VkExtent2D,
+  val width: Int,
+  val height: Int
 ) extends VulkanObjectHandle:
 
   override def close(): Unit =

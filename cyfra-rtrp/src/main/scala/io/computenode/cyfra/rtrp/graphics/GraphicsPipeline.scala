@@ -49,11 +49,27 @@ private[cyfra] class GraphicsPipeline (swapchain: Swapchain, vertShader: Shader,
             .pVertexBindingDescriptions(null) // Optional
             .pVertexAttributeDescriptions(null) // Optional
 
+        val viewport = VkViewport 
+            .calloc(1, stack)
+            .x(0.0f)
+            .y(0.0f)
+            .width(swapchain.width.toFloat)
+            .height(swapchain.height.toFloat)
+            .minDepth(0.0f)
+            .maxDepth(1.0f)
+        
+        val scissor = VkRect2D
+            .calloc(1, stack)
+            .offset(VkOffset2D.calloc(stack).set(0, 0))
+            .extent(VkExtent2D.calloc(stack).width(swapchain.width).height(swapchain.height))
+
         val viewportState = VkPipelineViewportStateCreateInfo 
             .calloc(stack)
             .sType$Default()
             .viewportCount(1)
             .scissorCount(1)
+            .pViewports(viewport)
+            .pScissors(scissor)
         
         val rasterizer = VkPipelineRasterizationStateCreateInfo 
             .calloc(stack)
@@ -99,35 +115,21 @@ private[cyfra] class GraphicsPipeline (swapchain: Swapchain, vertShader: Shader,
             .pAttachments(colorBlendAttachment)
             .blendConstants(stack.floats(0.0f, 0.0f, 0.0f, 0.0f))          
         
-        val dynamicStates = stack.ints(
-            VK_DYNAMIC_STATE_VIEWPORT,
-            VK_DYNAMIC_STATE_SCISSOR
-        )
+        // val dynamicStates = stack.ints(
+        //     VK_DYNAMIC_STATE_VIEWPORT,
+        //     VK_DYNAMIC_STATE_SCISSOR
+        // )
 
-        val dynamicState = VkPipelineDynamicStateCreateInfo
-            .calloc(stack)
-            .sType$Default()
-            .pDynamicStates(dynamicStates)
+        // val dynamicState = VkPipelineDynamicStateCreateInfo
+        //     .calloc(stack)
+        //     .sType$Default()
+        //     .pDynamicStates(dynamicStates)
 
         val inputAssembly = VkPipelineInputAssemblyStateCreateInfo 
             .calloc(stack)
             .sType$Default()
             .topology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .primitiveRestartEnable(false)
-
-        val viewport = VkViewport 
-            .calloc(stack)
-            .x(0.0f)
-            .y(0.0f)
-            .width(swapchain.extent.width().toFloat)
-            .height(swapchain.extent.height().toFloat)
-            .minDepth(0.0f)
-            .maxDepth(1.0f)
-        
-        val scissor = VkRect2D
-            .calloc(stack)
-            .offset(VkOffset2D.calloc(stack).set(0, 0))
-            .extent(swapchain.extent)
 
         val pipelineInfo = VkGraphicsPipelineCreateInfo
             .calloc(1, stack)
@@ -141,7 +143,7 @@ private[cyfra] class GraphicsPipeline (swapchain: Swapchain, vertShader: Shader,
             .pMultisampleState(multisampling)
             .pDepthStencilState(null) // Optional
             .pColorBlendState(colorBlending)
-            .pDynamicState(dynamicState)
+            // .pDynamicState(dynamicState)
             .layout(pipelineLayout)
             .renderPass(renderPass.get)
             .subpass(0)

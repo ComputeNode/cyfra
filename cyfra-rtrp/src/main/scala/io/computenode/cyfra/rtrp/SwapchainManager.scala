@@ -33,7 +33,8 @@ private[cyfra] class SwapchainManager(context: VulkanContext, surface: Surface):
   private var swapchainImageFormat: Int = _
   private var swapchainColorSpace: Int = _
   private var swapchainPresentMode: Int = _
-  private var swapchainExtent: VkExtent2D = _
+  private var swapchainWidth: Int = 0
+  private var swapchainHeight: Int = 0
   private var swapchainImageViews: Array[Long] = _
 
   def cleanup(): Unit =
@@ -45,37 +46,35 @@ private[cyfra] class SwapchainManager(context: VulkanContext, surface: Surface):
       vkDestroySwapchainKHR(device.get, swapchainHandle, null)
       swapchainHandle = VK_NULL_HANDLE
 
-  // Get the raw Vulkan capabilities for low-level access
-  private val vkCapabilities = pushStack: Stack =>
-    val vkCapabilities = VkSurfaceCapabilitiesKHR.calloc(Stack)
-    check(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface.nativeHandle, vkCapabilities), "Failed to get surface capabilities")
-    vkCapabilities
-
   // Get the high-level surface capabilities for format/mode queries
   private val surfaceCapabilities = surface.getCapabilities() match
     case Success(caps)      => caps
     case Failure(exception) =>
       throw new RuntimeException("Failed to get surface capabilities", exception)
 
-  val (width, height) = (vkCapabilities.currentExtent().width(), vkCapabilities.currentExtent().height())
-  val minImageExtent = vkCapabilities.minImageExtent()
-  val maxImageExtent = vkCapabilities.maxImageExtent()
-
   def initialize(surfaceConfig: SurfaceConfig): Swapchain = pushStack: Stack =>
-    // cleanup()
+    cleanup()
+
+    val vkCapabilities = VkSurfaceCapabilitiesKHR.calloc(Stack)
+    check(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface.nativeHandle, vkCapabilities), "Failed to get surface capabilities")
+
+    val (width, height) = (vkCapabilities.currentExtent().width(), vkCapabilities.currentExtent().height())
+    val minImageExtent = vkCapabilities.minImageExtent()
+    val maxImageExtent = vkCapabilities.maxImageExtent()
 
     val preferredPresentMode = surfaceConfig.preferredPresentMode
 
-    // Use the surface capabilities abstraction
-    val availableFormats: List[Int] = surfaceCapabilities.supportedFormats
-    val availableColorSpaces: List[Int] = surfaceCapabilities.supportedColorSpaces
+    val availableSurfaceFormats: List[VkSurfaceFormatKHR] = surfaceCapabilities.vkSurfaceFormats
+    val preferredFormat = surfaceConfig.preferredFormat
+    val preferredColorSpace = surfaceConfig.preferredColorSpace
 
-    val exactFmtMatch = availableFormats.find(fmt => fmt == surfaceConfig.preferredFormat)
-    val exactCsMatch = availableColorSpaces.find(cs => cs == surfaceConfig.preferredColorSpace)
+    val chosenSurfaceFormat = availableSurfaceFormats.find(f =>
+      f.format() == preferredFormat && f.colorSpace() == preferredColorSpace
+    ).orElse(availableSurfaceFormats.headOption)
+      .getOrElse(throw new RuntimeException("No supported surface formats available"))
 
-    val chosenFormat = exactFmtMatch.orElse(availableFormats.headOption).getOrElse(throw new RuntimeException("No supported surface formats available"))
-    val chosenColorSpace =
-      exactCsMatch.orElse(availableColorSpaces.headOption).getOrElse(throw new RuntimeException("No supported color spaces available"))
+    val chosenFormat = chosenSurfaceFormat.format()
+    val chosenColorSpace = chosenSurfaceFormat.colorSpace()
 
     // Choose present mode
     val availableModes = surfaceCapabilities.supportedPresentModes
@@ -83,10 +82,11 @@ private[cyfra] class SwapchainManager(context: VulkanContext, surface: Surface):
 
     // Choose swap extent
     val (chosenWidth, chosenHeight) =
-      if width != -1 && height != -1 then (width, height)
+      if width > 0 && height > 0 then (width, height)
       else
-        val (desiredWidth, desiredHeight) = (800, 600) // TODO: get from window/config
-        if surfaceCapabilities.isExtentSupported(desiredWidth, desiredHeight) then (desiredWidth, desiredHeight)
+        val (desiredWidth, desiredHeight) = (800, 600)
+        if surfaceCapabilities.isExtentSupported(desiredWidth, desiredHeight) then
+           (desiredWidth, desiredHeight)
         else surfaceCapabilities.clampExtent(desiredWidth, desiredHeight)
 
     // Determine image count
@@ -97,8 +97,8 @@ private[cyfra] class SwapchainManager(context: VulkanContext, surface: Surface):
     swapchainImageFormat = chosenFormat
     swapchainColorSpace = chosenColorSpace
     swapchainPresentMode = presentMode
-    swapchainExtent = VkExtent2D.calloc(Stack).width(chosenWidth).height(chosenHeight)
-
+    swapchainWidth = chosenWidth
+    swapchainHeight = chosenHeight
     // Create swapchain
     val createInfo = VkSwapchainCreateInfoKHR
       .calloc(Stack)
@@ -107,7 +107,7 @@ private[cyfra] class SwapchainManager(context: VulkanContext, surface: Surface):
       .minImageCount(imageCount)
       .imageFormat(swapchainImageFormat)
       .imageColorSpace(swapchainColorSpace)
-      .imageExtent(swapchainExtent)
+      .imageExtent(VkExtent2D.calloc(Stack).width(swapchainWidth).height(swapchainHeight))
       .imageArrayLayers(1)
       .imageUsage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
       .preTransform(vkCapabilities.currentTransform())
@@ -146,65 +146,84 @@ private[cyfra] class SwapchainManager(context: VulkanContext, surface: Surface):
       imageViews = swapchainImageViews,
       format = swapchainImageFormat,
       colorSpace = swapchainColorSpace,
-      extent = swapchainExtent,
-    )
+      width = swapchainWidth,
+      height = swapchainHeight
+      )
 
   private def createImageViews(): Unit = pushStack: Stack =>
     if swapchainImages == null || swapchainImages.isEmpty then
       throw new VulkanAssertionError("Cannot create image views: swap chain images not initialized", -1)
-
+    
     if swapchainImageViews != null then
       swapchainImageViews.foreach(imageView => if imageView != VK_NULL_HANDLE then vkDestroyImageView(device.get, imageView, null))
-
+    
     swapchainImageViews = new Array[Long](swapchainImages.length)
+    
+    try
+      for i <- swapchainImages.indices do
+        val createInfo = VkImageViewCreateInfo
+          .calloc(Stack)
+          .sType$Default()
+          .image(swapchainImages(i))
+          .viewType(VK_IMAGE_VIEW_TYPE_2D)
+          .format(swapchainImageFormat)
 
-    for i <- swapchainImages.indices do
-      val createInfo = VkImageViewCreateInfo
-        .calloc(Stack)
-        .sType$Default()
-        .image(swapchainImages(i))
-        .viewType(VK_IMAGE_VIEW_TYPE_2D)
-        .format(swapchainImageFormat)
+        createInfo.components: components =>
+          components
+            .r(VK_COMPONENT_SWIZZLE_IDENTITY)
+            .g(VK_COMPONENT_SWIZZLE_IDENTITY)
+            .b(VK_COMPONENT_SWIZZLE_IDENTITY)
+            .a(VK_COMPONENT_SWIZZLE_IDENTITY)
 
-      createInfo.components: components =>
-        components
-          .r(VK_COMPONENT_SWIZZLE_IDENTITY)
-          .g(VK_COMPONENT_SWIZZLE_IDENTITY)
-          .b(VK_COMPONENT_SWIZZLE_IDENTITY)
-          .a(VK_COMPONENT_SWIZZLE_IDENTITY)
+        createInfo.subresourceRange: range =>
+          range
+            .aspectMask(VK_IMAGE_ASPECT_COLOR_BIT)
+            .baseMipLevel(0)
+            .levelCount(1)
+            .baseArrayLayer(0)
+            .layerCount(1)
 
-      createInfo.subresourceRange: range =>
-        range
-          .aspectMask(VK_IMAGE_ASPECT_COLOR_BIT)
-          .baseMipLevel(0)
-          .levelCount(1)
-          .baseArrayLayer(0)
-          .layerCount(1)
+        val pImageView = Stack.callocLong(1)
+        check(vkCreateImageView(device.get, createInfo, null, pImageView), s"Failed to create image view for swap chain image $i")
+        swapchainImageViews(i) = pImageView.get(0)
+    catch
+      case ex: Throwable =>
+        if swapchainImageViews != null then 
+          swapchainImageViews.foreach {iv =>
+          if iv != 0L && iv != VK_NULL_HANDLE then
+            try vkDestroyImageView(device.get, iv, null) catch case _: Throwable => ()
+          }
+          swapchainImageViews = null
+        throw ex
 
-      val pImageView = Stack.callocLong(1)
-      check(vkCreateImageView(device.get, createInfo, null, pImageView), s"Failed to create image view for swap chain image $i")
-      swapchainImageViews(i) = pImageView.get(i)
-
+  def destroyImageViews(swapchain: Swapchain): Unit = 
+    if swapchain.imageViews != null then
+      swapchain.imageViews.foreach{ iv =>
+        if iv != VK_NULL_HANDLE then vkDestroyImageView(device.get, iv, null)
+      }
+  
+  def destroySwapchain(swapchain: Swapchain): Unit = 
+    if swapchain.handle != VK_NULL_HANDLE then
+      vkDestroySwapchainKHR(device.get, swapchain.handle, null)
 
 object SwapchainManager:
   def createFramebuffers(swapchain: Swapchain, renderPass: Long): Array[Long] = pushStack: Stack =>
     val swapchainFramebuffers = new Array[Long](swapchain.imageViews.length)
     for i <- swapchain.imageViews.indices do
-      val attachments = Stack.longs(swapchain.imageViews: _*)
+      val attachments = Stack.callocLong(1)
+      attachments.put(0, swapchain.imageViews(i))
 
       val framebufferInfo = VkFramebufferCreateInfo
         .calloc(Stack)
         .sType$Default()
         .renderPass(renderPass)
-        .attachmentCount(1)
         .pAttachments(attachments)
-        .width(swapchain.extent.width())
-        .height(swapchain.extent.height())
+        .width(swapchain.width)
+        .height(swapchain.height)
         .layers(1)
 
       val pFrameBuffer = Stack.callocLong(1)
-      if (vkCreateFramebuffer(swapchain.device, framebufferInfo, null, pFrameBuffer) != VK_SUCCESS) then
-        throw new RuntimeException("Failed to create framebuffer")
+      check(vkCreateFramebuffer(swapchain.device, framebufferInfo, null, pFrameBuffer), s"Failed to create framebuffer $i")
       swapchainFramebuffers(i) = pFrameBuffer.get(0)
 
     swapchainFramebuffers

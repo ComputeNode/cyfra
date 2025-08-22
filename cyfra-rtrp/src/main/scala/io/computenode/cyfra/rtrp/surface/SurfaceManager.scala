@@ -104,14 +104,12 @@ class SurfaceManager(vulkanContext: VulkanContext):
           case ex => logger.error(s"Failed to resize surface for window $windowId: ${ex.getMessage}")
 
       case WindowEvent.CloseRequested(windowId) =>
-        destroySurface(windowId).recover:
-          case ex =>
-            logger.error(s"Failed to destroy surface for closing window $windowId: ${ex.getMessage}")
+        // Do NOT destroy the surface here. Let the application clean up Vulkan resources first.
+        logger.info(s"Window $windowId close requested. Surface destruction deferred to application cleanup.")
 
       case WindowEvent.Destroyed(windowId) =>
-        destroySurface(windowId).recover:
-          case ex =>
-            logger.error(s"Failed to destroy surface for destroyed window $windowId: ${ex.getMessage}")
+        // Do NOT destroy the surface here. Let the application clean up Vulkan resources first.
+        logger.info(s"Window $windowId destroyed. Surface destruction deferred to application cleanup.")
 
       case _ =>
       // Ignore other events

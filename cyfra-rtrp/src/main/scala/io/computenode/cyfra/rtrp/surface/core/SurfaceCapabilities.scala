@@ -1,5 +1,7 @@
 package io.computenode.cyfra.rtrp.surface.core
 
+import org.lwjgl.vulkan.VkSurfaceFormatKHR
+
 // Surface capabilities - what the surface can do
 trait SurfaceCapabilities:
   def supportedFormats: List[Int]
@@ -12,6 +14,8 @@ trait SurfaceCapabilities:
   def maxImageCount: Int
   def supportsAlpha: Boolean
   def supportsTransform: Boolean
+
+  def vkSurfaceFormats: List[VkSurfaceFormatKHR]
 
   def supportsFormat(format: Int): Boolean =
     supportedFormats.contains(format)

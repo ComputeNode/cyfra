@@ -13,9 +13,11 @@ import io.computenode.cyfra.rtrp.window.core.{Window, WindowConfig}
 import io.computenode.cyfra.rtrp.surface.core.{Surface, SurfaceConfig}
 import io.computenode.cyfra.rtrp.surface.SurfaceManager
 import io.computenode.cyfra.rtrp.window.WindowManager
-import io.computenode.cyfra.vulkan.util.Util.pushStack
+import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import org.lwjgl.system.MemoryUtil.NULL
 import org.lwjgl.system.MemoryStack
+import org.lwjgl.system.MemoryUtil.memPutInt
+import io.computenode.cyfra.utility.Logger.logger
 
 import scala.util.{Failure, Success}
 
@@ -59,9 +61,7 @@ class rtrpExample:
     private var renderFinishedSemaphore: Semaphore = _
     private var inFlightFence: Fence = _
 
-    private def run(): Unit =
-        init()
-        mainLoop()
+    private var running = true
 
     private def init(): Unit =
         windowManager = WindowManager.create().get
@@ -77,8 +77,10 @@ class rtrpExample:
         vertShader = new Shader(vertShaderCode, "main", device)
         fragShader = new Shader(fragShaderCode, "main", device)
 
-        val result = windowManager.createWindowWithSurface()
-        val (window, surface) = result.get
+        var result = windowManager.createWindowWithSurface()
+        var (w, s) = result.get
+        window = w
+        surface = s
         surfaceManager = windowManager.getSurfaceManager().get
 
         presentQueue = surfaceManager.initializePresentQueue(surface).get.get
@@ -99,71 +101,115 @@ class rtrpExample:
         renderFinishedSemaphore = new Semaphore(device)
         inFlightFence = new Fence(device, VK_FENCE_CREATE_SIGNALED_BIT)
 
-    def mainLoop(): Unit =
-        while (!window.shouldClose)
-            windowManager.pollAndDispatchEvents()
-            drawFrame()
-
         vkDeviceWaitIdle(device.get)
 
-    def drawFrame(): Unit =
-        vkWaitForFences(device.get, inFlightFence.get, true, Long.MaxValue)
-        vkResetFences(device.get, inFlightFence.get)
+    private def destroySwapchainResources(): Unit =
+        if swapchain != null then
+            vkDeviceWaitIdle(device.get)
+            Option(renderPass).foreach(_.destroyFramebuffers())
+            Option(graphicsPipeline).foreach(_.destroy())
+            Option(renderPass).foreach(_.destroy())
+            Option(swapchainManager).foreach(_.destroyImageViews(swapchain))
+            Option(swapchainManager).foreach(_.destroySwapchain(swapchain))
+            swapchain = null
 
-        pushStack: stack =>
-            val pImageIndex = stack.callocInt(1)
-            val result = vkAcquireNextImageKHR(device.get, swapchain.get, Long.MaxValue, imageAvailableSemaphore.get, NULL, pImageIndex)
-            if result != VK_SUCCESS then throw new RuntimeException("Failed to acquire swapchain image!")
-            val imageIndex = pImageIndex.get(0)
-            
-            commandPool.resetCommandBuffer(commandBuffer)
-            renderPass.recordCommandBuffer(commandBuffer, imageIndex, graphicsPipeline.get)
+    def drawFrame(): Unit = pushStack: stack =>
+
+        Option(inFlightFence).foreach(_.block())
+        Option(inFlightFence).foreach(_.reset())
+
+        val pImageIndex = stack.callocInt(1)
+        val acquireResult = vkAcquireNextImageKHR(device.get, swapchain.get, Long.MaxValue, imageAvailableSemaphore.get, VK_NULL_HANDLE, pImageIndex)
+        check(acquireResult, s"Failed to acquire swapchain image (code $acquireResult)")
+        val imageIndex = pImageIndex.get(0)
         
+        // Reset & record command buffer
+        check(vkResetCommandBuffer(commandBuffer, 0), "Failed to reset command buffer")
+        val framebuffer = renderPass.swapchainFramebuffers(imageIndex)
+        if framebuffer == 0L then
+          logger.warn(s"[WARN] Framebuffer for imageIndex=$imageIndex is null")
+          return
+        val recordedOk = renderPass.recordCommandBuffer(commandBuffer, framebuffer, imageIndex, graphicsPipeline)
+        if !recordedOk then return
 
-            val submitInfo = VkSubmitInfo
-                .calloc(stack)
-                .sType$Default()
-            val waitSemaphores = stack.longs(imageAvailableSemaphore.get)
-            val waitStages = stack.ints(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
-            submitInfo
-                .pWaitSemaphores(waitSemaphores)
-                .pWaitDstStageMask(waitStages)
-                .pCommandBuffers(stack.pointers(commandBuffer))
-            val signalSemaphores = stack.longs(renderFinishedSemaphore.get)
-            submitInfo
-                .pSignalSemaphores(signalSemaphores)
+        // submit
+        val waitSemaphores = stack.longs(imageAvailableSemaphore.get)
+        val waitStages = stack.ints(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
+        val signalSemaphores = stack.longs(renderFinishedSemaphore.get)
+        val pCommandBuffers = stack.pointers(commandBuffer)
 
-            if (vkQueueSubmit(graphicsQueue, submitInfo, inFlightFence.get) != VK_SUCCESS) then
-                throw new RuntimeException("failed to submit draw command buffer!")
+        val submitInfo = VkSubmitInfo
+            .calloc(stack)
+            .sType$Default()
+            .pWaitSemaphores(waitSemaphores)
+            .pWaitDstStageMask(waitStages)
+            .pCommandBuffers(pCommandBuffers)
+            .pSignalSemaphores(signalSemaphores)
 
-            val presentInfo = VkPresentInfoKHR.calloc(stack).sType$Default()
-            presentInfo
-                .pWaitSemaphores(signalSemaphores)
-            val swapchains = stack.longs(swapchain.get)
-            presentInfo
-                .pSwapchains(swapchains)
-                .pImageIndices(stack.ints(imageIndex))
-                .pResults(null)
-            vkQueuePresentKHR(presentQueue, presentInfo)
+        // Manually set counts; can't find any other way rn :'(
+        memPutInt(submitInfo.address() + VkSubmitInfo.WAITSEMAPHORECOUNT, waitSemaphores.remaining())
+        memPutInt(submitInfo.address() + VkSubmitInfo.COMMANDBUFFERCOUNT, 1)
+        memPutInt(submitInfo.address() + VkSubmitInfo.SIGNALSEMAPHORECOUNT, signalSemaphores.remaining())
+
+        check(vkQueueSubmit(graphicsQueue, submitInfo, inFlightFence.get), "vkQueueSbmit failed")
+
+        val pSwapchains = stack.longs(swapchain.get)
+        val pImageIndices = stack.ints(imageIndex)
+
+        val presentInfo = VkPresentInfoKHR
+            .calloc(stack)
+            .sType$Default()
+            .pWaitSemaphores(signalSemaphores)
+            .pSwapchains(pSwapchains)
+            .pImageIndices(pImageIndices)
+
+        // Manually here too :/
+        memPutInt(presentInfo.address() + VkPresentInfoKHR.WAITSEMAPHORECOUNT, signalSemaphores.remaining())
+        memPutInt(presentInfo.address() + VkPresentInfoKHR.SWAPCHAINCOUNT, pSwapchains.remaining())
+        
+        val presentResult = vkQueuePresentKHR(presentQueue, presentInfo)
+        check(presentResult, s"vkQueuePresentKHR failed: $presentResult")
 
     def cleanup(): Unit =
-        if (device != null && device.get != null) then
+        try
             vkDeviceWaitIdle(device.get)
-        Option(renderFinishedSemaphore).foreach(_.close())
-        Option(imageAvailableSemaphore).foreach(_.close())
-        Option(inFlightFence).foreach(_.close())
-        Option(commandPool).foreach(_.close())
-        Option(graphicsPipeline).foreach(_.close())
-        Option(swapchainFramebuffers).foreach(_.foreach(framebuffer =>
-            vkDestroyFramebuffer(device.get, framebuffer, null)
-        ))
-        Option(renderPass).foreach(_.close())
-        Option(swapchain).foreach(_.close())
-        Option(device).foreach(_.close())
-        Option(surface).foreach(_.destroy())
-        Option(window).foreach(_.close())
-        Option(swapchainManager).foreach(_.cleanup())
-        Option(vertShader).foreach(_.close())
-        Option(fragShader).foreach(_.close())
-        Option(windowManager).foreach(_.shutdown())
-        Option(context).foreach(_.destroy())
+
+            destroySwapchainResources()
+
+            Option(imageAvailableSemaphore).foreach(_.destroy())
+            Option(renderFinishedSemaphore).foreach(_.destroy())
+            Option(inFlightFence).foreach(_.destroy())
+
+            Option(commandPool).foreach(_.destroy())
+
+            Option(surfaceManager).foreach(m => if surface != null then m.destroySurface(surface.windowId))
+            
+            Option(windowManager).foreach(_.destroyWindow(window))
+            
+            Option(vertShader).foreach(_.destroy())
+            Option(fragShader).foreach(_.destroy())
+
+            Option(context).foreach(_.destroy())
+            Option(device).foreach(_.destroy())
+
+        catch
+            case t: Throwable => println(s"[cleanup] error: ${t.getMessage}")
+
+    def mainLoop(): Unit = 
+        while running do
+            windowManager.pollAndDispatchEvents()
+
+            if window.shouldClose then running = false
+
+            if surface == null || surface.isDestroyed then running = false
+
+            if !running then ()
+            else  
+                drawFrame()
+
+    def run(): Unit = 
+    try 
+        init()
+        mainLoop()
+    finally
+        cleanup()
