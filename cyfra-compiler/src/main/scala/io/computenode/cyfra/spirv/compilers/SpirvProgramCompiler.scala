@@ -4,6 +4,7 @@ import io.computenode.cyfra.spirv.Opcodes.*
 import io.computenode.cyfra.dsl.Expression.{Const, E}
 import io.computenode.cyfra.dsl.Value
 import io.computenode.cyfra.dsl.Value.*
+import io.computenode.cyfra.dsl.gio.GIO
 import io.computenode.cyfra.dsl.struct.{GStructConstructor, GStructSchema}
 import io.computenode.cyfra.spirv.Context
 import io.computenode.cyfra.spirv.SpirvConstants.*
@@ -18,7 +19,7 @@ private[cyfra] object SpirvProgramCompiler:
       case Instruction(Op.OpVariable, _) => true
       case _                             => false
 
-  def compileMain(tree: Value, resultType: Tag[?], ctx: Context): (List[Words], Context) =
+  def compileMain(body: GIO[?], resultType: Tag[?], ctx: Context): (List[Words], Context) =
 
     val init = List(
       Instruction(Op.OpFunction, List(ResultRef(ctx.voidTypeRef), ResultRef(MAIN_FUNC_REF), SamplerAddressingMode.None, ResultRef(VOID_FUNC_TYPE_REF))),
@@ -160,7 +161,8 @@ private[cyfra] object SpirvProgramCompiler:
       Instruction(Op.OpName, List(ResultRef(block.structTypeRef), Text(s"Buffer$tpe"))) ::
         Instruction(Op.OpName, List(ResultRef(block.blockVarRef), Text(s"data$tpe"))) :: Nil
     // todo name uniform
-    context.inBufferBlocks.flatMap(namesForBlock(_, "In")) ::: context.outBufferBlocks.flatMap(namesForBlock(_, "Out"))
+    //context.inBufferBlocks.flatMap(namesForBlock(_, "In")) ::: context.outBufferBlocks.flatMap(namesForBlock(_, "Out"))
+    List()
 
   def totalStride(gs: GStructSchema[?]): Int = gs.fields
     .map:
