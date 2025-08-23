@@ -40,7 +40,7 @@ private[cyfra] class Device(instance: Instance) extends VulkanObject:
     vkGetPhysicalDeviceProperties(physicalDevice, pProperties)
     pProperties.deviceNameString()
 
-  val graphicsQueueFamily: Int = pushStack: stack =>
+  val queueFamily: Int = pushStack: stack =>
     val pQueueFamilyCount = stack.callocInt(1)
     vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, pQueueFamilyCount, null)
     val queueFamilyCount = pQueueFamilyCount.get(0)
@@ -63,9 +63,9 @@ private[cyfra] class Device(instance: Instance) extends VulkanObject:
     val queueFamilyCount = pQueueFamilyCount.get(0)
 
     val pSupported = stack.callocInt(1)
-    vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, graphicsQueueFamily, surface, pSupported)
+    vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, queueFamily, surface, pSupported)
     if pSupported.get(0) == VK_TRUE then
-      return graphicsQueueFamily
+      return queueFamily
 
     val queues = 0 until queueFamilyCount
     queues
@@ -119,7 +119,7 @@ private[cyfra] class Device(instance: Instance) extends VulkanObject:
       .sType$Default()
       .pNext(0)
       .flags(0)
-      .queueFamilyIndex(graphicsQueueFamily)
+      .queueFamilyIndex(queueFamily)
       .pQueuePriorities(pQueuePriorities)
 
     val extensions = Seq(MacOsExtension, SwapchainExtension, SyncExtension).filter(deviceExtensionsSet)

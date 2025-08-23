@@ -36,7 +36,7 @@ object rtrpExample:
 class rtrpExample:
     private var context: VulkanContext = _
     private var device: Device = _
-    private var graphicsQueue: VkQueue = _
+    private var queue: VkQueue = _
     private var presentQueue: VkQueue = _
 
     private var vertShader: Shader = _
@@ -60,14 +60,14 @@ class rtrpExample:
     private var imageAvailableSemaphore: Semaphore = _
     private var renderFinishedSemaphore: Semaphore = _
     private var inFlightFence: Fence = _
-
+    private val MAX_FRAMES_IN_FLIGHT = 2
     private var running = true
 
     private def init(): Unit =
         windowManager = WindowManager.create().get
         context = VulkanContext.withSurfaceSupport()
         device = context.device
-        graphicsQueue = context.graphicsQueue.get
+        queue = context.queue.get
         windowManager.initializeWithVulkan(context).get
 
         val vertShaderCode = Shader.loadShader("shaders/vert.spv")
@@ -151,7 +151,7 @@ class rtrpExample:
         memPutInt(submitInfo.address() + VkSubmitInfo.COMMANDBUFFERCOUNT, 1)
         memPutInt(submitInfo.address() + VkSubmitInfo.SIGNALSEMAPHORECOUNT, signalSemaphores.remaining())
 
-        check(vkQueueSubmit(graphicsQueue, submitInfo, inFlightFence.get), "vkQueueSbmit failed")
+        check(vkQueueSubmit(queue, submitInfo, inFlightFence.get), "vkQueueSbmit failed")
 
         val pSwapchains = stack.longs(swapchain.get)
         val pImageIndices = stack.ints(imageIndex)

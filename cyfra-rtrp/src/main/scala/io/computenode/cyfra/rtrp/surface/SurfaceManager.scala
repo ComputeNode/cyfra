@@ -21,8 +21,8 @@ class SurfaceManager(vulkanContext: VulkanContext):
     val device = vulkanContext.device
     val presentQueueFamily = device.findPresentQueueFamily(surface.nativeHandle)
 
-    if (presentQueueFamily == device.graphicsQueueFamily) {
-      vulkanContext.graphicsQueue
+    if (presentQueueFamily == device.queueFamily) {
+      vulkanContext.queue
     } else {
       new Queue(presentQueueFamily, 0, device)
     }
