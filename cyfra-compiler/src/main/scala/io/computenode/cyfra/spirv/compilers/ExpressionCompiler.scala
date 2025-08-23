@@ -3,7 +3,7 @@ package io.computenode.cyfra.spirv.compilers
 import io.computenode.cyfra.dsl.*
 import io.computenode.cyfra.dsl.Expression.*
 import io.computenode.cyfra.dsl.Value.*
-import io.computenode.cyfra.dsl.collections.GArray.GArrayElem
+import io.computenode.cyfra.dsl.binding.*
 import io.computenode.cyfra.dsl.collections.GSeq
 import io.computenode.cyfra.dsl.macros.Source
 import io.computenode.cyfra.dsl.struct.GStruct.{ComposeStruct, GetField}
@@ -289,19 +289,19 @@ private[cyfra] object ExpressionCompiler:
             case fc: FunctionCall[?] =>
               compileFunctionCall(fc, ctx)
 
-            case ReadBuffer(index, i) =>
+            case ReadBuffer(buffer, i) =>
               val instructions = List(
                 Instruction(
                   Op.OpAccessChain,
                   List(
-                    ResultRef(ctx.uniformPointerMap(ctx.valueTypeMap(ga.tag.tag))),
+                    ResultRef(ctx.uniformPointerMap(ctx.valueTypeMap(buffer.tag.tag))),
                     ResultRef(ctx.nextResultId),
-                    ResultRef(ctx.inBufferBlocks(index).blockVarRef),
+                    ResultRef(ctx.bufferBlocks(buffer).blockVarRef),
                     ResultRef(ctx.constRefs((Int32Tag, 0))),
                     ResultRef(ctx.exprRefs(i.treeid)),
                   ),
                 ),
-                Instruction(Op.OpLoad, List(IntWord(ctx.valueTypeMap(ga.tag.tag)), ResultRef(ctx.nextResultId + 1), ResultRef(ctx.nextResultId))),
+                Instruction(Op.OpLoad, List(IntWord(ctx.valueTypeMap(buffer.tag.tag)), ResultRef(ctx.nextResultId + 1), ResultRef(ctx.nextResultId))),
               )
               val updatedContext = ctx.copy(exprRefs = ctx.exprRefs + (expr.treeid -> (ctx.nextResultId + 1)), nextResultId = ctx.nextResultId + 2)
               (instructions, updatedContext)

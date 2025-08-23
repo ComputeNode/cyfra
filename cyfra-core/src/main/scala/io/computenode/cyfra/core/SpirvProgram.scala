@@ -26,7 +26,6 @@ case class SpirvProgram[Params, L <: Layout: {LayoutBinding, LayoutStruct}] priv
   code: ByteBuffer,
   entryPoint: String,
   shaderBindings: L => ShaderLayout,
-  cacheKey: String,
 ) extends GProgram[Params, L]
 
 object SpirvProgram:
@@ -38,24 +37,13 @@ object SpirvProgram:
     case ReadWrite
 
   def apply[Params, L <: Layout: {LayoutBinding, LayoutStruct}](
-    path: String,
     layout: InitProgramLayout ?=> Params => L,
     dispatch: (L, Params) => ProgramDispatch,
+    code: ByteBuffer
   ): SpirvProgram[Params, L] =
-    val code = loadShader(path).get
     val workgroupSize = (128, 1, 1) // TODO Extract form shader
     val main = "main"
     val f: L => ShaderLayout = { case layout: Product =>
       layout.productIterator.zipWithIndex.map { case (binding: GBinding[?], i) => Binding(binding, ReadWrite) }.toSeq.pipe(Seq(_))
     }
-    val cacheKey =
-      val x = new File(path).getName
-      x.substring(0, x.lastIndexOf('.'))
-    new SpirvProgram[Params, L]((il: InitProgramLayout) => layout(using il), dispatch, workgroupSize, code, main, f, cacheKey)
-
-  def loadShader(path: String, classLoader: ClassLoader = getClass.getClassLoader): Try[ByteBuffer] =
-    Using.Manager: use =>
-      val file = new File(Objects.requireNonNull(classLoader.getResource(path)).getFile)
-      val fis = use(new FileInputStream(file))
-      val fc = use(fis.getChannel)
-      fc.map(FileChannel.MapMode.READ_ONLY, 0, fc.size())
+    new SpirvProgram[Params, L]((il: InitProgramLayout) => layout(using il), dispatch, workgroupSize, code, main, f)

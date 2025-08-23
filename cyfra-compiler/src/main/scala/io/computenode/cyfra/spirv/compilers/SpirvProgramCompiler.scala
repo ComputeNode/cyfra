@@ -4,6 +4,7 @@ import io.computenode.cyfra.spirv.Opcodes.*
 import io.computenode.cyfra.dsl.Expression.{Const, E}
 import io.computenode.cyfra.dsl.Value
 import io.computenode.cyfra.dsl.Value.*
+import io.computenode.cyfra.dsl.binding.GBuffer
 import io.computenode.cyfra.dsl.gio.GIO
 import io.computenode.cyfra.dsl.struct.{GStructConstructor, GStructSchema}
 import io.computenode.cyfra.spirv.Context
@@ -19,7 +20,7 @@ private[cyfra] object SpirvProgramCompiler:
       case Instruction(Op.OpVariable, _) => true
       case _                             => false
 
-  def compileMain(body: GIO[?], resultType: Tag[?], ctx: Context): (List[Words], Context) =
+  def compileMain(bodyIo: GIO[?], ctx: Context): (List[Words], Context) =
 
     val init = List(
       Instruction(Op.OpFunction, List(ResultRef(ctx.voidTypeRef), ResultRef(MAIN_FUNC_REF), SamplerAddressingMode.None, ResultRef(VOID_FUNC_TYPE_REF))),
@@ -39,22 +40,23 @@ private[cyfra] object SpirvProgramCompiler:
       Instruction(Op.OpLoad, List(ResultRef(ctx.valueTypeMap(Int32Tag.tag)), ResultRef(ctx.nextResultId + 2), ResultRef(ctx.nextResultId + 1))),
     )
 
-    val (body, codeCtx) = compileBlock(tree.tree, ctx.copy(nextResultId = ctx.nextResultId + 3, workerIndexRef = ctx.nextResultId + 2))
+    val (body, codeCtx) = GIOCompiler.compileGio(bodyIo, ctx.copy(nextResultId = ctx.nextResultId + 3, workerIndexRef = ctx.nextResultId + 2))
 
     val (vars, nonVarsBody) = bubbleUpVars(body)
 
     val end = List(
-      Instruction(
-        Op.OpAccessChain,
-        List(
-          ResultRef(codeCtx.uniformPointerMap(codeCtx.valueTypeMap(resultType.tag))),
-          ResultRef(codeCtx.nextResultId),
-          ResultRef(codeCtx.outBufferBlocks.head.blockVarRef),
-          ResultRef(codeCtx.constRefs((Int32Tag, 0))),
-          ResultRef(codeCtx.workerIndexRef),
-        ),
-      ),
-      Instruction(Op.OpStore, List(ResultRef(codeCtx.nextResultId), ResultRef(codeCtx.exprRefs(tree.tree.treeid)))),
+//      TODO Remove - Write is a part of GIO now
+//      Instruction(
+//        Op.OpAccessChain,
+//        List(
+//          ResultRef(codeCtx.uniformPointerMap(codeCtx.valueTypeMap(resultType.tag))),
+//          ResultRef(codeCtx.nextResultId),
+//          ResultRef(codeCtx.outBufferBlocks.head.blockVarRef),
+//          ResultRef(codeCtx.constRefs((Int32Tag, 0))),
+//          ResultRef(codeCtx.workerIndexRef),
+//        ),
+//      ),
+//      Instruction(Op.OpStore, List(ResultRef(codeCtx.nextResultId), ResultRef(codeCtx.exprRefs(tree.tree.treeid)))),
       Instruction(Op.OpReturn, List()),
       Instruction(Op.OpFunctionEnd, List()),
     )
@@ -120,15 +122,14 @@ private[cyfra] object SpirvProgramCompiler:
       ),
     )
     (definitionInstructions, context.copy(nextResultId = context.nextResultId + 3))
-  def initAndDecorateBuffers(buffers: List[Tag[?]], context: Context): (List[Words], List[Words], Context) =
+  def initAndDecorateBuffers(buffers: List[GBuffer[?]], context: Context): (List[Words], List[Words], Context) =
     val (blockDecor, blockDef, inCtx) = createAndInitBlocks(buffers, context)
     val (voidsDef, voidCtx) = defineVoids(inCtx)
     (blockDecor, voidsDef ::: blockDef, voidCtx)
 
-
-
-  def createAndInitBlocks(blocks: List[Tag[?]], context: Context): (List[Words], List[Words], Context) =
-    val (decoration, definition, newContext) = blocks.foldLeft((List[Words](), List[Words](), context)) { case ((decAcc, insnAcc, ctx), tpe) =>
+  def createAndInitBlocks(blocks: List[GBuffer[?]], context: Context): (List[Words], List[Words], Context) =
+    val (decoration, definition, newContext) = blocks.foldLeft((List[Words](), List[Words](), context)) { case ((decAcc, insnAcc, ctx), buff) =>
+      val tpe = buff.tag
       val block = ArrayBufferBlock(ctx.nextResultId, ctx.nextResultId + 1, ctx.nextResultId + 2, ctx.nextResultId + 3, ctx.nextBinding)
 
       val decorationInstructions = List[Words](
@@ -147,7 +148,7 @@ private[cyfra] object SpirvProgramCompiler:
       )
 
       val contextWithBlock =
-        ctx.copy(bufferBlocks = block :: ctx.bufferBlocks)
+        ctx.copy(bufferBlocks = ctx.bufferBlocks + (buff -> block))
       (
         decAcc ::: decorationInstructions,
         insnAcc ::: definitionInstructions,

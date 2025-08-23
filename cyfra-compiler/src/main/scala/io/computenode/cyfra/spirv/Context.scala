@@ -1,5 +1,6 @@
 package io.computenode.cyfra.spirv
 
+import io.computenode.cyfra.dsl.binding.GBuffer
 import io.computenode.cyfra.dsl.macros.FnCall.FnIdentifier
 import io.computenode.cyfra.spirv.SpirvConstants.HEADER_REFS_TOP
 import io.computenode.cyfra.spirv.compilers.FunctionCompiler.SprivFunction
@@ -20,7 +21,7 @@ private[cyfra] case class Context(
   bindingToStructType: Map[Int, Int] = Map.empty,
   constRefs: Map[(Tag[?], Any), Int] = Map(),
   exprRefs: Map[Int, Int] = Map(),
-  bufferBlocks: List[ArrayBufferBlock] = List(),
+  bufferBlocks: Map[GBuffer[?], ArrayBufferBlock] = Map(),
   nextResultId: Int = HEADER_REFS_TOP,
   nextBinding: Int = 0,
   exprNames: Map[Int, String] = Map(),

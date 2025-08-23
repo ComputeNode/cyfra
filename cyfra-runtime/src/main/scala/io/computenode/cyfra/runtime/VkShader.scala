@@ -5,6 +5,7 @@ import io.computenode.cyfra.core.SpirvProgram.*
 import io.computenode.cyfra.core.GProgram.InitProgramLayout
 import io.computenode.cyfra.core.layout.{Layout, LayoutBinding, LayoutStruct}
 import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
+import io.computenode.cyfra.spirv.compilers.DSLCompiler
 import io.computenode.cyfra.vulkan.compute.ComputePipeline
 import io.computenode.cyfra.vulkan.compute.ComputePipeline.*
 import io.computenode.cyfra.vulkan.core.Device
@@ -36,7 +37,5 @@ object VkShader:
 
   def compile[Params, L <: Layout: {LayoutBinding, LayoutStruct}](program: GioProgram[Params, L]): SpirvProgram[Params, L] =
     val GioProgram(_, layout, dispatch, _) = program
-    val name = program.cacheKey + ".spv"
-    loadShader(name) match
-      case Failure(_) => ???
-      case Success(_) => SpirvProgram(name, (il: InitProgramLayout) ?=> layout(il), dispatch)
+    val compiled = DSLCompiler.compile(program.body(summon[LayoutStruct[L]].layoutRef), ???)
+    SpirvProgram((il: InitProgramLayout) ?=> layout(il), dispatch, compiled)

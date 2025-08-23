@@ -16,7 +16,6 @@ trait GProgram[Params, L <: Layout: {LayoutBinding, LayoutStruct}] extends GExec
   val layout: InitProgramLayout => Params => L
   val dispatch: (L, Params) => ProgramDispatch
   val workgroupSize: WorkDimensions
-  private[cyfra] def cacheKey: String // TODO better type
   def layoutStruct = summon[LayoutStruct[L]]
 
 object GProgram:
