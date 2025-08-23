@@ -55,12 +55,13 @@ class rtrpExample:
     private var swapchainFramebuffers: Array[Long] = _
 
     private var commandPool: CommandPool = _
-    private var commandBuffer: VkCommandBuffer = _
+    private var commandBuffers: Seq[VkCommandBuffer] = _
 
-    private var imageAvailableSemaphore: Semaphore = _
-    private var renderFinishedSemaphore: Semaphore = _
-    private var inFlightFence: Fence = _
+    private var imageAvailableSemaphores: Seq[Semaphore] = _
+    private var renderFinishedSemaphores: Seq[Semaphore] = _
+    private var inFlightFences: Seq[Fence] = _
     private val MAX_FRAMES_IN_FLIGHT = 2
+    private var currentFrame: Int = 0
     private var running = true
 
     private def init(): Unit =
@@ -95,11 +96,11 @@ class rtrpExample:
         swapchainFramebuffers = renderPass.swapchainFramebuffers
 
         commandPool = context.commandPool
-        commandBuffer = commandPool.createCommandBuffer()
+        commandBuffers = commandPool.createCommandBuffers(MAX_FRAMES_IN_FLIGHT)
 
-        imageAvailableSemaphore = new Semaphore(device)
-        renderFinishedSemaphore = new Semaphore(device)
-        inFlightFence = new Fence(device, VK_FENCE_CREATE_SIGNALED_BIT)
+        imageAvailableSemaphores = (1 to MAX_FRAMES_IN_FLIGHT).map{_ => new Semaphore(device)}
+        renderFinishedSemaphores = (1 to MAX_FRAMES_IN_FLIGHT).map{_ => new Semaphore(device)}
+        inFlightFences = (1 to MAX_FRAMES_IN_FLIGHT).map{_ => new Fence(device, VK_FENCE_CREATE_SIGNALED_BIT)}
 
         vkDeviceWaitIdle(device.get)
 
@@ -115,28 +116,28 @@ class rtrpExample:
 
     def drawFrame(): Unit = pushStack: stack =>
 
-        Option(inFlightFence).foreach(_.block())
-        Option(inFlightFence).foreach(_.reset())
+        Option(inFlightFences(currentFrame)).foreach(_.block())
+        Option(inFlightFences(currentFrame)).foreach(_.reset())
 
         val pImageIndex = stack.callocInt(1)
-        val acquireResult = vkAcquireNextImageKHR(device.get, swapchain.get, Long.MaxValue, imageAvailableSemaphore.get, VK_NULL_HANDLE, pImageIndex)
+        val acquireResult = vkAcquireNextImageKHR(device.get, swapchain.get, Long.MaxValue, imageAvailableSemaphores(currentFrame).get, VK_NULL_HANDLE, pImageIndex)
         check(acquireResult, s"Failed to acquire swapchain image (code $acquireResult)")
         val imageIndex = pImageIndex.get(0)
         
         // Reset & record command buffer
-        check(vkResetCommandBuffer(commandBuffer, 0), "Failed to reset command buffer")
+        check(vkResetCommandBuffer(commandBuffers(currentFrame), 0), "Failed to reset command buffer")
         val framebuffer = renderPass.swapchainFramebuffers(imageIndex)
         if framebuffer == 0L then
           logger.warn(s"[WARN] Framebuffer for imageIndex=$imageIndex is null")
           return
-        val recordedOk = renderPass.recordCommandBuffer(commandBuffer, framebuffer, imageIndex, graphicsPipeline)
+        val recordedOk = renderPass.recordCommandBuffer(commandBuffers(currentFrame), framebuffer, imageIndex, graphicsPipeline)
         if !recordedOk then return
 
         // submit
-        val waitSemaphores = stack.longs(imageAvailableSemaphore.get)
+        val waitSemaphores = stack.longs(imageAvailableSemaphores(currentFrame).get)
         val waitStages = stack.ints(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
-        val signalSemaphores = stack.longs(renderFinishedSemaphore.get)
-        val pCommandBuffers = stack.pointers(commandBuffer)
+        val signalSemaphores = stack.longs(renderFinishedSemaphores(currentFrame).get)
+        val pCommandBuffers = stack.pointers(commandBuffers(currentFrame))
 
         val submitInfo = VkSubmitInfo
             .calloc(stack)
@@ -151,7 +152,7 @@ class rtrpExample:
         memPutInt(submitInfo.address() + VkSubmitInfo.COMMANDBUFFERCOUNT, 1)
         memPutInt(submitInfo.address() + VkSubmitInfo.SIGNALSEMAPHORECOUNT, signalSemaphores.remaining())
 
-        check(vkQueueSubmit(queue, submitInfo, inFlightFence.get), "vkQueueSbmit failed")
+        check(vkQueueSubmit(queue, submitInfo, inFlightFences(currentFrame).get), "vkQueueSbmit failed")
 
         val pSwapchains = stack.longs(swapchain.get)
         val pImageIndices = stack.ints(imageIndex)
@@ -169,6 +170,7 @@ class rtrpExample:
         
         val presentResult = vkQueuePresentKHR(presentQueue, presentInfo)
         check(presentResult, s"vkQueuePresentKHR failed: $presentResult")
+        currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT
 
     def cleanup(): Unit =
         try
@@ -176,9 +178,9 @@ class rtrpExample:
 
             destroySwapchainResources()
 
-            Option(imageAvailableSemaphore).foreach(_.destroy())
-            Option(renderFinishedSemaphore).foreach(_.destroy())
-            Option(inFlightFence).foreach(_.destroy())
+            Option(imageAvailableSemaphores(currentFrame)).foreach(_.destroy())
+            Option(renderFinishedSemaphores(currentFrame)).foreach(_.destroy())
+            Option(inFlightFences(currentFrame)).foreach(_.destroy())
 
             Option(commandPool).foreach(_.destroy())
 
