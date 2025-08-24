@@ -11,7 +11,7 @@ object GIOCompiler:
   
   def compileGio(gio: GIO[?], ctx: Context, acc: List[Words] = Nil): (List[Words], Context) =
     gio match
-      
+
       case GIO.Pure(v) =>
         val (insts, updatedCtx) = ExpressionCompiler.compileBlock(v.tree, ctx)
         (acc ::: insts, updatedCtx)
@@ -34,6 +34,10 @@ object GIOCompiler:
         )
         val updatedCtx = ctxWithIndex.copy(nextResultId = ctxWithIndex.nextResultId + 1)
         (acc ::: indexInsts ::: valueInsts ::: insns, updatedCtx)
+
+      case GIO.FlatMap(v, n) =>
+        val (vInsts, ctxAfterV) = compileGio(v, ctx, acc)
+        compileGio(n, ctxAfterV, vInsts)
 
       case GIO.Repeat(n, f) =>
 
