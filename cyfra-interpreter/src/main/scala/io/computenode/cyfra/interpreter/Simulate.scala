@@ -144,7 +144,7 @@ object Simulate:
     finishedRecords: Records,
     pendingRecords: Records,
     sc: SimContext,
-  ): SimContext =
+  )(using rootTreeId: TreeId): SimContext =
     if pendingRecords.isEmpty then sc
     else
       // scopes are not included in caches, they have to be simulated from scratch.
@@ -154,7 +154,11 @@ object Simulate:
       val SimContext(boolResults, boolRecords, boolData, boolProfs) = sim(when, pendingSc)
 
       // Split invocations that enter this branch.
-      val (enterRecords, newPendingRecords) = boolRecords.partition((invocId, _) => boolResults(invocId).asInstanceOf[Boolean])
+      val (enterRecords, pendingRecords1) = boolRecords.partition((invocId, _) => boolResults(invocId).asInstanceOf[Boolean])
+
+      // Finished records and still pending records will idle.
+      val newFinishedRecords = finishedRecords.updateIdles(rootTreeId)
+      val newPendingRecords = pendingRecords1.updateIdles(rootTreeId)
 
       // Only those invocs that enter the branch will have their records updated with thenCode result.
       val enterSc = SimContext(Map(), enterRecords, boolData, boolProfs)
@@ -181,13 +185,14 @@ object Simulate:
 
   private def simWhen(e: WhenExpr[?], sc: SimContext): SimContext = e match
     case WhenExpr(when, thenCode, otherConds, otherCaseCodes, otherwise) =>
-      whenHelper(when.tree, thenCode, otherConds, otherCaseCodes, otherwise, Map(), Map(), sc.records, sc)
+      whenHelper(when.tree, thenCode, otherConds, otherCaseCodes, otherwise, Map(), Map(), sc.records, sc)(using e.treeid)
 
   private def simReadBuffer(e: ReadBuffer[?], sc: SimContext): SimContext =
     val SimContext(_, records, data, profs) = sc
     e match
       case ReadBuffer(buffer, index) =>
         val indices = records.view.mapValues(_.cache(index.tree.treeid).asInstanceOf[Int]).toMap
+        // println(s"$e: $indices")
         val readValues = indices.view.mapValues(i => data.lookup(buffer, i)).toMap
         val newRecords = records.map: (invocId, record) =>
           invocId -> record.addRead(ReadBuf(e.treeid, buffer, indices(invocId), readValues(invocId)))

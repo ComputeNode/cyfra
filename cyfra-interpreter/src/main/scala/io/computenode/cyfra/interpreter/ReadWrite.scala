@@ -28,7 +28,8 @@ object CoalesceProfile:
   def apply(addresses: Seq[Int], profile: Profile): CoalesceProfile =
     val length = addresses.length
     val distinct = addresses.distinct.length == length
-    if !distinct then RaceCondition(profile)
+    if length == 0 then NotCoalesced(profile)
+    else if !distinct then RaceCondition(profile)
     else
       val (start, end) = (addresses.min, addresses.max)
       val coalesced = end - start + 1 == length
