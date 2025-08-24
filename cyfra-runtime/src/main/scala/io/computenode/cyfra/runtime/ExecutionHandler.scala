@@ -51,7 +51,7 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
           .zip(layout)
           .map:
             case (set, bindings) =>
-              set.update(bindings.map(x => VkAllocation.getUnderlying(x.binding)))
+              set.update(bindings.map(x => VkAllocation.getUnderlying(x.binding).buffer))
               set
 
     val dispatches: Seq[Dispatch] = shaderCalls
@@ -67,19 +67,15 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
         else (steps.appended(step), dirty ++ bindings)
 
     val commandBuffer = recordCommandBuffer(executeSteps)
-    pushStack: stack =>
-      val pCommandBuffer = stack.callocPointer(1).put(0, commandBuffer)
-      val submitInfo = VkSubmitInfo
-        .calloc(stack)
-        .sType$Default()
-        .pCommandBuffers(pCommandBuffer)
+    val cleanup = () =>
+      descriptorSets.flatten.foreach(dsManager.free)
+      commandPool.freeCommandBuffer(commandBuffer)
 
-      val fence = new Fence()
-      timed("Vulkan render command"):
-        check(vkQueueSubmit(commandPool.queue.get, submitInfo, fence.get), "Failed to submit command buffer to queue")
-        fence.block().destroy()
-    commandPool.freeCommandBuffer(commandBuffer)
-    descriptorSets.flatten.foreach(dsManager.free)
+    val externalBindings = (summon[LayoutBinding[EL]].toBindings(layout) ++ summon[LayoutBinding[RL]].toBindings(result))
+      .map(VkAllocation.getUnderlying)
+    val deps = externalBindings.flatMap(_.execution.fold(Seq(_), _.toSeq))
+    val pe = new PendingExecution(commandBuffer, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, deps, cleanup)
+    externalBindings.foreach(_.execution = Left(pe))
     result
 
   private def interpret[Params, EL <: Layout: LayoutBinding, RL <: Layout: LayoutBinding](
@@ -228,7 +224,7 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
 
         dispatch match
           case Direct(x, y, z)          => vkCmdDispatch(commandBuffer, x, y, z)
-          case Indirect(buffer, offset) => vkCmdDispatchIndirect(commandBuffer, VkAllocation.getUnderlying(buffer).get, offset)
+          case Indirect(buffer, offset) => vkCmdDispatchIndirect(commandBuffer, VkAllocation.getUnderlying(buffer).buffer.get, offset)
 
     check(vkEndCommandBuffer(commandBuffer), "Failed to finish recording command buffer")
     commandBuffer
