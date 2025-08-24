@@ -19,7 +19,7 @@ trait GBuffer[T <: Value: {FromExpr, Tag}] extends GBinding[T]:
 
 object GBuffer
 
-trait GUniform[T <: GStruct[T]: {Tag, FromExpr, GStructSchema}] extends GBinding[T]:
+trait GUniform[T <: GStruct[?]: {Tag, FromExpr, GStructSchema}] extends GBinding[T]:
   def read: T = fromExprEval(ReadUniform(this))
 
   def write(value: T): GIO[Empty] = WriteUniform(this, value)
@@ -28,6 +28,6 @@ trait GUniform[T <: GStruct[T]: {Tag, FromExpr, GStructSchema}] extends GBinding
 
 object GUniform:
 
-  class ParamUniform[T <: GStruct[T]: {Tag, FromExpr}]() extends GUniform[T]
+  class ParamUniform[T <: GStruct[T]: {Tag, FromExpr, GStructSchema}]() extends GUniform[T]
 
-  def fromParams[T <: GStruct[T]: {Tag, FromExpr}] = ParamUniform[T]()
+  def fromParams[T <: GStruct[T]: {Tag, FromExpr, GStructSchema}] = ParamUniform[T]()

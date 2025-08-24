@@ -7,7 +7,7 @@ import io.computenode.cyfra.dsl.Expression.ConstInt32
 import io.computenode.cyfra.dsl.Value
 import io.computenode.cyfra.dsl.Value.FromExpr
 import io.computenode.cyfra.dsl.binding.{GBinding, GBuffer, GUniform}
-import io.computenode.cyfra.dsl.struct.GStruct
+import io.computenode.cyfra.dsl.struct.{GStruct, GStructSchema}
 import io.computenode.cyfra.runtime.VkAllocation.getUnderlying
 import io.computenode.cyfra.spirv.SpirvTypes.typeStride
 import io.computenode.cyfra.vulkan.command.CommandPool
@@ -57,22 +57,22 @@ class VkAllocation(commandPool: CommandPool, executionHandler: ExecutionHandler)
       GBuffer[T](length).tap(_.write(buff))
 
   extension (buffers: GUniform.type)
-    def apply[T <: Value: {Tag, FromExpr}](buff: ByteBuffer): GUniform[T] =
+    def apply[T <: GStruct[?]: {Tag, FromExpr, GStructSchema}](buff: ByteBuffer): GUniform[T] =
       GUniform[T]().tap(_.write(buff))
 
-    def apply[T <: Value: {Tag, FromExpr}](): GUniform[T] =
+    def apply[T <: GStruct[?]: {Tag, FromExpr, GStructSchema}](): GUniform[T] =
       VkUniform[T]().tap(bindings += _)
 
   extension [Params, EL <: Layout: LayoutBinding, RL <: Layout: LayoutBinding](execution: GExecution[Params, EL, RL])
     def execute(params: Params, layout: EL): RL = executionHandler.handle(execution, params, layout)
 
-  private def direct[T <: Value: {Tag, FromExpr}](buff: ByteBuffer): GUniform[T] =
+  private def direct[T <: GStruct[?]: {Tag, FromExpr, GStructSchema}](buff: ByteBuffer): GUniform[T] =
     GUniform[T](buff)
 
   def getInitProgramLayout: GProgram.InitProgramLayout =
     new GProgram.InitProgramLayout:
       extension (uniforms: GUniform.type)
-        def apply[T <: GStruct[T]: {Tag, FromExpr}](value: T): GUniform[T] = pushStack: stack =>
+        def apply[T <: GStruct[?]: {Tag, FromExpr, GStructSchema}](value: T): GUniform[T] = pushStack: stack =>
           val bb = value.productElement(0) match
             case Int32(tree: ConstInt32) => MemoryUtil.memByteBuffer(stack.ints(tree.value))
             case _                       => ???

@@ -9,9 +9,12 @@ import io.computenode.cyfra.dsl.gio.GIO
 import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.runtime.VkCyfraRuntime
+import io.computenode.cyfra.spirvtools.SpirvTool.ToFile
+import io.computenode.cyfra.spirvtools.{SpirvCross, SpirvToolsRunner, SpirvValidator}
 import org.lwjgl.BufferUtils
 import org.lwjgl.system.MemoryUtil
 
+import java.nio.file.Paths
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.parallel.CollectionConverters.given
 
@@ -89,8 +92,51 @@ object TestingStuff:
     )
 
   @main
+  def testEmit =
+    given runtime: VkCyfraRuntime = VkCyfraRuntime(
+      spirvToolsRunner = SpirvToolsRunner(
+        crossCompilation = SpirvCross.Enable(toolOutput = ToFile(Paths.get("output/optimized.glsl")))
+      )
+    )
+
+    val emitParams = EmitProgramParams(inSize = 1024, emitN = 2)
+
+    val region = GBufferRegion
+      .allocate[EmitProgramLayout]
+      .map: region =>
+        emitProgram.execute(emitParams, region)
+
+    val data = (0 until 1024).toArray
+    val buffer = BufferUtils.createByteBuffer(data.length * 4)
+    buffer.asIntBuffer().put(data).flip()
+
+    val result = BufferUtils.createIntBuffer(data.length * 2)
+    val rbb = MemoryUtil.memByteBuffer(result)
+    region.runUnsafe(
+      init = EmitProgramLayout(
+        in = GBuffer[Int32](buffer),
+        out = GBuffer[Int32](data.length * 2),
+      ),
+      onDone = layout => layout.out.read(rbb),
+    )
+    runtime.close()
+
+    val actual = (0 until 2 * 1024).map(i => result.get(i * 1))
+    val expected = (0 until 1024).flatMap(x => Seq.fill(emitParams.emitN)(x))
+    expected
+      .zip(actual)
+      .zipWithIndex
+      .foreach:
+        case ((e, a), i) => assert(e == a, s"Mismatch at index $i: expected $e, got $a")
+
+  @main
   def test =
-    given runtime: VkCyfraRuntime = VkCyfraRuntime()
+    given runtime: VkCyfraRuntime = VkCyfraRuntime(
+      spirvToolsRunner = SpirvToolsRunner(
+        crossCompilation = SpirvCross.Enable(toolOutput = ToFile(Paths.get("output/optimized.glsl"))),
+        validator = SpirvValidator.Disable
+      )
+    )
 
     val emitFilterParams = EmitFilterParams(inSize = 1024, emitN = 2, filterValue = 42)
 
@@ -115,7 +161,7 @@ object TestingStuff:
     )
     runtime.close()
 
-    val actual = (0 until 2 * 1024).map(i => result.get(i * 1) != 0)
+    val actual = (0 until 2 * 1024).map(i => result.get(i) != 0)
     val expected = (0 until 1024).flatMap(x => Seq.fill(emitFilterParams.emitN)(x)).map(_ == emitFilterParams.filterValue)
     expected
       .zip(actual)

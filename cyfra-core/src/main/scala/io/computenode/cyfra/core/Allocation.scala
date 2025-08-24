@@ -4,7 +4,7 @@ import io.computenode.cyfra.core.layout.{Layout, LayoutBinding}
 import io.computenode.cyfra.dsl.Value
 import io.computenode.cyfra.dsl.Value.FromExpr
 import io.computenode.cyfra.dsl.binding.{GBinding, GBuffer, GUniform}
-import io.computenode.cyfra.dsl.struct.GStruct
+import io.computenode.cyfra.dsl.struct.{GStruct, GStructSchema}
 import izumi.reflect.Tag
 
 import java.nio.ByteBuffer
@@ -24,6 +24,6 @@ trait Allocation:
     def apply[T <: Value: {Tag, FromExpr}](buff: ByteBuffer): GBuffer[T]
 
   extension (buffers: GUniform.type)
-    def apply[T <: Value: {Tag, FromExpr}](buff: ByteBuffer): GUniform[T]
+    def apply[T <: GStruct[T]: {Tag, FromExpr, GStructSchema}](buff: ByteBuffer): GUniform[T]
 
-    def apply[T <: Value: {Tag, FromExpr}](): GUniform[T]
+    def apply[T <: GStruct[T]: {Tag, FromExpr, GStructSchema}](): GUniform[T]

@@ -1,6 +1,6 @@
 package io.computenode.cyfra.spirv
 
-import io.computenode.cyfra.dsl.binding.GBuffer
+import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
 import io.computenode.cyfra.dsl.macros.FnCall.FnIdentifier
 import io.computenode.cyfra.spirv.SpirvConstants.HEADER_REFS_TOP
 import io.computenode.cyfra.spirv.compilers.FunctionCompiler.SprivFunction
@@ -17,7 +17,7 @@ private[cyfra] case class Context(
   voidTypeRef: Int = -1,
   voidFuncTypeRef: Int = -1,
   workerIndexRef: Int = -1,
-  uniformVarRefs: Map[Int, Int] = Map.empty,
+  uniformVarRefs: Map[GUniform[?], Int] = Map.empty,
   bindingToStructType: Map[Int, Int] = Map.empty,
   constRefs: Map[(Tag[?], Any), Int] = Map(),
   exprRefs: Map[Int, Int] = Map(),

@@ -74,10 +74,12 @@ private[cyfra] object DSLCompiler:
     val allTypes = (typesInCode ::: bindings.map(_.tag)).distinct
     def scalarTypes = allTypes.filter(_.tag <:< summon[Tag[Scalar]].tag)
     val (typeDefs, typedContext) = defineScalarTypes(scalarTypes, Context.initialContext)
-    val (buffers, uniforms) = bindings.partition:
-      case _: GBuffer[?]   => true
-      case _: GUniform[?] => false
-    .asInstanceOf[(List[GBinding[?]], List[GUniform[?]])]
+    val (buffersWithIndices, uniformsWithIndices) = bindings.zipWithIndex.partition:
+      case (_: GBuffer[?], _)   => true
+      case (_: GUniform[?], _) => false
+    .asInstanceOf[(List[(GBuffer[?], Int)], List[(GUniform[?], Int)])]
+    val uniforms = uniformsWithIndices.map(_._1)
+    val buffers = buffersWithIndices.map(_._1)
     val uniformSchemas = uniforms.map(_.schema)
     val structsInCode =
       (allExprs.collect {
@@ -86,9 +88,9 @@ private[cyfra] object DSLCompiler:
       } ::: uniformSchemas).distinct
     val (structDefs, structCtx) = defineStructTypes(structsInCode, typedContext)
     val structNames = getStructNames(structsInCode, structCtx)
-    val (decorations, uniformDefs, uniformContext) = initAndDecorateBuffers(buffers, structCtx)
-    val (uniformStructDecorations, uniformStructInsns, uniformStructContext) = createAndInitUniformBlocks(uniformSchemaIns, uniformContext)
-    val blockNames = getBlockNames(uniformContext, uniformSchemaIns)
+    val (decorations, uniformDefs, uniformContext) = initAndDecorateBuffers(buffersWithIndices, structCtx)
+    val (uniformStructDecorations, uniformStructInsns, uniformStructContext) = createAndInitUniformBlocks(uniformsWithIndices, uniformContext)
+    val blockNames = getBlockNames(uniformContext, uniforms)
     val (inputDefs, inputContext) = createInvocationId(uniformStructContext)
     val (constDefs, constCtx) = defineConstants(allExprs, inputContext)
     val (varDefs, varCtx) = defineVarNames(constCtx)

@@ -16,11 +16,8 @@ import scala.util.{Failure, Success}
 case class VkShader[L](underlying: ComputePipeline, shaderBindings: L => ShaderLayout)
 
 object VkShader:
-  def apply[P, L <: Layout: {LayoutBinding, LayoutStruct}](program: GProgram[P, L])(using Device): VkShader[L] =
-    val SpirvProgram(layout, dispatch, _workgroupSize, code, entryPoint, shaderBindings, _) = program match
-      case p: GioProgram[?, ?]   => compile(p)
-      case p: SpirvProgram[?, ?] => p
-      case _                     => throw new IllegalArgumentException(s"Unsupported program type: ${program.getClass.getName}")
+  def apply[P, L <: Layout: {LayoutBinding, LayoutStruct}](program: SpirvProgram[P, L])(using Device): VkShader[L] =
+    val SpirvProgram(layout, dispatch, _workgroupSize, code, entryPoint, shaderBindings) = program 
 
     val shaderLayout = shaderBindings(summon[LayoutStruct[L]].layoutRef)
     val sets = shaderLayout.map: set =>
@@ -35,7 +32,3 @@ object VkShader:
     val pipeline = ComputePipeline(code, entryPoint, LayoutInfo(sets))
     VkShader(pipeline, shaderBindings)
 
-  def compile[Params, L <: Layout: {LayoutBinding, LayoutStruct}](program: GioProgram[Params, L]): SpirvProgram[Params, L] =
-    val GioProgram(_, layout, dispatch, _) = program
-    val compiled = DSLCompiler.compile(program.body(summon[LayoutStruct[L]].layoutRef), ???)
-    SpirvProgram((il: InitProgramLayout) ?=> layout(il), dispatch, compiled)

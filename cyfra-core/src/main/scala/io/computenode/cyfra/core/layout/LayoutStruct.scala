@@ -4,6 +4,7 @@ import io.computenode.cyfra.core.binding.{BufferRef, UniformRef}
 import io.computenode.cyfra.dsl.Value
 import io.computenode.cyfra.dsl.Value.FromExpr
 import io.computenode.cyfra.dsl.binding.{GBinding, GBuffer, GUniform}
+import io.computenode.cyfra.dsl.struct.{GStruct, GStructSchema}
 import izumi.reflect.Tag
 import izumi.reflect.macrortti.LightTypeTag
 
@@ -55,17 +56,18 @@ object LayoutStruct:
 
     val buffers = typeGivens.zipWithIndex.map:
       case ((ftype, tpe, tag, fromExpr), i) =>
-        tpe match
-          case '[type t <: Value; t] =>
-            ftype match
-              case '[type tg <: GBuffer[?]; tg] =>
-                '{
-                  BufferRef[t](${ Expr(i) }, ${ tag.asExprOf[Tag[t]] })(using summon[Tag[t]], ${ fromExpr.asExprOf[FromExpr[t]] })
-                }
-              case '[type tg <: GUniform[?]; tg] =>
-                '{
-                  UniformRef[t](${ Expr(i) }, ${ tag.asExprOf[Tag[t]] })(using summon[Tag[t]], ${ fromExpr.asExprOf[FromExpr[t]] })
-                }
+        (tpe, ftype) match
+          case ('[type t <: Value; t], '[type tg <: GBuffer[?]; tg]) =>
+            '{
+              BufferRef[t](${ Expr(i) }, ${ tag.asExprOf[Tag[t]] })(using summon[Tag[t]], ${ fromExpr.asExprOf[FromExpr[t]] })
+            }
+          case ('[type t <: GStruct[?]; t], '[type tg <: GUniform[?]; tg]) =>
+            val structSchema = Expr.summon[GStructSchema[t]] match
+              case Some(s) => s
+              case None    => report.errorAndAbort(s"Cannot summon GStructSchema for type")
+            '{
+              UniformRef[t](${ Expr(i) }, ${ tag.asExprOf[Tag[t]] })(using summon[Tag[t]], ${ fromExpr.asExprOf[FromExpr[t]] }, ${ structSchema })
+            }
 
     val constructor = sym.primaryConstructor
 
