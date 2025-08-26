@@ -189,7 +189,7 @@ object GPipe:
         .flatMap: chunk =>
           bridge.toByteBuffer(predBuf, chunk)
           region.runUnsafe(
-            init = FilterLayout(in = GBuffer[C](predBuf), scan = GBuffer[Int32](scanBuf), out = GBuffer[C](compactBuf), intervalSize = ???),
+            init = FilterLayout(in = GBuffer[C](predBuf), scan = GBuffer[Int32](scanBuf), out = GBuffer[C](compactBuf), intervalSize = GUniform()),
             onDone = layout => layout.out.read(compactBuf),
           )
           val arr = bridge.fromByteBuffer(compactBuf, new Array[S](256))
