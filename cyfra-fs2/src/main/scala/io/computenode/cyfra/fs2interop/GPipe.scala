@@ -58,11 +58,12 @@ object GPipe:
 
   def filter[F[_], C <: Value: FromExpr: Tag, S: ClassTag](pred: C => GBoolean)(using cr: CyfraRuntime, bridge: Bridge[C, S]): Pipe[F, S, S] =
     (stream: Stream[F, S]) =>
+      case class Params(inSize: Int) // used commonly by many program layouts
+
       // Predicate mapping
-      case class PredParams(inSize: Int)
       case class PredLayout(in: GBuffer[C], out: GBuffer[Int32]) extends Layout
 
-      val predicateProgram = GProgram[PredParams, PredLayout](
+      val predicateProgram = GProgram[Params, PredLayout](
         layout = params => PredLayout(in = GBuffer[C](params.inSize), out = GBuffer[Int32](params.inSize)),
         dispatch = (layout, params) => GProgram.StaticDispatch((params.inSize, 1, 1)),
       ): layout =>
@@ -70,10 +71,6 @@ object GPipe:
         val element = GIO.read[C](layout.in, invocId)
         val result = when(pred(element))(1: Int32).otherwise(0)
         GIO.write[Int32](layout.out, invocId, result)
-
-      val predParams = PredParams(256)
-      val predExec = GExecution[PredParams, PredLayout]()
-        .addProgram(predicateProgram)(params => params, layout => layout)
 
       // Prefix sum (inclusive), upsweep/downsweep
       case class ScanParams(inSize: Int, intervalSize: Int)
@@ -107,66 +104,99 @@ object GPipe:
         val newValue = oldValue + addValue
         GIO.write[Int32](layout.ints, mid, newValue)
 
+      // Stitch together many upsweep / downsweep program phases recursively
       @annotation.tailrec
-      def upsweepPhases(exec: GExecution[ScanParams, ScanLayout, ?], inSize: Int, intervalSize: Int): GExecution[ScanParams, ScanLayout, ?] =
+      def upsweepPhases(
+        exec: GExecution[ScanParams, ScanLayout, ScanLayout],
+        inSize: Int,
+        intervalSize: Int,
+      ): GExecution[ScanParams, ScanLayout, ScanLayout] =
         if intervalSize >= inSize then exec
         else
           val newExec = exec.addProgram(upsweep)(params => ScanParams(inSize, intervalSize), layout => layout)
           upsweepPhases(newExec, inSize, intervalSize * 2)
 
-      val upsweepInitialExec = GExecution[ScanParams, ScanLayout]()
-      val upsweepExec = upsweepPhases(upsweepInitialExec, 256, 2)
-
       @annotation.tailrec
-      def downsweepPhases(exec: GExecution[ScanParams, ScanLayout, ?], inSize: Int, intervalSize: Int): GExecution[ScanParams, ScanLayout, ?] =
+      def downsweepPhases(
+        exec: GExecution[ScanParams, ScanLayout, ScanLayout],
+        inSize: Int,
+        intervalSize: Int,
+      ): GExecution[ScanParams, ScanLayout, ScanLayout] =
         if intervalSize < 2 then exec
         else
           val newExec = exec.addProgram(downsweep)(params => ScanParams(inSize, intervalSize), layout => layout)
           downsweepPhases(newExec, inSize, intervalSize / 2)
 
-      val downsweepExec = downsweepPhases(upsweepInitialExec, 256, 128)
-      val scanParams = ScanParams(256, 2)
+      val initExec = GExecution[ScanParams, ScanLayout]() // no program
+      val upsweepExec = upsweepPhases(initExec, 256, 2) // add all upsweep phases
+      val scanExec = downsweepPhases(upsweepExec, 256, 128) // add all downsweep phases
 
-      // TODO implement compaction
-      case class CompactParams()
-      case class CompactLayout(in: GBuffer[C], intIn: GBuffer[Int32], out: GBuffer[C]) extends Layout
-      val compactedStreamSize: Int = ??? // TODO how to get this out of prefix sum results
+      // Stream compaction
+      case class CompactLayout(in: GBuffer[C], scan: GBuffer[Int32], out: GBuffer[C]) extends Layout
 
-      val compactProgram = GProgram[CompactParams, CompactLayout](layout = params => ???, dispatch = (layout, params) => ???): compactLayout =>
-        ???
-      val compactExec = GExecution[CompactParams, CompactLayout]()
+      val compactProgram = GProgram[Params, CompactLayout](
+        layout = params => CompactLayout(in = GBuffer[C](params.inSize), scan = GBuffer[Int32](params.inSize), out = GBuffer[C](params.inSize)),
+        dispatch = (layout, params) => GProgram.StaticDispatch((params.inSize, 1, 1)),
+      ): layout =>
+        val invocId = GIO.invocationId
+        val element = GIO.read[C](layout.in, invocId)
+        val prefixSum = GIO.read[Int32](layout.scan, invocId)
+        val prevScan = when(invocId > 0)(GIO.read[Int32](layout.scan, invocId - 1)).otherwise(prefixSum)
+        val condt = when(invocId > 0)(when(prevScan < prefixSum)(1: Int32).otherwise(0)).otherwise(when(prefixSum > 0)(1: Int32).otherwise(0))
+        val index = when(invocId > 0)(when(prevScan < prefixSum)(prevScan).otherwise(0)).otherwise(0)
+        GIO.repeat(condt): _ =>
+          GIO.write[C](layout.out, index, element)
 
-      // TODO: connect all the layouts/executions into one
-      case class PredScanCompactParams(inSize: Int)
-      case class PredScanCompactLayout(in: GBuffer[C], scan: GBuffer[Int32], out: GBuffer[C]) extends Layout
+      // connect all the layouts/executions into one
+      case class FilterLayout(in: GBuffer[C], scan: GBuffer[Int32], out: GBuffer[C]) extends Layout
 
-      // How to "connect" many GExecutions? with flatMap?
-      val predScanCompactExec = GExecution[PredScanCompactParams, PredScanCompactLayout]()
-      // predExec
-      //   .flatMap(predLayout => ???) // add downsweepExec
-      //   .flatMap(layout => ???) // add compactExec
-      val predScanCompactParams = PredScanCompactParams(256) // TODO
+      val filterExec = GExecution[Params, FilterLayout]()
+      // val filterExec = predicateProgram
+      //   .flatMap[ScanLayout, ScanParams]: predLayout =>
+      //     scanExec
+      //       .contramap[ScanLayout](layout => ScanLayout(???, ???))
+      //       .contramapParams[ScanParams](params => ScanParams(???, ???))
+      //       .map(_ => predLayout)
+      //   .flatMap[FilterLayout, Params]: scanLayout =>
+      //     compactProgram
+      //       .contramap[FilterLayout](layout => CompactLayout(???, ???, ???))
+      //       .contramapParams[Params](params => params)
+      //       .map(_ => scanLayout)
+
+      val filterParams = Params(256) // TODO
+
+      // case class FilterParams(intervalSize: ScanArgs())
+      // case class FilterLayout(inBuf: GBuffer[C], scanBuf: GBuffer[Int32])
+      // val filterExec = GExecution[FilterParams, FilterLayout]()
+      //   .addProgram(predicateProgram)(params => PredParams(params.inSize), layout => PredLayout(layout.in, layout.pred))
+      //   .flatMap[FilterLayout, FilterParams](l =>
+      //     downsweepExec
+      //       .contramap[FilterLayout](layout => ScanLayout(layout.pred, layout.intervalSize))
+      //       .contramapParams[FilterParams](p => ScanParams(p.inSize, 2))
+      //       .map(_ => l)
+      //   )
 
       val region = GBufferRegion
-        .allocate[PredScanCompactLayout]
+        .allocate[FilterLayout]
         .map: layout =>
-          predScanCompactExec.execute(predScanCompactParams, layout)
+          filterExec.execute(filterParams, layout)
 
       val typeSize = typeStride(Tag.apply[C])
       val intSize = typeStride(Tag.apply[Int32])
+      val params = Params(256)
 
       // these are allocated once, reused for many chunks
-      val predBuf = BufferUtils.createByteBuffer(predParams.inSize * typeSize)
-      val scanBuf = BufferUtils.createByteBuffer(predParams.inSize * intSize)
-      val compactBuf = BufferUtils.createByteBuffer(compactedStreamSize * typeSize)
+      val predBuf = BufferUtils.createByteBuffer(params.inSize * typeSize)
+      val scanBuf = BufferUtils.createByteBuffer(params.inSize * intSize)
+      val compactBuf = BufferUtils.createByteBuffer(256 * typeSize)
 
       stream
-        .chunkMin(predScanCompactParams.inSize)
+        .chunkMin(filterParams.inSize)
         .flatMap: chunk =>
           bridge.toByteBuffer(predBuf, chunk)
           region.runUnsafe(
-            init = PredScanCompactLayout(in = GBuffer[C](predBuf), scan = GBuffer[Int32](scanBuf), out = GBuffer[C](compactBuf)),
+            init = FilterLayout(in = GBuffer[C](predBuf), scan = GBuffer[Int32](scanBuf), out = GBuffer[C](compactBuf)),
             onDone = layout => layout.out.read(compactBuf),
           )
-          val arr = bridge.fromByteBuffer(compactBuf, new Array[S](compactedStreamSize))
+          val arr = bridge.fromByteBuffer(compactBuf, new Array[S](256))
           Stream.emits(arr)
