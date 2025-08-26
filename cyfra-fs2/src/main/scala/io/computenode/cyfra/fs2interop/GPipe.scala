@@ -58,12 +58,11 @@ object GPipe:
 
   def filter[F[_], C <: Value: FromExpr: Tag, S: ClassTag](pred: C => GBoolean)(using cr: CyfraRuntime, bridge: Bridge[C, S]): Pipe[F, S, S] =
     (stream: Stream[F, S]) =>
-      case class Params(inSize: Int) // used commonly by many program layouts
-
       // Predicate mapping
+      case class PredParams(inSize: Int)
       case class PredLayout(in: GBuffer[C], out: GBuffer[Int32]) extends Layout
 
-      val predicateProgram = GProgram[Params, PredLayout](
+      val predicateProgram = GProgram[PredParams, PredLayout](
         layout = params => PredLayout(in = GBuffer[C](params.inSize), out = GBuffer[Int32](params.inSize)),
         dispatch = (layout, params) => GProgram.StaticDispatch((params.inSize, 1, 1)),
       ): layout =>
@@ -132,9 +131,10 @@ object GPipe:
       val scanExec = downsweepPhases(upsweepExec, 256, 128) // add all downsweep phases
 
       // Stream compaction
+      case class CompactParams(inSize: Int)
       case class CompactLayout(in: GBuffer[C], scan: GBuffer[Int32], out: GBuffer[C]) extends Layout
 
-      val compactProgram = GProgram[Params, CompactLayout](
+      val compactProgram = GProgram[CompactParams, CompactLayout](
         layout = params => CompactLayout(in = GBuffer[C](params.inSize), scan = GBuffer[Int32](params.inSize), out = GBuffer[C](params.inSize)),
         dispatch = (layout, params) => GProgram.StaticDispatch((params.inSize, 1, 1)),
       ): layout =>
@@ -148,54 +148,48 @@ object GPipe:
           GIO.write[C](layout.out, index, element)
 
       // connect all the layouts/executions into one
-      case class FilterLayout(in: GBuffer[C], scan: GBuffer[Int32], out: GBuffer[C]) extends Layout
+      case class FilterParams(inSize: Int, intervalSize: Int)
+      case class FilterLayout(in: GBuffer[C], scan: GBuffer[Int32], out: GBuffer[C], intervalSize: GUniform[ScanArgs]) extends Layout
 
-      val filterExec = GExecution[Params, FilterLayout]()
-      // val filterExec = predicateProgram
-      //   .flatMap[ScanLayout, ScanParams]: predLayout =>
-      //     scanExec
-      //       .contramap[ScanLayout](layout => ScanLayout(???, ???))
-      //       .contramapParams[ScanParams](params => ScanParams(???, ???))
-      //       .map(_ => predLayout)
-      //   .flatMap[FilterLayout, Params]: scanLayout =>
-      //     compactProgram
-      //       .contramap[FilterLayout](layout => CompactLayout(???, ???, ???))
-      //       .contramapParams[Params](params => params)
-      //       .map(_ => scanLayout)
+      val filterExec = GExecution[FilterParams, FilterLayout]()
+        .addProgram(predicateProgram)(
+          filterParams => PredParams(filterParams.inSize),
+          filterLayout => PredLayout(in = filterLayout.in, out = filterLayout.scan),
+        )
+        .flatMap[FilterLayout, FilterParams]: filterLayout =>
+          scanExec
+            .contramap[FilterLayout]: filterLayout =>
+              ScanLayout(filterLayout.scan, filterLayout.intervalSize)
+            .contramapParams[FilterParams](filterParams => ScanParams(filterParams.inSize, filterParams.intervalSize))
+            .map(scanLayout => filterLayout)
+        .flatMap[FilterLayout, FilterParams]: filterLayout =>
+          compactProgram
+            .contramap[FilterLayout]: filterLayout =>
+              CompactLayout(filterLayout.in, filterLayout.scan, filterLayout.out)
+            .contramapParams[FilterParams](filterParams => CompactParams(filterParams.inSize))
+            .map(compactLayout => filterLayout)
 
-      val filterParams = Params(256) // TODO
-
-      // case class FilterParams(intervalSize: ScanArgs())
-      // case class FilterLayout(inBuf: GBuffer[C], scanBuf: GBuffer[Int32])
-      // val filterExec = GExecution[FilterParams, FilterLayout]()
-      //   .addProgram(predicateProgram)(params => PredParams(params.inSize), layout => PredLayout(layout.in, layout.pred))
-      //   .flatMap[FilterLayout, FilterParams](l =>
-      //     downsweepExec
-      //       .contramap[FilterLayout](layout => ScanLayout(layout.pred, layout.intervalSize))
-      //       .contramapParams[FilterParams](p => ScanParams(p.inSize, 2))
-      //       .map(_ => l)
-      //   )
-
+      // finally setup buffers, region, parameters, and run the program
+      val filterParams = FilterParams(256, 2)
       val region = GBufferRegion
         .allocate[FilterLayout]
-        .map: layout =>
-          filterExec.execute(filterParams, layout)
+        .map: filterLayout =>
+          filterExec.execute(filterParams, filterLayout)
 
       val typeSize = typeStride(Tag.apply[C])
       val intSize = typeStride(Tag.apply[Int32])
-      val params = Params(256)
 
       // these are allocated once, reused for many chunks
-      val predBuf = BufferUtils.createByteBuffer(params.inSize * typeSize)
-      val scanBuf = BufferUtils.createByteBuffer(params.inSize * intSize)
-      val compactBuf = BufferUtils.createByteBuffer(256 * typeSize)
+      val predBuf = BufferUtils.createByteBuffer(filterParams.inSize * typeSize)
+      val scanBuf = BufferUtils.createByteBuffer(filterParams.inSize * intSize)
+      val compactBuf = BufferUtils.createByteBuffer(filterParams.inSize * typeSize)
 
       stream
         .chunkMin(filterParams.inSize)
         .flatMap: chunk =>
           bridge.toByteBuffer(predBuf, chunk)
           region.runUnsafe(
-            init = FilterLayout(in = GBuffer[C](predBuf), scan = GBuffer[Int32](scanBuf), out = GBuffer[C](compactBuf)),
+            init = FilterLayout(in = GBuffer[C](predBuf), scan = GBuffer[Int32](scanBuf), out = GBuffer[C](compactBuf), intervalSize = ???),
             onDone = layout => layout.out.read(compactBuf),
           )
           val arr = bridge.fromByteBuffer(compactBuf, new Array[S](256))
