@@ -142,10 +142,15 @@ object GPipe:
         val element = GIO.read[C](layout.in, invocId)
         val prefixSum = GIO.read[Int32](layout.scan, invocId)
         val prevScan = when(invocId > 0)(GIO.read[Int32](layout.scan, invocId - 1)).otherwise(prefixSum)
-        val condt = when(invocId > 0)(when(prevScan < prefixSum)(1: Int32).otherwise(0)).otherwise(when(prefixSum > 0)(1: Int32).otherwise(0))
-        val index = when(invocId > 0)(when(prevScan < prefixSum)(prevScan).otherwise(0)).otherwise(0)
-        GIO.repeat(condt): _ =>
-          GIO.write[C](layout.out, index, element)
+        for
+          _ <- GIO.when(invocId > 0):
+            val prevScan = GIO.read[Int32](layout.scan, invocId - 1)
+            GIO.when(prevScan < prefixSum):
+              GIO.write(layout.out, prevScan, element)
+          _ <- GIO.when(invocId === 0):
+            GIO.when(prefixSum > 0):
+              GIO.write(layout.out, invocId, element)
+        yield ()
 
       // connect all the layouts/executions into one
       case class FilterParams(inSize: Int, intervalSize: Int)
