@@ -141,7 +141,6 @@ object GPipe:
         val invocId = GIO.invocationId
         val element = GIO.read[C](layout.in, invocId)
         val prefixSum = GIO.read[Int32](layout.scan, invocId)
-        val prevScan = when(invocId > 0)(GIO.read[Int32](layout.scan, invocId - 1)).otherwise(prefixSum)
         for
           _ <- GIO.when(invocId > 0):
             val prevScan = GIO.read[Int32](layout.scan, invocId - 1)
