@@ -64,6 +64,16 @@ class rtrpExample:
     private var currentFrame: Int = 0
     private var running = true
 
+    private def recreateSwapchain(): Unit =
+        vkDeviceWaitIdle(device.get)
+
+        destroySwapchainResources()
+
+        swapchain = swapchainManager.initialize(surfaceManager.getSurfaceConfig(window.id).get)
+        renderPass = RenderPass(context, swapchain)
+        graphicsPipeline = new GraphicsPipeline(swapchain, vertShader, fragShader, context, renderPass)
+        swapchainFramebuffers = renderPass.swapchainFramebuffers
+        
     private def init(): Unit =
         windowManager = WindowManager.create().get
         context = VulkanContext.withSurfaceSupport()
@@ -107,22 +117,26 @@ class rtrpExample:
     private def destroySwapchainResources(): Unit =
         if swapchain != null then
             vkDeviceWaitIdle(device.get)
-            Option(renderPass).foreach(_.destroyFramebuffers())
             Option(graphicsPipeline).foreach(_.destroy())
+            graphicsPipeline = null
+            Option(renderPass).foreach(_.destroyFramebuffers())
             Option(renderPass).foreach(_.destroy())
-            Option(swapchainManager).foreach(_.destroyImageViews(swapchain))
-            Option(swapchainManager).foreach(_.destroySwapchain(swapchain))
-            swapchain = null
+            renderPass = null
 
     def drawFrame(): Unit = pushStack: stack =>
 
         Option(inFlightFences(currentFrame)).foreach(_.block())
-        Option(inFlightFences(currentFrame)).foreach(_.reset())
 
         val pImageIndex = stack.callocInt(1)
         val acquireResult = vkAcquireNextImageKHR(device.get, swapchain.get, Long.MaxValue, imageAvailableSemaphores(currentFrame).get, VK_NULL_HANDLE, pImageIndex)
-        check(acquireResult, s"Failed to acquire swapchain image (code $acquireResult)")
+        if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR)
+            recreateSwapchain()
+            return
+        else if (acquireResult != VK_SUCCESS && acquireResult != VK_SUBOPTIMAL_KHR)
+            throw RuntimeException("failed to acquire swap chain image!")
         val imageIndex = pImageIndex.get(0)
+
+        Option(inFlightFences(currentFrame)).foreach(_.reset())
         
         // Reset & record command buffer
         check(vkResetCommandBuffer(commandBuffers(currentFrame), 0), "Failed to reset command buffer")
@@ -169,7 +183,10 @@ class rtrpExample:
         memPutInt(presentInfo.address() + VkPresentInfoKHR.SWAPCHAINCOUNT, pSwapchains.remaining())
         
         val presentResult = vkQueuePresentKHR(presentQueue, presentInfo)
-        check(presentResult, s"vkQueuePresentKHR failed: $presentResult")
+        if (presentResult == VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR)
+            recreateSwapchain()
+        else if (presentResult != VK_SUCCESS)
+            throw RuntimeException("failed to present swap chain image!");
         currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT
 
     def cleanup(): Unit =
@@ -178,9 +195,14 @@ class rtrpExample:
 
             destroySwapchainResources()
 
-            Option(imageAvailableSemaphores(currentFrame)).foreach(_.destroy())
-            Option(renderFinishedSemaphores(currentFrame)).foreach(_.destroy())
-            Option(inFlightFences(currentFrame)).foreach(_.destroy())
+            if swapchain != null then
+                swapchainManager.destroyImageViews(swapchain)
+                swapchainManager.destroySwapchain(swapchain)
+                swapchain = null
+
+            imageAvailableSemaphores.foreach(s => Option(s).foreach(_.destroy()))
+            renderFinishedSemaphores.foreach(s => Option(s).foreach(_.destroy()))
+            inFlightFences.foreach(f => Option(f).foreach(_.destroy()))
 
             Option(commandPool).foreach(_.destroy())
 
