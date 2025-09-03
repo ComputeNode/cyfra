@@ -53,7 +53,7 @@ class VkAllocation(commandPool: CommandPool, executionHandler: ExecutionHandler)
           val cleanup = () =>
             commandPool.freeCommandBuffer(cb)
             stagingBuffer.destroy()
-          val pe = new PendingExecution(cb, VK_PIPELINE_STAGE_2_COPY_BIT, binding.execution.fold(Seq(_), _.toSeq), cleanup)
+          val pe = new PendingExecution(cb, binding.execution.fold(Seq(_), _.toSeq), cleanup)
           binding.execution = Left(pe)
         case _ => throw new IllegalArgumentException(s"Tried to write to non-VkBinding $buffer")
 

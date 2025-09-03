@@ -9,7 +9,7 @@ import org.lwjgl.vulkan.VkSemaphoreCreateInfo
 /** @author
   *   MarconZet Created 30.10.2019
   */
-private[cyfra] class Semaphore(val stage: Long)(using device: Device) extends VulkanObjectHandle:
+private[cyfra] class Semaphore()(using device: Device) extends VulkanObjectHandle:
   protected val handle: Long = pushStack: stack =>
     val semaphoreCreateInfo = VkSemaphoreCreateInfo
       .calloc(stack)

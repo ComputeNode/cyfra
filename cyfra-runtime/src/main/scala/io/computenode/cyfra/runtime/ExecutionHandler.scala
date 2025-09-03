@@ -74,7 +74,7 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
     val externalBindings = (summon[LayoutBinding[EL]].toBindings(layout) ++ summon[LayoutBinding[RL]].toBindings(result))
       .map(VkAllocation.getUnderlying)
     val deps = externalBindings.flatMap(_.execution.fold(Seq(_), _.toSeq))
-    val pe = new PendingExecution(commandBuffer, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, deps, cleanup)
+    val pe = new PendingExecution(commandBuffer, deps, cleanup)
     externalBindings.foreach(_.execution = Left(pe))
     result
 

@@ -5,14 +5,13 @@ import io.computenode.cyfra.vulkan.core.{Device, Queue}
 import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import io.computenode.cyfra.vulkan.util.VulkanObject
 import org.lwjgl.vulkan.VK13.{VK_PIPELINE_STAGE_2_COPY_BIT, vkQueueSubmit2}
-import org.lwjgl.vulkan.{VkCommandBuffer, VkCommandBufferSubmitInfo, VkSemaphoreSubmitInfo, VkSubmitInfo2}
+import org.lwjgl.vulkan.{VK13, VkCommandBuffer, VkCommandBufferSubmitInfo, VkSemaphoreSubmitInfo, VkSubmitInfo2}
 
 import scala.collection.mutable
 
-class PendingExecution(protected val handle: VkCommandBuffer, val waitStage: Long, val dependencies: Seq[PendingExecution], cleanup: () => Unit)(
-  using Device,
-) extends VulkanObject[VkCommandBuffer]:
-  private val semaphore: Semaphore = Semaphore(waitStage)
+class PendingExecution(protected val handle: VkCommandBuffer, val dependencies: Seq[PendingExecution], cleanup: () => Unit)(using Device)
+    extends VulkanObject[VkCommandBuffer]:
+  private val semaphore: Semaphore = Semaphore()
   private var fence: Option[Fence] = None
 
   override protected def close(): Unit = cleanup()
@@ -35,10 +34,13 @@ class PendingExecution(protected val handle: VkCommandBuffer, val waitStage: Lon
 
 object PendingExecution:
   def executeAll(executions: Seq[PendingExecution], queue: Queue)(using Device): Fence = pushStack: stack =>
-    val gathered = executions.flatMap(_.gatherForSubmission).toSet.groupMap(_._2)(_._1).toSeq
+    val exec =
+      val gathered = executions.flatMap(_.gatherForSubmission)
+      val ordering = gathered.zipWithIndex.map(x => (x._1._1._1, x._2)).toMap
+      gathered.toSet.groupMap(_._2)(_._1).toSeq.sortBy(x => x._2.map(_._1).map(ordering).min)
 
-    val submitInfos = VkSubmitInfo2.calloc(gathered.size, stack)
-    gathered.foreach: (semaphores, executions) =>
+    val submitInfos = VkSubmitInfo2.calloc(exec.size, stack)
+    exec.foreach: (semaphores, executions) =>
       val pCommandBuffersSI = VkCommandBufferSubmitInfo.calloc(executions.size, stack)
       val signalSemaphoreSI = VkSemaphoreSubmitInfo.calloc(executions.size, stack)
       executions.foreach: (cb, s) =>
@@ -51,7 +53,7 @@ object PendingExecution:
           .get()
           .sType$Default()
           .semaphore(s.get)
-          .stageMask(s.stage)
+          .stageMask(VK13.VK_PIPELINE_STAGE_2_COPY_BIT | VK13.VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT)
 
       pCommandBuffersSI.flip()
       signalSemaphoreSI.flip()
@@ -62,7 +64,7 @@ object PendingExecution:
           .get()
           .sType$Default()
           .semaphore(s.get)
-          .stageMask(s.stage)
+          .stageMask(VK13.VK_PIPELINE_STAGE_2_COPY_BIT | VK13.VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT)
 
       waitSemaphoreSI.flip()
 
