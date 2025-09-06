@@ -25,7 +25,7 @@ private[cyfra] case class Context(
   nextResultId: Int = HEADER_REFS_TOP,
   nextBinding: Int = 0,
   exprNames: Map[Int, String] = Map(),
-  memberNames: Map[Int, String] = Map(),
+  names: Set[String] = Set(),
   functions: Map[FnIdentifier, SprivFunction] = Map(),
 ):
   def joinNested(ctx: Context): Context =

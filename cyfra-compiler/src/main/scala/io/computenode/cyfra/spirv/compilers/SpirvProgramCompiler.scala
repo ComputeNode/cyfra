@@ -45,18 +45,6 @@ private[cyfra] object SpirvProgramCompiler:
     val (vars, nonVarsBody) = bubbleUpVars(body)
 
     val end = List(
-//      TODO Remove - Write is a part of GIO now
-//      Instruction(
-//        Op.OpAccessChain,
-//        List(
-//          ResultRef(codeCtx.uniformPointerMap(codeCtx.valueTypeMap(resultType.tag))),
-//          ResultRef(codeCtx.nextResultId),
-//          ResultRef(codeCtx.outBufferBlocks.head.blockVarRef),
-//          ResultRef(codeCtx.constRefs((Int32Tag, 0))),
-//          ResultRef(codeCtx.workerIndexRef),
-//        ),
-//      ),
-//      Instruction(Op.OpStore, List(ResultRef(codeCtx.nextResultId), ResultRef(codeCtx.exprRefs(tree.tree.treeid)))),
       Instruction(Op.OpReturn, List()),
       Instruction(Op.OpFunctionEnd, List()),
     )
@@ -128,21 +116,45 @@ private[cyfra] object SpirvProgramCompiler:
     (blockDecor, voidsDef ::: blockDef, voidCtx)
 
   def createAndInitBlocks(blocks: List[(GBuffer[?], Int)], context: Context): (List[Words], List[Words], Context) =
+    var membersVisited = Set[Int]()
+    var structsVisited = Set[Int]()
     val (decoration, definition, newContext) = blocks.foldLeft((List[Words](), List[Words](), context)) { case ((decAcc, insnAcc, ctx), (buff, binding)) =>
       val tpe = buff.tag
       val block = ArrayBufferBlock(ctx.nextResultId, ctx.nextResultId + 1, ctx.nextResultId + 2, ctx.nextResultId + 3, binding)
 
-      val decorationInstructions = List[Words](
-        Instruction(Op.OpDecorate, List(ResultRef(block.memberArrayTypeRef), Decoration.ArrayStride, IntWord(typeStride(tpe)))), // OpDecorate %_runtimearr_X ArrayStride [typeStride(type)]
-        Instruction(Op.OpMemberDecorate, List(ResultRef(block.structTypeRef), IntWord(0), Decoration.Offset, IntWord(0))), // OpMemberDecorate %BufferX 0 Offset 0
-        Instruction(Op.OpDecorate, List(ResultRef(block.structTypeRef), Decoration.BufferBlock)), // OpDecorate %BufferX BufferBlock
+      val (structDecoration, structDefinition) = if structsVisited.contains(block.structTypeRef) then
+        (Nil, Nil)
+      else
+        structsVisited += block.structTypeRef
+        (
+          List(
+            Instruction(Op.OpMemberDecorate, List(ResultRef(block.structTypeRef), IntWord(0), Decoration.Offset, IntWord(0))), // OpMemberDecorate %BufferX 0 Offset 0
+            Instruction(Op.OpDecorate, List(ResultRef(block.structTypeRef), Decoration.BufferBlock)), // OpDecorate %BufferX BufferBlock
+          ),
+          List(
+            Instruction(Op.OpTypeStruct, List(ResultRef(block.structTypeRef), IntWord(block.memberArrayTypeRef))), // %BufferX = OpTypeStruct %_runtimearr_X
+          )
+        )
+
+      val (memberDecoration, memberDefinition) = if membersVisited.contains(block.memberArrayTypeRef) then
+        (Nil, Nil)
+      else
+        membersVisited += block.memberArrayTypeRef
+        (
+          List(
+            Instruction(Op.OpDecorate, List(ResultRef(block.memberArrayTypeRef), Decoration.ArrayStride, IntWord(typeStride(tpe)))), // OpDecorate %_runtimearr_X ArrayStride [typeStride(type)]
+          ),
+          List(
+            Instruction(Op.OpTypeRuntimeArray, List(ResultRef(block.memberArrayTypeRef), IntWord(context.valueTypeMap(tpe.tag)))), // %_runtimearr_X = OpTypeRuntimeArray %[typeOf(tpe)]
+          )
+        )
+
+      val decorationInstructions = memberDecoration ::: structDecoration ::: List[Words](
         Instruction(Op.OpDecorate, List(ResultRef(block.blockVarRef), Decoration.DescriptorSet, IntWord(0))), // OpDecorate %_X DescriptorSet 0
         Instruction(Op.OpDecorate, List(ResultRef(block.blockVarRef), Decoration.Binding, IntWord(block.binding))), // OpDecorate %_X Binding [binding]
       )
 
-      val definitionInstructions = List[Words](
-        Instruction(Op.OpTypeRuntimeArray, List(ResultRef(block.memberArrayTypeRef), IntWord(context.valueTypeMap(tpe.tag)))), // %_runtimearr_X = OpTypeRuntimeArray %[typeOf(tpe)]
-        Instruction(Op.OpTypeStruct, List(ResultRef(block.structTypeRef), IntWord(block.memberArrayTypeRef))), // %BufferX = OpTypeStruct %_runtimearr_X
+      val definitionInstructions = memberDefinition ::: structDefinition ::: List[Words](
         Instruction(Op.OpTypePointer, List(ResultRef(block.blockPointerRef), StorageClass.Uniform, ResultRef(block.structTypeRef))), // %_ptr_Uniform_BufferX= OpTypePointer Uniform %BufferX
         Instruction(Op.OpVariable, List(ResultRef(block.blockPointerRef), ResultRef(block.blockVarRef), StorageClass.Uniform)), // %_X = OpVariable %_ptr_Uniform_X Uniform
       )
@@ -174,22 +186,26 @@ private[cyfra] object SpirvProgramCompiler:
         typeStride(t)
     .sum
 
-  def createAndInitUniformBlocks(schemas: List[(GUniform[?], Int)], ctx: Context): (List[Words], List[Words], Context) =
+  def createAndInitUniformBlocks(schemas: List[(GUniform[?], Int)], ctx: Context): (List[Words], List[Words], Context) = {
+    var decoratedOffsets = Set[Int]()
     schemas.foldLeft((List.empty[Words], List.empty[Words], ctx)) { case ((decorationsAcc, definitionsAcc, currentCtx), (uniform, binding)) =>
       val schema = uniform.schema
       val uniformStructTypeRef = currentCtx.valueTypeMap(schema.structTag.tag)
 
-      val (offsetDecorations, _) = schema.fields.zipWithIndex.foldLeft[(List[Words], Int)](List.empty[Words], 0):
-        case ((acc, offset), ((name, fromExpr, tag), idx)) =>
-          val stride =
-            if tag <:< schema.gStructTag then
-              val constructor = fromExpr.asInstanceOf[GStructConstructor[?]]
-              totalStride(constructor.schema)
-            else typeStride(tag)
-          val offsetDecoration = Instruction(Op.OpMemberDecorate, List(ResultRef(uniformStructTypeRef), IntWord(idx), Decoration.Offset, IntWord(offset)))
-          (acc :+ offsetDecoration, offset + stride)
-
-      val uniformBlockDecoration = Instruction(Op.OpDecorate, List(ResultRef(uniformStructTypeRef), Decoration.Block))
+      val structDecorations =
+        if decoratedOffsets.contains(uniformStructTypeRef) then Nil
+        else
+          decoratedOffsets += uniformStructTypeRef
+          schema.fields.zipWithIndex.foldLeft[(List[Words], Int)](List.empty[Words], 0):
+            case ((acc, offset), ((name, fromExpr, tag), idx)) =>
+              val stride =
+                if tag <:< schema.gStructTag then
+                  val constructor = fromExpr.asInstanceOf[GStructConstructor[?]]
+                  totalStride(constructor.schema)
+                else typeStride(tag)
+              val offsetDecoration = Instruction(Op.OpMemberDecorate, List(ResultRef(uniformStructTypeRef), IntWord(idx), Decoration.Offset, IntWord(offset)))
+              (acc :+ offsetDecoration, offset + stride)
+          ._1 ::: List(Instruction(Op.OpDecorate, List(ResultRef(uniformStructTypeRef), Decoration.Block)))
 
       val uniformPointerUniformRef = currentCtx.nextResultId
       val uniformPointerUniform =
@@ -201,7 +217,7 @@ private[cyfra] object SpirvProgramCompiler:
       val uniformDecorateDescriptorSet = Instruction(Op.OpDecorate, List(ResultRef(uniformVarRef), Decoration.DescriptorSet, IntWord(0)))
       val uniformDecorateBinding = Instruction(Op.OpDecorate, List(ResultRef(uniformVarRef), Decoration.Binding, IntWord(binding)))
 
-      val newDecorations = decorationsAcc ::: offsetDecorations ::: List(uniformDecorateDescriptorSet, uniformDecorateBinding, uniformBlockDecoration)
+      val newDecorations = decorationsAcc ::: structDecorations ::: List(uniformDecorateDescriptorSet, uniformDecorateBinding)
       val newDefinitions = definitionsAcc ::: List(uniformPointerUniform, uniformVar)
       val newCtx = currentCtx.copy(
         nextResultId = currentCtx.nextResultId + 2,
@@ -212,6 +228,7 @@ private[cyfra] object SpirvProgramCompiler:
 
       (newDecorations, newDefinitions, newCtx)
     }
+  }
 
   val predefinedConsts = List((Int32Tag, 0), (UInt32Tag, 0), (Int32Tag, 1))
   def defineConstants(exprs: List[E[?]], ctx: Context): (List[Words], Context) =

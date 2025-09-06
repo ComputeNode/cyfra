@@ -79,7 +79,6 @@ private[cyfra] object DSLCompiler:
       case (_: GUniform[?], _) => false
     .asInstanceOf[(List[(GBuffer[?], Int)], List[(GUniform[?], Int)])]
     val uniforms = uniformsWithIndices.map(_._1)
-    val buffers = buffersWithIndices.map(_._1)
     val uniformSchemas = uniforms.map(_.schema)
     val structsInCode =
       (allExprs.collect {
@@ -87,8 +86,8 @@ private[cyfra] object DSLCompiler:
         case gf: GetField[?, ?]   => gf.resultSchema
       } ::: uniformSchemas).distinct
     val (structDefs, structCtx) = defineStructTypes(structsInCode, typedContext)
-    val structNames = getStructNames(structsInCode, structCtx)
-    val (decorations, uniformDefs, uniformContext) = initAndDecorateBuffers(buffersWithIndices, structCtx)
+    val (structNames, structNamesCtx) = getStructNames(structsInCode, structCtx)
+    val (decorations, uniformDefs, uniformContext) = initAndDecorateBuffers(buffersWithIndices, structNamesCtx)
     val (uniformStructDecorations, uniformStructInsns, uniformStructContext) = createAndInitUniformBlocks(uniformsWithIndices, uniformContext)
     val blockNames = getBlockNames(uniformContext, uniforms)
     val (inputDefs, inputContext) = createInvocationId(uniformStructContext)

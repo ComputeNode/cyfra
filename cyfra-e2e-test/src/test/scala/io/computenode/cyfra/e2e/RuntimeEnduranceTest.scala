@@ -10,10 +10,13 @@ import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.dsl.struct.GStruct.Empty
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.runtime.VkCyfraRuntime
+import io.computenode.cyfra.spirvtools.{SpirvCross, SpirvDisassembler, SpirvToolsRunner}
+import io.computenode.cyfra.spirvtools.SpirvTool.ToFile
 import io.computenode.cyfra.utility.Logger.logger
 import org.lwjgl.BufferUtils
 import org.lwjgl.system.MemoryUtil
 
+import java.nio.file.Paths
 import scala.concurrent.ExecutionContext.Implicits.global
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.{Await, Future}
@@ -174,7 +177,10 @@ class RuntimeEnduranceTest extends munit.FunSuite:
   def runEnduranceTest(nRuns: Int): Unit =
     logger.info(s"Starting endurance test with ${nRuns} runs...")
 
-    given runtime: VkCyfraRuntime = VkCyfraRuntime()
+    given runtime: VkCyfraRuntime = VkCyfraRuntime(
+      spirvToolsRunner = SpirvToolsRunner(
+        crossCompilation = SpirvCross.Enable(toolOutput = ToFile(Paths.get("output/optimized.glsl"))),
+        disassembler = SpirvDisassembler.Enable(toolOutput = ToFile(Paths.get("output/dis.spvdis")))))
 
     val bufferSize = 1280
     val params = AddProgramParams(bufferSize, addA = 0, addB = 1)
