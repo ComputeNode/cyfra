@@ -111,4 +111,5 @@ object Expression:
 
   case class Pass[T <: Value: Tag](value: T) extends E[T]
 
-  case class Dynamic[T <: Value: Tag](source: String) extends E[T]
+  case object WorkerIndex extends E[Int32]
+  case class Binding[T <: Value: Tag](binding: Int) extends E[T]

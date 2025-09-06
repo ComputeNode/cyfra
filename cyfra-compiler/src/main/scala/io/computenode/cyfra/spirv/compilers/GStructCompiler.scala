@@ -29,13 +29,19 @@ private[cyfra] object GStructCompiler:
       )
     }
 
-  def getStructNames(schemas: List[GStructSchema[?]], context: Context): List[Words] =
-    schemas.flatMap { schema =>
-      val structName = schema.structTag.tag.shortName
+  def getStructNames(schemas: List[GStructSchema[?]], context: Context): (List[Words], Context) =
+    schemas.distinctBy(_.structTag).foldLeft((List.empty[Words], context)) { case ((wordsAcc, currCtx), schema) =>
+      var structName = schema.structTag.tag.shortName
+      var nameSuffix = 0
+      while currCtx.names.contains(structName) do
+        structName = s"${schema.structTag.tag.shortName}_$nameSuffix"
+        nameSuffix += 1
       val structType = context.valueTypeMap(schema.structTag.tag)
-      Instruction(Op.OpName, List(ResultRef(structType), Text(structName))) :: schema.fields.zipWithIndex.map { case ((name, _, tag), i) =>
+      val words = Instruction(Op.OpName, List(ResultRef(structType), Text(structName))) :: schema.fields.zipWithIndex.map { case ((name, _, tag), i) =>
         Instruction(Op.OpMemberName, List(ResultRef(structType), IntWord(i), Text(name)))
       }
+      val updatedCtx = currCtx.copy(names = currCtx.names + structName)
+      (wordsAcc ::: words, updatedCtx)
     }
 
   private def sortSchemasDag(schemas: List[GStructSchema[?]]): List[GStructSchema[?]] =

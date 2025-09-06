@@ -5,11 +5,9 @@ import io.computenode.cyfra.core.archive.mem.{FloatMem, GMem, IntMem, Vec4FloatM
 import io.computenode.cyfra.core.archive.{GFunction, UniformContext}
 import io.computenode.cyfra.dsl.Value
 import io.computenode.cyfra.dsl.Value.{Float32, FromExpr, Int32, Vec4}
-import io.computenode.cyfra.dsl.collections.GArray
 import io.computenode.cyfra.dsl.struct.*
 import io.computenode.cyfra.spirv.SpirvTypes.typeStride
 import io.computenode.cyfra.spirv.compilers.DSLCompiler
-import io.computenode.cyfra.spirv.compilers.ExpressionCompiler.{UniformStructRef, WorkerIndex}
 import io.computenode.cyfra.spirvtools.SpirvToolsRunner
 
 import izumi.reflect.Tag

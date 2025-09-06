@@ -1,5 +1,6 @@
 package io.computenode.cyfra.spirv
 
+import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
 import io.computenode.cyfra.dsl.macros.FnCall.FnIdentifier
 import io.computenode.cyfra.spirv.SpirvConstants.HEADER_REFS_TOP
 import io.computenode.cyfra.spirv.compilers.FunctionCompiler.SprivFunction
@@ -16,15 +17,15 @@ private[cyfra] case class Context(
   voidTypeRef: Int = -1,
   voidFuncTypeRef: Int = -1,
   workerIndexRef: Int = -1,
-  uniformVarRef: Int = -1,
+  uniformVarRefs: Map[GUniform[?], Int] = Map.empty,
+  bindingToStructType: Map[Int, Int] = Map.empty,
   constRefs: Map[(Tag[?], Any), Int] = Map(),
   exprRefs: Map[Int, Int] = Map(),
-  inBufferBlocks: List[ArrayBufferBlock] = List(),
-  outBufferBlocks: List[ArrayBufferBlock] = List(),
+  bufferBlocks: Map[GBuffer[?], ArrayBufferBlock] = Map(),
   nextResultId: Int = HEADER_REFS_TOP,
   nextBinding: Int = 0,
   exprNames: Map[Int, String] = Map(),
-  memberNames: Map[Int, String] = Map(),
+  names: Set[String] = Set(),
   functions: Map[FnIdentifier, SprivFunction] = Map(),
 ):
   def joinNested(ctx: Context): Context =

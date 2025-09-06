@@ -10,12 +10,10 @@ import org.lwjgl.vulkan.{VkQueue, VkSubmitInfo}
 /** @author
   *   MarconZet Created 13.04.2020
   */
-private[cyfra] class Queue(val familyIndex: Int, queueIndex: Int, device: Device) extends VulkanObject:
-  private val queue: VkQueue = pushStack: stack =>
+private[cyfra] class Queue(val familyIndex: Int, queueIndex: Int, device: Device) extends VulkanObject[VkQueue]:
+  protected val handle: VkQueue = pushStack: stack =>
     val pQueue = stack.callocPointer(1)
     vkGetDeviceQueue(device.get, familyIndex, queueIndex, pQueue)
     new VkQueue(pQueue.get(0), device.get)
-
-  def get: VkQueue = queue
 
   protected def close(): Unit = ()

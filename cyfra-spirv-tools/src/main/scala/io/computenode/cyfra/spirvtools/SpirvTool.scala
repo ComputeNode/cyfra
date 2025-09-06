@@ -95,18 +95,27 @@ object SpirvTool:
   case class Param(value: String):
     def asStringParam: String = value
 
-  case class ToFile(filePath: Path) extends ToolOutput:
+  case class ToFile(filePath: Path, hashSuffix: Boolean = true) extends ToolOutput:
     require(filePath != null, "filePath must not be null")
 
-    def write(outputToSave: String | ByteBuffer): Unit =
-      Option(filePath.getParent).foreach { dir =>
+    def write(outputToSave: String | ByteBuffer): Unit = {
+      val suffix = if hashSuffix then s"_${outputToSave.hashCode() & 0xffff}" else ""
+      // prefix before last dot
+      val suffixedPath = filePath.getFileName.toString.lastIndexOf('.') match
+        case -1    => filePath.getFileName.toString + suffix
+        case index => filePath.getFileName.toString.substring(0, index) + suffix + filePath.getFileName.toString.substring(index)
+      val updatedPath = filePath.getParent match
+        case null => Path.of(suffixedPath)
+        case dir  => dir.resolve(suffixedPath)
+      Option(updatedPath.getParent).foreach { dir =>
         if !Files.exists(dir) then
           Files.createDirectories(dir)
           logger.debug(s"Created output directory: $dir")
         outputToSave match
-          case stringOutput: String   => Files.write(filePath, stringOutput.getBytes(StandardCharsets.UTF_8))
-          case byteBuffer: ByteBuffer => dumpByteBufferToFile(byteBuffer, filePath)
+          case stringOutput: String   => Files.write(updatedPath, stringOutput.getBytes(StandardCharsets.UTF_8))
+          case byteBuffer: ByteBuffer => dumpByteBufferToFile(byteBuffer, updatedPath)
       }
+    }
 
     private def dumpByteBufferToFile(code: ByteBuffer, path: Path): Unit =
       Using.resource(new FileOutputStream(path.toAbsolutePath.toString).getChannel) { fc =>

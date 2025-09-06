@@ -1,26 +1,41 @@
 package io.computenode.cyfra.runtime
 
+import io.computenode.cyfra.core.GProgram.InitProgramLayout
 import io.computenode.cyfra.core.layout.{Layout, LayoutBinding, LayoutStruct}
-import io.computenode.cyfra.core.{Allocation, CyfraRuntime, GExecution, GProgram, SpirvProgram}
+import io.computenode.cyfra.core.{Allocation, CyfraRuntime, GExecution, GProgram, GioProgram, SpirvProgram}
+import io.computenode.cyfra.spirv.compilers.DSLCompiler
+import io.computenode.cyfra.spirvtools.SpirvToolsRunner
 import io.computenode.cyfra.vulkan.VulkanContext
 import io.computenode.cyfra.vulkan.compute.ComputePipeline
 
 import scala.collection.mutable
 
-class VkCyfraRuntime extends CyfraRuntime:
-  val context = new VulkanContext()
+class VkCyfraRuntime(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()) extends CyfraRuntime:
+  private val context = new VulkanContext()
   import context.given
 
-  private val executionHandler = new ExecutionHandler(this)
+  private val shaderCache = mutable.Map[GProgram[?, ?], VkShader[?]]()
+  private[cyfra] def getOrLoadProgram[Params, L <: Layout: {LayoutBinding, LayoutStruct}](program: GProgram[Params, L]): VkShader[L] = synchronized:
+    val spirvProgram = program match
+      case p: GioProgram[?, ?]   => compile(p)
+      case p: SpirvProgram[?, ?] => p
+      case _                     => throw new IllegalArgumentException(s"Unsupported program type: ${program.getClass.getName}")
 
-  private val shaderCache = mutable.Map.empty[String, VkShader[?]]
-  private[cyfra] def getOrLoadProgram[Params, L <: Layout: {LayoutBinding, LayoutStruct}](program: GProgram[Params, L]): VkShader[L] =
-    shaderCache.getOrElseUpdate(program.cacheKey, VkShader(program)).asInstanceOf[VkShader[L]]
+    shaderCache.getOrElseUpdate(program, VkShader(spirvProgram)).asInstanceOf[VkShader[L]]
+
+  private  def compile[Params, L <: Layout: {LayoutBinding as lbinding, LayoutStruct as lstruct}](program: GioProgram[Params, L]): SpirvProgram[Params, L] =
+    val GioProgram(_, layout, dispatch, _) = program
+    val bindings = lbinding.toBindings(lstruct.layoutRef).toList
+    val compiled = DSLCompiler.compile(program.body(summon[LayoutStruct[L]].layoutRef), bindings)
+    val optimizedShaderCode = spirvToolsRunner.processShaderCodeWithSpirvTools(compiled)
+    SpirvProgram((il: InitProgramLayout) ?=> layout(il), dispatch, optimizedShaderCode)
 
   override def withAllocation(f: Allocation => Unit): Unit =
-    val allocation = new VkAllocation(context.commandPool, executionHandler)
-    f(allocation)
-    allocation.close()
+    context.withThreadContext: threadContext =>
+      val executionHandler = new ExecutionHandler(this, threadContext, context)
+      val allocation = new VkAllocation(threadContext.commandPool, executionHandler)
+      f(allocation)
+      allocation.close()
 
   def close(): Unit =
     shaderCache.values.foreach(_.underlying.destroy())

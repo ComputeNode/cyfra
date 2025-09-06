@@ -12,14 +12,14 @@ import org.lwjgl.vulkan.{VkDescriptorPoolCreateInfo, VkDescriptorPoolSize}
   *   MarconZet Created 14.04.2019
   */
 object DescriptorPool:
-  val MAX_SETS = 100
+  val MAX_SETS = 1000
 private[cyfra] class DescriptorPool(using device: Device) extends VulkanObjectHandle:
   protected val handle: Long = pushStack: stack =>
     val descriptorPoolSize = VkDescriptorPoolSize.calloc(2, stack)
     descriptorPoolSize
       .get()
       .`type`(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
-      .descriptorCount(2 * MAX_SETS)
+      .descriptorCount(10 * MAX_SETS)
 
     descriptorPoolSize
       .get()
@@ -31,14 +31,15 @@ private[cyfra] class DescriptorPool(using device: Device) extends VulkanObjectHa
       .calloc(stack)
       .sType$Default()
       .maxSets(MAX_SETS)
-      .flags(VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT)
       .pPoolSizes(descriptorPoolSize)
 
     val pDescriptorPool = stack.callocLong(1)
     check(vkCreateDescriptorPool(device.get, descriptorPoolCreateInfo, null, pDescriptorPool), "Failed to create descriptor pool")
     pDescriptorPool.get()
 
-  def allocate(descriptorSetLayout: DescriptorSetLayout): DescriptorSet = DescriptorSet(descriptorSetLayout, this)
+  def allocate(layout: DescriptorSetLayout): Option[DescriptorSet] = DescriptorSet(layout, this)
+
+  def reset(): Unit = check(vkResetDescriptorPool(device.get, handle, 0), "Failed to reset descriptor pool")
 
   override protected def close(): Unit =
     vkDestroyDescriptorPool(device.get, handle, null)
