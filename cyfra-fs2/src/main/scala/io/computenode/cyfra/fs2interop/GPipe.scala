@@ -33,7 +33,7 @@ object GPipe:
 
       val gProg = GProgram[Params, PLayout](
         layout = params => PLayout(in = GBuffer[C1](params.inSize), out = GBuffer[C2](params.inSize)),
-        dispatch = (layout, params) => GProgram.StaticDispatch((params.inSize / 256, 1, 1)),
+        dispatch = (layout, params) => GProgram.StaticDispatch((Math.ceil(params.inSize / 256f).toInt, 1, 1)),
       )(layout => {
         val invocId = GIO.invocationId
         val element = GIO.read[C1](layout.in, invocId)
@@ -79,7 +79,7 @@ object GPipe:
 
       val predicateProgram = GProgram[PredParams, PredLayout](
         layout = params => PredLayout(in = GBuffer[C](params.inSize), out = GBuffer[Int32](params.inSize)),
-        dispatch = (layout, params) => GProgram.StaticDispatch((params.inSize / 256, 1, 1)),
+        dispatch = (layout, params) => GProgram.StaticDispatch((Math.ceil(params.inSize.toFloat / 256).toInt, 1, 1)),
       ): layout =>
         val invocId = GIO.invocationId
         val element = GIO.read[C](layout.in, invocId)
@@ -96,7 +96,7 @@ object GPipe:
 
       val upsweep = GProgram[ScanParams, ScanLayout](
         layout = params => ScanLayout(ints = GBuffer[Int32](params.inSize), intervalSize = GUniform(ScanArgs(params.intervalSize))),
-        dispatch = (layout, params) => GProgram.StaticDispatch((params.inSize / params.intervalSize / 256, 1, 1)),
+        dispatch = (layout, params) => GProgram.StaticDispatch((Math.ceil(params.inSize.toFloat / params.intervalSize / 256).toInt, 1, 1)),
       ): layout =>
         val ScanArgs(size) = layout.intervalSize.read
         val invocId = GIO.invocationId
@@ -113,7 +113,7 @@ object GPipe:
 
       val downsweep = GProgram[ScanParams, ScanLayout](
         layout = params => ScanLayout(ints = GBuffer[Int32](params.inSize), intervalSize = GUniform(ScanArgs(params.intervalSize))),
-        dispatch = (layout, params) => GProgram.StaticDispatch((params.inSize / params.intervalSize / 256, 1, 1)),
+        dispatch = (layout, params) => GProgram.StaticDispatch((Math.ceil(params.inSize.toFloat / params.intervalSize / 256).toInt, 1, 1)),
       ): layout =>
         val ScanArgs(size) = layout.intervalSize.read
         val invocId = GIO.invocationId
@@ -160,7 +160,7 @@ object GPipe:
 
       val compactProgram = GProgram[CompactParams, CompactLayout](
         layout = params => CompactLayout(in = GBuffer[C](params.inSize), scan = GBuffer[Int32](params.inSize), out = GBuffer[C](params.inSize)),
-        dispatch = (layout, params) => GProgram.StaticDispatch((params.inSize / 256, 1, 1)),
+        dispatch = (layout, params) => GProgram.StaticDispatch((Math.ceil(params.inSize.toFloat / 256).toInt, 1, 1)),
       ): layout =>
         val invocId = GIO.invocationId
         val element = GIO.read[C](layout.in, invocId)
