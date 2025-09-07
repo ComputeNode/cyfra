@@ -23,13 +23,16 @@ extension (f: fRGBA)
     Math.abs(f._1 - g._1) < eps && Math.abs(f._2 - g._2) < eps && Math.abs(f._3 - g._3) < eps && Math.abs(f._4 - g._4) < eps
 
 class Fs2Tests extends munit.FunSuite:
-  given cr: CyfraRuntime = VkCyfraRuntime(
+  given cr: VkCyfraRuntime = VkCyfraRuntime(
     spirvToolsRunner = SpirvToolsRunner(
       crossCompilation = SpirvCross.Enable(toolOutput = ToFile(Paths.get("output/optimized.glsl"))),
       disassembler = SpirvDisassembler.Enable(toolOutput = ToFile(Paths.get("output/disassembled.spv")))
     )
   )
 
+  override def afterAll(): Unit =
+    //cr.close()
+    super.afterAll()
 
   test("fs2 through GPipe map, just ints"):
     val inSeq = (0 until 256).toSeq
@@ -43,11 +46,13 @@ class Fs2Tests extends munit.FunSuite:
         assert(res == exp, s"Expected $exp, got $res")
 
   test("fs2 through GPipe map, floats and vectors"):
-    val inSeq = (0 to 255).map(_.toFloat).toSeq
+    val n = 16
+    val inSeq = (0 to (n * 256 - 1)).map(_.toFloat).toSeq
     val stream = Stream.emits(inSeq)
     val pipe = GPipe.map[Pure, Float32, Vec4[Float32], Float, fRGBA](f => (f, f + 1f, f + 2f, f + 3f))
     val result = stream.through(pipe).compile.toList
     val expected = inSeq.map(f => (f, f + 1f, f + 2f, f + 3f))
+    println("DONE!")
     result
       .zip(expected)
       .foreach: (res, exp) =>

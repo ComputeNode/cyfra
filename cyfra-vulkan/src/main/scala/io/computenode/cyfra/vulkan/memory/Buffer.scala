@@ -57,7 +57,6 @@ object Buffer:
 
     def copyTo(dst: ByteBuffer, srcOffset: Int): Unit = pushStack: stack =>
       vmaCopyAllocationToMemory(allocator.get, allocation, srcOffset, dst)
-
     def copyFrom(src: ByteBuffer, dstOffset: Int): Unit = pushStack: stack =>
       vmaCopyMemoryToAllocation(allocator.get, src, allocation, dstOffset)
 

@@ -90,60 +90,76 @@ private[cyfra] class Instance(enableValidationLayers: Boolean) extends VulkanObj
           .pSettingName(stack.ASCII("printf_buffer_size"))
           .`type`(VK_LAYER_SETTING_TYPE_UINT32_EXT)
           .valueCount(1)
-          .pValues(MemoryUtil.memByteBuffer(stack.ints(1024 * 1024)))
+          .pValues(MemoryUtil.memByteBuffer(stack.ints(1024*1024)))
 
 
       val layerSettingsCI = VkLayerSettingsCreateInfoEXT.calloc(stack).sType$Default().pSettings(layerSettings)
 
       val validationFeatures = VkValidationFeaturesEXT.calloc(stack)
         .sType$Default()
-        .pEnabledValidationFeatures(stack.ints(VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT))
+        .pEnabledValidationFeatures(stack.ints(
+          VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT,
+        ))
+        .pNext(0)
+
+      val validationFeaturesPCreate = VkValidationFeaturesEXT.calloc(stack)
+        .sType$Default()
+        .pEnabledValidationFeatures(stack.ints(
+          VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT,
+          VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_RESERVE_BINDING_SLOT_EXT,
+        ))
         .pNext(0)
 
       layerSettingsCI.pNext(validationFeatures.address())
       pCreateInfo.pNext(layerSettingsCI.address())
+      validationFeaturesPCreate.pNext(validationFeaturesPCreate.address())
 
     val pInstance = stack.mallocPointer(1)
     check(vkCreateInstance(pCreateInfo, null, pInstance), "Failed to create VkInstance")
     new VkInstance(pInstance.get(0), pCreateInfo)
 
-  protected val debugMessenger: Option[LongBuffer] =
-    if enableValidationLayers then pushStack: stack =>
-      Some:
-        val callback = new VkDebugUtilsMessengerCallbackEXT():
-          override def invoke(messageSeverity: Int, messageTypes: Int, pCallbackData: Long, pUserData: Long): Int =
-            val message = VkDebugUtilsMessengerCallbackDataEXT.create(pCallbackData).pMessageString()
-            val debugMessage = "[VK DEBUG] " + message.split("\\|").last
-            if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) != 0 then
-              logger.error(debugMessage)
-            else if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) != 0 then
-              logger.warn(debugMessage)
-            else if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT) != 0 then
-              logger.info(debugMessage)
-            else
-              logger.debug(debugMessage)
-            VK_FALSE
-
-
-        val debugMessengerCreate = VkDebugUtilsMessengerCreateInfoEXT.calloc(stack)
-          .sType$Default()
-          .messageSeverity(
-            VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT
-          )
-          .messageType(
-            VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
-          )
-          .pfnUserCallback(callback)
-
-        val debugMessengerBuff = stack.callocLong(1)
-        check(vkCreateDebugUtilsMessengerEXT(
-          handle,
-          debugMessengerCreate,
-          null,
-          debugMessengerBuff
-        ))
-        debugMessengerBuff
+  protected val callback: Option[VkDebugUtilsMessengerCallbackEXT] =
+    if enableValidationLayers then Some:
+      new VkDebugUtilsMessengerCallbackEXT():
+        override def invoke(messageSeverity: Int, messageTypes: Int, pCallbackData: Long, pUserData: Long): Int =
+          val message = VkDebugUtilsMessengerCallbackDataEXT.create(pCallbackData).pMessageString()
+          val debugMessage = "[VK DEBUG] " + message.split("\\|").last
+          if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) != 0 then
+            logger.error(debugMessage)
+          else if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) != 0 then
+            logger.warn(debugMessage)
+          else if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT) != 0 then
+            logger.info(debugMessage)
+          else
+            logger.debug(debugMessage)
+          VK_FALSE
     else None
+
+  protected val debugMessenger: Option[LongBuffer] = callback.map: c =>
+    pushStack: stack =>
+      val debugMessengerCreate = VkDebugUtilsMessengerCreateInfoEXT.calloc(1)
+        .sType$Default()
+        .messageSeverity(
+          VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+            VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
+            VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+            VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT
+        )
+        .messageType(
+          VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+            VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+            VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT
+        )
+        .pfnUserCallback(c)
+
+      val debugMessengerBuff = stack.callocLong(1)
+      check(vkCreateDebugUtilsMessengerEXT(
+        handle,
+        debugMessengerCreate.get(0),
+        null,
+        debugMessengerBuff
+      ))
+      debugMessengerBuff
 
 
   lazy val enabledLayers: Seq[String] = List
@@ -155,10 +171,9 @@ private[cyfra] class Instance(enableValidationLayers: Boolean) extends VulkanObj
         x
       else x
 
-  override protected def close(): Unit = {
+  override protected def close(): Unit = 
     debugMessenger.foreach(b => vkDestroyDebugUtilsMessengerEXT(handle, b.get(0), null))
     vkDestroyInstance(handle, null)
-  }
 
   private def getInstanceExtensions(stack: MemoryStack) =
     val n = stack.callocInt(1)

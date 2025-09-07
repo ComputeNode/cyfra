@@ -50,10 +50,11 @@ class VkAllocation(commandPool: CommandPool, executionHandler: ExecutionHandler)
     def apply[T <: Value: {Tag, FromExpr}](length: Int): GBuffer[T] =
       VkBuffer[T](length).tap(bindings += _)
 
-    def apply[T <: Value: {Tag, FromExpr}](buff: ByteBuffer): GBuffer[T] =
+    def apply[T <: Value : {Tag, FromExpr}](buff: ByteBuffer): GBuffer[T] =
       val sizeOfT = typeStride(summon[Tag[T]])
-      val length = buff.remaining() / sizeOfT
-      if buff.remaining() % sizeOfT != 0 then ???
+      val length = buff.capacity() / sizeOfT
+      if buff.capacity() % sizeOfT != 0 then
+        throw new IllegalArgumentException(s"ByteBuffer size ${buff.capacity()} is not a multiple of element size $sizeOfT")
       GBuffer[T](length).tap(_.write(buff))
 
   extension (uniforms: GUniform.type)

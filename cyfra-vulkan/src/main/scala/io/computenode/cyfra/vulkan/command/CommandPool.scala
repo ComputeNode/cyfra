@@ -43,6 +43,7 @@ private[cyfra] abstract class CommandPool private (flags: Int, val queue: Queue)
     val commandBuffer = beginSingleTimeCommands()
     block(commandBuffer)
     endSingleTimeCommands(commandBuffer).block().destroy()
+    //vkDeviceWaitIdle(device.get)
     freeCommandBuffer(commandBuffer)
 
   private def beginSingleTimeCommands(): VkCommandBuffer =
@@ -74,6 +75,7 @@ private[cyfra] abstract class CommandPool private (flags: Int, val queue: Queue)
       val pointerBuffer = stack.callocPointer(commandBuffer.length)
       commandBuffer.foreach(pointerBuffer.put)
       pointerBuffer.flip()
+      vkDeviceWaitIdle(device.get)
       vkFreeCommandBuffers(device.get, commandPool, pointerBuffer)
 
   protected def close(): Unit =

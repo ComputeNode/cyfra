@@ -38,8 +38,7 @@ object GPipe:
         val invocId = GIO.invocationId
         val element = GIO.read[C1](layout.in, invocId)
         val res = f(element)
-        for 
-          _ <- GIO.printf("Element %d -> %v4f", invocId, res)
+        for
           _ <- GIO.write[C2](layout.out, invocId, res)
         yield Empty()
       })
@@ -57,10 +56,15 @@ object GPipe:
       val outBuf = BufferUtils.createByteBuffer(params.inSize * outTypeSize)
 
       stream
-        .chunkMin(params.inSize)
+        .chunkN(params.inSize)
         .flatMap: chunk =>
           bridge1.toByteBuffer(inBuf, chunk)
-          region.runUnsafe(init = PLayout(in = GBuffer[C1](inBuf), out = GBuffer[C2](outBuf)), onDone = layout => layout.out.read(outBuf))
+          region.runUnsafe(init = PLayout(
+            in = GBuffer[C1](inBuf),
+            out = GBuffer[C2](outBuf)),
+            onDone = layout =>
+              layout.out.read(outBuf)
+          )
           Stream.emits(bridge2.fromByteBuffer(outBuf, new Array[S2](params.inSize)))
 
   // Overload for convenient single type version
@@ -81,7 +85,7 @@ object GPipe:
         val element = GIO.read[C](layout.in, invocId)
         val result = when(pred(element))(1: Int32).otherwise(0)
         for
-          _ <- GIO.printf("Element %d -> %d", invocId, result)
+          _ <- GIO.printf("Pred: Element %d -> %d", invocId, result)
           _ <- GIO.write[Int32](layout.out, invocId, result)
         yield Empty()
 
@@ -102,7 +106,10 @@ object GPipe:
         val oldValue = GIO.read[Int32](layout.ints, end)
         val addValue = GIO.read[Int32](layout.ints, mid)
         val newValue = oldValue + addValue
-        GIO.write[Int32](layout.ints, end, newValue)
+        for
+          _ <- GIO.printf("Upsweep: invocId %d, root %d, mid %d, end %d, oldValue %d, addValue %d, newValue %d", invocId, root, mid, end, oldValue, addValue, newValue)
+          _ <- GIO.write[Int32](layout.ints, end, newValue)
+        yield Empty()
 
       val downsweep = GProgram[ScanParams, ScanLayout](
         layout = params => ScanLayout(ints = GBuffer[Int32](params.inSize), intervalSize = GUniform(ScanArgs(params.intervalSize))),
@@ -115,7 +122,10 @@ object GPipe:
         val oldValue = GIO.read[Int32](layout.ints, mid)
         val addValue = when(end > 0)(GIO.read[Int32](layout.ints, end)).otherwise(0)
         val newValue = oldValue + addValue
-        GIO.write[Int32](layout.ints, mid, newValue)
+        for
+          _ <- GIO.printf("Downsweep: invocId %d, end %d, mid %d, oldValue %d, addValue %d, newValue %d", invocId, end, mid, oldValue, addValue, newValue)
+          _ <- GIO.write[Int32](layout.ints, mid, newValue)
+        yield Empty()
 
       // Stitch together many upsweep / downsweep program phases recursively
       @annotation.tailrec
@@ -204,7 +214,7 @@ object GPipe:
       val compactBuf = BufferUtils.createByteBuffer(filterParams.inSize * typeSize)
 
       stream
-        .chunkMin(filterParams.inSize)
+        .chunkN(filterParams.inSize)
         .flatMap: chunk =>
           bridge.toByteBuffer(predBuf, chunk)
           region.runUnsafe(

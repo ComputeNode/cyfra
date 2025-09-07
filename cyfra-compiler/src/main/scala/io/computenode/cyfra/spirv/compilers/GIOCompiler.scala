@@ -39,9 +39,8 @@ object GIOCompiler:
       case GIO.FlatMap(v, n) =>
         val (vInsts, ctxAfterV) = compileGio(v, ctx, acc)
         compileGio(n, ctxAfterV, vInsts)
-
+        
       case GIO.Repeat(n, f) =>
-
         // Compile 'n' first (so we can use its id in the comparison)
         val (nInsts, ctxWithN) = ExpressionCompiler.compileBlock(n.tree, ctx)
 
@@ -68,7 +67,7 @@ object GIOCompiler:
           nextResultId = baseId + 8,
           exprRefs = ctxWithN.exprRefs + (CurrentRepeatIndex.treeid -> phiId)
         )
-        val (bodyInsts, ctxAfterBody) = compileGio(f, bodyCtx)
+        val (bodyInsts, ctxAfterBody) = compileGio(f, bodyCtx)  // ← Capture the context after body compilation
 
         // Preheader: close current block and jump to header through a dedicated block
         val preheader = List(
@@ -118,14 +117,13 @@ object GIOCompiler:
           Instruction(Op.OpLabel, List(ResultRef(mergeId)))
         )
 
-        val finalNextId = math.max(ctxAfterBody.nextResultId, addId + 1)
-        val finalCtx = ctxAfterBody.copy(
-          nextResultId = finalNextId,
-          exprRefs = ctxAfterBody.exprRefs - CurrentRepeatIndex.treeid
-        )
+        // Use the highest nextResultId to avoid ID collisions
+        val finalNextId = math.max(ctxAfterBody.nextResultId, addId + 1)  // ← Use ctxAfterBody.nextResultId
+        // Use ctxWithN as base to prevent loop-local values from being referenced outside
+        val finalCtx = ctxWithN.copy(nextResultId = finalNextId)
 
         (acc ::: nInsts ::: preheader ::: header ::: bodyBlk ::: contBlk ::: mergeBlk, finalCtx)
-
+        
       case GIO.Printf(format, args*) =>
         val (argsInsts, ctxAfterArgs) = args.foldLeft((List.empty[Words], ctx)) { case ((instsAcc, cAcc), arg) =>
           val (argInsts, cAfterArg) = ExpressionCompiler.compileBlock(arg.tree, cAcc)
