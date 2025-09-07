@@ -59,14 +59,14 @@ object LayoutStruct:
         (tpe, ftype) match
           case ('[type t <: Value; t], '[type tg <: GBuffer[?]; tg]) =>
             '{
-              BufferRef[t](${ Expr(i) }, ${ tag.asExprOf[Tag[t]] })(using summon[Tag[t]], ${ fromExpr.asExprOf[FromExpr[t]] })
+              BufferRef[t](${ Expr(i) }, ${ tag.asExprOf[Tag[t]] })(using ${ tag.asExprOf[Tag[t]] }, ${ fromExpr.asExprOf[FromExpr[t]] })
             }
           case ('[type t <: GStruct[?]; t], '[type tg <: GUniform[?]; tg]) =>
             val structSchema = Expr.summon[GStructSchema[t]] match
               case Some(s) => s
               case None    => report.errorAndAbort(s"Cannot summon GStructSchema for type")
             '{
-              UniformRef[t](${ Expr(i) }, ${ tag.asExprOf[Tag[t]] })(using summon[Tag[t]], ${ fromExpr.asExprOf[FromExpr[t]] }, ${ structSchema })
+              UniformRef[t](${ Expr(i) }, ${ tag.asExprOf[Tag[t]] })(using ${ tag.asExprOf[Tag[t]] }, ${ fromExpr.asExprOf[FromExpr[t]] }, ${ structSchema })
             }
 
     val constructor = sym.primaryConstructor

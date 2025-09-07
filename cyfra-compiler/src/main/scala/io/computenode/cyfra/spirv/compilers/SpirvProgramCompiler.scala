@@ -74,7 +74,9 @@ private[cyfra] object SpirvProgramCompiler:
       WordVariable(BOUND_VARIABLE) :: // Bound: To be calculated
       Word(Array(0x00, 0x00, 0x00, 0x00)) :: // Schema: 0
       Instruction(Op.OpCapability, List(Capability.Shader)) :: // OpCapability Shader
+      Instruction(Op.OpExtension, List(Text("SPV_KHR_non_semantic_info"))) :: // OpExtension "SPV_KHR_non_semantic_info"
       Instruction(Op.OpExtInstImport, List(ResultRef(GLSL_EXT_REF), Text(GLSL_EXT_NAME))) :: // OpExtInstImport "GLSL.std.450"
+      Instruction(Op.OpExtInstImport, List(ResultRef(DEBUG_PRINTF_REF), Text(NON_SEMANTIC_DEBUG_PRINTF))) :: // OpExtInstImport "NonSemantic.DebugPrintf"
       Instruction(Op.OpMemoryModel, List(AddressingModel.Logical, MemoryModel.GLSL450)) :: // OpMemoryModel Logical GLSL450
       Instruction(Op.OpEntryPoint, List(ExecutionModel.GLCompute, ResultRef(MAIN_FUNC_REF), Text("main"), ResultRef(GL_GLOBAL_INVOCATION_ID_REF))) :: // OpEntryPoint GLCompute %MAIN_FUNC_REF "main" %GL_GLOBAL_INVOCATION_ID_REF
       Instruction(Op.OpExecutionMode, List(ResultRef(MAIN_FUNC_REF), ExecutionMode.LocalSize, IntWord(256), IntWord(1), IntWord(1))) :: // OpExecutionMode %4 LocalSize 128 1 1
@@ -185,6 +187,20 @@ private[cyfra] object SpirvProgramCompiler:
       case (_, _, t) =>
         typeStride(t)
     .sum
+  
+  def defineStrings(strings: List[String], ctx: Context): (List[Words], Context) =
+    strings.foldLeft((List.empty[Words], ctx)):
+      case ((insnsAcc, currentCtx), str) =>
+        if currentCtx.stringLiterals.contains(str) then
+          (insnsAcc, currentCtx)
+        else
+          val strRef = currentCtx.nextResultId
+          val strInsns = List(
+            Instruction(Op.OpString, List(ResultRef(strRef), Text(str))),
+          )
+          val newCtx = currentCtx.copy(stringLiterals = currentCtx.stringLiterals + (str -> strRef), nextResultId = currentCtx.nextResultId + 1)
+          (insnsAcc ::: strInsns, newCtx)
+    
 
   def createAndInitUniformBlocks(schemas: List[(GUniform[?], Int)], ctx: Context): (List[Words], List[Words], Context) = {
     var decoratedOffsets = Set[Int]()

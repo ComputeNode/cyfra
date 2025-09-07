@@ -29,6 +29,9 @@ object GIO:
   // TODO repeat that collects results
   case class Repeat(n: Int32, f: GIO[?]) extends GIO[Empty]:
     override def underlying: Empty = Empty()
+  
+  case class Printf(format: String, args: Value*) extends GIO[Empty]:
+    override def underlying: Empty = Empty()
 
   def pure[T <: Value](value: T): GIO[T] = Pure(value)
 
@@ -42,8 +45,11 @@ object GIO:
 
   def write[T <: Value](buffer: GBuffer[T], index: Int32, value: T): GIO[Empty] =
     WriteBuffer(buffer, index, value)
+    
+  def printf(format: String, args: Value*): GIO[Empty] =
+    Printf(s"|$format", args*)
 
-  def when(cond: GBoolean)(thenCode: GIO[?]): GIO[Unit] =
+  def when(cond: GBoolean)(thenCode: GIO[?]): GIO[Empty] =
     val n = When.when(cond)(1: Int32).otherwise(0)
     repeat(n): _ =>
       thenCode

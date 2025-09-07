@@ -1,12 +1,19 @@
 package io.computenode.cyfra.e2e.fs2interop
 
-import io.computenode.cyfra.core.archive.*, mem.*, GMem.fRGBA
-import io.computenode.cyfra.dsl.{*, given}, algebra.VectorAlgebra
-import io.computenode.cyfra.fs2interop.*, Bridge.given
+import io.computenode.cyfra.core.archive.*
+import mem.*
+import GMem.fRGBA
+import io.computenode.cyfra.dsl.{*, given}
+import algebra.VectorAlgebra
+import io.computenode.cyfra.fs2interop.*
+import Bridge.given
 import io.computenode.cyfra.core.CyfraRuntime
 import io.computenode.cyfra.runtime.VkCyfraRuntime
-
 import fs2.{io as fs2io, *}
+import _root_.io.computenode.cyfra.spirvtools.{SpirvCross, SpirvDisassembler, SpirvToolsRunner}
+import _root_.io.computenode.cyfra.spirvtools.SpirvTool.ToFile
+
+import java.nio.file.Paths
 
 extension (f: fRGBA)
   def neg = (-f._1, -f._2, -f._3, -f._4)
@@ -16,7 +23,13 @@ extension (f: fRGBA)
     Math.abs(f._1 - g._1) < eps && Math.abs(f._2 - g._2) < eps && Math.abs(f._3 - g._3) < eps && Math.abs(f._4 - g._4) < eps
 
 class Fs2Tests extends munit.FunSuite:
-  given cr: CyfraRuntime = VkCyfraRuntime()
+  given cr: CyfraRuntime = VkCyfraRuntime(
+    spirvToolsRunner = SpirvToolsRunner(
+      crossCompilation = SpirvCross.Enable(toolOutput = ToFile(Paths.get("output/optimized.glsl"))),
+      disassembler = SpirvDisassembler.Enable(toolOutput = ToFile(Paths.get("output/disassembled.spv")))
+    )
+  )
+
 
   test("fs2 through GPipe map, just ints"):
     val inSeq = (0 until 256).toSeq

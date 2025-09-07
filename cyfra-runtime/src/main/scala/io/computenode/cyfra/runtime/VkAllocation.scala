@@ -56,7 +56,7 @@ class VkAllocation(commandPool: CommandPool, executionHandler: ExecutionHandler)
       if buff.remaining() % sizeOfT != 0 then ???
       GBuffer[T](length).tap(_.write(buff))
 
-  extension (buffers: GUniform.type)
+  extension (uniforms: GUniform.type)
     def apply[T <: GStruct[?]: {Tag, FromExpr, GStructSchema}](buff: ByteBuffer): GUniform[T] =
       GUniform[T]().tap(_.write(buff))
 

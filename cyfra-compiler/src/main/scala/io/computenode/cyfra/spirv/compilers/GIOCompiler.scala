@@ -5,6 +5,7 @@ import io.computenode.cyfra.spirv.Context
 import io.computenode.cyfra.spirv.Opcodes.*
 import io.computenode.cyfra.dsl.binding.*
 import io.computenode.cyfra.dsl.gio.GIO.CurrentRepeatIndex
+import io.computenode.cyfra.spirv.SpirvConstants.{DEBUG_PRINTF_REF, TYPE_VOID_REF}
 import io.computenode.cyfra.spirv.SpirvTypes.{GBooleanTag, Int32Tag, LInt32Tag}
 
 object GIOCompiler:
@@ -124,6 +125,21 @@ object GIOCompiler:
         )
 
         (acc ::: nInsts ::: preheader ::: header ::: bodyBlk ::: contBlk ::: mergeBlk, finalCtx)
+
+      case GIO.Printf(format, args*) =>
+        val (argsInsts, ctxAfterArgs) = args.foldLeft((List.empty[Words], ctx)) { case ((instsAcc, cAcc), arg) =>
+          val (argInsts, cAfterArg) = ExpressionCompiler.compileBlock(arg.tree, cAcc)
+          (instsAcc ::: argInsts, cAfterArg)
+        }
+        val argResults = args.map(a => ResultRef(ctxAfterArgs.exprRefs(a.tree.treeid))).toList
+        val printf = Instruction(Op.OpExtInst, List(
+          ResultRef(TYPE_VOID_REF),
+          ResultRef(ctxAfterArgs.nextResultId),
+          ResultRef(DEBUG_PRINTF_REF),
+          IntWord(1),
+          ResultRef(ctx.stringLiterals(format)),
+        ) ::: argResults)
+        (acc ::: argsInsts ::: List(printf), ctxAfterArgs.copy(nextResultId = ctxAfterArgs.nextResultId + 1))
 
 
 
