@@ -73,6 +73,8 @@ object GPipe:
 
   def filter[F[_], C <: Value: FromExpr: Tag, S: ClassTag](pred: C => GBoolean)(using cr: CyfraRuntime, bridge: Bridge[C, S]): Pipe[F, S, S] =
     (stream: Stream[F, S]) =>
+      val chunkInSize = 256
+
       // Predicate mapping
       case class PredParams(inSize: Int)
       case class PredLayout(in: GBuffer[C], out: GBuffer[Int32]) extends Layout
@@ -99,33 +101,35 @@ object GPipe:
         dispatch = (layout, params) => GProgram.StaticDispatch((Math.ceil(params.inSize.toFloat / params.intervalSize / 256).toInt, 1, 1)),
       ): layout =>
         val ScanArgs(size) = layout.intervalSize.read
-        val invocId = GIO.invocationId
-        val root = invocId * size
-        val mid = root + (size / 2) - 1
-        val end = root + size - 1
-        val oldValue = GIO.read[Int32](layout.ints, end)
-        val addValue = GIO.read[Int32](layout.ints, mid)
-        val newValue = oldValue + addValue
-        for
-          _ <- GIO.printf("Upsweep: invocId %d, root %d, mid %d, end %d, oldValue %d, addValue %d, newValue %d", invocId, root, mid, end, oldValue, addValue, newValue)
-          _ <- GIO.write[Int32](layout.ints, end, newValue)
-        yield Empty()
+        GIO.when(GIO.invocationId < ((chunkInSize: Int32) / size)):
+          val invocId = GIO.invocationId
+          val root = invocId * size
+          val mid = root + (size / 2) - 1
+          val end = root + size - 1
+          val oldValue = GIO.read[Int32](layout.ints, end)
+          val addValue = GIO.read[Int32](layout.ints, mid)
+          val newValue = oldValue + addValue
+          for
+            _ <- GIO.printf("Upsweep: invocId %d, root %d, size %d, mid %d, end %d, oldValue %d, addValue %d, newValue %d", invocId, root, size, mid, end, oldValue, addValue, newValue)
+            _ <- GIO.write[Int32](layout.ints, end, newValue)
+          yield Empty()
 
       val downsweep = GProgram[ScanParams, ScanLayout](
         layout = params => ScanLayout(ints = GBuffer[Int32](params.inSize), intervalSize = GUniform(ScanArgs(params.intervalSize))),
         dispatch = (layout, params) => GProgram.StaticDispatch((Math.ceil(params.inSize.toFloat / params.intervalSize / 256).toInt, 1, 1)),
       ): layout =>
         val ScanArgs(size) = layout.intervalSize.read
-        val invocId = GIO.invocationId
-        val end = invocId * size - 1 // if invocId = 0, this is -1 (out of bounds)
-        val mid = end + (size / 2)
-        val oldValue = GIO.read[Int32](layout.ints, mid)
-        val addValue = when(end > 0)(GIO.read[Int32](layout.ints, end)).otherwise(0)
-        val newValue = oldValue + addValue
-        for
-          _ <- GIO.printf("Downsweep: invocId %d, end %d, mid %d, oldValue %d, addValue %d, newValue %d", invocId, end, mid, oldValue, addValue, newValue)
-          _ <- GIO.write[Int32](layout.ints, mid, newValue)
-        yield Empty()
+        GIO.when(GIO.invocationId < ((chunkInSize: Int32) / size)):
+          val invocId = GIO.invocationId
+          val end = invocId * size - 1 // if invocId = 0, this is -1 (out of bounds)
+          val mid = end + (size / 2)
+          val oldValue = GIO.read[Int32](layout.ints, mid)
+          val addValue = when(end > 0)(GIO.read[Int32](layout.ints, end)).otherwise(0)
+          val newValue = oldValue + addValue
+          for
+            _ <- GIO.printf("Downsweep: invocId %d, end %d, mid %d, oldValue %d, addValue %d, newValue %d", invocId, end, mid, oldValue, addValue, newValue)
+            _ <- GIO.write[Int32](layout.ints, mid, newValue)
+          yield Empty()
 
       // Stitch together many upsweep / downsweep program phases recursively
       @annotation.tailrec
@@ -199,7 +203,7 @@ object GPipe:
             .map(compactLayout => filterLayout)
 
       // finally setup buffers, region, parameters, and run the program
-      val filterParams = FilterParams(256, 2)
+      val filterParams = FilterParams(chunkInSize, 2)
       val region = GBufferRegion
         .allocate[FilterLayout]
         .map: filterLayout =>
@@ -210,16 +214,20 @@ object GPipe:
 
       // these are allocated once, reused for many chunks
       val predBuf = BufferUtils.createByteBuffer(filterParams.inSize * typeSize)
-      val scanBuf = BufferUtils.createByteBuffer(filterParams.inSize * intSize)
+      val filteredCount = BufferUtils.createByteBuffer(intSize)
       val compactBuf = BufferUtils.createByteBuffer(filterParams.inSize * typeSize)
 
       stream
-        .chunkN(filterParams.inSize)
+        .chunkN(chunkInSize)
         .flatMap: chunk =>
           bridge.toByteBuffer(predBuf, chunk)
           region.runUnsafe(
-            init = FilterLayout(in = GBuffer[C](predBuf), scan = GBuffer[Int32](scanBuf), out = GBuffer[C](compactBuf)),
-            onDone = layout => layout.out.read(compactBuf),
+            init = FilterLayout(in = GBuffer[C](predBuf), scan = GBuffer[Int32](filterParams.inSize), out = GBuffer[C](filterParams.inSize)),
+            onDone = layout => {
+              layout.scan.read(filteredCount, (filterParams.inSize - 2) * intSize)
+              layout.out.read(compactBuf)
+            }
           )
-          val arr = bridge.fromByteBuffer(compactBuf, new Array[S](256))
+          val filteredN = filteredCount.getInt(0)
+          val arr = bridge.fromByteBuffer(compactBuf, new Array[S](filteredN))
           Stream.emits(arr)

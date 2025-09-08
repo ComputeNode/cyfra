@@ -16,14 +16,17 @@ class VkCyfraRuntime(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()) ex
 
   private val shaderCache = mutable.Map[GProgram[?, ?], VkShader[?]]()
   private[cyfra] def getOrLoadProgram[Params, L <: Layout: {LayoutBinding, LayoutStruct}](program: GProgram[Params, L]): VkShader[L] = synchronized:
-    val spirvProgram = program match
-      case p: GioProgram[?, ?]   => compile(p)
-      case p: SpirvProgram[?, ?] => p
-      case _                     => throw new IllegalArgumentException(s"Unsupported program type: ${program.getClass.getName}")
+    if (shaderCache.contains(program)) then
+      shaderCache(program).asInstanceOf[VkShader[L]]
+    else
+      val spirvProgram = program match
+        case p: GioProgram[?, ?]   => compile(p)
+        case p: SpirvProgram[?, ?] => p
+        case _                     => throw new IllegalArgumentException(s"Unsupported program type: ${program.getClass.getName}")
 
-    shaderCache.getOrElseUpdate(program, VkShader(spirvProgram)).asInstanceOf[VkShader[L]]
+      shaderCache.getOrElseUpdate(program, VkShader(spirvProgram)).asInstanceOf[VkShader[L]]
 
-  private  def compile[Params, L <: Layout: {LayoutBinding as lbinding, LayoutStruct as lstruct}](program: GioProgram[Params, L]): SpirvProgram[Params, L] =
+  private def compile[Params, L <: Layout: {LayoutBinding as lbinding, LayoutStruct as lstruct}](program: GioProgram[Params, L]): SpirvProgram[Params, L] =
     val GioProgram(_, layout, dispatch, _) = program
     val bindings = lbinding.toBindings(lstruct.layoutRef).toList
     val compiled = DSLCompiler.compile(program.body(summon[LayoutStruct[L]].layoutRef), bindings)

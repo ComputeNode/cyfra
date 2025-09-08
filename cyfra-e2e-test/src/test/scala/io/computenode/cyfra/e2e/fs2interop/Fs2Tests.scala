@@ -47,7 +47,7 @@ class Fs2Tests extends munit.FunSuite:
 
   test("fs2 through GPipe map, floats and vectors"):
     val n = 16
-    val inSeq = (0 to (n * 256 - 1)).map(_.toFloat).toSeq
+    val inSeq = (0 until n * 256).map(_.toFloat)
     val stream = Stream.emits(inSeq)
     val pipe = GPipe.map[Pure, Float32, Vec4[Float32], Float, fRGBA](f => (f, f + 1f, f + 2f, f + 3f))
     val result = stream.through(pipe).compile.toList
@@ -59,11 +59,12 @@ class Fs2Tests extends munit.FunSuite:
         assert(res.close(exp)(0.001f), s"Expected $exp, got $res")
 
   test("fs2 through GPipe filter, just ints"):
-    val inSeq = (0 until 256).toSeq
+    val n = 16
+    val inSeq = (0 until n * 256)
     val stream = Stream.emits(inSeq)
-    val pipe = GPipe.filter[Pure, Int32, Int](_.mod(2) === 0)
+    val pipe = GPipe.filter[Pure, Int32, Int](_.mod(7) === 0)
     val result = stream.through(pipe).compile.toList
-    val expected = inSeq.filter(_ % 2 == 0)
+    val expected = inSeq.filter(_ % 7 == 0)
     result
       .zip(expected)
       .foreach: (res, exp) =>
