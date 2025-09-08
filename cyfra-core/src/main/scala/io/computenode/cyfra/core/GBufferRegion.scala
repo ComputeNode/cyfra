@@ -1,6 +1,7 @@
 package io.computenode.cyfra.core
 
 import io.computenode.cyfra.core.Allocation
+import io.computenode.cyfra.core.GBufferRegion.MapRegion
 import io.computenode.cyfra.core.GProgram.BufferLengthSpec
 import io.computenode.cyfra.core.layout.{Layout, LayoutBinding}
 import io.computenode.cyfra.dsl.Value
@@ -10,8 +11,10 @@ import izumi.reflect.Tag
 
 import java.nio.ByteBuffer
 
-sealed trait GBufferRegion[ReqAlloc <: Layout: LayoutBinding, ResAlloc <: Layout: LayoutBinding]
-
+sealed trait GBufferRegion[ReqAlloc <: Layout: LayoutBinding, ResAlloc <: Layout: LayoutBinding]:
+  def map[NewAlloc <: Layout: LayoutBinding](f: Allocation ?=> ResAlloc => NewAlloc): GBufferRegion[ReqAlloc, NewAlloc] =
+    MapRegion(this, (alloc: Allocation) => (resAlloc: ResAlloc) => f(using alloc)(resAlloc))
+    
 object GBufferRegion:
 
   def allocate[Alloc <: Layout: LayoutBinding]: GBufferRegion[Alloc, Alloc] = AllocRegion()
@@ -24,9 +27,6 @@ object GBufferRegion:
   ) extends GBufferRegion[ReqAlloc, ResAlloc]
 
   extension [ReqAlloc <: Layout: LayoutBinding, ResAlloc <: Layout: LayoutBinding](region: GBufferRegion[ReqAlloc, ResAlloc])
-    def map[NewAlloc <: Layout: LayoutBinding](f: Allocation ?=> ResAlloc => NewAlloc): GBufferRegion[ReqAlloc, NewAlloc] =
-      MapRegion(region, (alloc: Allocation) => (resAlloc: ResAlloc) => f(using alloc)(resAlloc))
-
     def runUnsafe(init: Allocation ?=> ReqAlloc, onDone: Allocation ?=> ResAlloc => Unit)(using cyfraRuntime: CyfraRuntime): Unit =
       cyfraRuntime.withAllocation: allocation =>
 

@@ -8,15 +8,7 @@ import io.computenode.cyfra.core.layout.{Layout, LayoutBinding, LayoutStruct}
 import io.computenode.cyfra.dsl.Value
 import io.computenode.cyfra.dsl.Value.FromExpr
 import io.computenode.cyfra.dsl.binding.{GBinding, GBuffer, GUniform}
-import io.computenode.cyfra.runtime.ExecutionHandler.{
-  BindingLogicError,
-  Dispatch,
-  DispatchType,
-  ExecutionBinding,
-  ExecutionStep,
-  PipelineBarrier,
-  ShaderCall,
-}
+import io.computenode.cyfra.runtime.ExecutionHandler.{BindingLogicError, Dispatch, DispatchType, ExecutionBinding, ExecutionStep, PipelineBarrier, ShaderCall}
 import io.computenode.cyfra.runtime.ExecutionHandler.DispatchType.*
 import io.computenode.cyfra.runtime.ExecutionHandler.ExecutionBinding.{BufferBinding, UniformBinding}
 import io.computenode.cyfra.utility.Utility.timed
@@ -29,7 +21,7 @@ import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import izumi.reflect.Tag
 import org.lwjgl.vulkan.VK10.*
 import org.lwjgl.vulkan.VK13.{VK_ACCESS_2_SHADER_READ_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, vkCmdPipelineBarrier2}
-import org.lwjgl.vulkan.{VkCommandBuffer, VkCommandBufferBeginInfo, VkDependencyInfo, VkMemoryBarrier2, VkSubmitInfo}
+import org.lwjgl.vulkan.{VK13, VkCommandBuffer, VkCommandBufferBeginInfo, VkDependencyInfo, VkMemoryBarrier2, VkSubmitInfo}
 
 import scala.collection.mutable
 
@@ -198,7 +190,6 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
       .flags(0)
 
     check(vkBeginCommandBuffer(commandBuffer, commandBufferBeginInfo), "Failed to begin recording command buffer")
-
     steps.foreach:
       case PipelineBarrier =>
         val memoryBarrier = VkMemoryBarrier2 // TODO don't synchronise everything
