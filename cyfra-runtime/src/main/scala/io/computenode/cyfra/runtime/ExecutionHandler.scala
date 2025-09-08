@@ -8,7 +8,15 @@ import io.computenode.cyfra.core.layout.{Layout, LayoutBinding, LayoutStruct}
 import io.computenode.cyfra.dsl.Value
 import io.computenode.cyfra.dsl.Value.FromExpr
 import io.computenode.cyfra.dsl.binding.{GBinding, GBuffer, GUniform}
-import io.computenode.cyfra.runtime.ExecutionHandler.{BindingLogicError, Dispatch, DispatchType, ExecutionBinding, ExecutionStep, PipelineBarrier, ShaderCall}
+import io.computenode.cyfra.runtime.ExecutionHandler.{
+  BindingLogicError,
+  Dispatch,
+  DispatchType,
+  ExecutionBinding,
+  ExecutionStep,
+  PipelineBarrier,
+  ShaderCall,
+}
 import io.computenode.cyfra.runtime.ExecutionHandler.DispatchType.*
 import io.computenode.cyfra.runtime.ExecutionHandler.ExecutionBinding.{BufferBinding, UniformBinding}
 import io.computenode.cyfra.utility.Utility.timed
@@ -63,8 +71,7 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
       descriptorSets.flatten.foreach(dsManager.free)
       commandPool.freeCommandBuffer(commandBuffer)
 
-    val externalBindings = (summon[LayoutBinding[EL]].toBindings(layout) ++ summon[LayoutBinding[RL]].toBindings(result))
-      .map(VkAllocation.getUnderlying)
+    val externalBindings = getAllBindings(executeSteps).map(VkAllocation.getUnderlying)
     val deps = externalBindings.flatMap(_.execution.fold(Seq(_), _.toSeq))
     val pe = new PendingExecution(commandBuffer, deps, cleanup)
     externalBindings.foreach(_.execution = Left(pe))
@@ -219,6 +226,13 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
 
     check(vkEndCommandBuffer(commandBuffer), "Failed to finish recording command buffer")
     commandBuffer
+
+  private def getAllBindings(steps: Seq[ExecutionStep]): Seq[GBinding[?]] =
+    steps
+      .flatMap:
+        case Dispatch(_, layout, _, _) => layout.flatten.map(_.binding)
+        case PipelineBarrier => Seq.empty
+    .distinct
 
 object ExecutionHandler:
   case class ShaderCall(pipeline: ComputePipeline, layout: ShaderLayout, dispatch: DispatchType)
