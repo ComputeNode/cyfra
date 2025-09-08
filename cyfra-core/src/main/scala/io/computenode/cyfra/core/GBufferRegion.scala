@@ -14,7 +14,7 @@ import java.nio.ByteBuffer
 sealed trait GBufferRegion[ReqAlloc <: Layout: LayoutBinding, ResAlloc <: Layout: LayoutBinding]:
   def map[NewAlloc <: Layout: LayoutBinding](f: Allocation ?=> ResAlloc => NewAlloc): GBufferRegion[ReqAlloc, NewAlloc] =
     MapRegion(this, (alloc: Allocation) => (resAlloc: ResAlloc) => f(using alloc)(resAlloc))
-    
+
 object GBufferRegion:
 
   def allocate[Alloc <: Layout: LayoutBinding]: GBufferRegion[Alloc, Alloc] = AllocRegion()

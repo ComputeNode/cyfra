@@ -118,8 +118,7 @@ object TestingStuff:
         emitBuffer = GBuffer[Int32](data.length * 2),
         filterBuffer = GBuffer[GBoolean](data.length * 2),
       ),
-      onDone = layout =>
-        layout.filterBuffer.read(rbb)
+      onDone = layout => layout.filterBuffer.read(rbb),
     )
     runtime.close()
 
