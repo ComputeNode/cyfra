@@ -74,7 +74,7 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
     val externalBindings = getAllBindings(executeSteps).map(VkAllocation.getUnderlying)
     val deps = externalBindings.flatMap(_.execution.fold(Seq(_), _.toSeq))
     val pe = new PendingExecution(commandBuffer, deps, cleanup)
-    externalBindings.foreach(_.execution = Left(pe))
+    externalBindings.foreach(_.execution = Left(pe)) // TODO we assume all accesses are read-write
     result
 
   private def interpret[Params, EL <: Layout: LayoutBinding, RL <: Layout: LayoutBinding](
@@ -231,8 +231,8 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
     steps
       .flatMap:
         case Dispatch(_, layout, _, _) => layout.flatten.map(_.binding)
-        case PipelineBarrier => Seq.empty
-    .distinct
+        case PipelineBarrier           => Seq.empty
+      .distinct
 
 object ExecutionHandler:
   case class ShaderCall(pipeline: ComputePipeline, layout: ShaderLayout, dispatch: DispatchType)
