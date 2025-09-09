@@ -74,7 +74,7 @@ object Buffer:
 
       val fence = Fence()
       check(vkQueueSubmit(commandPool.queue.get, submitInfo, fence.get), "Failed to submit single time command buffer")
-      fence.block()
+      fence.block().destroy()
 
   def copyBufferCommandBuffer(src: Buffer, dst: Buffer, srcOffset: Int, dstOffset: Int, bytes: Int, commandPool: CommandPool): VkCommandBuffer =
     commandPool.recordSingleTimeCommand: commandBuffer =>

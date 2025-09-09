@@ -48,6 +48,7 @@ class VkAllocation(commandPool: CommandPool, executionHandler: ExecutionHandler)
           val stagingBuffer = getStagingBuffer(size)
           Buffer.copyBuffer(binding.buffer, stagingBuffer, offset, 0, size, commandPool)
           stagingBuffer.copyTo(bb, 0)
+          stagingBuffer.destroy()
         case _ => throw new IllegalArgumentException(s"Tried to read from non-VkBinding $buffer")
 
     def write(bb: ByteBuffer, offset: Int = 0): Unit =

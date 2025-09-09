@@ -4,6 +4,7 @@ import io.computenode.cyfra.vulkan.command.{CommandPool, Fence, Semaphore}
 import io.computenode.cyfra.vulkan.core.{Device, Queue}
 import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import io.computenode.cyfra.vulkan.util.VulkanObject
+import org.lwjgl.vulkan.VK10.VK_TRUE
 import org.lwjgl.vulkan.VK13.{VK_PIPELINE_STAGE_2_COPY_BIT, vkQueueSubmit2}
 import org.lwjgl.vulkan.{VK13, VkCommandBuffer, VkCommandBufferSubmitInfo, VkSemaphoreSubmitInfo, VkSubmitInfo2}
 
@@ -22,16 +23,14 @@ class PendingExecution(protected val handle: VkCommandBuffer, val dependencies: 
   private var closed = false
   def isClosed: Boolean = closed
   private def close(): Unit =
-    assert(!closed, "PendingExecution already closed")
-    assert(isFinished, "Cannot close a PendingExecution that is not finished")
+    if closed then return
     cleanup()
     closed = true
 
   private var destroyed = false
   def destroy(): Unit =
-    assert(!destroyed, "PendingExecution already destroyed")
-    assert(isFinished, "Cannot destroy a PendingExecution that is not finished")
-    if !closed then close()
+    if destroyed then return
+    close()
     semaphore.destroy()
     fence.foreach(x => if x.isAlive then x.destroy())
     destroyed = true
