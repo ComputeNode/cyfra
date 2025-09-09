@@ -29,6 +29,15 @@ import scala.util.chaining.*
 class VkAllocation(commandPool: CommandPool, executionHandler: ExecutionHandler)(using Allocator, Device) extends Allocation:
   given VkAllocation = this
 
+  override def reportLayout[L <: Layout: LayoutBinding](layout: L): Unit =
+    val executions = summon[LayoutBinding[L]]
+      .toBindings(layout)
+      .map(getUnderlying)
+      .flatMap(_.execution.fold(Seq(_), _.toSeq))
+      .filter(_.isPending)
+
+    PendingExecution.executeAll(executions, commandPool.queue)
+
   extension (buffer: GBinding[?])
     def read(bb: ByteBuffer, offset: Int = 0): Unit =
       val size = bb.remaining()
@@ -54,6 +63,7 @@ class VkAllocation(commandPool: CommandPool, executionHandler: ExecutionHandler)
             commandPool.freeCommandBuffer(cb)
             stagingBuffer.destroy()
           val pe = new PendingExecution(cb, binding.execution.fold(Seq(_), _.toSeq), cleanup)
+          addExecution(pe)
           binding.execution = Left(pe)
         case _ => throw new IllegalArgumentException(s"Tried to write to non-VkBinding $buffer")
 
@@ -89,8 +99,14 @@ class VkAllocation(commandPool: CommandPool, executionHandler: ExecutionHandler)
             case _                       => ???
           direct(bb)
 
+  private val executions = mutable.Buffer[PendingExecution]()
+
+  def addExecution(pe: PendingExecution): Unit =
+    executions += pe
+
   private val bindings = mutable.Buffer[VkUniform[?] | VkBuffer[?]]()
   private[cyfra] def close(): Unit =
+    executions.foreach(_.destroy())
     bindings.map(getUnderlying).foreach(_.buffer.destroy())
 
   private def getStagingBuffer(size: Int): Buffer.HostBuffer =

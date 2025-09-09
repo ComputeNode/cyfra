@@ -74,6 +74,7 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
     val externalBindings = getAllBindings(executeSteps).map(VkAllocation.getUnderlying)
     val deps = externalBindings.flatMap(_.execution.fold(Seq(_), _.toSeq))
     val pe = new PendingExecution(commandBuffer, deps, cleanup)
+    summon[VkAllocation].addExecution(pe)
     externalBindings.foreach(_.execution = Left(pe)) // TODO we assume all accesses are read-write
     result
 

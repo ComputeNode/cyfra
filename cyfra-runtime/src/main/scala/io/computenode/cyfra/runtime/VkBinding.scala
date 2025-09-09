@@ -33,12 +33,15 @@ sealed abstract class VkBinding[T <: Value: {Tag, FromExpr}](val buffer: Buffer)
     */
   var execution: Either[PendingExecution, mutable.Buffer[PendingExecution]] = Right(mutable.Buffer.empty)
 
-  def materialise(queue: Queue)(using Device): Unit = execution match
-    case Left(exec) if exec.isAlive =>
-      PendingExecution.executeAll(Seq(exec), queue)
-      exec.block()
-      PendingExecution.cleanupAll(Seq(exec))
-    case _ => ()
+  def materialise(queue: Queue)(using Device): Unit =
+    val (pendingExecs, runningExecs) = execution.fold(Seq(_), _.toSeq).partition(_.isPending) // TODO better handle read only executions
+    if pendingExecs.nonEmpty then
+      val fence = PendingExecution.executeAll(pendingExecs, queue)
+      fence.block()
+      PendingExecution.cleanupAll(pendingExecs)
+      
+    runningExecs.foreach(_.block())
+    PendingExecution.cleanupAll(runningExecs)
 
 object VkBinding:
   def unapply(binding: GBinding[?]): Option[Buffer] = binding match

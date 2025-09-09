@@ -9,32 +9,50 @@ import org.lwjgl.vulkan.{VK13, VkCommandBuffer, VkCommandBufferSubmitInfo, VkSem
 
 import scala.collection.mutable
 
-class PendingExecution(protected val handle: VkCommandBuffer, val dependencies: Seq[PendingExecution], cleanup: () => Unit)(using Device)
-    extends VulkanObject[VkCommandBuffer]:
+class PendingExecution(protected val handle: VkCommandBuffer, val dependencies: Seq[PendingExecution], cleanup: () => Unit)(using Device):
   private val semaphore: Semaphore = Semaphore()
   private var fence: Option[Fence] = None
 
-  override protected def close(): Unit = cleanup()
+  def isPending: Boolean = fence.isEmpty
+  def isRunning: Boolean = fence.exists(!_.isSignaled)
+  def isFinished: Boolean = fence.exists(_.isSignaled)
 
-  private def setFence(otherFence: Fence): Unit =
-    if fence.isDefined then return
-    fence = Some(otherFence)
-    dependencies.foreach(_.setFence(otherFence))
+  def block(): Unit = fence.foreach(_.block())
 
-  private def gatherForSubmission: Seq[((VkCommandBuffer, Semaphore), Set[Semaphore])] = {
-    if fence.isDefined then return Seq.empty
-    val mySubmission = ((handle, semaphore), dependencies.map(_.semaphore).toSet)
-    dependencies.flatMap(_.gatherForSubmission).appended(mySubmission)
+  private var closed = false
+  def isClosed: Boolean = closed
+  private def close(): Unit =
+    assert(!closed, "PendingExecution already closed")
+    assert(isFinished, "Cannot close a PendingExecution that is not finished")
+    cleanup()
+    closed = true
+
+  private var destroyed = false
+  def destroy(): Unit =
+    assert(!destroyed, "PendingExecution already destroyed")
+    assert(isFinished, "Cannot destroy a PendingExecution that is not finished")
+    if !closed then close()
+    semaphore.destroy()
+    fence.foreach(x => if x.isAlive then x.destroy())
+    destroyed = true
+
+  private def setFence(f: Fence): Unit = {
+    if !isPending then return
+    fence = Some(f)
+    dependencies.foreach(_.setFence(f))
   }
 
-  def block(): Unit =
-    fence match
-      case Some(f) => f.block()
-      case None    => throw new IllegalStateException("No fence set for this execution")
+  private def gatherForSubmission: Seq[((VkCommandBuffer, Semaphore), Set[Semaphore])] =
+    if !isPending then return Seq.empty
+    val mySubmission = ((handle, semaphore), dependencies.map(_.semaphore).toSet)
+    dependencies.flatMap(_.gatherForSubmission).appended(mySubmission)
 
 object PendingExecution:
   def executeAll(executions: Seq[PendingExecution], queue: Queue)(using Device): Fence = pushStack: stack =>
-    val exec =
+    assert(executions.forall(_.isPending), "All executions must be pending")
+    assert(executions.nonEmpty, "At least one execution must be provided")
+
+    val exec: Seq[(Set[Semaphore], Set[(VkCommandBuffer, Semaphore)])] =
       val gathered = executions.flatMap(_.gatherForSubmission)
       val ordering = gathered.zipWithIndex.map(x => (x._1._1._1, x._2)).toMap
       gathered.toSet.groupMap(_._2)(_._1).toSeq.sortBy(x => x._2.map(_._1).map(ordering).min)
@@ -79,13 +97,13 @@ object PendingExecution:
     submitInfos.flip()
 
     val fence = Fence()
-    executions.foreach(_.setFence(fence))
     check(vkQueueSubmit2(queue.get, submitInfos, fence.get), "Failed to submit command buffer to queue")
+    executions.foreach(_.setFence(fence))
     fence
 
   def cleanupAll(executions: Seq[PendingExecution]): Unit =
     def cleanupRec(ex: PendingExecution): Unit =
-      if !ex.isAlive then return
-      ex.destroy()
+      if !ex.isClosed then return
+      ex.close()
       ex.dependencies.foreach(cleanupRec)
     executions.foreach(cleanupRec)

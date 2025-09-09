@@ -9,9 +9,13 @@ import io.computenode.cyfra.dsl.Value.FromExpr
 import io.computenode.cyfra.dsl.binding.GBuffer
 import izumi.reflect.Tag
 
+import scala.util.chaining.given
 import java.nio.ByteBuffer
 
 sealed trait GBufferRegion[ReqAlloc <: Layout: LayoutBinding, ResAlloc <: Layout: LayoutBinding]:
+  def reqAllocBinding: LayoutBinding[ReqAlloc] = summon[LayoutBinding[ReqAlloc]]
+  def resAllocBinding: LayoutBinding[ResAlloc] = summon[LayoutBinding[ResAlloc]]
+
   def map[NewAlloc <: Layout: LayoutBinding](f: Allocation ?=> ResAlloc => NewAlloc): GBufferRegion[ReqAlloc, NewAlloc] =
     MapRegion(this, (alloc: Allocation) => (resAlloc: ResAlloc) => f(using alloc)(resAlloc))
 
@@ -31,13 +35,13 @@ object GBufferRegion:
       cyfraRuntime.withAllocation: allocation =>
 
         // noinspection ScalaRedundantCast
-        val steps: Seq[Allocation => Layout => Layout] = Seq.unfold(region: GBufferRegion[?, ?]):
-          case _: AllocRegion[?] => None
-          case MapRegion(req, f) =>
-            Some((f.asInstanceOf[Allocation => Layout => Layout], req))
+        val steps: Seq[(Allocation => Layout => Layout, LayoutBinding[Layout])] = Seq.unfold(region: GBufferRegion[?, ?]):
+          case _: AllocRegion[?]     => None
+          case m @ MapRegion(req, f) =>
+            Some(((f.asInstanceOf[Allocation => Layout => Layout], req.resAllocBinding.asInstanceOf[LayoutBinding[Layout]]), req))
 
-        val initAlloc = init(using allocation)
+        val initAlloc = init(using allocation).tap(allocation.reportLayout)
         val bodyAlloc = steps.foldLeft[Layout](initAlloc): (acc, step) =>
-          step(allocation)(acc)
+          step._1(allocation)(acc).tap(allocation.reportLayout(_)(using step._2))
 
         onDone(using allocation)(bodyAlloc.asInstanceOf[ResAlloc])
