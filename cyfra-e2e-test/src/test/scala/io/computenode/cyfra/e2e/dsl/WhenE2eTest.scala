@@ -1,8 +1,8 @@
-package io.computenode.cyfra.e2e
+package io.computenode.cyfra.e2e.dsl
 
-import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.core.archive.*
-import mem.*
+import io.computenode.cyfra.core.archive.mem.*
+import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.dsl.{*, given}
 
 class WhenE2eTest extends munit.FunSuite:

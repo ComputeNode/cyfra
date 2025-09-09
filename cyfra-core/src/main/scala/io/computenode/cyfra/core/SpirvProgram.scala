@@ -14,6 +14,8 @@ import java.io.File
 import java.io.FileInputStream
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
+import java.nio.file.Path
+import java.security.MessageDigest
 import java.util.Objects
 import scala.util.Try
 import scala.util.Using
@@ -26,7 +28,26 @@ case class SpirvProgram[Params, L <: Layout: {LayoutBinding, LayoutStruct}] priv
   code: ByteBuffer,
   entryPoint: String,
   shaderBindings: L => ShaderLayout,
-) extends GProgram[Params, L]
+) extends GProgram[Params, L]:
+
+  /**
+   * A hash of the shader code, entry point, workgroup size, and layout bindings.
+   * Layout and dispatch are not taken into account.
+   */
+  lazy val shaderHash: (Long, Long) =
+    val md = MessageDigest.getInstance("SHA-256")
+    md.update(code)
+    code.rewind()
+    md.update(entryPoint.getBytes)
+    md.update(workgroupSize.toList
+      .flatMap(BigInt(_).toByteArray).toArray)
+    val layout = shaderBindings(summon[LayoutStruct[L]].layoutRef)
+    layout.flatten.foreach: binding =>
+      md.update(binding.binding.tag.toString.getBytes)
+      md.update(binding.operation.toString.getBytes)
+    val digest = md.digest()
+    val bb = java.nio.ByteBuffer.wrap(digest)
+    (bb.getLong(), bb.getLong())
 
 object SpirvProgram:
   type ShaderLayout = Seq[Seq[Binding]]
@@ -41,7 +62,7 @@ object SpirvProgram:
     dispatch: (L, Params) => ProgramDispatch,
     code: ByteBuffer
   ): SpirvProgram[Params, L] =
-    val workgroupSize = (128, 1, 1) // TODO Extract form shader
+    val workgroupSize = (128, 1, 1) // TODO  Extract form shader
     val main = "main"
     val f: L => ShaderLayout = { case layout: Product =>
       layout.productIterator.zipWithIndex.map { case (binding: GBinding[?], i) => Binding(binding, ReadWrite) }.toSeq.pipe(Seq(_))

@@ -1,9 +1,10 @@
-package io.computenode.cyfra.e2e
+package io.computenode.cyfra.e2e.dsl
 
-import io.computenode.cyfra.core.archive.*, mem.*
+import io.computenode.cyfra.core.archive.*
+import io.computenode.cyfra.core.archive.mem.*
+import io.computenode.cyfra.core.archive.mem.GMem.fRGBA
 import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.dsl.{*, given}
-import GMem.fRGBA
 
 class FunctionsE2eTest extends munit.FunSuite:
   given gc: GContext = GContext()

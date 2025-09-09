@@ -12,6 +12,10 @@ import io.computenode.cyfra.dsl.struct.{GStruct, GStructSchema}
 import io.computenode.cyfra.dsl.struct.GStruct.Empty
 import izumi.reflect.Tag
 
+import java.io.FileInputStream
+import java.nio.file.Path
+import scala.util.Using
+
 trait GProgram[Params, L <: Layout: {LayoutBinding, LayoutStruct}] extends GExecution[Params, L, L]:
   val layout: InitProgramLayout => Params => L
   val dispatch: (L, Params) => ProgramDispatch
@@ -31,6 +35,19 @@ object GProgram:
     workgroupSize: WorkDimensions = (128, 1, 1),
   )(body: L => GIO[?]): GProgram[Params, L] =
     new GioProgram[Params, L](body, s => layout(using s), dispatch, workgroupSize)
+
+  def fromSpirvFile[Params, L <: Layout : {LayoutBinding, LayoutStruct}](
+    layout: InitProgramLayout ?=> Params => L,
+    dispatch: (L, Params) => ProgramDispatch,
+    path: Path
+  ): SpirvProgram[Params, L] =
+    Using.resource(new FileInputStream(path.toFile)): fis =>
+      val fc = fis.getChannel
+      val size = fc.size().toInt
+      val bb = ByteBuffer.allocateDirect(size)
+      fc.read(bb)
+      bb.flip()
+      SpirvProgram(layout, dispatch, bb)
 
   private[cyfra] class BufferLengthSpec[T <: Value: {Tag, FromExpr}](val length: Int) extends GBuffer[T]:
     private[cyfra] def materialise()(using Allocation): GBuffer[T] = GBuffer.apply[T](length)

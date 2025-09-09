@@ -138,7 +138,7 @@ object GPipe:
         inSize: Int,
         intervalSize: Int,
       ): GExecution[ScanParams, ScanLayout, ScanLayout] =
-        if intervalSize >= inSize then exec
+        if intervalSize > inSize then exec
         else
           val newExec = exec.addProgram(upsweep)(params => ScanParams(inSize, intervalSize), layout => layout)
           upsweepPhases(newExec, inSize, intervalSize * 2)
@@ -170,7 +170,7 @@ object GPipe:
         val element = GIO.read[C](layout.in, invocId)
         val prefixSum = GIO.read[Int32](layout.scan, invocId)
         for
-          _ <- GIO.printf("Element %d, prefix sum %d", invocId, prefixSum)
+          _ <- GIO.printf("Compact: Element %d, prefix sum %d", invocId, prefixSum)
           _ <- GIO.when(invocId > 0):
             val prevScan = GIO.read[Int32](layout.scan, invocId - 1)
             GIO.when(prevScan < prefixSum):
@@ -224,10 +224,11 @@ object GPipe:
           region.runUnsafe(
             init = FilterLayout(in = GBuffer[C](predBuf), scan = GBuffer[Int32](filterParams.inSize), out = GBuffer[C](filterParams.inSize)),
             onDone = layout => {
-              layout.scan.read(filteredCount, (filterParams.inSize - 2) * intSize)
+              layout.scan.read(filteredCount, (filterParams.inSize - 1) * intSize)
               layout.out.read(compactBuf)
             }
           )
           val filteredN = filteredCount.getInt(0)
           val arr = bridge.fromByteBuffer(compactBuf, new Array[S](filteredN))
+          println(arr)
           Stream.emits(arr)

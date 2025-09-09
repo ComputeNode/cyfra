@@ -152,7 +152,7 @@ private[cyfra] class Instance(enableValidationLayers: Boolean) extends VulkanObj
         )
         .pfnUserCallback(c)
 
-      val debugMessengerBuff = stack.callocLong(1)
+      val debugMessengerBuff = MemoryUtil.memAllocLong(1)
       check(vkCreateDebugUtilsMessengerEXT(
         handle,
         debugMessengerCreate.get(0),

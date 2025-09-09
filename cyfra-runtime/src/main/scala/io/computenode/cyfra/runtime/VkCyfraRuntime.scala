@@ -8,23 +8,26 @@ import io.computenode.cyfra.spirvtools.SpirvToolsRunner
 import io.computenode.cyfra.vulkan.VulkanContext
 import io.computenode.cyfra.vulkan.compute.ComputePipeline
 
+import java.security.MessageDigest
 import scala.collection.mutable
 
 class VkCyfraRuntime(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()) extends CyfraRuntime:
   private val context = new VulkanContext()
   import context.given
 
-  private val shaderCache = mutable.Map[GProgram[?, ?], VkShader[?]]()
-  private[cyfra] def getOrLoadProgram[Params, L <: Layout: {LayoutBinding, LayoutStruct}](program: GProgram[Params, L]): VkShader[L] = synchronized:
-    if (shaderCache.contains(program)) then
-      shaderCache(program).asInstanceOf[VkShader[L]]
-    else
-      val spirvProgram = program match
-        case p: GioProgram[?, ?]   => compile(p)
-        case p: SpirvProgram[?, ?] => p
-        case _                     => throw new IllegalArgumentException(s"Unsupported program type: ${program.getClass.getName}")
+  private val gProgramCache = mutable.Map[GProgram[?, ?], SpirvProgram[?, ?]]()
+  private val shaderCache = mutable.Map[(Long, Long), VkShader[?]]()
 
-      shaderCache.getOrElseUpdate(program, VkShader(spirvProgram)).asInstanceOf[VkShader[L]]
+  private[cyfra] def getOrLoadProgram[Params, L <: Layout: {LayoutBinding, LayoutStruct}](program: GProgram[Params, L]): VkShader[L] = synchronized:
+
+    val spirvProgram: SpirvProgram[Params, L] = program match
+      case p: GioProgram[Params, L] if gProgramCache.contains(p) =>
+        gProgramCache(p).asInstanceOf
+      case p: GioProgram[Params, L] => compile(p)
+      case p: SpirvProgram[Params, L] => p
+      case _ => throw new IllegalArgumentException(s"Unsupported program type: ${program.getClass.getName}")
+
+    shaderCache.getOrElseUpdate(spirvProgram.shaderHash, VkShader(spirvProgram)).asInstanceOf[VkShader[L]]
 
   private def compile[Params, L <: Layout: {LayoutBinding as lbinding, LayoutStruct as lstruct}](program: GioProgram[Params, L]): SpirvProgram[Params, L] =
     val GioProgram(_, layout, dispatch, _) = program
