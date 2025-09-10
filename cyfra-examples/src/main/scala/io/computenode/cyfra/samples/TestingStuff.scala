@@ -16,11 +16,11 @@ import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.parallel.CollectionConverters.given
 
-def printBuffer(bb: ByteBuffer): Unit = {
+def printBuffer(bb: ByteBuffer): Unit =
   val l = bb.asIntBuffer()
-  val s = (0 until l.remaining()).map(l.get).toList
-  println(s.mkString(" "))
-}
+  val a = new Array[Int](l.remaining())
+  l.get(a)
+  println(a.mkString(" "))
 
 object TestingStuff:
 

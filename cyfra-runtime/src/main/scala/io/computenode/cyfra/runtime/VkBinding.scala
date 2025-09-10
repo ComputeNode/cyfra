@@ -39,7 +39,7 @@ sealed abstract class VkBinding[T <: Value: {Tag, FromExpr}](val buffer: Buffer)
       val fence = PendingExecution.executeAll(pendingExecs, queue)
       fence.block()
       PendingExecution.cleanupAll(pendingExecs)
-      
+
     runningExecs.foreach(_.block())
     PendingExecution.cleanupAll(runningExecs)
 
