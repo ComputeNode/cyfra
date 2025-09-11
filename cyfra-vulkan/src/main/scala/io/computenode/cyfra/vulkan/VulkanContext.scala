@@ -16,8 +16,7 @@ import scala.jdk.CollectionConverters.*
   */
 private[cyfra] object VulkanContext:
   val ValidationLayer: String = "VK_LAYER_KHRONOS_validation"
-  private val ValidationLayers: Boolean = System.getProperty("io.computenode.cyfra.vulkan.validation", "true").toBoolean
-  if Configuration.STACK_SIZE.get() < 100 then logger.warn(s"Small stack size. Increase with org.lwjgl.system.stackSize")
+  private val ValidationLayers: Boolean = System.getProperty("io.computenode.cyfra.vulkan.validation", "false").toBoolean
 
 private[cyfra] class VulkanContext:
   private val instance: Instance = new Instance(ValidationLayers)
