@@ -1,6 +1,6 @@
 package io.computenode.cyfra.fs2interop
 
-import io.computenode.cyfra.core.{Allocation, layout}
+import io.computenode.cyfra.core.{Allocation, layout, GCodec}
 import layout.Layout
 import io.computenode.cyfra.core.{CyfraRuntime, GBufferRegion, GExecution, GProgram}
 import io.computenode.cyfra.dsl.{*, given}
@@ -13,6 +13,7 @@ import struct.GStruct
 import GStruct.Empty
 import Empty.given
 import fs2.*
+
 import java.nio.ByteBuffer
 import org.lwjgl.BufferUtils
 import izumi.reflect.Tag
@@ -22,7 +23,7 @@ import scala.reflect.ClassTag
 object GPipe:
   def map[F[_], C1 <: Value: {FromExpr, Tag}, C2 <: Value: {FromExpr, Tag}, S1: ClassTag, S2: ClassTag](
     f: C1 => C2,
-  )(using cr: CyfraRuntime, bridge1: Bridge[C1, S1], bridge2: Bridge[C2, S2]): Pipe[F, S1, S2] =
+  )(using cr: CyfraRuntime, bridge1: GCodec[C1, S1], bridge2: GCodec[C2, S2]): Pipe[F, S1, S2] =
     (stream: Stream[F, S1]) =>
       case class Params(inSize: Int)
       case class PLayout(in: GBuffer[C1], out: GBuffer[C2]) extends Layout
@@ -58,7 +59,7 @@ object GPipe:
       stream
         .chunkN(params.inSize)
         .flatMap: chunk =>
-          bridge1.toByteBuffer(inBuf, chunk)
+          bridge1.toByteBuffer(inBuf, chunk.toArray)
           region.runUnsafe(init = PLayout(
             in = GBuffer[C1](inBuf),
             out = GBuffer[C2](outBuf)),
@@ -68,10 +69,10 @@ object GPipe:
           Stream.emits(bridge2.fromByteBuffer(outBuf, new Array[S2](params.inSize)))
 
   // Overload for convenient single type version
-  def map[F[_], C <: Value: FromExpr: Tag, S: ClassTag](f: C => C)(using CyfraRuntime, Bridge[C, S]): Pipe[F, S, S] =
+  def map[F[_], C <: Value: FromExpr: Tag, S: ClassTag](f: C => C)(using CyfraRuntime, GCodec[C, S]): Pipe[F, S, S] =
     map[F, C, C, S, S](f)
 
-  def filter[F[_], C <: Value: FromExpr: Tag, S: ClassTag](pred: C => GBoolean)(using cr: CyfraRuntime, bridge: Bridge[C, S]): Pipe[F, S, S] =
+  def filter[F[_], C <: Value: FromExpr: Tag, S: ClassTag](pred: C => GBoolean)(using cr: CyfraRuntime, bridge: GCodec[C, S]): Pipe[F, S, S] =
     (stream: Stream[F, S]) =>
       val chunkInSize = 256
 
@@ -220,7 +221,7 @@ object GPipe:
       stream
         .chunkN(chunkInSize)
         .flatMap: chunk =>
-          bridge.toByteBuffer(predBuf, chunk)
+          bridge.toByteBuffer(predBuf, chunk.toArray)
           region.runUnsafe(
             init = FilterLayout(in = GBuffer[C](predBuf), scan = GBuffer[Int32](filterParams.inSize), out = GBuffer[C](filterParams.inSize)),
             onDone = layout => {

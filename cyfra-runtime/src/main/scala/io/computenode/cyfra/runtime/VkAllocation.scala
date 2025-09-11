@@ -91,7 +91,6 @@ class VkAllocation(commandPool: CommandPool, executionHandler: ExecutionHandler)
 
   private def direct[T <: GStruct[?]: {Tag, FromExpr, GStructSchema}](buff: ByteBuffer): GUniform[T] =
     GUniform[T](buff)
-
   def getInitProgramLayout: GProgram.InitProgramLayout =
     new GProgram.InitProgramLayout:
       extension (uniforms: GUniform.type)

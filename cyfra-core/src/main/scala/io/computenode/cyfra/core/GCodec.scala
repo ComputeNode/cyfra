@@ -1,21 +1,21 @@
 // scala
-package io.computenode.cyfra.fs2interop
+package io.computenode.cyfra.core
 
-import io.computenode.cyfra.core.archive.mem.GMem.fRGBA
+import io.computenode.cyfra.core.archive.mem.GMem.{fRGBA, totalStride}
 import io.computenode.cyfra.dsl.*
-import fs2.*
+import io.computenode.cyfra.dsl.struct.{GStruct, GStructSchema}
+import izumi.reflect.Tag
 
 import java.nio.{ByteBuffer, ByteOrder}
-import izumi.reflect.Tag
 import scala.reflect.ClassTag
 
-trait Bridge[CyfraType <: Value: FromExpr: Tag, ScalaType: ClassTag]:
-  def toByteBuffer(inBuf: ByteBuffer, chunk: Chunk[ScalaType]): ByteBuffer
+trait GCodec[CyfraType <: Value: {FromExpr, Tag}, ScalaType: ClassTag]:
+  def toByteBuffer(inBuf: ByteBuffer, arr: Array[ScalaType]): ByteBuffer
   def fromByteBuffer(outBuf: ByteBuffer, arr: Array[ScalaType]): Array[ScalaType]
 
-object Bridge:
-  given Bridge[Int32, Int]:
-    def toByteBuffer(inBuf: ByteBuffer, chunk: Chunk[Int]): ByteBuffer =
+object GCodec:
+  given GCodec[Int32, Int]:
+    def toByteBuffer(inBuf: ByteBuffer, chunk: Array[Int]): ByteBuffer =
       inBuf.clear().order(ByteOrder.nativeOrder())
       val ib = inBuf.asIntBuffer()
       ib.put(chunk.toArray[Int])
@@ -27,8 +27,8 @@ object Bridge:
       outBuf.rewind()
       arr
 
-  given Bridge[Float32, Float]:
-    def toByteBuffer(inBuf: ByteBuffer, chunk: Chunk[Float]): ByteBuffer =
+  given GCodec[Float32, Float]:
+    def toByteBuffer(inBuf: ByteBuffer, chunk: Array[Float]): ByteBuffer =
       inBuf.clear().order(ByteOrder.nativeOrder())
       val fb = inBuf.asFloatBuffer()
       fb.put(chunk.toArray[Float])
@@ -40,11 +40,10 @@ object Bridge:
       outBuf.rewind()
       arr
 
-  given Bridge[Vec4[Float32], fRGBA]:
-    def toByteBuffer(inBuf: ByteBuffer, chunk: Chunk[fRGBA]): ByteBuffer =
+  given GCodec[Vec4[Float32], fRGBA]:
+    def toByteBuffer(inBuf: ByteBuffer, arr: Array[fRGBA]): ByteBuffer =
       inBuf.clear().order(ByteOrder.nativeOrder())
-      val vecs = chunk.toArray[fRGBA]
-      vecs.foreach:
+      arr.foreach:
         case (x, y, z, a) =>
           inBuf.putFloat(x)
           inBuf.putFloat(y)
@@ -59,9 +58,9 @@ object Bridge:
       outBuf.rewind()
       arr
 
-  given Bridge[GBoolean, Boolean]:
-    def toByteBuffer(inBuf: ByteBuffer, chunk: Chunk[Boolean]): ByteBuffer =
-      inBuf.put(chunk.toArray.asInstanceOf[Array[Byte]]).flip()
+  given GCodec[GBoolean, Boolean]:
+    def toByteBuffer(inBuf: ByteBuffer, arr: Array[Boolean]): ByteBuffer =
+      inBuf.put(arr.asInstanceOf[Array[Byte]]).flip()
       inBuf
     def fromByteBuffer(outBuf: ByteBuffer, arr: Array[Boolean]): Array[Boolean] =
       outBuf.get(arr.asInstanceOf[Array[Byte]]).flip()

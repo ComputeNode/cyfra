@@ -23,7 +23,7 @@ trait GUniform[T <: GStruct[?]: {Tag, FromExpr, GStructSchema}] extends GBinding
   def read: T = fromExprEval(ReadUniform(this))
 
   def write(value: T): GIO[Empty] = WriteUniform(this, value)
-  
+
   def schema = summon[GStructSchema[T]]
 
 object GUniform:

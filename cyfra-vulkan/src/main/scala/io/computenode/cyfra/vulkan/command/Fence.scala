@@ -19,7 +19,7 @@ private[cyfra] class Fence(flags: Int = 0)(using device: Device) extends VulkanO
 
     val pFence = stack.callocLong(1)
     check(vkCreateFence(device.get, fenceInfo, null, pFence), "Failed to create fence")
-    pFence.get(),
+    pFence.get()
   )
 
   override def close(): Unit =

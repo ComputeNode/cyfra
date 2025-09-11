@@ -2,6 +2,7 @@ package io.computenode.cyfra.e2e.dsl
 
 import io.computenode.cyfra.core.archive.*
 import io.computenode.cyfra.core.archive.mem.*
+import io.computenode.cyfra.dsl.binding.GBuffer
 import io.computenode.cyfra.dsl.collections.GSeq
 import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.dsl.{*, given}
@@ -19,7 +20,7 @@ class GStructE2eTest extends munit.FunSuite:
   test("GStruct passed as uniform"):
     UniformContext.withUniform(custom1):
       val gf: GFunction[Custom, Float32, Float32] = GFunction:
-        case (Custom(f, v), index, gArray) => v.*(f).dot(v) + gArray.at(index) * f
+        case (Custom(f, v), index: Int32, gBuff: GBuffer[Float32]) => v.*(f).dot(v) + gBuff.read(index) * f
 
       val inArr = (0 to 255).map(_.toFloat).toArray
       val gmem = FloatMem(inArr)
@@ -34,7 +35,7 @@ class GStructE2eTest extends munit.FunSuite:
   test("GStruct of GStructs".ignore):
     UniformContext.withUniform(nested):
       val gf: GFunction[Nested, Float32, Float32] = GFunction:
-        case (Nested(Custom(f1, v1), Custom(f2, v2)), index, gArray) =>
+        case (Nested(Custom(f1, v1), Custom(f2, v2)), index, gArray: GBuffer[Float32]) =>
           v1.*(f2).dot(v2) + gArray.at(index) * f1
 
       val inArr = (0 to 255).map(_.toFloat).toArray
