@@ -10,7 +10,7 @@ import izumi.reflect.Tag
 import java.nio.ByteBuffer
 
 trait Allocation:
-  def reportLayout[L <: Layout: LayoutBinding](layout: L): Unit
+  def submitLayout[L <: Layout: LayoutBinding](layout: L): Unit
 
   extension (buffer: GBinding[?])
     def read(bb: ByteBuffer, offset: Int = 0): Unit

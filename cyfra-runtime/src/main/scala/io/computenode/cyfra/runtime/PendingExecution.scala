@@ -10,6 +10,12 @@ import org.lwjgl.vulkan.{VK13, VkCommandBuffer, VkCommandBufferSubmitInfo, VkSem
 
 import scala.collection.mutable
 
+/** A command buffer that is pending execution, along with its dependencies and cleanup actions.
+  *
+  * You can call `close()` only when `isFinished || isPending` is true
+  *
+  * You can call `destroy()` only when all dependants are `isClosed`
+  */
 class PendingExecution(protected val handle: VkCommandBuffer, val dependencies: Seq[PendingExecution], cleanup: () => Unit)(using Device):
   private val semaphore: Semaphore = Semaphore()
   private var fence: Option[Fence] = None
@@ -23,6 +29,7 @@ class PendingExecution(protected val handle: VkCommandBuffer, val dependencies: 
   private var closed = false
   def isClosed: Boolean = closed
   private def close(): Unit =
+    assert(isFinished || isPending, "Cannot close a PendingExecution that is not finished or pending")
     if closed then return
     cleanup()
     closed = true
@@ -35,24 +42,29 @@ class PendingExecution(protected val handle: VkCommandBuffer, val dependencies: 
     fence.foreach(x => if x.isAlive then x.destroy())
     destroyed = true
 
-  private def setFence(f: Fence): Unit = {
-    if !isPending then return
-    fence = Some(f)
-    dependencies.foreach(_.setFence(f))
-  }
-
-  private def gatherForSubmission: Seq[((VkCommandBuffer, Semaphore), Set[Semaphore])] =
+  /** Gathers all command buffers and their semaphores for submission to the queue, in the correct order.
+    *
+    * When you call this method, you are expected to submit the command buffers to the queue, and signal the provided fence when done.
+    * @param f
+    *   The fence to signal when the command buffers are done executing.
+    * @return
+    *   A sequence of tuples, each containing a command buffer, semaphore to signal, and a set of semaphores to wait on.
+    */
+  private def gatherForSubmission(f: Fence): Seq[((VkCommandBuffer, Semaphore), Set[Semaphore])] =
     if !isPending then return Seq.empty
     val mySubmission = ((handle, semaphore), dependencies.map(_.semaphore).toSet)
-    dependencies.flatMap(_.gatherForSubmission).appended(mySubmission)
+    fence = Some(f)
+    dependencies.flatMap(_.gatherForSubmission(f)).appended(mySubmission)
 
 object PendingExecution:
   def executeAll(executions: Seq[PendingExecution], queue: Queue)(using Device): Fence = pushStack: stack =>
     assert(executions.forall(_.isPending), "All executions must be pending")
     assert(executions.nonEmpty, "At least one execution must be provided")
 
+    val fence = Fence()
+
     val exec: Seq[(Set[Semaphore], Set[(VkCommandBuffer, Semaphore)])] =
-      val gathered = executions.flatMap(_.gatherForSubmission)
+      val gathered = executions.flatMap(_.gatherForSubmission(fence))
       val ordering = gathered.zipWithIndex.map(x => (x._1._1._1, x._2)).toMap
       gathered.toSet.groupMap(_._2)(_._1).toSeq.sortBy(x => x._2.map(_._1).map(ordering).min)
 
@@ -95,9 +107,7 @@ object PendingExecution:
 
     submitInfos.flip()
 
-    val fence = Fence()
     check(vkQueueSubmit2(queue.get, submitInfos, fence.get), "Failed to submit command buffer to queue")
-    executions.foreach(_.setFence(fence))
     fence
 
   def cleanupAll(executions: Seq[PendingExecution]): Unit =

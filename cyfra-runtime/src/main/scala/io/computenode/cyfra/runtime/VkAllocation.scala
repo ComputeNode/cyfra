@@ -29,7 +29,7 @@ import scala.util.chaining.*
 class VkAllocation(commandPool: CommandPool, executionHandler: ExecutionHandler)(using Allocator, Device) extends Allocation:
   given VkAllocation = this
 
-  override def reportLayout[L <: Layout: LayoutBinding](layout: L): Unit =
+  override def submitLayout[L <: Layout: LayoutBinding](layout: L): Unit =
     val executions = summon[LayoutBinding[L]]
       .toBindings(layout)
       .map(getUnderlying)
