@@ -6,6 +6,7 @@ package io.computenode.cyfra.vulkan.util
 private[cyfra] abstract class VulkanObject[T]:
   protected val handle: T
   private var alive: Boolean = true
+  def isAlive: Boolean = alive
 
   def get: T =
     if !alive then throw new IllegalStateException()

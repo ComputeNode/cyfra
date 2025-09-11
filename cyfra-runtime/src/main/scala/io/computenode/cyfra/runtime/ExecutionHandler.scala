@@ -29,7 +29,7 @@ import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import izumi.reflect.Tag
 import org.lwjgl.vulkan.VK10.*
 import org.lwjgl.vulkan.VK13.{VK_ACCESS_2_SHADER_READ_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, vkCmdPipelineBarrier2}
-import org.lwjgl.vulkan.{VkCommandBuffer, VkCommandBufferBeginInfo, VkDependencyInfo, VkMemoryBarrier2, VkSubmitInfo}
+import org.lwjgl.vulkan.{VK13, VkCommandBuffer, VkCommandBufferBeginInfo, VkDependencyInfo, VkMemoryBarrier2, VkSubmitInfo}
 
 import scala.collection.mutable
 
@@ -51,7 +51,7 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
           .zip(layout)
           .map:
             case (set, bindings) =>
-              set.update(bindings.map(x => VkAllocation.getUnderlying(x.binding)))
+              set.update(bindings.map(x => VkAllocation.getUnderlying(x.binding).buffer))
               set
 
     val dispatches: Seq[Dispatch] = shaderCalls
@@ -67,19 +67,15 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
         else (steps.appended(step), dirty ++ bindings)
 
     val commandBuffer = recordCommandBuffer(executeSteps)
-    pushStack: stack =>
-      val pCommandBuffer = stack.callocPointer(1).put(0, commandBuffer)
-      val submitInfo = VkSubmitInfo
-        .calloc(stack)
-        .sType$Default()
-        .pCommandBuffers(pCommandBuffer)
+    val cleanup = () =>
+      descriptorSets.flatten.foreach(dsManager.free)
+      commandPool.freeCommandBuffer(commandBuffer)
 
-      val fence = new Fence()
-      timed("Vulkan render command"):
-        check(vkQueueSubmit(commandPool.queue.get, submitInfo, fence.get), "Failed to submit command buffer to queue")
-        fence.block().destroy()
-    commandPool.freeCommandBuffer(commandBuffer)
-    descriptorSets.flatten.foreach(dsManager.free)
+    val externalBindings = getAllBindings(executeSteps).map(VkAllocation.getUnderlying)
+    val deps = externalBindings.flatMap(_.execution.fold(Seq(_), _.toSeq))
+    val pe = new PendingExecution(commandBuffer, deps, cleanup)
+    summon[VkAllocation].addExecution(pe)
+    externalBindings.foreach(_.execution = Left(pe)) // TODO we assume all accesses are read-write
     result
 
   private def interpret[Params, EL <: Layout: LayoutBinding, RL <: Layout: LayoutBinding](
@@ -202,7 +198,6 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
       .flags(0)
 
     check(vkBeginCommandBuffer(commandBuffer, commandBufferBeginInfo), "Failed to begin recording command buffer")
-
     steps.foreach:
       case PipelineBarrier =>
         val memoryBarrier = VkMemoryBarrier2 // TODO don't synchronise everything
@@ -228,10 +223,17 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
 
         dispatch match
           case Direct(x, y, z)          => vkCmdDispatch(commandBuffer, x, y, z)
-          case Indirect(buffer, offset) => vkCmdDispatchIndirect(commandBuffer, VkAllocation.getUnderlying(buffer).get, offset)
+          case Indirect(buffer, offset) => vkCmdDispatchIndirect(commandBuffer, VkAllocation.getUnderlying(buffer).buffer.get, offset)
 
     check(vkEndCommandBuffer(commandBuffer), "Failed to finish recording command buffer")
     commandBuffer
+
+  private def getAllBindings(steps: Seq[ExecutionStep]): Seq[GBinding[?]] =
+    steps
+      .flatMap:
+        case Dispatch(_, layout, _, _) => layout.flatten.map(_.binding)
+        case PipelineBarrier           => Seq.empty
+      .distinct
 
 object ExecutionHandler:
   case class ShaderCall(pipeline: ComputePipeline, layout: ShaderLayout, dispatch: DispatchType)

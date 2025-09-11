@@ -39,35 +39,18 @@ private[cyfra] abstract class CommandPool private (flags: Int, val queue: Queue)
     check(vkAllocateCommandBuffers(device.get, allocateInfo, pointerBuffer), "Failed to allocate command buffers")
     0 until n map (i => pointerBuffer.get(i)) map (new VkCommandBuffer(_, device.get))
 
-  def executeCommand(block: VkCommandBuffer => Unit): Unit =
-    val commandBuffer = beginSingleTimeCommands()
+  def recordSingleTimeCommand(block: VkCommandBuffer => Unit): VkCommandBuffer = pushStack: stack =>
+    val commandBuffer = createCommandBuffer()
+
+    val beginInfo = VkCommandBufferBeginInfo
+      .calloc(stack)
+      .sType$Default()
+      .flags(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT)
+
+    check(vkBeginCommandBuffer(commandBuffer, beginInfo), "Failed to begin single time command buffer")
     block(commandBuffer)
-    endSingleTimeCommands(commandBuffer).block().destroy()
-    freeCommandBuffer(commandBuffer)
-
-  private def beginSingleTimeCommands(): VkCommandBuffer =
-    pushStack: stack =>
-      val commandBuffer = this.createCommandBuffer()
-
-      val beginInfo = VkCommandBufferBeginInfo
-        .calloc(stack)
-        .sType$Default()
-        .flags(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT)
-
-      check(vkBeginCommandBuffer(commandBuffer, beginInfo), "Failed to begin single time command buffer")
-      commandBuffer
-
-  private def endSingleTimeCommands(commandBuffer: VkCommandBuffer): Fence =
-    pushStack: stack =>
-      vkEndCommandBuffer(commandBuffer)
-      val pointerBuffer = stack.callocPointer(1).put(0, commandBuffer)
-      val submitInfo = VkSubmitInfo
-        .calloc(stack)
-        .sType$Default()
-        .pCommandBuffers(pointerBuffer)
-      val fence = Fence()
-      check(vkQueueSubmit(queue.get, submitInfo, fence.get), "Failed to submit single time command buffer")
-      fence
+    check(vkEndCommandBuffer(commandBuffer), "Failed to end single time command buffer")
+    commandBuffer
 
   def freeCommandBuffer(commandBuffer: VkCommandBuffer*): Unit =
     pushStack: stack =>
