@@ -21,8 +21,8 @@ class PendingExecution(protected val handle: VkCommandBuffer, val dependencies: 
   private var fence: Option[Fence] = None
 
   def isPending: Boolean = fence.isEmpty
-  def isRunning: Boolean = fence.exists(!_.isSignaled)
-  def isFinished: Boolean = fence.exists(_.isSignaled)
+  def isRunning: Boolean = fence.exists(f => f.isAlive && !f.isSignaled)
+  def isFinished: Boolean = fence.exists(f => !f.isAlive || f.isSignaled)
 
   def block(): Unit = fence.foreach(_.block())
 

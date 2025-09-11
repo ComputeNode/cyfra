@@ -36,7 +36,7 @@ object GBufferRegion:
 
         // noinspection ScalaRedundantCast
         val steps: Seq[(Allocation => Layout => Layout, LayoutBinding[Layout])] = Seq.unfold(region: GBufferRegion[?, ?]):
-          case AllocRegion       => None
+          case AllocRegion()     => None
           case MapRegion(req, f) =>
             Some(((f.asInstanceOf[Allocation => Layout => Layout], req.resAllocBinding.asInstanceOf[LayoutBinding[Layout]]), req))
 
