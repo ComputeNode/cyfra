@@ -1,13 +1,14 @@
 package io.computenode.cyfra.vulkan.memory
 
 import io.computenode.cyfra.vulkan.command.{CommandPool, Fence}
+import io.computenode.cyfra.vulkan.core.Device
 import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import io.computenode.cyfra.vulkan.util.VulkanObjectHandle
 import org.lwjgl.system.MemoryUtil.*
 import org.lwjgl.util.vma.Vma.*
 import org.lwjgl.util.vma.VmaAllocationCreateInfo
 import org.lwjgl.vulkan.VK10.*
-import org.lwjgl.vulkan.{VkBufferCopy, VkBufferCreateInfo}
+import org.lwjgl.vulkan.{VkBufferCopy, VkBufferCreateInfo, VkCommandBuffer, VkSubmitInfo}
 
 import java.nio.ByteBuffer
 
@@ -61,8 +62,22 @@ object Buffer:
     def copyFrom(src: ByteBuffer, dstOffset: Int): Unit = pushStack: stack =>
       vmaCopyMemoryToAllocation(allocator.get, src, allocation, dstOffset)
 
-  def copyBuffer(src: Buffer, dst: Buffer, srcOffset: Int, dstOffset: Int, bytes: Int, commandPool: CommandPool): Unit =
-    commandPool.executeCommand: commandBuffer =>
+  def copyBuffer(src: Buffer, dst: Buffer, srcOffset: Int, dstOffset: Int, bytes: Int, commandPool: CommandPool)(using Device): Unit = pushStack:
+    stack =>
+      val cb = copyBufferCommandBuffer(src, dst, srcOffset, dstOffset, bytes, commandPool)
+
+      val pCB = stack.callocPointer(1).put(0, cb)
+      val submitInfo = VkSubmitInfo
+        .calloc(stack)
+        .sType$Default()
+        .pCommandBuffers(pCB)
+
+      val fence = Fence()
+      check(vkQueueSubmit(commandPool.queue.get, submitInfo, fence.get), "Failed to submit single time command buffer")
+      fence.block().destroy()
+
+  def copyBufferCommandBuffer(src: Buffer, dst: Buffer, srcOffset: Int, dstOffset: Int, bytes: Int, commandPool: CommandPool): VkCommandBuffer =
+    commandPool.recordSingleTimeCommand: commandBuffer =>
       pushStack: stack =>
         val copyRegion = VkBufferCopy
           .calloc(1, stack)

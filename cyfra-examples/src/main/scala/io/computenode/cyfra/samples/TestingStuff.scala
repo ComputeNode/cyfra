@@ -12,8 +12,15 @@ import io.computenode.cyfra.runtime.VkCyfraRuntime
 import org.lwjgl.BufferUtils
 import org.lwjgl.system.MemoryUtil
 
+import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.parallel.CollectionConverters.given
+
+def printBuffer(bb: ByteBuffer): Unit =
+  val l = bb.asIntBuffer()
+  val a = new Array[Int](l.remaining())
+  l.get(a)
+  println(a.mkString(" "))
 
 object TestingStuff:
 
@@ -115,6 +122,7 @@ object TestingStuff:
     )
     runtime.close()
 
+    printBuffer(rbb)
     val actual = (0 until 2 * 1024).map(i => result.get(i * 1) != 0)
     val expected = (0 until 1024).flatMap(x => Seq.fill(emitFilterParams.emitN)(x)).map(_ == emitFilterParams.filterValue)
     expected
@@ -191,7 +199,7 @@ object TestingStuff:
   def testAddProgram10Times =
     given runtime: VkCyfraRuntime = VkCyfraRuntime()
     val bufferSize = 1280
-    val params = AddProgramParams(bufferSize, addA = 0, addB = 1)
+    val params = AddProgramParams(bufferSize, addA = 5, addB = 10)
     val region = GBufferRegion
       .allocate[AddProgramExecLayout]
       .map: region =>
@@ -226,6 +234,8 @@ object TestingStuff:
       },
     )
     runtime.close()
+
+    printBuffer(rbbList(0))
     val expected = inData.map(_ + 11 * (params.addA + params.addB))
     outBuffers.foreach { buf =>
       (0 until bufferSize).foreach { i =>
