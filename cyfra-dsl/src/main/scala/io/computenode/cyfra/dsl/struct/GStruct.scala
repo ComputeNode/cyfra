@@ -2,7 +2,7 @@ package io.computenode.cyfra.dsl.struct
 
 import io.computenode.cyfra.*
 import io.computenode.cyfra.dsl.Expression.*
-import io.computenode.cyfra.dsl.{Expression, Value}
+import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.dsl.macros.Source
 import izumi.reflect.Tag
@@ -21,7 +21,7 @@ abstract class GStruct[T <: GStruct[T]: {Tag, GStructSchema}] extends Value with
   override def source: Source = _name
 
 object GStruct:
-  case class Empty() extends GStruct[Empty]
+  case class Empty(_placeholder: Int32 = 0) extends GStruct[Empty]
 
   object Empty:
     given GStructSchema[Empty] = GStructSchema.derived

@@ -1,9 +1,11 @@
 // scala
 package io.computenode.cyfra.core
 
-import io.computenode.cyfra.core.archive.mem.GMem.{fRGBA, totalStride}
 import io.computenode.cyfra.dsl.*
-import io.computenode.cyfra.dsl.struct.{GStruct, GStructSchema}
+import io.computenode.cyfra.dsl.macros.Source
+import io.computenode.cyfra.dsl.struct.GStruct.ComposeStruct
+import io.computenode.cyfra.dsl.struct.{GStruct, GStructConstructor, GStructSchema}
+import io.computenode.cyfra.spirv.SpirvTypes.typeStride
 import izumi.reflect.Tag
 
 import java.nio.{ByteBuffer, ByteOrder}
@@ -12,8 +14,19 @@ import scala.reflect.ClassTag
 trait GCodec[CyfraType <: Value: {FromExpr, Tag}, ScalaType: ClassTag]:
   def toByteBuffer(inBuf: ByteBuffer, arr: Array[ScalaType]): ByteBuffer
   def fromByteBuffer(outBuf: ByteBuffer, arr: Array[ScalaType]): Array[ScalaType]
+  def fromByteBufferUnchecked(outBuf: ByteBuffer, arr: Array[Any]): Array[ScalaType] =
+    fromByteBuffer(outBuf, arr.asInstanceOf[Array[ScalaType]])
 
 object GCodec:
+
+  def totalStride(gs: GStructSchema[?]): Int = gs.fields.map:
+    case (_, fromExpr, t) if t <:< gs.gStructTag =>
+      val constructor = fromExpr.asInstanceOf[GStructConstructor[?]]
+      totalStride(constructor.schema)
+    case (_, _, t) =>
+      typeStride(t)
+  .sum
+
   given GCodec[Int32, Int]:
     def toByteBuffer(inBuf: ByteBuffer, chunk: Array[Int]): ByteBuffer =
       inBuf.clear().order(ByteOrder.nativeOrder())
@@ -43,12 +56,8 @@ object GCodec:
   given GCodec[Vec4[Float32], fRGBA]:
     def toByteBuffer(inBuf: ByteBuffer, arr: Array[fRGBA]): ByteBuffer =
       inBuf.clear().order(ByteOrder.nativeOrder())
-      arr.foreach:
-        case (x, y, z, a) =>
-          inBuf.putFloat(x)
-          inBuf.putFloat(y)
-          inBuf.putFloat(z)
-          inBuf.putFloat(a)
+      arr.foreach: tuple =>
+        writePrimitive(inBuf, tuple)
       inBuf.flip()
       inBuf
 
@@ -65,3 +74,61 @@ object GCodec:
     def fromByteBuffer(outBuf: ByteBuffer, arr: Array[Boolean]): Array[Boolean] =
       outBuf.get(arr.asInstanceOf[Array[Byte]]).flip()
       arr
+      
+  given [T <: GStruct[T]: {GStructSchema as schema, Tag, ClassTag}]: GCodec[T, T] with
+    def toByteBuffer(inBuf: ByteBuffer, arr: Array[T]): ByteBuffer =
+      inBuf.clear().order(ByteOrder.nativeOrder())
+      for
+        struct <- arr
+        field <- struct.productIterator
+      do
+        writeConstPrimitive(inBuf, field.asInstanceOf[Value])
+      inBuf.flip()
+      inBuf
+    def fromByteBuffer(outBuf: ByteBuffer, arr: Array[T]): Array[T] =
+      val stride = totalStride(schema)
+      val nElems = outBuf.remaining() / stride
+      for _ <- 0 to nElems do
+        val values = schema.fields.map[Value] { case (_, fromExpr, t) =>
+          t match
+            case t if t <:< schema.gStructTag =>
+              val constructor = fromExpr.asInstanceOf[GStructConstructor[T]]
+              val nestedValues = constructor.schema.fields.map { case (_, _, nt) =>
+                readPrimitive(outBuf, nt)
+              }
+              constructor.fromExpr(ComposeStruct(nestedValues, constructor.schema))
+            case _ =>
+              readPrimitive(outBuf, t)
+        }
+        val newStruct = schema.create(values, schema.copy(dependsOn = None))(using Source("Input"))
+        arr.appended(newStruct)
+      outBuf.rewind()
+      arr
+        
+  private def readPrimitive(buffer: ByteBuffer, value: Tag[_]): Value =
+    value.tag match
+      case t if t =:= summon[Tag[Int]].tag       => Int32(ConstInt32(buffer.getInt()))
+      case t if t =:= summon[Tag[Float]].tag     => Float32(ConstFloat32(buffer.getFloat()))
+      case t if t =:= summon[Tag[Boolean]].tag   => GBoolean(ConstGB(buffer.get() != 0))
+      case t if t =:= summon[Tag[(Float, Float, Float, Float)]].tag => // todo other tuples
+        Vec4(ComposeVec4(Float32(ConstFloat32(buffer.getFloat())), Float32(ConstFloat32(buffer.getFloat())), Float32(ConstFloat32(buffer.getFloat())), Float32(ConstFloat32(buffer.getFloat()))))
+      case illegal =>
+        throw new IllegalArgumentException(s"Unable to deserialize value of type $illegal")
+
+  private def writeConstPrimitive(buff: ByteBuffer, value: Value): Unit = value.tree match
+    case c: Const[?] => writePrimitive(buff, c.value)
+    case compose: ComposeVec[_] =>
+      compose.productIterator.foreach: v =>
+          writeConstPrimitive(buff, v.asInstanceOf[Value])
+    case illegal =>
+      throw new IllegalArgumentException(s"Only constant Cyfra values can be serialized (got $illegal)")
+
+  private def writePrimitive(buff: ByteBuffer, value: Any): Unit = value match
+    case i: Int => buff.putInt(i)
+    case f: Float => buff.putFloat(f)
+    case b: Boolean => buff.put(if b then 1.toByte else 0.toByte)
+    case t: Tuple =>
+      t.productIterator.foreach(writePrimitive(buff, _))
+    case illegal =>
+      throw new IllegalArgumentException(s"Unable to serialize value $illegal of type ${illegal.getClass}")
+    

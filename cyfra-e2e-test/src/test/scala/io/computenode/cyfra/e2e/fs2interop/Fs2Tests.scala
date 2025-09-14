@@ -1,8 +1,6 @@
 package io.computenode.cyfra.e2e.fs2interop
 
 import io.computenode.cyfra.core.archive.*
-import mem.*
-import GMem.fRGBA
 import io.computenode.cyfra.dsl.{*, given}
 import algebra.VectorAlgebra
 import io.computenode.cyfra.fs2interop.*

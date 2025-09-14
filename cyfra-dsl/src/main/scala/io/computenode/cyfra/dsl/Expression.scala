@@ -101,9 +101,11 @@ object Expression:
   case class ConstUInt32(value: Int) extends Const[UInt32]
   case class ConstGB(value: Boolean) extends Const[GBoolean]
 
-  case class ComposeVec2[T <: Scalar: Tag](a: T, b: T) extends Expression[Vec2[T]]
-  case class ComposeVec3[T <: Scalar: Tag](a: T, b: T, c: T) extends Expression[Vec3[T]]
-  case class ComposeVec4[T <: Scalar: Tag](a: T, b: T, c: T, d: T) extends Expression[Vec4[T]]
+  trait ComposeVec[T <: Vec[?]: Tag] extends Expression[T]
+
+  case class ComposeVec2[T <: Scalar: Tag](a: T, b: T) extends ComposeVec[Vec2[T]]
+  case class ComposeVec3[T <: Scalar: Tag](a: T, b: T, c: T) extends ComposeVec[Vec3[T]]
+  case class ComposeVec4[T <: Scalar: Tag](a: T, b: T, c: T, d: T) extends ComposeVec[Vec4[T]]
 
   case class ExtFunctionCall[R <: Value: Tag](fn: FunctionName, args: List[Value]) extends Expression[R]
   case class FunctionCall[R <: Value: Tag](fn: FnIdentifier, body: Scope[R], args: List[Value]) extends E[R]

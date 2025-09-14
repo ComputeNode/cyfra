@@ -1,23 +1,23 @@
 package io.computenode.cyfra.e2e.dsl
 
+import io.computenode.cyfra.core.CyfraRuntime
 import io.computenode.cyfra.core.archive.*
-import io.computenode.cyfra.core.archive.mem.*
-import io.computenode.cyfra.core.archive.mem.GMem.fRGBA
 import io.computenode.cyfra.dsl.algebra.VectorAlgebra
 import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.runtime.VkCyfraRuntime
+import io.computenode.cyfra.core.GCodec.{*, given}
 
 class ArithmeticsE2eTest extends munit.FunSuite:
-  given gc: GContext = GContext()
-
+  given CyfraRuntime = VkCyfraRuntime()
+  
   test("Float32 arithmetics"):
     val gf: GFunction[GStruct.Empty, Float32, Float32] = GFunction: fl =>
       (fl + 1.2f) * (fl - 3.4f) / 5.6f
 
     // We need to use multiples of 256 for Vulkan buffer alignment.
     val inArr = (0 to 255).map(_.toFloat).toArray
-    val gmem = FloatMem(inArr)
-    val result = gmem.map(gf).asInstanceOf[FloatMem].toArray
+    val result: Array[Float] = gf.run(inArr)
 
     val expected = inArr.map(f => (f + 1.2f) * (f - 3.4f) / 5.6f)
     result
@@ -30,8 +30,7 @@ class ArithmeticsE2eTest extends munit.FunSuite:
       ((n + 2) * (n - 3) / 5).mod(7)
 
     val inArr = (0 to 255).toArray
-    val gmem = IntMem(inArr)
-    val result = gmem.map(gf).asInstanceOf[IntMem].toArray
+    val result: Array[Int] = gf.run(inArr)
 
     // With negative values and mod, Scala and Vulkan behave differently
     val expected = inArr.map: n =>
@@ -63,8 +62,7 @@ class ArithmeticsE2eTest extends munit.FunSuite:
         case Seq(a, b, c, d) => (a, b, c, d)
       .toArray
 
-    val gmem = Vec4FloatMem(inArr)
-    val result = gmem.map(gf).asInstanceOf[FloatMem].toArray
+    val result: Array[Float] = gf.run(inArr)
 
     extension (f: fRGBA)
       def neg = (-f._1, -f._2, -f._3, -f._4)

@@ -1,6 +1,5 @@
 package io.computenode.cyfra.e2e
 
-import io.computenode.cyfra.core.archive.GContext
 import io.computenode.cyfra.core.layout.*
 import io.computenode.cyfra.core.{GBufferRegion, GExecution, GProgram}
 import io.computenode.cyfra.dsl.Value.{GBoolean, Int32}

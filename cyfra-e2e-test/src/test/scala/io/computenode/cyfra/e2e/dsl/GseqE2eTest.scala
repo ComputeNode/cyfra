@@ -1,14 +1,16 @@
 package io.computenode.cyfra.e2e.dsl
 
+import io.computenode.cyfra.core.CyfraRuntime
 import io.computenode.cyfra.core.archive.*
-import io.computenode.cyfra.core.archive.mem.*
 import io.computenode.cyfra.dsl.collections.GSeq
 import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.runtime.VkCyfraRuntime
+import io.computenode.cyfra.core.GCodec.{*, given}
 
 class GseqE2eTest extends munit.FunSuite:
-  given gc: GContext = GContext()
-
+  given CyfraRuntime = VkCyfraRuntime()
+  
   test("GSeq gen limit map fold"):
     val gf: GFunction[GStruct.Empty, Float32, Float32] = GFunction: f =>
       GSeq
@@ -18,8 +20,7 @@ class GseqE2eTest extends munit.FunSuite:
         .fold[Float32](0f, _ + _)
 
     val inArr = (0 to 255).map(_.toFloat).toArray
-    val gmem = FloatMem(inArr)
-    val result = gmem.map(gf).asInstanceOf[FloatMem].toArray
+    val result: Array[Float] = gf.run(inArr)
 
     val expected = inArr.map(f => 10 * f + 65.0f)
     result
@@ -36,8 +37,7 @@ class GseqE2eTest extends munit.FunSuite:
         .count
 
     val inArr = (0 to 255).toArray
-    val gmem = IntMem(inArr)
-    val result = gmem.map(gf).asInstanceOf[IntMem].toArray
+    val result: Array[Int] = gf.run(inArr)
 
     val expected = inArr.map: n =>
       List

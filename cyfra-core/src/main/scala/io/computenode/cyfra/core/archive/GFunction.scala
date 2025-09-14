@@ -18,17 +18,18 @@ import izumi.reflect.Tag
 import org.lwjgl.BufferUtils
 
 import scala.reflect.ClassTag
-
+import io.computenode.cyfra.core.GCodec.{*, given}
+import io.computenode.cyfra.dsl.struct.GStruct.Empty
 
 case class GFunction[G <: GStruct[G]: {GStructSchema, Tag}, H <: Value: {Tag, FromExpr}, R <: Value: {Tag, FromExpr}](
   underlying: GProgram[GFunctionParams, GFunctionLayout[G, H, R]]
 ):
-  def run[HS, GS, RS : ClassTag] (input: Seq[HS], g: GS)(
+  def run[GS : ClassTag, HS, RS : ClassTag] (input: Array[HS], g: GS)(
     using gCodec: GCodec[G, GS],
     hCodec: GCodec[H, HS],
     rCodec: GCodec[R, RS],
     runtime: CyfraRuntime
-  ): Seq[RS] = 
+  ): Array[RS] =
     
     val inTypeSize = typeStride(Tag.apply[H])
     val outTypeSize = typeStride(Tag.apply[R])
@@ -36,8 +37,10 @@ case class GFunction[G <: GStruct[G]: {GStructSchema, Tag}, H <: Value: {Tag, Fr
     val params = GFunctionParams(size = input.size)
     
     val in = BufferUtils.createByteBuffer(inTypeSize * input.size)
+    hCodec.toByteBuffer(in, input)
     val out = BufferUtils.createByteBuffer(outTypeSize * input.size)
     val uniform = BufferUtils.createByteBuffer(uniformStride)
+    gCodec.toByteBuffer(uniform, Array(g))
     
     GBufferRegion.allocate[GFunctionLayout[G, H, R]]
       .map: layout =>
@@ -45,16 +48,14 @@ case class GFunction[G <: GStruct[G]: {GStructSchema, Tag}, H <: Value: {Tag, Fr
       .runUnsafe(
         init = GFunctionLayout(
           in = GBuffer[H](in),
-          out = GBuffer[R](outTypeSize * input.size),
+          out = GBuffer[R](input.size),
           uniform = GUniform[G](uniform),
         ),
         onDone = layout => 
           layout.out.read(out)
       )
     val resultArray = Array.ofDim[RS](input.size)
-    rCodec.fromByteBuffer(out, resultArray).toSeq
-          
-  
+    rCodec.fromByteBuffer(out, resultArray)
 
 object GFunction:
   case class GFunctionParams(
@@ -67,13 +68,16 @@ object GFunction:
     uniform: GUniform[G]
   ) extends Layout
   
-  def apply[G <: GStruct[G]: {GStructSchema, Tag}, H <: Value: {Tag, FromExpr}, R <: Value: {Tag, FromExpr}](fn: (G, Int32, GBuffer[H]) => R): GFunction[G, H, R] =
+  def forEachIndex[G <: GStruct[G]: {GStructSchema, Tag}, H <: Value: {Tag, FromExpr}, R <: Value: {Tag, FromExpr}](fn: (G, Int32, GBuffer[H]) => R): GFunction[G, H, R] =
     val body = (layout: GFunctionLayout[G, H, R]) => 
       val g = layout.uniform.read
       val result = fn(g, GIO.invocationId, layout.in)
-      layout.out.write(GIO.invocationId, result)
-    
-    summon[LayoutStruct[GFunctionLayout[G, H, R]]]
+      for
+        _ <- layout.out.write(GIO.invocationId, result)
+      yield Empty()
+
+    val inTypeSize = typeStride(Tag.apply[H])
+    val outTypeSize = typeStride(Tag.apply[R])
       
     GFunction(
       underlying = GProgram.apply[GFunctionParams, GFunctionLayout[G, H, R]](
@@ -88,14 +92,22 @@ object GFunction:
     )
     
   def apply[H <: Value: {Tag, FromExpr}, R <: Value: {Tag, FromExpr}](fn: H => R): GFunction[GStruct.Empty, H, R] =
-    GFunction[GStruct.Empty, H, R]((g: GStruct.Empty, index: Int32, a: GBuffer[H]) => fn(a.read(index)))
+    GFunction.forEachIndex[GStruct.Empty, H, R]((g: GStruct.Empty, index: Int32, a: GBuffer[H]) => fn(a.read(index)))
   
   def from2D[G <: GStruct[G]: {GStructSchema, Tag}, H <: Value: {Tag, FromExpr}, R <: Value: {Tag, FromExpr}](
     width: Int,
   )(fn: (G, (Int32, Int32), GArray2D[H]) => R): GFunction[G, H, R] =
-    GFunction[G, H, R]((g: G, index: Int32, a: GBuffer[H]) =>
+    GFunction.forEachIndex[G, H, R]((g: G, index: Int32, a: GBuffer[H]) =>
       val x: Int32 = index mod width
       val y: Int32 = index / width
       val arr = GArray2D(width, a)
       fn(g, (x, y), arr),
     )
+
+  extension [H <: Value: {Tag, FromExpr}, R <: Value: {Tag, FromExpr}](gf: GFunction[GStruct.Empty, H, R])
+    def run[HS, RS : ClassTag](input: Array[HS])(
+      using hCodec: GCodec[H, HS],
+      rCodec: GCodec[R, RS],
+      runtime: CyfraRuntime
+    ): Array[RS] =
+      gf.run(input, GStruct.Empty())

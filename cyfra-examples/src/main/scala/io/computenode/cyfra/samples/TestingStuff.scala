@@ -1,6 +1,5 @@
 package io.computenode.cyfra.samples
 
-import io.computenode.cyfra.core.archive.GContext
 import io.computenode.cyfra.core.layout.*
 import io.computenode.cyfra.core.{GBufferRegion, GExecution, GProgram}
 import io.computenode.cyfra.dsl.Value.{GBoolean, Int32}
@@ -19,9 +18,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.parallel.CollectionConverters.given
 
 object TestingStuff:
-
-  given GContext = GContext()
-
+  
   // === Emit program ===
 
   case class EmitProgramParams(inSize: Int, emitN: Int)
