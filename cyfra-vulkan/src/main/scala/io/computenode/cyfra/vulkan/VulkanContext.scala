@@ -1,9 +1,9 @@
 package io.computenode.cyfra.vulkan
 
 import io.computenode.cyfra.utility.Logger.logger
-import io.computenode.cyfra.vulkan.VulkanContext.ValidationLayers
+import io.computenode.cyfra.vulkan.VulkanContext.{validation, vulkanPrintf}
 import io.computenode.cyfra.vulkan.command.CommandPool
-import io.computenode.cyfra.vulkan.core.{DebugCallback, Device, Instance, PhysicalDevice, Queue}
+import io.computenode.cyfra.vulkan.core.{DebugMessengerCallback, DebugReportCallback, Device, Instance, PhysicalDevice, Queue}
 import io.computenode.cyfra.vulkan.memory.{Allocator, DescriptorPool, DescriptorPoolManager, DescriptorSetManager}
 import org.lwjgl.system.Configuration
 
@@ -15,12 +15,13 @@ import scala.jdk.CollectionConverters.*
   *   MarconZet Created 13.04.2020
   */
 private[cyfra] object VulkanContext:
-  val ValidationLayer: String = "VK_LAYER_KHRONOS_validation"
-  private val ValidationLayers: Boolean = System.getProperty("io.computenode.cyfra.vulkan.validation", "false").toBoolean
+  private val validation: Boolean = System.getProperty("io.computenode.cyfra.vulkan.validation", "false").toBoolean
+  private val vulkanPrintf: Boolean = System.getProperty("io.computenode.cyfra.vulkan.printf", "false").toBoolean
 
 private[cyfra] class VulkanContext:
-  private val instance: Instance = new Instance(ValidationLayers)
-  private val debugCallback: Option[DebugCallback] = if ValidationLayers then Some(new DebugCallback(instance)) else None
+  private val instance: Instance = new Instance(validation, vulkanPrintf)
+  private val debugReport: Option[DebugReportCallback] = if validation then Some(new DebugReportCallback(instance)) else None
+  private val debugMessenger: Option[DebugMessengerCallback] = if validation & vulkanPrintf then Some(new DebugMessengerCallback(instance)) else None
   private val physicalDevice = new PhysicalDevice(instance)
   physicalDevice.assertRequirements()
 
@@ -54,5 +55,6 @@ private[cyfra] class VulkanContext:
     descriptorPoolManager.destroy()
     allocator.destroy()
     device.destroy()
-    debugCallback.foreach(_.destroy())
+    debugReport.foreach(_.destroy())
+    debugMessenger.foreach(_.destroy())
     instance.destroy()

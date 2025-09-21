@@ -6,9 +6,10 @@ import algebra.VectorAlgebra
 import io.computenode.cyfra.fs2interop.*
 import io.computenode.cyfra.core.CyfraRuntime
 import io.computenode.cyfra.runtime.VkCyfraRuntime
-import fs2.{io as fs2io, *}
-import _root_.io.computenode.cyfra.spirvtools.{SpirvCross, SpirvDisassembler, SpirvToolsRunner}
-import _root_.io.computenode.cyfra.spirvtools.SpirvTool.ToFile
+import io.computenode.cyfra.spirvtools.{SpirvCross, SpirvDisassembler, SpirvToolsRunner}
+import io.computenode.cyfra.spirvtools.SpirvTool.ToFile
+
+import fs2.*
 
 import java.nio.file.Paths
 
@@ -20,15 +21,15 @@ extension (f: fRGBA)
     Math.abs(f._1 - g._1) < eps && Math.abs(f._2 - g._2) < eps && Math.abs(f._3 - g._3) < eps && Math.abs(f._4 - g._4) < eps
 
 class Fs2Tests extends munit.FunSuite:
-  given cr: VkCyfraRuntime = VkCyfraRuntime(
-    spirvToolsRunner = SpirvToolsRunner(
+  given cr: VkCyfraRuntime = VkCyfraRuntime(spirvToolsRunner =
+    SpirvToolsRunner(
       crossCompilation = SpirvCross.Enable(toolOutput = ToFile(Paths.get("output/optimized.glsl"))),
-      disassembler = SpirvDisassembler.Enable(toolOutput = ToFile(Paths.get("output/disassembled.spv")))
-    )
+      disassembler = SpirvDisassembler.Enable(toolOutput = ToFile(Paths.get("output/disassembled.spv"))),
+    ),
   )
 
   override def afterAll(): Unit =
-    //cr.close()
+    // cr.close()
     super.afterAll()
 
   test("fs2 through GPipe map, just ints"):
@@ -57,7 +58,7 @@ class Fs2Tests extends munit.FunSuite:
 
   test("fs2 through GPipe filter, just ints"):
     val n = 16
-    val inSeq = (0 until n * 256)
+    val inSeq = 0 until n * 256
     val stream = Stream.emits(inSeq)
     val pipe = GPipe.filter[Pure, Int32, Int](_.mod(7) === 0)
     val result = stream.through(pipe).compile.toList

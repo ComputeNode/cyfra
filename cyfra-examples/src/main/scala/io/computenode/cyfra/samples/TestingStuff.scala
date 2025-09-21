@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.parallel.CollectionConverters.given
 
 object TestingStuff:
-  
+
   // === Emit program ===
 
   case class EmitProgramParams(inSize: Int, emitN: Int)
@@ -53,14 +53,13 @@ object TestingStuff:
 
   case class FilterProgramUniform(filterValue: Int32) extends GStruct[FilterProgramUniform]
 
-  case class FilterProgramLayout(in: GBuffer[Int32], out: GBuffer[GBoolean], params: GUniform[FilterProgramUniform] = GUniform.fromParams)
-      extends Layout
+  case class FilterProgramLayout(in: GBuffer[Int32], out: GBuffer[Int32], params: GUniform[FilterProgramUniform] = GUniform.fromParams) extends Layout
 
   val filterProgram = GProgram[FilterProgramParams, FilterProgramLayout](
     layout = params =>
       FilterProgramLayout(
         in = GBuffer[Int32](params.inSize),
-        out = GBuffer[GBoolean](params.inSize),
+        out = GBuffer[Int32](params.inSize),
         params = GUniform(FilterProgramUniform(params.filterValue)),
       ),
     dispatch = (_, args) => GProgram.StaticDispatch((args.inSize / 128, 1, 1)),
@@ -68,15 +67,16 @@ object TestingStuff:
     val invocId = GIO.invocationId
     val element = GIO.read(layout.in, invocId)
     val isMatch = element === layout.params.read.filterValue
-    GIO.write(layout.out, invocId, isMatch)
+    val a: Int32 = when[Int32](isMatch)(1).otherwise(0)
+    GIO.write(layout.out, invocId, a)
 
   // === GExecution ===
 
   case class EmitFilterParams(inSize: Int, emitN: Int, filterValue: Int)
 
-  case class EmitFilterLayout(inBuffer: GBuffer[Int32], emitBuffer: GBuffer[Int32], filterBuffer: GBuffer[GBoolean]) extends Layout
+  case class EmitFilterLayout(inBuffer: GBuffer[Int32], emitBuffer: GBuffer[Int32], filterBuffer: GBuffer[Int32]) extends Layout
 
-  case class EmitFilterResult(out: GBuffer[GBoolean]) extends Layout
+  case class EmitFilterResult(out: GBuffer[Int32]) extends Layout
 
   val emitFilterExecution = GExecution[EmitFilterParams, EmitFilterLayout]()
     .addProgram(emitProgram)(
@@ -90,11 +90,8 @@ object TestingStuff:
 
   @main
   def testEmit =
-    given runtime: VkCyfraRuntime = VkCyfraRuntime(
-      spirvToolsRunner = SpirvToolsRunner(
-        crossCompilation = SpirvCross.Enable(toolOutput = ToFile(Paths.get("output/optimized.glsl")))
-      )
-    )
+    given runtime: VkCyfraRuntime =
+      VkCyfraRuntime(spirvToolsRunner = SpirvToolsRunner(crossCompilation = SpirvCross.Enable(toolOutput = ToFile(Paths.get("output/optimized.glsl")))))
 
     val emitParams = EmitProgramParams(inSize = 1024, emitN = 2)
 
@@ -110,10 +107,7 @@ object TestingStuff:
     val result = BufferUtils.createIntBuffer(data.length * 2)
     val rbb = MemoryUtil.memByteBuffer(result)
     region.runUnsafe(
-      init = EmitProgramLayout(
-        in = GBuffer[Int32](buffer),
-        out = GBuffer[Int32](data.length * 2),
-      ),
+      init = EmitProgramLayout(in = GBuffer[Int32](buffer), out = GBuffer[Int32](data.length * 2)),
       onDone = layout => layout.out.read(rbb),
     )
     runtime.close()
@@ -128,11 +122,11 @@ object TestingStuff:
 
   @main
   def test =
-    given runtime: VkCyfraRuntime = VkCyfraRuntime(
-      spirvToolsRunner = SpirvToolsRunner(
+    given runtime: VkCyfraRuntime = VkCyfraRuntime(spirvToolsRunner =
+      SpirvToolsRunner(
         crossCompilation = SpirvCross.Enable(toolOutput = ToFile(Paths.get("output/optimized.glsl"))),
-        validator = SpirvValidator.Disable
-      )
+        validator = SpirvValidator.Disable,
+      ),
     )
 
     val emitFilterParams = EmitFilterParams(inSize = 1024, emitN = 2, filterValue = 42)
@@ -152,7 +146,7 @@ object TestingStuff:
       init = EmitFilterLayout(
         inBuffer = GBuffer[Int32](buffer),
         emitBuffer = GBuffer[Int32](data.length * 2),
-        filterBuffer = GBuffer[GBoolean](data.length * 2),
+        filterBuffer = GBuffer[Int32](data.length * 2),
       ),
       onDone = layout => layout.filterBuffer.read(rbb),
     )
@@ -165,3 +159,4 @@ object TestingStuff:
       .zipWithIndex
       .foreach:
         case ((e, a), i) => assert(e == a, s"Mismatch at index $i: expected $e, got $a")
+    println("DONE")
