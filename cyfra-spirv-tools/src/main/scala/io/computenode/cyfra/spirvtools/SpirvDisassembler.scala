@@ -18,7 +18,7 @@ object SpirvDisassembler extends SpirvTool("spirv-dis"):
             None
           case Right(disassembledShader) =>
             toolOutput match
-              case Ignore                       =>
+              case Ignore                          =>
               case toFile @ SpirvTool.ToFile(_, _) =>
                 toFile.write(disassembledShader)
                 logger.debug(s"Saved disassembled shader code in ${toFile.filePath}.")

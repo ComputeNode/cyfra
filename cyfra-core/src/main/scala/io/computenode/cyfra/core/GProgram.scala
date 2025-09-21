@@ -36,10 +36,10 @@ object GProgram:
   )(body: L => GIO[?]): GProgram[Params, L] =
     new GioProgram[Params, L](body, s => layout(using s), dispatch, workgroupSize)
 
-  def fromSpirvFile[Params, L <: Layout : {LayoutBinding, LayoutStruct}](
+  def fromSpirvFile[Params, L <: Layout: {LayoutBinding, LayoutStruct}](
     layout: InitProgramLayout ?=> Params => L,
     dispatch: (L, Params) => ProgramDispatch,
-    path: Path
+    path: Path,
   ): SpirvProgram[Params, L] =
     Using.resource(new FileInputStream(path.toFile)): fis =>
       val fc = fis.getChannel

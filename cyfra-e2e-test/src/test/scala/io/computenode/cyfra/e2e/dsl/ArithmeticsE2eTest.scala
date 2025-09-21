@@ -10,7 +10,7 @@ import io.computenode.cyfra.core.GCodec.{*, given}
 
 class ArithmeticsE2eTest extends munit.FunSuite:
   given CyfraRuntime = VkCyfraRuntime()
-  
+
   test("Float32 arithmetics"):
     val gf: GFunction[GStruct.Empty, Float32, Float32] = GFunction: fl =>
       (fl + 1.2f) * (fl - 3.4f) / 5.6f

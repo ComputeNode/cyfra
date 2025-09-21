@@ -10,7 +10,7 @@ import io.computenode.cyfra.core.GCodec.{*, given}
 
 class GseqE2eTest extends munit.FunSuite:
   given CyfraRuntime = VkCyfraRuntime()
-  
+
   test("GSeq gen limit map fold"):
     val gf: GFunction[GStruct.Empty, Float32, Float32] = GFunction: f =>
       GSeq

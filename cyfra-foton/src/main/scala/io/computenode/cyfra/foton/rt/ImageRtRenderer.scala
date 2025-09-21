@@ -17,7 +17,7 @@ import java.nio.file.Path
 class ImageRtRenderer(params: ImageRtRenderer.Parameters) extends RtRenderer(params):
 
   given CyfraRuntime = VkCyfraRuntime()
-  
+
   def renderToFile(scene: Scene, destinationPath: Path): Unit =
     val images = render(scene)
     for image <- images do ImageUtility.renderToImage(image, params.width, params.height, destinationPath)

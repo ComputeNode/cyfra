@@ -29,7 +29,7 @@ private[cyfra] object DSLCompiler:
   @tailrec
   private def getAllExprsFlattened(pending: List[GIO[?]], acc: List[E[?]], visitDetached: Boolean): List[E[?]] =
     pending match
-      case Nil => acc
+      case Nil                 => acc
       case GIO.Pure(v) :: tail =>
         getAllExprsFlattened(tail, getAllExprsFlattened(v.tree, visitDetached) ::: acc, visitDetached)
       case GIO.FlatMap(v, n) :: tail =>
@@ -74,7 +74,7 @@ private[cyfra] object DSLCompiler:
   // So far only used for printf
   private def getAllStrings(pending: List[GIO[?]], acc: Set[String]): Set[String] =
     pending match
-      case Nil => acc
+      case Nil                       => acc
       case GIO.FlatMap(v, n) :: tail =>
         getAllStrings(v :: n :: tail, acc)
       case GIO.Repeat(_, gio) :: tail =>
@@ -91,10 +91,11 @@ private[cyfra] object DSLCompiler:
     val (typeDefs, typedContext) = defineScalarTypes(scalarTypes, Context.initialContext)
     val allStrings = getAllStrings(List(bodyIo), Set.empty)
     val (stringDefs, ctxWithStrings) = defineStrings(allStrings.toList, typedContext)
-    val (buffersWithIndices, uniformsWithIndices) = bindings.zipWithIndex.partition:
-      case (_: GBuffer[?], _)   => true
-      case (_: GUniform[?], _) => false
-    .asInstanceOf[(List[(GBuffer[?], Int)], List[(GUniform[?], Int)])]
+    val (buffersWithIndices, uniformsWithIndices) = bindings.zipWithIndex
+      .partition:
+        case (_: GBuffer[?], _)  => true
+        case (_: GUniform[?], _) => false
+      .asInstanceOf[(List[(GBuffer[?], Int)], List[(GUniform[?], Int)])]
     val uniforms = uniformsWithIndices.map(_._1)
     val uniformSchemas = uniforms.map(_.schema)
     val structsInCode =

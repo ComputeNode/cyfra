@@ -29,7 +29,7 @@ object GIO:
   // TODO repeat that collects results
   case class Repeat(n: Int32, f: GIO[?]) extends GIO[Empty]:
     override def underlying: Empty = Empty()
-  
+
   case class Printf(format: String, args: Value*) extends GIO[Empty]:
     override def underlying: Empty = Empty()
 
@@ -45,7 +45,7 @@ object GIO:
 
   def write[T <: Value](buffer: GBuffer[T], index: Int32, value: T): GIO[Empty] =
     WriteBuffer(buffer, index, value)
-    
+
   def printf(format: String, args: Value*): GIO[Empty] =
     Printf(s"|$format", args*)
 

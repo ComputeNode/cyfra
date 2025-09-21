@@ -10,4 +10,3 @@ import izumi.reflect.Tag
 case class GArray[T <: Value: {Tag, FromExpr}](underlying: GBuffer[T]):
   def at(i: Int32)(using Source): T =
     summon[FromExpr[T]].fromExpr(ReadBuffer(underlying, i))
-

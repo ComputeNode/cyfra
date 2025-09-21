@@ -30,17 +30,18 @@ case class SpirvProgram[Params, L <: Layout: {LayoutBinding, LayoutStruct}] priv
   shaderBindings: L => ShaderLayout,
 ) extends GProgram[Params, L]:
 
-  /**
-   * A hash of the shader code, entry point, workgroup size, and layout bindings.
-   * Layout and dispatch are not taken into account.
-   */
+  /** A hash of the shader code, entry point, workgroup size, and layout bindings. Layout and dispatch are not taken into account.
+    */
   lazy val shaderHash: (Long, Long) =
     val md = MessageDigest.getInstance("SHA-256")
     md.update(code)
     code.rewind()
     md.update(entryPoint.getBytes)
-    md.update(workgroupSize.toList
-      .flatMap(BigInt(_).toByteArray).toArray)
+    md.update(
+      workgroupSize.toList
+        .flatMap(BigInt(_).toByteArray)
+        .toArray,
+    )
     val layout = shaderBindings(summon[LayoutStruct[L]].layoutRef)
     layout.flatten.foreach: binding =>
       md.update(binding.binding.tag.toString.getBytes)
@@ -60,7 +61,7 @@ object SpirvProgram:
   def apply[Params, L <: Layout: {LayoutBinding, LayoutStruct}](
     layout: InitProgramLayout ?=> Params => L,
     dispatch: (L, Params) => ProgramDispatch,
-    code: ByteBuffer
+    code: ByteBuffer,
   ): SpirvProgram[Params, L] =
     val workgroupSize = (128, 1, 1) // TODO  Extract form shader
     val main = "main"

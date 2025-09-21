@@ -37,8 +37,9 @@ private[cyfra] object GStructCompiler:
         structName = s"${schema.structTag.tag.shortName}_$nameSuffix"
         nameSuffix += 1
       val structType = context.valueTypeMap(schema.structTag.tag)
-      val words = Instruction(Op.OpName, List(ResultRef(structType), Text(structName))) :: schema.fields.zipWithIndex.map { case ((name, _, tag), i) =>
-        Instruction(Op.OpMemberName, List(ResultRef(structType), IntWord(i), Text(name)))
+      val words = Instruction(Op.OpName, List(ResultRef(structType), Text(structName))) :: schema.fields.zipWithIndex.map {
+        case ((name, _, tag), i) =>
+          Instruction(Op.OpMemberName, List(ResultRef(structType), IntWord(i), Text(name)))
       }
       val updatedCtx = currCtx.copy(names = currCtx.names + structName)
       (wordsAcc ::: words, updatedCtx)

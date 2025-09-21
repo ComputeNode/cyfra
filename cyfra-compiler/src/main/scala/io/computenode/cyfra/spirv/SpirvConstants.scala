@@ -17,5 +17,5 @@ private[cyfra] object SpirvConstants:
   val GL_GLOBAL_INVOCATION_ID_REF = 5
   val GL_WORKGROUP_SIZE_REF = 6
   val DEBUG_PRINTF_REF = 7
-  
+
   val HEADER_REFS_TOP = 8

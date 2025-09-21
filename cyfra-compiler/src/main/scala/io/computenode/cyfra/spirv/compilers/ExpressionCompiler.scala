@@ -306,7 +306,6 @@ private[cyfra] object ExpressionCompiler:
               val updatedContext = ctx.copy(exprRefs = ctx.exprRefs + (expr.treeid -> (ctx.nextResultId + 1)), nextResultId = ctx.nextResultId + 2)
               (instructions, updatedContext)
 
-
             case when: WhenExpr[?] =>
               compileWhen(when, ctx)
 
@@ -327,7 +326,7 @@ private[cyfra] object ExpressionCompiler:
               )
               val updatedContext = ctx.copy(exprRefs = ctx.exprRefs + (cs.treeid -> ctx.nextResultId), nextResultId = ctx.nextResultId + 1)
               (insns, updatedContext)
-              
+
             case gf @ GetField(binding @ ReadUniform(uf), fieldIndex) =>
               val insns: List[Instruction] = List(
                 Instruction(

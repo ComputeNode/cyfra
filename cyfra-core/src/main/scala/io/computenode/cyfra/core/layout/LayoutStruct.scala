@@ -77,7 +77,11 @@ object LayoutStruct:
               case Some(s) => s
               case None    => report.errorAndAbort(s"Cannot summon GStructSchema for type")
             '{
-              UniformRef[t](${ Expr(i) }, ${ tag.asExprOf[Tag[t]] })(using ${ tag.asExprOf[Tag[t]] }, ${ fromExpr.asExprOf[FromExpr[t]] }, ${ structSchema })
+              UniformRef[t](${ Expr(i) }, ${ tag.asExprOf[Tag[t]] })(using
+                ${ tag.asExprOf[Tag[t]] },
+                ${ fromExpr.asExprOf[FromExpr[t]] },
+                ${ structSchema },
+              )
             }
 
     val constructor = sym.primaryConstructor
@@ -86,16 +90,8 @@ object LayoutStruct:
     val typeArgs = tpe.typeArgs
 
     val layoutInstance =
-      if (typeArgs.isEmpty) then
-        Apply(Select(New(TypeIdent(sym)), constructor), buffers.map(_.asTerm))
-      else
-        Apply(
-          TypeApply(
-            Select(New(TypeIdent(sym)), constructor),
-            typeArgs.map(arg => TypeTree.of(using arg.asType))
-          ),
-          buffers.map(_.asTerm)
-        )
+      if typeArgs.isEmpty then Apply(Select(New(TypeIdent(sym)), constructor), buffers.map(_.asTerm))
+      else Apply(TypeApply(Select(New(TypeIdent(sym)), constructor), typeArgs.map(arg => TypeTree.of(using arg.asType))), buffers.map(_.asTerm))
 
     val layoutRef = layoutInstance.asExprOf[T]
 

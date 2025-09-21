@@ -20,7 +20,6 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.{Await, Future}
 
-
 class RuntimeEnduranceTest extends munit.FunSuite:
 
   test("Endurance test for GExecution with multiple programs"):
@@ -61,7 +60,7 @@ class RuntimeEnduranceTest extends munit.FunSuite:
   case class FilterProgramUniform(filterValue: Int32) extends GStruct[FilterProgramUniform]
 
   case class FilterProgramLayout(in: GBuffer[Int32], out: GBuffer[GBoolean], params: GUniform[FilterProgramUniform] = GUniform.fromParams)
-    extends Layout
+      extends Layout
 
   val filterProgram = GProgram[FilterProgramParams, FilterProgramLayout](
     layout = params =>
@@ -174,12 +173,14 @@ class RuntimeEnduranceTest extends munit.FunSuite:
   )
 
   def runEnduranceTest(nRuns: Int): Unit =
-    logger.info(s"Starting endurance test with ${nRuns} runs...")
+    logger.info(s"Starting endurance test with $nRuns runs...")
 
-    given runtime: VkCyfraRuntime = VkCyfraRuntime(
-      spirvToolsRunner = SpirvToolsRunner(
+    given runtime: VkCyfraRuntime = VkCyfraRuntime(spirvToolsRunner =
+      SpirvToolsRunner(
         crossCompilation = SpirvCross.Enable(toolOutput = ToFile(Paths.get("output/optimized.glsl"))),
-        disassembler = SpirvDisassembler.Enable(toolOutput = ToFile(Paths.get("output/dis.spvdis")))))
+        disassembler = SpirvDisassembler.Enable(toolOutput = ToFile(Paths.get("output/dis.spvdis"))),
+      ),
+    )
 
     val bufferSize = 1280
     val params = AddProgramParams(bufferSize, addA = 0, addB = 1)
@@ -188,8 +189,8 @@ class RuntimeEnduranceTest extends munit.FunSuite:
       .map: region =>
         execution.execute(params, region)
     val aInt = new AtomicInteger(0)
-    val runs = (1 to nRuns).map:
-      i => Future:
+    val runs = (1 to nRuns).map: i =>
+      Future:
         val inBuffers = List.fill(5)(BufferUtils.createIntBuffer(bufferSize))
         val wbbList = inBuffers.map(MemoryUtil.memByteBuffer)
         val rbbList = List.fill(5)(BufferUtils.createByteBuffer(bufferSize * 4))

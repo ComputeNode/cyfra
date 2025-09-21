@@ -19,13 +19,14 @@ trait GCodec[CyfraType <: Value: {FromExpr, Tag}, ScalaType: ClassTag]:
 
 object GCodec:
 
-  def totalStride(gs: GStructSchema[?]): Int = gs.fields.map:
-    case (_, fromExpr, t) if t <:< gs.gStructTag =>
-      val constructor = fromExpr.asInstanceOf[GStructConstructor[?]]
-      totalStride(constructor.schema)
-    case (_, _, t) =>
-      typeStride(t)
-  .sum
+  def totalStride(gs: GStructSchema[?]): Int = gs.fields
+    .map:
+      case (_, fromExpr, t) if t <:< gs.gStructTag =>
+        val constructor = fromExpr.asInstanceOf[GStructConstructor[?]]
+        totalStride(constructor.schema)
+      case (_, _, t) =>
+        typeStride(t)
+    .sum
 
   given GCodec[Int32, Int]:
     def toByteBuffer(inBuf: ByteBuffer, chunk: Array[Int]): ByteBuffer =
@@ -74,15 +75,14 @@ object GCodec:
     def fromByteBuffer(outBuf: ByteBuffer, arr: Array[Boolean]): Array[Boolean] =
       outBuf.get(arr.asInstanceOf[Array[Byte]]).flip()
       arr
-      
+
   given [T <: GStruct[T]: {GStructSchema as schema, Tag, ClassTag}]: GCodec[T, T] with
     def toByteBuffer(inBuf: ByteBuffer, arr: Array[T]): ByteBuffer =
       inBuf.clear().order(ByteOrder.nativeOrder())
       for
         struct <- arr
         field <- struct.productIterator
-      do
-        writeConstPrimitive(inBuf, field.asInstanceOf[Value])
+      do writeConstPrimitive(inBuf, field.asInstanceOf[Value])
       inBuf.flip()
       inBuf
     def fromByteBuffer(outBuf: ByteBuffer, arr: Array[T]): Array[T] =
@@ -104,31 +104,37 @@ object GCodec:
         arr.appended(newStruct)
       outBuf.rewind()
       arr
-        
-  private def readPrimitive(buffer: ByteBuffer, value: Tag[_]): Value =
+
+  private def readPrimitive(buffer: ByteBuffer, value: Tag[?]): Value =
     value.tag match
-      case t if t =:= summon[Tag[Int]].tag       => Int32(ConstInt32(buffer.getInt()))
-      case t if t =:= summon[Tag[Float]].tag     => Float32(ConstFloat32(buffer.getFloat()))
-      case t if t =:= summon[Tag[Boolean]].tag   => GBoolean(ConstGB(buffer.get() != 0))
+      case t if t =:= summon[Tag[Int]].tag                          => Int32(ConstInt32(buffer.getInt()))
+      case t if t =:= summon[Tag[Float]].tag                        => Float32(ConstFloat32(buffer.getFloat()))
+      case t if t =:= summon[Tag[Boolean]].tag                      => GBoolean(ConstGB(buffer.get() != 0))
       case t if t =:= summon[Tag[(Float, Float, Float, Float)]].tag => // todo other tuples
-        Vec4(ComposeVec4(Float32(ConstFloat32(buffer.getFloat())), Float32(ConstFloat32(buffer.getFloat())), Float32(ConstFloat32(buffer.getFloat())), Float32(ConstFloat32(buffer.getFloat()))))
+        Vec4(
+          ComposeVec4(
+            Float32(ConstFloat32(buffer.getFloat())),
+            Float32(ConstFloat32(buffer.getFloat())),
+            Float32(ConstFloat32(buffer.getFloat())),
+            Float32(ConstFloat32(buffer.getFloat())),
+          ),
+        )
       case illegal =>
         throw new IllegalArgumentException(s"Unable to deserialize value of type $illegal")
 
   private def writeConstPrimitive(buff: ByteBuffer, value: Value): Unit = value.tree match
-    case c: Const[?] => writePrimitive(buff, c.value)
-    case compose: ComposeVec[_] =>
+    case c: Const[?]            => writePrimitive(buff, c.value)
+    case compose: ComposeVec[?] =>
       compose.productIterator.foreach: v =>
-          writeConstPrimitive(buff, v.asInstanceOf[Value])
+        writeConstPrimitive(buff, v.asInstanceOf[Value])
     case illegal =>
       throw new IllegalArgumentException(s"Only constant Cyfra values can be serialized (got $illegal)")
 
   private def writePrimitive(buff: ByteBuffer, value: Any): Unit = value match
-    case i: Int => buff.putInt(i)
-    case f: Float => buff.putFloat(f)
+    case i: Int     => buff.putInt(i)
+    case f: Float   => buff.putFloat(f)
     case b: Boolean => buff.put(if b then 1.toByte else 0.toByte)
-    case t: Tuple =>
+    case t: Tuple   =>
       t.productIterator.foreach(writePrimitive(buff, _))
     case illegal =>
       throw new IllegalArgumentException(s"Unable to serialize value $illegal of type ${illegal.getClass}")
-    

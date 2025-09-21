@@ -9,7 +9,7 @@ import io.computenode.cyfra.core.GCodec.{*, given}
 
 class FunctionsE2eTest extends munit.FunSuite:
   given CyfraRuntime = VkCyfraRuntime()
-  
+
   test("Functions"):
     val gf: GFunction[GStruct.Empty, Float32, Float32] = GFunction: f =>
       val res1 = pow(sqrt(exp(sin(cos(tan(f))))), 2f)

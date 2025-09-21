@@ -14,7 +14,7 @@ import io.computenode.cyfra.runtime.VkCyfraRuntime
 class AnimationRtRenderer(params: AnimationRtRenderer.Parameters)
     extends RtRenderer(params)
     with AnimationRenderer[AnimatedScene, AnimationRtRenderer.RenderFn](params):
-  
+
   given CyfraRuntime = VkCyfraRuntime()
 
   protected def renderFrame(scene: AnimatedScene, time: Float32, fn: GFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]]): Array[fRGBA] =
@@ -24,7 +24,6 @@ class AnimationRtRenderer(params: AnimationRtRenderer.Parameters)
         case (mem, render) =>
           val result: Array[fRGBA] = fn.run(mem, RaytracingIteration(render, time))
           (result, render + 1)
-      
       .map(_._1)
       .last
 

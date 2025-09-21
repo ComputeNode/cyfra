@@ -27,7 +27,7 @@ private[cyfra] case class Context(
   exprNames: Map[Int, String] = Map(),
   names: Set[String] = Set(),
   functions: Map[FnIdentifier, SprivFunction] = Map(),
-  stringLiterals: Map[String, Int] = Map()
+  stringLiterals: Map[String, Int] = Map(),
 ):
   def joinNested(ctx: Context): Context =
     this.copy(nextResultId = ctx.nextResultId, exprNames = ctx.exprNames ++ this.exprNames, functions = ctx.functions ++ this.functions)

@@ -9,19 +9,20 @@ import io.computenode.cyfra.spirv.SpirvConstants.{DEBUG_PRINTF_REF, TYPE_VOID_RE
 import io.computenode.cyfra.spirv.SpirvTypes.{GBooleanTag, Int32Tag, LInt32Tag}
 
 object GIOCompiler:
-  
+
   def compileGio(gio: GIO[?], ctx: Context, acc: List[Words] = Nil): (List[Words], Context) =
     gio match
 
       case GIO.Pure(v) =>
         val (insts, updatedCtx) = ExpressionCompiler.compileBlock(v.tree, ctx)
         (acc ::: insts, updatedCtx)
-        
+
       case WriteBuffer(buffer, index, value) =>
         val (valueInsts, ctxWithValue) = ExpressionCompiler.compileBlock(value.tree, ctx)
         val (indexInsts, ctxWithIndex) = ExpressionCompiler.compileBlock(index.tree, ctxWithValue)
 
-        val insns = List(Instruction(
+        val insns = List(
+          Instruction(
             Op.OpAccessChain,
             List(
               ResultRef(ctxWithIndex.uniformPointerMap(ctxWithIndex.valueTypeMap(buffer.tag.tag))),
@@ -31,7 +32,7 @@ object GIOCompiler:
               ResultRef(ctxWithIndex.exprRefs(index.tree.treeid)),
             ),
           ),
-          Instruction(Op.OpStore, List(ResultRef(ctxWithIndex.nextResultId), ResultRef(ctxWithIndex.exprRefs(value.tree.treeid))))
+          Instruction(Op.OpStore, List(ResultRef(ctxWithIndex.nextResultId), ResultRef(ctxWithIndex.exprRefs(value.tree.treeid)))),
         )
         val updatedCtx = ctxWithIndex.copy(nextResultId = ctxWithIndex.nextResultId + 1)
         (acc ::: indexInsts ::: valueInsts ::: insns, updatedCtx)
@@ -39,7 +40,7 @@ object GIOCompiler:
       case GIO.FlatMap(v, n) =>
         val (vInsts, ctxAfterV) = compileGio(v, ctx, acc)
         compileGio(n, ctxAfterV, vInsts)
-        
+
       case GIO.Repeat(n, f) =>
         // Compile 'n' first (so we can use its id in the comparison)
         val (nInsts, ctxWithN) = ExpressionCompiler.compileBlock(n.tree, ctx)
@@ -63,17 +64,14 @@ object GIOCompiler:
         val addId = baseId + 7
 
         // Bind CurrentRepeatIndex to the phi result for body compilation
-        val bodyCtx = ctxWithN.copy(
-          nextResultId = baseId + 8,
-          exprRefs = ctxWithN.exprRefs + (CurrentRepeatIndex.treeid -> phiId)
-        )
-        val (bodyInsts, ctxAfterBody) = compileGio(f, bodyCtx)  // ← Capture the context after body compilation
+        val bodyCtx = ctxWithN.copy(nextResultId = baseId + 8, exprRefs = ctxWithN.exprRefs + (CurrentRepeatIndex.treeid -> phiId))
+        val (bodyInsts, ctxAfterBody) = compileGio(f, bodyCtx) // ← Capture the context after body compilation
 
         // Preheader: close current block and jump to header through a dedicated block
         val preheader = List(
           Instruction(Op.OpBranch, List(ResultRef(preHeaderId))),
           Instruction(Op.OpLabel, List(ResultRef(preHeaderId))),
-          Instruction(Op.OpBranch, List(ResultRef(headerId)))
+          Instruction(Op.OpBranch, List(ResultRef(headerId))),
         )
 
         // Header: OpPhi first, then compute condition, then OpLoopMerge and the terminating branch
@@ -82,66 +80,46 @@ object GIOCompiler:
           // OpPhi must be first in the block
           Instruction(
             Op.OpPhi,
-            List(
-              ResultRef(intTy), ResultRef(phiId),
-              ResultRef(zeroId), ResultRef(preHeaderId),
-              ResultRef(addId), ResultRef(continueId)
-            )
+            List(ResultRef(intTy), ResultRef(phiId), ResultRef(zeroId), ResultRef(preHeaderId), ResultRef(addId), ResultRef(continueId)),
           ),
           // cmp = (counter < n)
-          Instruction(
-            Op.OpSLessThan,
-            List(ResultRef(boolTy), ResultRef(cmpId), ResultRef(phiId), ResultRef(nId))
-          ),
+          Instruction(Op.OpSLessThan, List(ResultRef(boolTy), ResultRef(cmpId), ResultRef(phiId), ResultRef(nId))),
           // OpLoopMerge must be the second-to-last instruction, before the terminating branch
           Instruction(Op.OpLoopMerge, List(ResultRef(mergeId), ResultRef(continueId), LoopControlMask.MaskNone)),
-          Instruction(Op.OpBranchConditional, List(ResultRef(cmpId), ResultRef(bodyId), ResultRef(mergeId)))
+          Instruction(Op.OpBranchConditional, List(ResultRef(cmpId), ResultRef(bodyId), ResultRef(mergeId))),
         )
 
-        val bodyBlk = List(
-          Instruction(Op.OpLabel, List(ResultRef(bodyId)))
-        ) ::: bodyInsts ::: List(
-          Instruction(Op.OpBranch, List(ResultRef(continueId)))
-        )
+        val bodyBlk = List(Instruction(Op.OpLabel, List(ResultRef(bodyId)))) ::: bodyInsts ::: List(Instruction(Op.OpBranch, List(ResultRef(continueId))))
 
         val contBlk = List(
           Instruction(Op.OpLabel, List(ResultRef(continueId))),
-          Instruction(
-            Op.OpIAdd,
-            List(ResultRef(intTy), ResultRef(addId), ResultRef(phiId), ResultRef(oneId))
-          ),
-          Instruction(Op.OpBranch, List(ResultRef(headerId)))
+          Instruction(Op.OpIAdd, List(ResultRef(intTy), ResultRef(addId), ResultRef(phiId), ResultRef(oneId))),
+          Instruction(Op.OpBranch, List(ResultRef(headerId))),
         )
 
-        val mergeBlk = List(
-          Instruction(Op.OpLabel, List(ResultRef(mergeId)))
-        )
+        val mergeBlk = List(Instruction(Op.OpLabel, List(ResultRef(mergeId))))
 
         // Use the highest nextResultId to avoid ID collisions
-        val finalNextId = math.max(ctxAfterBody.nextResultId, addId + 1)  // ← Use ctxAfterBody.nextResultId
+        val finalNextId = math.max(ctxAfterBody.nextResultId, addId + 1) // ← Use ctxAfterBody.nextResultId
         // Use ctxWithN as base to prevent loop-local values from being referenced outside
         val finalCtx = ctxWithN.copy(nextResultId = finalNextId)
 
         (acc ::: nInsts ::: preheader ::: header ::: bodyBlk ::: contBlk ::: mergeBlk, finalCtx)
-        
+
       case GIO.Printf(format, args*) =>
         val (argsInsts, ctxAfterArgs) = args.foldLeft((List.empty[Words], ctx)) { case ((instsAcc, cAcc), arg) =>
           val (argInsts, cAfterArg) = ExpressionCompiler.compileBlock(arg.tree, cAcc)
           (instsAcc ::: argInsts, cAfterArg)
         }
         val argResults = args.map(a => ResultRef(ctxAfterArgs.exprRefs(a.tree.treeid))).toList
-        val printf = Instruction(Op.OpExtInst, List(
-          ResultRef(TYPE_VOID_REF),
-          ResultRef(ctxAfterArgs.nextResultId),
-          ResultRef(DEBUG_PRINTF_REF),
-          IntWord(1),
-          ResultRef(ctx.stringLiterals(format)),
-        ) ::: argResults)
+        val printf = Instruction(
+          Op.OpExtInst,
+          List(
+            ResultRef(TYPE_VOID_REF),
+            ResultRef(ctxAfterArgs.nextResultId),
+            ResultRef(DEBUG_PRINTF_REF),
+            IntWord(1),
+            ResultRef(ctx.stringLiterals(format)),
+          ) ::: argResults,
+        )
         (acc ::: argsInsts ::: List(printf), ctxAfterArgs.copy(nextResultId = ctxAfterArgs.nextResultId + 1))
-
-
-
-
-        
-        
-      

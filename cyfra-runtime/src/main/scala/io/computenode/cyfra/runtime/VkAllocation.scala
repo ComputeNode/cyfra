@@ -72,7 +72,7 @@ class VkAllocation(commandPool: CommandPool, executionHandler: ExecutionHandler)
     def apply[T <: Value: {Tag, FromExpr}](length: Int): GBuffer[T] =
       VkBuffer[T](length).tap(bindings += _)
 
-    def apply[T <: Value : {Tag, FromExpr}](buff: ByteBuffer): GBuffer[T] =
+    def apply[T <: Value: {Tag, FromExpr}](buff: ByteBuffer): GBuffer[T] =
       val sizeOfT = typeStride(summon[Tag[T]])
       val length = buff.capacity() / sizeOfT
       if buff.capacity() % sizeOfT != 0 then

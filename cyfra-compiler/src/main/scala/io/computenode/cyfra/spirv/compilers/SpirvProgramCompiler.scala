@@ -44,10 +44,7 @@ private[cyfra] object SpirvProgramCompiler:
 
     val (vars, nonVarsBody) = bubbleUpVars(body)
 
-    val end = List(
-      Instruction(Op.OpReturn, List()),
-      Instruction(Op.OpFunctionEnd, List()),
-    )
+    val end = List(Instruction(Op.OpReturn, List()), Instruction(Op.OpFunctionEnd, List()))
     (init ::: vars ::: initWorkerIndex ::: nonVarsBody ::: end, codeCtx.copy(nextResultId = codeCtx.nextResultId + 1))
 
   def getNameDecorations(ctx: Context): List[Instruction] =
@@ -94,7 +91,7 @@ private[cyfra] object SpirvProgramCompiler:
     )
     val ctxWithVoid = context.copy(voidTypeRef = TYPE_VOID_REF, voidFuncTypeRef = VOID_FUNC_TYPE_REF)
     (voidDef, ctxWithVoid)
-    
+
   def createInvocationId(context: Context): (List[Words], Context) =
     val definitionInstructions = List(
       Instruction(Op.OpConstant, List(ResultRef(context.valueTypeMap(UInt32Tag.tag)), ResultRef(context.nextResultId + 0), IntWord(localSizeX))),
@@ -120,54 +117,51 @@ private[cyfra] object SpirvProgramCompiler:
   def createAndInitBlocks(blocks: List[(GBuffer[?], Int)], context: Context): (List[Words], List[Words], Context) =
     var membersVisited = Set[Int]()
     var structsVisited = Set[Int]()
-    val (decoration, definition, newContext) = blocks.foldLeft((List[Words](), List[Words](), context)) { case ((decAcc, insnAcc, ctx), (buff, binding)) =>
-      val tpe = buff.tag
-      val block = ArrayBufferBlock(ctx.nextResultId, ctx.nextResultId + 1, ctx.nextResultId + 2, ctx.nextResultId + 3, binding)
+    val (decoration, definition, newContext) = blocks.foldLeft((List[Words](), List[Words](), context)) {
+      case ((decAcc, insnAcc, ctx), (buff, binding)) =>
+        val tpe = buff.tag
+        val block = ArrayBufferBlock(ctx.nextResultId, ctx.nextResultId + 1, ctx.nextResultId + 2, ctx.nextResultId + 3, binding)
 
-      val (structDecoration, structDefinition) = if structsVisited.contains(block.structTypeRef) then
-        (Nil, Nil)
-      else
-        structsVisited += block.structTypeRef
-        (
-          List(
-            Instruction(Op.OpMemberDecorate, List(ResultRef(block.structTypeRef), IntWord(0), Decoration.Offset, IntWord(0))), // OpMemberDecorate %BufferX 0 Offset 0
-            Instruction(Op.OpDecorate, List(ResultRef(block.structTypeRef), Decoration.BufferBlock)), // OpDecorate %BufferX BufferBlock
-          ),
-          List(
-            Instruction(Op.OpTypeStruct, List(ResultRef(block.structTypeRef), IntWord(block.memberArrayTypeRef))), // %BufferX = OpTypeStruct %_runtimearr_X
-          )
+        val (structDecoration, structDefinition) =
+          if structsVisited.contains(block.structTypeRef) then (Nil, Nil)
+          else
+            structsVisited += block.structTypeRef
+            (
+              List(
+                Instruction(Op.OpMemberDecorate, List(ResultRef(block.structTypeRef), IntWord(0), Decoration.Offset, IntWord(0))), // OpMemberDecorate %BufferX 0 Offset 0
+                Instruction(Op.OpDecorate, List(ResultRef(block.structTypeRef), Decoration.BufferBlock)), // OpDecorate %BufferX BufferBlock
+              ),
+              List(
+                Instruction(Op.OpTypeStruct, List(ResultRef(block.structTypeRef), IntWord(block.memberArrayTypeRef))), // %BufferX = OpTypeStruct %_runtimearr_X
+              ),
+            )
+
+        val (memberDecoration, memberDefinition) =
+          if membersVisited.contains(block.memberArrayTypeRef) then (Nil, Nil)
+          else
+            membersVisited += block.memberArrayTypeRef
+            (
+              List(
+                Instruction(Op.OpDecorate, List(ResultRef(block.memberArrayTypeRef), Decoration.ArrayStride, IntWord(typeStride(tpe)))), // OpDecorate %_runtimearr_X ArrayStride [typeStride(type)]
+              ),
+              List(
+                Instruction(Op.OpTypeRuntimeArray, List(ResultRef(block.memberArrayTypeRef), IntWord(context.valueTypeMap(tpe.tag)))), // %_runtimearr_X = OpTypeRuntimeArray %[typeOf(tpe)]
+              ),
+            )
+
+        val decorationInstructions = memberDecoration ::: structDecoration ::: List[Words](
+          Instruction(Op.OpDecorate, List(ResultRef(block.blockVarRef), Decoration.DescriptorSet, IntWord(0))), // OpDecorate %_X DescriptorSet 0
+          Instruction(Op.OpDecorate, List(ResultRef(block.blockVarRef), Decoration.Binding, IntWord(block.binding))), // OpDecorate %_X Binding [binding]
         )
 
-      val (memberDecoration, memberDefinition) = if membersVisited.contains(block.memberArrayTypeRef) then
-        (Nil, Nil)
-      else
-        membersVisited += block.memberArrayTypeRef
-        (
-          List(
-            Instruction(Op.OpDecorate, List(ResultRef(block.memberArrayTypeRef), Decoration.ArrayStride, IntWord(typeStride(tpe)))), // OpDecorate %_runtimearr_X ArrayStride [typeStride(type)]
-          ),
-          List(
-            Instruction(Op.OpTypeRuntimeArray, List(ResultRef(block.memberArrayTypeRef), IntWord(context.valueTypeMap(tpe.tag)))), // %_runtimearr_X = OpTypeRuntimeArray %[typeOf(tpe)]
-          )
+        val definitionInstructions = memberDefinition ::: structDefinition ::: List[Words](
+          Instruction(Op.OpTypePointer, List(ResultRef(block.blockPointerRef), StorageClass.Uniform, ResultRef(block.structTypeRef))), // %_ptr_Uniform_BufferX= OpTypePointer Uniform %BufferX
+          Instruction(Op.OpVariable, List(ResultRef(block.blockPointerRef), ResultRef(block.blockVarRef), StorageClass.Uniform)), // %_X = OpVariable %_ptr_Uniform_X Uniform
         )
 
-      val decorationInstructions = memberDecoration ::: structDecoration ::: List[Words](
-        Instruction(Op.OpDecorate, List(ResultRef(block.blockVarRef), Decoration.DescriptorSet, IntWord(0))), // OpDecorate %_X DescriptorSet 0
-        Instruction(Op.OpDecorate, List(ResultRef(block.blockVarRef), Decoration.Binding, IntWord(block.binding))), // OpDecorate %_X Binding [binding]
-      )
-
-      val definitionInstructions = memberDefinition ::: structDefinition ::: List[Words](
-        Instruction(Op.OpTypePointer, List(ResultRef(block.blockPointerRef), StorageClass.Uniform, ResultRef(block.structTypeRef))), // %_ptr_Uniform_BufferX= OpTypePointer Uniform %BufferX
-        Instruction(Op.OpVariable, List(ResultRef(block.blockPointerRef), ResultRef(block.blockVarRef), StorageClass.Uniform)), // %_X = OpVariable %_ptr_Uniform_X Uniform
-      )
-
-      val contextWithBlock =
-        ctx.copy(bufferBlocks = ctx.bufferBlocks + (buff -> block))
-      (
-        decAcc ::: decorationInstructions,
-        insnAcc ::: definitionInstructions,
-        contextWithBlock.copy(nextResultId = contextWithBlock.nextResultId + 5),
-      )
+        val contextWithBlock =
+          ctx.copy(bufferBlocks = ctx.bufferBlocks + (buff -> block))
+        (decAcc ::: decorationInstructions, insnAcc ::: definitionInstructions, contextWithBlock.copy(nextResultId = contextWithBlock.nextResultId + 5))
     }
     (decoration, definition, newContext)
 
@@ -176,7 +170,7 @@ private[cyfra] object SpirvProgramCompiler:
       Instruction(Op.OpName, List(ResultRef(block.structTypeRef), Text(s"Buffer$tpe"))) ::
         Instruction(Op.OpName, List(ResultRef(block.blockVarRef), Text(s"data$tpe"))) :: Nil
     // todo name uniform
-    //context.inBufferBlocks.flatMap(namesForBlock(_, "In")) ::: context.outBufferBlocks.flatMap(namesForBlock(_, "Out"))
+    // context.inBufferBlocks.flatMap(namesForBlock(_, "In")) ::: context.outBufferBlocks.flatMap(namesForBlock(_, "Out"))
     List()
 
   def totalStride(gs: GStructSchema[?]): Int = gs.fields
@@ -187,20 +181,16 @@ private[cyfra] object SpirvProgramCompiler:
       case (_, _, t) =>
         typeStride(t)
     .sum
-  
+
   def defineStrings(strings: List[String], ctx: Context): (List[Words], Context) =
     strings.foldLeft((List.empty[Words], ctx)):
       case ((insnsAcc, currentCtx), str) =>
-        if currentCtx.stringLiterals.contains(str) then
-          (insnsAcc, currentCtx)
+        if currentCtx.stringLiterals.contains(str) then (insnsAcc, currentCtx)
         else
           val strRef = currentCtx.nextResultId
-          val strInsns = List(
-            Instruction(Op.OpString, List(ResultRef(strRef), Text(str))),
-          )
+          val strInsns = List(Instruction(Op.OpString, List(ResultRef(strRef), Text(str))))
           val newCtx = currentCtx.copy(stringLiterals = currentCtx.stringLiterals + (str -> strRef), nextResultId = currentCtx.nextResultId + 1)
           (insnsAcc ::: strInsns, newCtx)
-    
 
   def createAndInitUniformBlocks(schemas: List[(GUniform[?], Int)], ctx: Context): (List[Words], List[Words], Context) = {
     var decoratedOffsets = Set[Int]()
@@ -212,16 +202,18 @@ private[cyfra] object SpirvProgramCompiler:
         if decoratedOffsets.contains(uniformStructTypeRef) then Nil
         else
           decoratedOffsets += uniformStructTypeRef
-          schema.fields.zipWithIndex.foldLeft[(List[Words], Int)](List.empty[Words], 0):
-            case ((acc, offset), ((name, fromExpr, tag), idx)) =>
-              val stride =
-                if tag <:< schema.gStructTag then
-                  val constructor = fromExpr.asInstanceOf[GStructConstructor[?]]
-                  totalStride(constructor.schema)
-                else typeStride(tag)
-              val offsetDecoration = Instruction(Op.OpMemberDecorate, List(ResultRef(uniformStructTypeRef), IntWord(idx), Decoration.Offset, IntWord(offset)))
-              (acc :+ offsetDecoration, offset + stride)
-          ._1 ::: List(Instruction(Op.OpDecorate, List(ResultRef(uniformStructTypeRef), Decoration.Block)))
+          schema.fields.zipWithIndex
+            .foldLeft[(List[Words], Int)](List.empty[Words], 0):
+              case ((acc, offset), ((name, fromExpr, tag), idx)) =>
+                val stride =
+                  if tag <:< schema.gStructTag then
+                    val constructor = fromExpr.asInstanceOf[GStructConstructor[?]]
+                    totalStride(constructor.schema)
+                  else typeStride(tag)
+                val offsetDecoration =
+                  Instruction(Op.OpMemberDecorate, List(ResultRef(uniformStructTypeRef), IntWord(idx), Decoration.Offset, IntWord(offset)))
+                (acc :+ offsetDecoration, offset + stride)
+            ._1 ::: List(Instruction(Op.OpDecorate, List(ResultRef(uniformStructTypeRef), Decoration.Block)))
 
       val uniformPointerUniformRef = currentCtx.nextResultId
       val uniformPointerUniform =
@@ -239,7 +231,7 @@ private[cyfra] object SpirvProgramCompiler:
         nextResultId = currentCtx.nextResultId + 2,
         uniformVarRefs = currentCtx.uniformVarRefs + (uniform -> uniformVarRef),
         uniformPointerMap = currentCtx.uniformPointerMap + (uniformStructTypeRef -> uniformPointerUniformRef),
-        bindingToStructType = currentCtx.bindingToStructType + (binding -> uniformStructTypeRef)
+        bindingToStructType = currentCtx.bindingToStructType + (binding -> uniformStructTypeRef),
       )
 
       (newDecorations, newDefinitions, newCtx)
