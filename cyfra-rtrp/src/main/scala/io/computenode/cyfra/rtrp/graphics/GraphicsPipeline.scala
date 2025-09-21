@@ -6,6 +6,7 @@ import io.computenode.cyfra.rtrp.{RenderPass, Swapchain}
 import io.computenode.cyfra.vulkan.util.VulkanObjectHandle
 import io.computenode.cyfra.vulkan.core.Device
 import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
+import io.computenode.cyfra.rtrp.Vertex
 import org.lwjgl.system.MemoryUtil
 import org.lwjgl.vulkan.VK10.*
 import org.lwjgl.vulkan.*
@@ -43,11 +44,31 @@ private[cyfra] class GraphicsPipeline (swapchain: Swapchain, vertShader: Shader,
             .module(fragShader.get)
             .pName(MemoryUtil.memUTF8(fragShader.functionName))
 
+        val bindingDescription = VkVertexInputBindingDescription
+            .calloc(1, stack)
+            .stride(Vertex.SIZEOF)
+            .inputRate(VK_VERTEX_INPUT_RATE_VERTEX)
+
+        val attributeDescriptions = VkVertexInputAttributeDescription.calloc(2, stack)
+
+        // position
+        attributeDescriptions.get(0)
+            .binding(0)
+            .location(0)
+            .format(VK_FORMAT_R32G32_SFLOAT)
+            .offset(Vertex.OFFSETOF_POS)
+        // color
+        attributeDescriptions.get(1)
+            .binding(0)
+            .location(1)
+            .format(VK_FORMAT_R32G32B32_SFLOAT)
+            .offset(Vertex.OFFSETOF_COLOR)
+
         val vertexInputInfo = VkPipelineVertexInputStateCreateInfo 
             .calloc(stack)
             .sType$Default()
-            .pVertexBindingDescriptions(null) // Optional
-            .pVertexAttributeDescriptions(null) // Optional
+            .pVertexBindingDescriptions(bindingDescription)
+            .pVertexAttributeDescriptions(attributeDescriptions)
 
         val viewport = VkViewport 
             .calloc(1, stack)

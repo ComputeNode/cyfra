@@ -43,7 +43,7 @@ private[cyfra] class Buffer(val size: Int, val usage: Int, flags: Int, memUsage:
     byteBuffer.get(dst)
     memFree(byteBuffer)
 
-  protected def close(): Unit =
+  def close(): Unit =
     vmaDestroyBuffer(allocator.get, handle, allocation)
 
 object Buffer:

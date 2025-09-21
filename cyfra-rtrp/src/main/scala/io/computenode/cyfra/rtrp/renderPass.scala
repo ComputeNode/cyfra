@@ -8,6 +8,7 @@ import io.computenode.cyfra.vulkan.VulkanContext
 import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import org.lwjgl.vulkan.KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
 import org.lwjgl.vulkan.*
+import io.computenode.cyfra.vulkan.memory.Buffer
 
 
 private[cyfra] class RenderPass(context: VulkanContext, swapchain: Swapchain) extends VulkanObjectHandle:
@@ -61,7 +62,7 @@ private[cyfra] class RenderPass(context: VulkanContext, swapchain: Swapchain) ex
     
     val swapchainFramebuffers = SwapchainManager.createFramebuffers(swapchain, renderPass)
 
-    def recordCommandBuffer(commandBuffer: VkCommandBuffer, framebuffer: Long, imageIndex: Int, graphicsPipeline: GraphicsPipeline): Boolean = pushStack: stack =>
+    def recordCommandBuffer(commandBuffer: VkCommandBuffer, framebuffer: Long, imageIndex: Int, graphicsPipeline: GraphicsPipeline, vertexBuffer: Buffer, vertexCount: Int): Boolean = pushStack: stack =>
         var finished = false
         try
             val beginInfo = VkCommandBufferBeginInfo 
@@ -104,7 +105,11 @@ private[cyfra] class RenderPass(context: VulkanContext, swapchain: Swapchain) ex
             //     .extent(swapchain.extent)
             // vkCmdSetScissor(commandBuffer, 0, scissor)
 
-            vkCmdDraw(commandBuffer, 3, 1, 0, 0) // draw a triangle
+            val pBuffers = stack.longs(vertexBuffer.get)
+            val pOffsets = stack.longs(0L)
+            vkCmdBindVertexBuffers(commandBuffer, 0, pBuffers, pOffsets)
+
+            vkCmdDraw(commandBuffer, vertexCount, 1, 0, 0) // draw a triangle
 
             vkCmdEndRenderPass(commandBuffer)
 

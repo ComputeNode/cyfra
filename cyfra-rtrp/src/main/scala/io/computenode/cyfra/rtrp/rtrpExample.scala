@@ -18,8 +18,32 @@ import org.lwjgl.system.MemoryUtil.NULL
 import org.lwjgl.system.MemoryStack
 import org.lwjgl.system.MemoryUtil.memPutInt
 import io.computenode.cyfra.utility.Logger.logger
-
 import scala.util.{Failure, Success}
+import org.joml.{Vector2f, Vector3f}
+import java.nio.ByteBuffer
+import org.lwjgl.BufferUtils
+import io.computenode.cyfra.vulkan.memory.Buffer
+import org.lwjgl.util.vma.Vma.*
+
+case class Vertex(pos: Vector2f, color: Vector3f)
+
+object Vertex{
+    val SIZEOF: Int = (2 + 3) * 4 // pos(2*float) + color(3*float)
+    val OFFSETOF_POS: Int = 0
+    val OFFSETOF_COLOR: Int = 2 * 4
+
+    def toByteBuffer(vertices: Array[Vertex]): ByteBuffer = {
+        val buffer = BufferUtils.createByteBuffer(vertices.length * SIZEOF)
+        for (vertex <- vertices) {
+            buffer.putFloat(vertex.pos.x)
+            buffer.putFloat(vertex.pos.y)
+            buffer.putFloat(vertex.color.x)
+            buffer.putFloat(vertex.color.y)
+            buffer.putFloat(vertex.color.z)
+        }
+        buffer.rewind()
+    }
+}
 
 object rtrpExample:
 
@@ -49,6 +73,14 @@ class rtrpExample:
     private var swapchainManager: SwapchainManager = _
     private var swapchain: Swapchain = _
     private var surfaceManager: SurfaceManager = _
+    private var vertexBuffer: Buffer = _
+    private var vertexCount: Int = 0
+
+    private val vertices = Array(
+        Vertex(new Vector2f(0.0f, -0.5f), new Vector3f(1.0f, 0.0f, 0.0f)),
+        Vertex(new Vector2f(0.5f, 0.5f), new Vector3f(0.0f, 1.0f, 0.0f)),
+        Vertex(new Vector2f(-0.5f, 0.5f), new Vector3f(0.0f, 0.0f, 1.0f))
+    )
 
     private var renderPass: RenderPass = _
     private var graphicsPipeline: GraphicsPipeline = _
@@ -93,7 +125,8 @@ class rtrpExample:
         window = w
         surface = s
         surfaceManager = windowManager.getSurfaceManager().get
-
+        commandPool = context.commandPool
+        createVertexBuffer()
         presentQueue = surfaceManager.initializePresentQueue(surface).get.get
 
         swapchainManager = new SwapchainManager(context, surface)
@@ -105,7 +138,6 @@ class rtrpExample:
 
         swapchainFramebuffers = renderPass.swapchainFramebuffers
 
-        commandPool = context.commandPool
         commandBuffers = commandPool.createCommandBuffers(MAX_FRAMES_IN_FLIGHT)
 
         imageAvailableSemaphores = (1 to MAX_FRAMES_IN_FLIGHT).map{_ => new Semaphore(device)}
@@ -113,6 +145,34 @@ class rtrpExample:
         inFlightFences = (1 to MAX_FRAMES_IN_FLIGHT).map{_ => new Fence(device, VK_FENCE_CREATE_SIGNALED_BIT)}
 
         vkDeviceWaitIdle(device.get)
+
+    private def createVertexBuffer(): Unit = {
+        vertexCount = vertices.length
+        val vertexData = Vertex.toByteBuffer(vertices)
+        val bufferSize = vertexData.remaining()
+
+        val stagingBuffer = new Buffer(
+            bufferSize,
+            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            VMA_MEMORY_USAGE_CPU_ONLY,
+            context.allocator
+        )
+        Buffer.copyBuffer(vertexData, stagingBuffer, bufferSize)
+
+        vertexBuffer = new Buffer(
+            bufferSize,
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY,
+            context.allocator
+        )
+
+        val copyCmd = Buffer.copyBuffer(stagingBuffer, vertexBuffer, bufferSize, commandPool)
+        copyCmd.block()
+        copyCmd.destroy()
+        stagingBuffer.close()
+    }
 
     private def destroySwapchainResources(): Unit =
         if swapchain != null then
@@ -142,9 +202,9 @@ class rtrpExample:
         check(vkResetCommandBuffer(commandBuffers(currentFrame), 0), "Failed to reset command buffer")
         val framebuffer = renderPass.swapchainFramebuffers(imageIndex)
         if framebuffer == 0L then
-          logger.warn(s"[WARN] Framebuffer for imageIndex=$imageIndex is null")
+          logger.warn(s"Framebuffer for imageIndex=$imageIndex is null")
           return
-        val recordedOk = renderPass.recordCommandBuffer(commandBuffers(currentFrame), framebuffer, imageIndex, graphicsPipeline)
+        val recordedOk = renderPass.recordCommandBuffer(commandBuffers(currentFrame), framebuffer, imageIndex, graphicsPipeline, vertexBuffer, vertexCount)
         if !recordedOk then return
 
         // submit
