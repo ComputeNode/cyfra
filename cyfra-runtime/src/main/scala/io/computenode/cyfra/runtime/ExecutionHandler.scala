@@ -46,7 +46,7 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
     val (result, shaderCalls) = interpret(execution, params, layout)
 
     val descriptorSets = shaderCalls.map:
-      case ShaderCall(pipeline, layout, _, _) =>
+      case ShaderCall(pipeline, layout, _) =>
         pipeline.pipelineLayout.sets
           .map(dsManager.allocate)
           .zip(layout)
@@ -58,7 +58,7 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
     val dispatches: Seq[Dispatch] = shaderCalls
       .zip(descriptorSets)
       .map:
-        case (ShaderCall(pipeline, layout, dispatch, _), sets) =>
+        case (ShaderCall(pipeline, layout, dispatch), sets) =>
           Dispatch(pipeline, layout, sets, dispatch)
 
     val (executeSteps, _) = dispatches.foldLeft((Seq.empty[ExecutionStep], Set.empty[GBinding[?]])):
@@ -94,7 +94,7 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
           case x: ExecutionBinding[?] => x
           case x: GBinding[?]         =>
             val e = ExecutionBinding(x)(using x.fromExpr, x.tag)
-            bindingsAcc.put(e, mutable.Buffer(x)) // store only base contribution here
+            bindingsAcc.put(e, mutable.Buffer(x))
             e
       mapper.fromBindings(res)
 
@@ -128,53 +128,33 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
           val layoutInit =
             val initProgram: InitProgramLayout = summon[VkAllocation].getInitProgramLayout
             program.layout(initProgram)(params)
-
-          val callInits: Map[GBinding[?], Seq[GBinding[?]]] =
-            lb
-              .toBindings(layout)
-              .zip(lb.toBindings(layoutInit))
-              .groupMap(_._1)(_._2)
-
+          lb.toBindings(layout)
+            .zip(lb.toBindings(layoutInit))
+            .foreach:
+              case (binding, initBinding) =>
+                bindingsAcc(binding).append(initBinding)
           val dispatch = program.dispatch(layout, params) match
             case GProgram.DynamicDispatch(buffer, offset) => DispatchType.Indirect(buffer, offset)
             case GProgram.StaticDispatch(size)            => DispatchType.Direct(size._1, size._2, size._3)
           // noinspection ScalaRedundantCast
-          (layout.asInstanceOf[RL], Seq(ShaderCall(shader.underlying, shader.shaderBindings(layout), dispatch, callInits)))
+          (layout.asInstanceOf[RL], Seq(ShaderCall(shader.underlying, shader.shaderBindings(layout), dispatch)))
         case _ => ???
 
     val (rl, steps) = interpretImpl(execution, params, mockBindings(layout))
-
-    val finalBindingForRl: mutable.Map[GBinding[?], GBinding[?]] = mutable.Map.empty
+    val bingingToVk = bindingsAcc.map(x => (x._1, interpretBinding(x._1, x._2.toSeq)))
 
     val nextSteps = steps.map:
-      case ShaderCall(pipeline, layout, dispatch, callInits) =>
+      case ShaderCall(pipeline, layout, dispatch) =>
         val nextLayout = layout.map:
           _.map:
-            case Binding(binding, operation) =>
-              val base = bindingsAcc.getOrElse(binding, mutable.Buffer.empty).toSeq
-              val extras = callInits.getOrElse(binding, Seq.empty)
-              val resolved = interpretBinding(binding, base ++ extras)
-              finalBindingForRl.update(binding, resolved)
-              Binding(resolved, operation)
-
+            case Binding(binding, operation) => Binding(bingingToVk(binding), operation)
         val nextDispatch = dispatch match
-          case x: DispatchType.Direct                => x
-          case DispatchType.Indirect(buffer, offset) =>
-            val base = bindingsAcc.getOrElse(buffer, mutable.Buffer.empty).toSeq
-            val extras = callInits.getOrElse(buffer, Seq.empty)
-            val resolved = interpretBinding(buffer, base ++ extras)
-            finalBindingForRl.update(buffer, resolved)
-            DispatchType.Indirect(resolved, offset)
-
-        ShaderCall(pipeline, nextLayout, nextDispatch, Map.empty)
+          case x: Direct                => x
+          case Indirect(buffer, offset) => Indirect(bingingToVk(buffer), offset)
+        ShaderCall(pipeline, nextLayout, nextDispatch)
 
     val mapper = summon[LayoutBinding[RL]]
-    val rlBindings = mapper
-      .toBindings(rl)
-      .map: b =>
-        finalBindingForRl.getOrElse(b, interpretBinding(b, bindingsAcc.getOrElse(b, mutable.Buffer.empty).toSeq))
-    val res = mapper.fromBindings(rlBindings)
-
+    val res = mapper.fromBindings(mapper.toBindings(rl).map(bingingToVk.apply))
     (res, nextSteps)
 
   private def interpretBinding(binding: GBinding[?], bindings: Seq[GBinding[?]])(using VkAllocation): GBinding[?] =
@@ -207,7 +187,7 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
           case _: GUniform.ParamUniform[?]   => false
           case x                             => throw BindingLogicError(x, "Unsupported binding type")
         if allocations.size > 1 then throw BindingLogicError(allocations, "Multiple allocations for uniform")
-        allocations.headOption.getOrElse(throw new IllegalStateException("Uniform never allocated"))
+        allocations.headOption.getOrElse(throw new BindingLogicError(Seq(), "Uniform never allocated"))
       case x => throw new IllegalArgumentException(s"Binding of type ${x.getClass.getName} should not be here")
 
   private def recordCommandBuffer(steps: Seq[ExecutionStep]): VkCommandBuffer = pushStack: stack =>
@@ -256,19 +236,13 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
       .distinct
 
 object ExecutionHandler:
-  case class ShaderCall(
-    pipeline: ComputePipeline,
-    layout: ShaderLayout,
-    dispatch: DispatchType,
-    callInits: Map[GBinding[?], Seq[GBinding[?]]], // per-program contributions
-  )
+  case class ShaderCall(pipeline: ComputePipeline, layout: ShaderLayout, dispatch: DispatchType)
 
   sealed trait ExecutionStep
-
   case class Dispatch(pipeline: ComputePipeline, layout: ShaderLayout, descriptorSets: Seq[DescriptorSet], dispatch: DispatchType)
       extends ExecutionStep
-
   case object PipelineBarrier extends ExecutionStep
+
   sealed trait DispatchType
   object DispatchType:
     case class Direct(x: Int, y: Int, z: Int) extends DispatchType
