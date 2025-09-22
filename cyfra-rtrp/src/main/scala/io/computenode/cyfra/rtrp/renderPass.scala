@@ -62,7 +62,15 @@ private[cyfra] class RenderPass(context: VulkanContext, swapchain: Swapchain) ex
     
     val swapchainFramebuffers = SwapchainManager.createFramebuffers(swapchain, renderPass)
 
-    def recordCommandBuffer(commandBuffer: VkCommandBuffer, framebuffer: Long, imageIndex: Int, graphicsPipeline: GraphicsPipeline, vertexBuffer: Buffer, vertexCount: Int): Boolean = pushStack: stack =>
+    def recordCommandBuffer(
+        commandBuffer: VkCommandBuffer,
+        framebuffer: Long,
+        imageIndex: Int,
+        graphicsPipeline: GraphicsPipeline,
+        vertexBuffer: Buffer,
+        vertexCount: Int,
+        indexedDraw: Option[(Buffer, Int)] = None
+    ): Boolean = pushStack: stack =>
         var finished = false
         try
             val beginInfo = VkCommandBufferBeginInfo 
@@ -109,7 +117,13 @@ private[cyfra] class RenderPass(context: VulkanContext, swapchain: Swapchain) ex
             val pOffsets = stack.longs(0L)
             vkCmdBindVertexBuffers(commandBuffer, 0, pBuffers, pOffsets)
 
-            vkCmdDraw(commandBuffer, vertexCount, 1, 0, 0) // draw a triangle
+            indexedDraw match {
+                case Some((indexBuffer, indexCount)) =>
+                    vkCmdBindIndexBuffer(commandBuffer, indexBuffer.get, 0, VK_INDEX_TYPE_UINT16)
+                    vkCmdDrawIndexed(commandBuffer, indexCount, 1, 0, 0, 0)
+                case None =>
+                    vkCmdDraw(commandBuffer, vertexCount, 1, 0, 0) 
+            }
 
             vkCmdEndRenderPass(commandBuffer)
 

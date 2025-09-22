@@ -54,8 +54,6 @@ object rtrpExample:
         catch
             case e: Exception =>
                 e.printStackTrace()
-        finally
-            example.cleanup()
 
 class rtrpExample:
     private var context: VulkanContext = _
@@ -75,11 +73,18 @@ class rtrpExample:
     private var surfaceManager: SurfaceManager = _
     private var vertexBuffer: Buffer = _
     private var vertexCount: Int = 0
+    private var indexBuffer: Buffer = _
+    private var indexCount: Int = 0
 
     private val vertices = Array(
-        Vertex(new Vector2f(0.0f, -0.5f), new Vector3f(1.0f, 0.0f, 0.0f)),
-        Vertex(new Vector2f(0.5f, 0.5f), new Vector3f(0.0f, 1.0f, 0.0f)),
-        Vertex(new Vector2f(-0.5f, 0.5f), new Vector3f(0.0f, 0.0f, 1.0f))
+        Vertex(new Vector2f(-0.5f, -0.5f), new Vector3f(1.0f, 0.0f, 0.0f)),
+        Vertex(new Vector2f(0.5f, -0.5f), new Vector3f(0.0f, 1.0f, 0.0f)),
+        Vertex(new Vector2f(0.5f, 0.5f), new Vector3f(0.0f, 0.0f, 1.0f)),
+        Vertex(new Vector2f(-0.5f, 0.5f), new Vector3f(1.0f, 1.0f, 1.0f))
+    )
+
+    private val indices = Array[Short](
+        0, 1, 2, 2, 3, 0
     )
 
     private var renderPass: RenderPass = _
@@ -127,6 +132,7 @@ class rtrpExample:
         surfaceManager = windowManager.getSurfaceManager().get
         commandPool = context.commandPool
         createVertexBuffer()
+        createIndexBuffer()
         presentQueue = surfaceManager.initializePresentQueue(surface).get.get
 
         swapchainManager = new SwapchainManager(context, surface)
@@ -145,6 +151,38 @@ class rtrpExample:
         inFlightFences = (1 to MAX_FRAMES_IN_FLIGHT).map{_ => new Fence(device, VK_FENCE_CREATE_SIGNALED_BIT)}
 
         vkDeviceWaitIdle(device.get)
+
+    private def createIndexBuffer(): Unit = {
+        indexCount = indices.length
+        val bufferSize = indexCount * java.lang.Short.BYTES
+        val data = BufferUtils.createByteBuffer(bufferSize)
+        for (index <- indices){
+            data.putShort(index)
+        }
+        data.rewind()
+
+        val stagingBuffer = new Buffer(
+            bufferSize,
+            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            VMA_MEMORY_USAGE_CPU_ONLY,
+            context.allocator
+        )
+        Buffer.copyBuffer(data, stagingBuffer, bufferSize)
+
+        indexBuffer = new Buffer(
+            bufferSize,
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY,
+            context.allocator
+        )
+
+        val copyCmd = Buffer.copyBuffer(stagingBuffer, indexBuffer, bufferSize, commandPool)
+        copyCmd.block()
+        copyCmd.destroy()
+        stagingBuffer.close()
+    }
 
     private def createVertexBuffer(): Unit = {
         vertexCount = vertices.length
@@ -204,9 +242,17 @@ class rtrpExample:
         if framebuffer == 0L then
           logger.warn(s"Framebuffer for imageIndex=$imageIndex is null")
           return
-        val recordedOk = renderPass.recordCommandBuffer(commandBuffers(currentFrame), framebuffer, imageIndex, graphicsPipeline, vertexBuffer, vertexCount)
+        val recordedOk = renderPass.recordCommandBuffer(
+            commandBuffer = commandBuffers(currentFrame), 
+            framebuffer = framebuffer, 
+            imageIndex = imageIndex, 
+            graphicsPipeline = graphicsPipeline, 
+            vertexBuffer = vertexBuffer, 
+            vertexCount = vertexCount, 
+            indexedDraw = Some((indexBuffer, indexCount))
+        )
         if !recordedOk then return
-
+        
         // submit
         val waitSemaphores = stack.longs(imageAvailableSemaphores(currentFrame).get)
         val waitStages = stack.ints(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
@@ -254,6 +300,9 @@ class rtrpExample:
             vkDeviceWaitIdle(device.get)
 
             destroySwapchainResources()
+
+            Option(vertexBuffer).foreach(_.close())
+            Option(indexBuffer).foreach(_.close())
 
             if swapchain != null then
                 swapchainManager.destroyImageViews(swapchain)
