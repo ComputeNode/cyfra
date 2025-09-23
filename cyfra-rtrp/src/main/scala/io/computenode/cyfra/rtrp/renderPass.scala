@@ -9,6 +9,8 @@ import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import org.lwjgl.vulkan.KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
 import org.lwjgl.vulkan.*
 import io.computenode.cyfra.vulkan.memory.Buffer
+import io.computenode.cyfra.vulkan.memory.DescriptorSet
+import java.nio.ByteBuffer
 
 
 private[cyfra] class RenderPass(context: VulkanContext, swapchain: Swapchain) extends VulkanObjectHandle:
@@ -69,7 +71,9 @@ private[cyfra] class RenderPass(context: VulkanContext, swapchain: Swapchain) ex
         graphicsPipeline: GraphicsPipeline,
         vertexBuffer: Buffer,
         vertexCount: Int,
-        indexedDraw: Option[(Buffer, Int)] = None
+        indexedDraw: Option[(Buffer, Int)] = None,
+        descriptorSet: Option[DescriptorSet] = None,
+        pushConstants: Option[ByteBuffer] = None
     ): Boolean = pushStack: stack =>
         var finished = false
         try
@@ -97,6 +101,14 @@ private[cyfra] class RenderPass(context: VulkanContext, swapchain: Swapchain) ex
             vkCmdBeginRenderPass(commandBuffer, renderPassInfo, VK_SUBPASS_CONTENTS_INLINE)
             
             vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.get)
+
+            descriptorSet.foreach { ds =>
+                vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.layout, 0, stack.longs(ds.get), null)
+            }
+
+            pushConstants.foreach { pc =>
+                vkCmdPushConstants(commandBuffer, graphicsPipeline.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, pc)
+            }
             
             // val viewport = VkViewport 
             //     .calloc(1, stack)

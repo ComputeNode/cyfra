@@ -24,6 +24,9 @@ import java.nio.ByteBuffer
 import org.lwjgl.BufferUtils
 import io.computenode.cyfra.vulkan.memory.Buffer
 import org.lwjgl.util.vma.Vma.*
+import io.computenode.cyfra.vulkan.memory.DescriptorSet
+import io.computenode.cyfra.vulkan.compute.Binding
+import java.nio.IntBuffer
 
 case class Vertex(pos: Vector2f, color: Vector3f)
 
@@ -75,6 +78,10 @@ class rtrpExample:
     private var vertexCount: Int = 0
     private var indexBuffer: Buffer = _
     private var indexCount: Int = 0
+    private var dataBuffer: Buffer = _
+    private val bufferWidth = 4
+    private var descriptorSet: DescriptorSet = _
+
 
     private val vertices = Array(
         Vertex(new Vector2f(-0.5f, -0.5f), new Vector3f(1.0f, 0.0f, 0.0f)),
@@ -101,6 +108,30 @@ class rtrpExample:
     private var currentFrame: Int = 0
     private var running = true
 
+    private def createDataBuffer(): Unit = {
+        val bufferSize = bufferWidth * bufferWidth * 3 * 4 // 4x4 grid, vec3, 4 bytes per float
+        val data = BufferUtils.createByteBuffer(bufferSize)
+        val colors = Array(
+            (1.0f, 0.0f, 0.0f), (0.0f, 1.0f, 0.0f), (0.0f, 0.0f, 1.0f), (1.0f, 1.0f, 0.0f),
+            (1.0f, 0.0f, 1.0f), (0.0f, 1.0f, 1.0f), (1.0f, 0.5f, 0.0f), (0.5f, 1.0f, 0.0f),
+            (0.0f, 1.0f, 0.5f), (0.0f, 0.5f, 1.0f), (0.5f, 0.0f, 1.0f), (1.0f, 0.0f, 0.5f),
+            (0.5f, 0.5f, 0.5f), (1.0f, 1.0f, 1.0f), (0.0f, 0.0f, 0.0f), (0.5f, 0.2f, 0.8f)
+        )
+        colors.foreach { case (r, g, b) =>
+            data.putFloat(r).putFloat(g).putFloat(b)
+        }
+        data.flip()
+
+        dataBuffer = new Buffer(
+            bufferSize,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            VMA_MEMORY_USAGE_CPU_TO_GPU,
+            context.allocator
+        )
+        Buffer.copyBuffer(data, dataBuffer, bufferSize)
+    }
+
     private def recreateSwapchain(): Unit =
         vkDeviceWaitIdle(device.get)
 
@@ -110,6 +141,10 @@ class rtrpExample:
         renderPass = RenderPass(context, swapchain)
         graphicsPipeline = new GraphicsPipeline(swapchain, vertShader, fragShader, context, renderPass)
         swapchainFramebuffers = renderPass.swapchainFramebuffers
+        
+        // Re-create the descriptor set using the new pipeline's layout
+        descriptorSet = new DescriptorSet(device, graphicsPipeline.descriptorSetLayout, Seq.empty, context.descriptorPool)
+        descriptorSet.update(Seq(dataBuffer))
         
     private def init(): Unit =
         windowManager = WindowManager.create().get
@@ -133,6 +168,7 @@ class rtrpExample:
         commandPool = context.commandPool
         createVertexBuffer()
         createIndexBuffer()
+        createDataBuffer()
         presentQueue = surfaceManager.initializePresentQueue(surface).get.get
 
         swapchainManager = new SwapchainManager(context, surface)
@@ -143,6 +179,12 @@ class rtrpExample:
         graphicsPipeline = new GraphicsPipeline(swapchain, vertShader, fragShader, context, renderPass)
 
         swapchainFramebuffers = renderPass.swapchainFramebuffers
+
+        // Create the descriptor set using its constructor
+        descriptorSet = new DescriptorSet(device, graphicsPipeline.descriptorSetLayout, Seq.empty, context.descriptorPool)
+        
+        // Update the descriptor set to point to our data buffer
+        descriptorSet.update(Seq(dataBuffer))
 
         commandBuffers = commandPool.createCommandBuffers(MAX_FRAMES_IN_FLIGHT)
 
@@ -249,7 +291,9 @@ class rtrpExample:
             graphicsPipeline = graphicsPipeline, 
             vertexBuffer = vertexBuffer, 
             vertexCount = vertexCount, 
-            indexedDraw = Some((indexBuffer, indexCount))
+            indexedDraw = Some((indexBuffer, indexCount)),
+            descriptorSet = Some(descriptorSet),
+            pushConstants = Some(stack.malloc(4).putInt(0, bufferWidth))
         )
         if !recordedOk then return
         
@@ -303,6 +347,8 @@ class rtrpExample:
 
             Option(vertexBuffer).foreach(_.close())
             Option(indexBuffer).foreach(_.close())
+            Option(dataBuffer).foreach(_.close())
+            Option(descriptorSet).foreach(_.close())
 
             if swapchain != null then
                 swapchainManager.destroyImageViews(swapchain)

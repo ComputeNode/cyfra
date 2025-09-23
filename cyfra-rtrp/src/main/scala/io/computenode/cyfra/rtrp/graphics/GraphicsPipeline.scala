@@ -15,19 +15,7 @@ private[cyfra] class GraphicsPipeline (swapchain: Swapchain, vertShader: Shader,
 
     private val device: Device = context.device
 
-    val pipelineLayout: Long  = pushStack: stack =>
-        val pipelineLayoutInfo = VkPipelineLayoutCreateInfo
-            .calloc(stack)
-            .sType$Default()
-            .setLayoutCount(0) // Optional
-            .pSetLayouts(null) // Optional
-            .pPushConstantRanges(null) // Optional
-        val pPipelineLayout = stack.mallocLong(1)
-        if (vkCreatePipelineLayout(device.get, pipelineLayoutInfo, null, pPipelineLayout) != VK_SUCCESS) then
-            throw new RuntimeException("Failed to create pipeline layout")
-        pPipelineLayout.get(0)
-
-    protected val handle: Long = pushStack: stack =>
+    val (handle, layout, descriptorSetLayout) = pushStack: stack =>
         val shaderStages = VkPipelineShaderStageCreateInfo.calloc(2, stack)
 
         val vertStageInfo = shaderStages.get(0)
@@ -136,6 +124,38 @@ private[cyfra] class GraphicsPipeline (swapchain: Swapchain, vertShader: Shader,
             .pAttachments(colorBlendAttachment)
             .blendConstants(stack.floats(0.0f, 0.0f, 0.0f, 0.0f))          
         
+        val dslBinding = VkDescriptorSetLayoutBinding
+            .calloc(1, stack)
+            .binding(0)
+            .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+            .descriptorCount(1)
+            .stageFlags(VK_SHADER_STAGE_FRAGMENT_BIT)
+
+        val dslCreateInfo = VkDescriptorSetLayoutCreateInfo
+            .calloc(stack)
+            .sType$Default()
+            .pBindings(dslBinding)
+
+        val pDescriptorSetLayout = stack.callocLong(1)
+        check(vkCreateDescriptorSetLayout(device.get, dslCreateInfo, null, pDescriptorSetLayout), "failed to create descriptor set layout")
+        val descriptorSetLayout = pDescriptorSetLayout.get(0)
+
+        val pPushConstantRange = VkPushConstantRange
+            .calloc(1, stack)
+            .stageFlags(VK_SHADER_STAGE_FRAGMENT_BIT)
+            .offset(0)
+            .size(4) // size of int
+
+        val pipelineLayoutInfo = VkPipelineLayoutCreateInfo
+            .calloc(stack)
+            .sType$Default()
+            .pSetLayouts(stack.longs(descriptorSetLayout))
+            .pPushConstantRanges(pPushConstantRange)
+
+        val pPipelineLayout = stack.callocLong(1)
+        check(vkCreatePipelineLayout(device.get, pipelineLayoutInfo, null, pPipelineLayout), "Failed to create pipeline layout")
+        val pipelineLayout = pPipelineLayout.get(0)
+
         // val dynamicStates = stack.ints(
         //     VK_DYNAMIC_STATE_VIEWPORT,
         //     VK_DYNAMIC_STATE_SCISSOR
@@ -155,7 +175,6 @@ private[cyfra] class GraphicsPipeline (swapchain: Swapchain, vertShader: Shader,
         val pipelineInfo = VkGraphicsPipelineCreateInfo
             .calloc(1, stack)
             .sType$Default()
-            .stageCount(2)
             .pStages(shaderStages)            
             .pVertexInputState(vertexInputInfo)
             .pInputAssemblyState(inputAssembly)
@@ -168,17 +187,15 @@ private[cyfra] class GraphicsPipeline (swapchain: Swapchain, vertShader: Shader,
             .layout(pipelineLayout)
             .renderPass(renderPass.get)
             .subpass(0)
-            .basePipelineHandle(VK_NULL_HANDLE) // Optional
-            .basePipelineIndex(-1)  // Optional
         
         val pGraphicsPipeline = stack.callocLong(1)
-        if (vkCreateGraphicsPipelines(device.get, VK_NULL_HANDLE, pipelineInfo, null, pGraphicsPipeline) != VK_SUCCESS) then
-            throw new RuntimeException("failed to create graphics pipeline!")
-        pGraphicsPipeline.get(0)
+        check(vkCreateGraphicsPipelines(device.get, VK_NULL_HANDLE, pipelineInfo, null, pGraphicsPipeline), "Failed to create graphics pipeline")
+        (pGraphicsPipeline.get(0), pipelineLayout, descriptorSetLayout)
     
     private val graphicsPipeline = handle
 
-    override def close(): Unit = 
-        vkDestroyPipeline(device.get, graphicsPipeline, null)
-        vkDestroyPipelineLayout(device.get, pipelineLayout, null)
+    override def close(): Unit =
+        vkDestroyDescriptorSetLayout(device.get, descriptorSetLayout, null)
+        vkDestroyPipelineLayout(device.get, layout, null)
+        vkDestroyPipeline(device.get, handle, null)
         alive = false
