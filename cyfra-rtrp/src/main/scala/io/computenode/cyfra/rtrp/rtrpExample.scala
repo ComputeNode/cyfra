@@ -27,6 +27,11 @@ import org.lwjgl.util.vma.Vma.*
 import io.computenode.cyfra.vulkan.memory.DescriptorSet
 import io.computenode.cyfra.vulkan.compute.Binding
 import java.nio.IntBuffer
+import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.dsl.struct.GStruct
+import io.computenode.cyfra.dsl.struct.GStruct.Empty
+import io.computenode.cyfra.runtime.*
+import io.computenode.cyfra.runtime.mem.Vec4FloatMem
 
 case class Vertex(pos: Vector2f, color: Vector3f)
 
@@ -79,9 +84,28 @@ class rtrpExample:
     private var indexBuffer: Buffer = _
     private var indexCount: Int = 0
     private var dataBuffer: Buffer = _
-    private val bufferWidth = 4
+    private val bufferWidth = 1024
     private var descriptorSet: DescriptorSet = _
+    private var timeUniform: Float = 0.0f
+    
+    private var gContext: GContext = _
 
+    def computeShaderFunction(using ctx: GContext): GFunction[TimeUniform, Vec4[Float32], Vec4[Float32]] = 
+        GFunction: (timeUniform, index, gArray) =>
+            val ix = index.mod(bufferWidth)
+            val iy = index / bufferWidth
+            val x = ix.asFloat / bufferWidth.toFloat
+            val y = iy.asFloat / bufferWidth.toFloat
+            
+            val time = timeUniform.time
+            // "ai generated formulas"
+            val r = (sin(x * 10.0f + time) + 1.0f) * 0.5f
+            val g = (sin(y * 10.0f + time * 1.2f) + 1.0f) * 0.5f  
+            val b = (sin((x + y) * 8.0f + time * 0.8f) + 1.0f) * 0.5f
+            
+            (r, g, b, 1.0f)
+
+    case class TimeUniform(time: Float32) extends GStruct[TimeUniform]
 
     private val vertices = Array(
         Vertex(new Vector2f(-0.5f, -0.5f), new Vector3f(1.0f, 0.0f, 0.0f)),
@@ -109,27 +133,40 @@ class rtrpExample:
     private var running = true
 
     private def createDataBuffer(): Unit = {
-        val bufferSize = bufferWidth * bufferWidth * 3 * 4 // 4x4 grid, vec3, 4 bytes per float
-        val data = BufferUtils.createByteBuffer(bufferSize)
-        val colors = Array(
-            (1.0f, 0.0f, 0.0f), (0.0f, 1.0f, 0.0f), (0.0f, 0.0f, 1.0f), (1.0f, 1.0f, 0.0f),
-            (1.0f, 0.0f, 1.0f), (0.0f, 1.0f, 1.0f), (1.0f, 0.5f, 0.0f), (0.5f, 1.0f, 0.0f),
-            (0.0f, 1.0f, 0.5f), (0.0f, 0.5f, 1.0f), (0.5f, 0.0f, 1.0f), (1.0f, 0.0f, 0.5f),
-            (0.5f, 0.5f, 0.5f), (1.0f, 1.0f, 1.0f), (0.0f, 0.0f, 0.0f), (0.5f, 0.2f, 0.8f)
-        )
-        colors.foreach { case (r, g, b) =>
-            data.putFloat(r).putFloat(g).putFloat(b)
-        }
-        data.flip()
-
+        val bufferSize = bufferWidth * bufferWidth * 4 * 4 // vec4, 4 bytes per float
+        
         dataBuffer = new Buffer(
             bufferSize,
-            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-            VMA_MEMORY_USAGE_CPU_TO_GPU,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY,
             context.allocator
         )
-        Buffer.copyBuffer(data, dataBuffer, bufferSize)
+    }
+
+    private val inputData = Array.fill(bufferWidth * bufferWidth)((0f, 0f, 0f, 1f))
+    private val inputMem = Vec4FloatMem(inputData) 
+    private var stagingBuffer: Buffer = _  
+    
+    private def updateDataBufferWithCompute(): Unit = {
+        UniformContext.withUniform(TimeUniform(timeUniform)):
+            given GContext = gContext
+            val result = inputMem.map(computeShaderFunction).asInstanceOf[Vec4FloatMem]
+            val resultBuffer = result.toReadOnlyBuffer
+            
+            stagingBuffer = new Buffer(
+                resultBuffer.remaining(),
+                VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                VMA_MEMORY_USAGE_CPU_TO_GPU,
+                context.allocator
+            )
+            
+            Buffer.copyBuffer(resultBuffer, stagingBuffer, resultBuffer.remaining())
+            val copyCmd = Buffer.copyBuffer(stagingBuffer, dataBuffer, resultBuffer.remaining(), commandPool)
+            copyCmd.block()
+            copyCmd.destroy()
+            stagingBuffer.close()
     }
 
     private def recreateSwapchain(): Unit =
@@ -141,14 +178,13 @@ class rtrpExample:
         renderPass = RenderPass(context, swapchain)
         graphicsPipeline = new GraphicsPipeline(swapchain, vertShader, fragShader, context, renderPass)
         swapchainFramebuffers = renderPass.swapchainFramebuffers
-        
-        // Re-create the descriptor set using the new pipeline's layout
         descriptorSet = new DescriptorSet(device, graphicsPipeline.descriptorSetLayout, Seq.empty, context.descriptorPool)
         descriptorSet.update(Seq(dataBuffer))
         
     private def init(): Unit =
         windowManager = WindowManager.create().get
         context = VulkanContext.withSurfaceSupport()
+        gContext = new GContext(context, new io.computenode.cyfra.spirvtools.SpirvToolsRunner()) 
         device = context.device
         queue = context.queue.get
         windowManager.initializeWithVulkan(context).get
@@ -168,7 +204,8 @@ class rtrpExample:
         commandPool = context.commandPool
         createVertexBuffer()
         createIndexBuffer()
-        createDataBuffer()
+        createDataBuffer() // create empty buffer
+        
         presentQueue = surfaceManager.initializePresentQueue(surface).get.get
 
         swapchainManager = new SwapchainManager(context, surface)
@@ -180,10 +217,8 @@ class rtrpExample:
 
         swapchainFramebuffers = renderPass.swapchainFramebuffers
 
-        // Create the descriptor set using its constructor
         descriptorSet = new DescriptorSet(device, graphicsPipeline.descriptorSetLayout, Seq.empty, context.descriptorPool)
         
-        // Update the descriptor set to point to our data buffer
         descriptorSet.update(Seq(dataBuffer))
 
         commandBuffers = commandPool.createCommandBuffers(MAX_FRAMES_IN_FLIGHT)
@@ -265,6 +300,9 @@ class rtrpExample:
 
     def drawFrame(): Unit = pushStack: stack =>
 
+        timeUniform += 0.016f // ~60fps
+        updateDataBufferWithCompute()
+        
         Option(inFlightFences(currentFrame)).foreach(_.block())
 
         val pImageIndex = stack.callocInt(1)
@@ -293,7 +331,12 @@ class rtrpExample:
             vertexCount = vertexCount, 
             indexedDraw = Some((indexBuffer, indexCount)),
             descriptorSet = Some(descriptorSet),
-            pushConstants = Some(stack.malloc(4).putInt(0, bufferWidth))
+            pushConstants = Some({
+                val pc = stack.malloc(8) // 8 bytes for two ints
+                pc.putInt(0, bufferWidth)
+                pc.putInt(4, 0) // useAlpha = 0 (ignore alpha for now)
+                pc
+            })
         )
         if !recordedOk then return
         

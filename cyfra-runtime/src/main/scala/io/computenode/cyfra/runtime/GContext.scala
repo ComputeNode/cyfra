@@ -20,10 +20,11 @@ import org.lwjgl.system.Configuration
 import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 
-class GContext(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()):
+class GContext(val vkContext: VulkanContext, spirvToolsRunner: SpirvToolsRunner):
   Configuration.STACK_SIZE.set(1024) // fix lwjgl stack size
 
-  val vkContext = new VulkanContext()
+  def this(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()) =
+    this(new VulkanContext(), spirvToolsRunner)
 
   implicit val ec: ExecutionContextExecutor = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(16))
 

@@ -144,7 +144,7 @@ private[cyfra] class GraphicsPipeline (swapchain: Swapchain, vertShader: Shader,
             .calloc(1, stack)
             .stageFlags(VK_SHADER_STAGE_FRAGMENT_BIT)
             .offset(0)
-            .size(4) // size of int
+            .size(8) // size of 2 ints (width + useAlpha)
 
         val pipelineLayoutInfo = VkPipelineLayoutCreateInfo
             .calloc(stack)

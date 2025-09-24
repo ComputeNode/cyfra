@@ -99,7 +99,7 @@ lazy val e2eTest = (project in file("cyfra-e2e-test"))
 
 lazy val rtrp = (project in file("cyfra-rtrp"))
   .settings(commonSettings)
-  .dependsOn(utility, vulkan)
+  .dependsOn(utility, vulkan, runtime, dsl)
   .settings(
     libraryDependencies ++= Seq(
       "org.lwjgl" % "lwjgl-glfw" % lwjglVersion,
