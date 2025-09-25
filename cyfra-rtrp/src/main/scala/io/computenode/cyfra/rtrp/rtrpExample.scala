@@ -151,23 +151,8 @@ class rtrpExample:
     private def updateDataBufferWithCompute(): Unit = {
         UniformContext.withUniform(TimeUniform(timeUniform)):
             given GContext = gContext
-            val result = inputMem.map(computeShaderFunction).asInstanceOf[Vec4FloatMem]
-            val resultBuffer = result.toReadOnlyBuffer
-            
-            stagingBuffer = new Buffer(
-                resultBuffer.remaining(),
-                VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                VMA_MEMORY_USAGE_CPU_TO_GPU,
-                context.allocator
-            )
-            
-            Buffer.copyBuffer(resultBuffer, stagingBuffer, resultBuffer.remaining())
-            val copyCmd = Buffer.copyBuffer(stagingBuffer, dataBuffer, resultBuffer.remaining(), commandPool)
-            copyCmd.block()
-            copyCmd.destroy()
-            stagingBuffer.close()
-    }
+            gContext.executeToBuffer(inputMem, computeShaderFunction, dataBuffer)   
+        }
 
     private def recreateSwapchain(): Unit =
         vkDeviceWaitIdle(device.get)
@@ -301,8 +286,12 @@ class rtrpExample:
     def drawFrame(): Unit = pushStack: stack =>
 
         timeUniform += 0.016f // ~60fps
-        updateDataBufferWithCompute()
         
+        val startTime = System.nanoTime()
+        updateDataBufferWithCompute()
+        val endTime = System.nanoTime()
+        println(s"Compute time: ${(endTime - startTime) / 1_000_000.0} ms")
+
         Option(inFlightFences(currentFrame)).foreach(_.block())
 
         val pImageIndex = stack.callocInt(1)
