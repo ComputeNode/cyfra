@@ -11,13 +11,8 @@ import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
 import java.util.Objects
 
+private[cyfra] class Shader(shaderCode: ByteBuffer, val functionName: String, device: Device) extends VulkanObjectHandle:
 
-private[cyfra] class Shader(
-    shaderCode: ByteBuffer,
-    val functionName: String,
-    device: Device
-) extends VulkanObjectHandle:
-  
   protected val handle: Long = pushStack: stack =>
     val moduleCreateInfo = VkShaderModuleCreateInfo
       .calloc(stack)
@@ -27,12 +22,11 @@ private[cyfra] class Shader(
       .pCode(shaderCode)
 
     val pShaderModule = stack.mallocLong(1)
-    if (vkCreateShaderModule(device.get, moduleCreateInfo, null, pShaderModule) != VK_SUCCESS)
+    if vkCreateShaderModule(device.get, moduleCreateInfo, null, pShaderModule) != VK_SUCCESS then
       throw new RuntimeException("Failed to create shader module")
     pShaderModule.get(0)
 
-  
-  override def close(): Unit = 
+  override def close(): Unit =
     vkDestroyShaderModule(device.get, handle, null)
 
 object Shader:

@@ -21,11 +21,8 @@ class SurfaceManager(vulkanContext: VulkanContext):
     val device = vulkanContext.device
     val presentQueueFamily = device.findPresentQueueFamily(surface.nativeHandle)
 
-    if (presentQueueFamily == device.queueFamily) {
-      vulkanContext.queue
-    } else {
-      new Queue(presentQueueFamily, 0, device)
-    }
+    if presentQueueFamily == device.queueFamily then vulkanContext.queue
+    else new Queue(presentQueueFamily, 0, device)
   }
 
   // Create a surface for a window.

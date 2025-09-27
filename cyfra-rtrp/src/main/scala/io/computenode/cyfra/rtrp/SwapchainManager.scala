@@ -39,7 +39,7 @@ private[cyfra] class SwapchainManager(context: VulkanContext, surface: Surface):
 
   def cleanup(): Unit =
     if swapchainImageViews != null then
-      swapchainImageViews.foreach { iv => if iv != VK_NULL_HANDLE then vkDestroyImageView(device.get, iv, null) }
+      swapchainImageViews.foreach(iv => if iv != VK_NULL_HANDLE then vkDestroyImageView(device.get, iv, null))
       swapchainImageViews = null
 
     if swapchainHandle != VK_NULL_HANDLE then
@@ -68,9 +68,9 @@ private[cyfra] class SwapchainManager(context: VulkanContext, surface: Surface):
     val preferredFormat = surfaceConfig.preferredFormat
     val preferredColorSpace = surfaceConfig.preferredColorSpace
 
-    val chosenSurfaceFormat = availableSurfaceFormats.find(f =>
-      f.format() == preferredFormat && f.colorSpace() == preferredColorSpace
-    ).orElse(availableSurfaceFormats.headOption)
+    val chosenSurfaceFormat = availableSurfaceFormats
+      .find(f => f.format() == preferredFormat && f.colorSpace() == preferredColorSpace)
+      .orElse(availableSurfaceFormats.headOption)
       .getOrElse(throw new RuntimeException("No supported surface formats available"))
 
     val chosenFormat = chosenSurfaceFormat.format()
@@ -85,8 +85,7 @@ private[cyfra] class SwapchainManager(context: VulkanContext, surface: Surface):
       if width > 0 && height > 0 then (width, height)
       else
         val (desiredWidth, desiredHeight) = (800, 600)
-        if surfaceCapabilities.isExtentSupported(desiredWidth, desiredHeight) then
-           (desiredWidth, desiredHeight)
+        if surfaceCapabilities.isExtentSupported(desiredWidth, desiredHeight) then (desiredWidth, desiredHeight)
         else surfaceCapabilities.clampExtent(desiredWidth, desiredHeight)
 
     // Determine image count
@@ -147,18 +146,18 @@ private[cyfra] class SwapchainManager(context: VulkanContext, surface: Surface):
       format = swapchainImageFormat,
       colorSpace = swapchainColorSpace,
       width = swapchainWidth,
-      height = swapchainHeight
-      )
+      height = swapchainHeight,
+    )
 
   private def createImageViews(): Unit = pushStack: Stack =>
     if swapchainImages == null || swapchainImages.isEmpty then
       throw new VulkanAssertionError("Cannot create image views: swap chain images not initialized", -1)
-    
+
     if swapchainImageViews != null then
       swapchainImageViews.foreach(imageView => if imageView != VK_NULL_HANDLE then vkDestroyImageView(device.get, imageView, null))
-    
+
     swapchainImageViews = new Array[Long](swapchainImages.length)
-    
+
     try
       for i <- swapchainImages.indices do
         val createInfo = VkImageViewCreateInfo
@@ -188,23 +187,21 @@ private[cyfra] class SwapchainManager(context: VulkanContext, surface: Surface):
         swapchainImageViews(i) = pImageView.get(0)
     catch
       case ex: Throwable =>
-        if swapchainImageViews != null then 
-          swapchainImageViews.foreach {iv =>
-          if iv != 0L && iv != VK_NULL_HANDLE then
-            try vkDestroyImageView(device.get, iv, null) catch case _: Throwable => ()
-          }
+        if swapchainImageViews != null then
+          swapchainImageViews.foreach: iv =>
+            if iv != 0L && iv != VK_NULL_HANDLE then
+              try vkDestroyImageView(device.get, iv, null)
+              catch case _: Throwable => ()
           swapchainImageViews = null
         throw ex
 
-  def destroyImageViews(swapchain: Swapchain): Unit = 
+  def destroyImageViews(swapchain: Swapchain): Unit =
     if swapchain.imageViews != null then
-      swapchain.imageViews.foreach{ iv =>
+      swapchain.imageViews.foreach: iv =>
         if iv != VK_NULL_HANDLE then vkDestroyImageView(device.get, iv, null)
-      }
-  
-  def destroySwapchain(swapchain: Swapchain): Unit = 
-    if swapchain.handle != VK_NULL_HANDLE then
-      vkDestroySwapchainKHR(device.get, swapchain.handle, null)
+
+  def destroySwapchain(swapchain: Swapchain): Unit =
+    if swapchain.handle != VK_NULL_HANDLE then vkDestroySwapchainKHR(device.get, swapchain.handle, null)
 
 object SwapchainManager:
   def createFramebuffers(swapchain: Swapchain, renderPass: Long): Array[Long] = pushStack: Stack =>

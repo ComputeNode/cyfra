@@ -64,8 +64,7 @@ private[cyfra] class Device(instance: Instance) extends VulkanObject:
 
     val pSupported = stack.callocInt(1)
     vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, queueFamily, surface, pSupported)
-    if pSupported.get(0) == VK_TRUE then
-      return queueFamily
+    if pSupported.get(0) == VK_TRUE then return queueFamily
 
     val queues = 0 until queueFamilyCount
     queues

@@ -14,7 +14,7 @@ private[cyfra] class Swapchain(
   val format: Int,
   val colorSpace: Int,
   val width: Int,
-  val height: Int
+  val height: Int,
 ) extends VulkanObjectHandle:
 
   override def close(): Unit =
