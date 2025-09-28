@@ -12,6 +12,7 @@ import io.computenode.cyfra.spirv.compilers.ExpressionCompiler.{UniformStructRef
 import io.computenode.cyfra.spirvtools.SpirvToolsRunner
 import io.computenode.cyfra.vulkan.VulkanContext
 import io.computenode.cyfra.vulkan.compute.*
+import io.computenode.cyfra.vulkan.memory.*
 import io.computenode.cyfra.vulkan.executor.SequenceExecutor.*
 import io.computenode.cyfra.vulkan.executor.{BufferAction, SequenceExecutor}
 import izumi.reflect.Tag
@@ -20,10 +21,11 @@ import org.lwjgl.system.Configuration
 import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 
-class GContext(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()):
+class GContext(val vkContext: VulkanContext, spirvToolsRunner: SpirvToolsRunner):
   Configuration.STACK_SIZE.set(1024) // fix lwjgl stack size
 
-  val vkContext = new VulkanContext()
+  def this(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()) =
+    this(new VulkanContext(), spirvToolsRunner)
 
   implicit val ec: ExecutionContextExecutor = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(16))
 
@@ -75,3 +77,22 @@ class GContext(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()):
       case t if t == Tag[Vec4[Float32]] =>
         new Vec4FloatMem(mem.size, out.head).asInstanceOf[GMem[R]]
       case _ => assert(false, "Supported output types are Float32 and Vec4[Float32]")
+
+  def executeToBuffer[G <: GStruct[G]: Tag: GStructSchema, H <: Value, R <: Value](mem: GMem[H], fn: GFunction[G, H, R], outputBuffer: Buffer)(using
+    uniformContext: UniformContext[G],
+  ): Unit =
+    val isUniformEmpty = uniformContext.uniform.schema.fields.isEmpty
+    val actions = Map(LayoutLocation(0, 0) -> BufferAction.LoadTo, LayoutLocation(0, 1) -> BufferAction.LoadFrom) ++
+      (
+        if isUniformEmpty then Map.empty
+        else Map(LayoutLocation(0, 2) -> BufferAction.LoadTo)
+      )
+
+    val sequence = ComputationSequence(Seq(Compute(fn.pipeline, actions)), Seq.empty)
+    val executor = new SequenceExecutor(sequence, vkContext)
+
+    val data = mem.toReadOnlyBuffer
+    val inData = if isUniformEmpty then Seq(data) else Seq(data, GMem.serializeUniform(uniformContext.uniform))
+
+    executor.executeToGPUBuffer(inData, mem.size, outputBuffer)
+    executor.destroy()

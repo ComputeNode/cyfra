@@ -22,7 +22,7 @@ import java.nio.ByteBuffer
   */
 private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, context: VulkanContext):
   private val device: Device = context.device
-  private val queue: Queue = context.computeQueue
+  private val queue: Queue = context.queue
   private val allocator: Allocator = context.allocator
   private val descriptorPool: DescriptorPool = context.descriptorPool
   private val commandPool: CommandPool = context.commandPool
@@ -196,6 +196,56 @@ private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, cont
       setToBuffers.flatMap(_._2).foreach(_.destroy())
 
       output
+
+  def executeToGPUBuffer(inputs: Seq[ByteBuffer], dataLength: Int, outputBuffer: Buffer): Unit = pushStack: stack =>
+    timed("Vulkan execute to GPU buffer"):
+      val setToBuffers = createBuffers(dataLength)
+
+      def buffersWithAction(bufferAction: BufferAction): Seq[Buffer] =
+        computeSequence.sequence.collect { case x: Compute =>
+          pipelineToDescriptorSets(x.pipeline)
+            .map(setToBuffers)
+            .zip(x.pumpLayoutLocations)
+            .flatMap(x => x._1.zip(x._2))
+            .collect:
+              case (buffer, action) if (action.action & bufferAction.action) != 0 => buffer
+        }.flatten
+
+      val stagingBuffer =
+        new Buffer(
+          inputs.map(_.remaining()).max,
+          VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+          VMA_MEMORY_USAGE_UNKNOWN,
+          allocator,
+        )
+
+      buffersWithAction(BufferAction.LoadTo).zipWithIndex.foreach { case (buffer, i) =>
+        Buffer.copyBuffer(inputs(i), stagingBuffer, buffer.size)
+        Buffer.copyBuffer(stagingBuffer, buffer, buffer.size, commandPool).block().destroy()
+      }
+
+      val fence = new Fence(device)
+      val commandBuffer = recordCommandBuffer(dataLength)
+      val pCommandBuffer = stack.callocPointer(1).put(0, commandBuffer)
+      val submitInfo = VkSubmitInfo
+        .calloc(stack)
+        .sType$Default()
+        .pCommandBuffers(pCommandBuffer)
+
+      timed("Vulkan render command"):
+        check(vkQueueSubmit(queue.get, submitInfo, fence.get), "Failed to submit command buffer to queue")
+        fence.block().destroy()
+
+      // copy GPU compute output directly to provided outputBuffer
+      buffersWithAction(BufferAction.LoadFrom).foreach { computeOutputBuffer =>
+        Buffer.copyBuffer(computeOutputBuffer, outputBuffer, computeOutputBuffer.size, commandPool).block().destroy()
+      }
+
+      stagingBuffer.destroy()
+      commandPool.freeCommandBuffer(commandBuffer)
+      setToBuffers.keys.foreach(_.update(Seq.empty))
+      setToBuffers.flatMap(_._2).foreach(_.destroy())
 
   def destroy(): Unit =
     descriptorSets.foreach(_.destroy())

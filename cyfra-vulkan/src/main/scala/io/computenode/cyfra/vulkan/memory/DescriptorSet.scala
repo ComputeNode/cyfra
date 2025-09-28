@@ -47,5 +47,5 @@ private[cyfra] class DescriptorSet(device: Device, descriptorSetLayout: Long, va
     }
     vkUpdateDescriptorSets(device.get, writeDescriptorSet, null)
 
-  override protected def close(): Unit =
+  override def close(): Unit =
     vkFreeDescriptorSets(device.get, descriptorPool.get, handle)

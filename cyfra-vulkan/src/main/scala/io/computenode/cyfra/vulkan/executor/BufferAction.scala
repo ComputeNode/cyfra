@@ -7,6 +7,7 @@ enum BufferAction(val action: Int):
   case LoadTo extends BufferAction(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
   case LoadFrom extends BufferAction(VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
   case LoadFromTo extends BufferAction(VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+  case OutputToBuffer extends BufferAction(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
 
   private def findAction(action: Int): BufferAction = action match
     case VK_BUFFER_USAGE_TRANSFER_DST_BIT => LoadTo

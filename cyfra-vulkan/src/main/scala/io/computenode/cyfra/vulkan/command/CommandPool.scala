@@ -63,6 +63,12 @@ private[cyfra] abstract class CommandPool(device: Device, queue: Queue) extends 
       queue.submit(submitInfo, fence)
       fence
 
+  def resetCommandBuffer(commandBuffer: VkCommandBuffer*): Unit =
+    pushStack: stack =>
+      commandBuffer.foreach { buf =>
+        vkResetCommandBuffer(buf, 0)
+      }
+
   def freeCommandBuffer(commandBuffer: VkCommandBuffer*): Unit =
     pushStack: stack =>
       val pointerBuffer = stack.callocPointer(commandBuffer.length)
@@ -70,7 +76,7 @@ private[cyfra] abstract class CommandPool(device: Device, queue: Queue) extends 
       pointerBuffer.flip()
       vkFreeCommandBuffers(device.get, commandPool, pointerBuffer)
 
-  protected def close(): Unit =
+  def close(): Unit =
     vkDestroyCommandPool(device.get, commandPool, null)
 
   protected def getFlags: Int
