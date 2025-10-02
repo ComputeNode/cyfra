@@ -4,7 +4,7 @@ import io.computenode.cyfra.core.GProgram.InitProgramLayout
 import io.computenode.cyfra.core.SpirvProgram.*
 import io.computenode.cyfra.core.binding.{BufferRef, UniformRef}
 import io.computenode.cyfra.core.{GExecution, GProgram}
-import io.computenode.cyfra.core.layout.{Layout, LayoutBinding, LayoutStruct}
+import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.dsl.Value
 import io.computenode.cyfra.dsl.Value.FromExpr
 import io.computenode.cyfra.dsl.binding.{GBinding, GBuffer, GUniform}
@@ -40,9 +40,7 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
   private val dsManager: DescriptorSetManager = threadContext.descriptorSetManager
   private val commandPool: CommandPool = threadContext.commandPool
 
-  def handle[Params, EL <: Layout: LayoutBinding, RL <: Layout: LayoutBinding](execution: GExecution[Params, EL, RL], params: Params, layout: EL)(
-    using VkAllocation,
-  ): RL =
+  def handle[Params, EL: Layout, RL: Layout](execution: GExecution[Params, EL, RL], params: Params, layout: EL)(using VkAllocation): RL =
     val (result, shaderCalls) = interpret(execution, params, layout)
 
     val descriptorSets = shaderCalls.map:
@@ -79,15 +77,13 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
     externalBindings.foreach(_.execution = Left(pe)) // TODO we assume all accesses are read-write
     result
 
-  private def interpret[Params, EL <: Layout: LayoutBinding, RL <: Layout: LayoutBinding](
-    execution: GExecution[Params, EL, RL],
-    params: Params,
-    layout: EL,
-  )(using VkAllocation): (RL, Seq[ShaderCall]) =
+  private def interpret[Params, EL: Layout, RL: Layout](execution: GExecution[Params, EL, RL], params: Params, layout: EL)(using
+    VkAllocation,
+  ): (RL, Seq[ShaderCall]) =
     val bindingsAcc: mutable.Map[GBinding[?], mutable.Buffer[GBinding[?]]] = mutable.Map.empty
 
-    def mockBindings[L <: Layout: LayoutBinding](layout: L): L =
-      val mapper = summon[LayoutBinding[L]]
+    def mockBindings[L: Layout](layout: L): L =
+      val mapper = summon[Layout[L]]
       val res = mapper
         .toBindings(layout)
         .map:
@@ -99,30 +95,25 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
       mapper.fromBindings(res)
 
     // noinspection TypeParameterShadow
-    def interpretImpl[Params, EL <: Layout: LayoutBinding, RL <: Layout: LayoutBinding](
-      execution: GExecution[Params, EL, RL],
-      params: Params,
-      layout: EL,
-    ): (RL, Seq[ShaderCall]) =
+    def interpretImpl[Params, EL: Layout, RL: Layout](execution: GExecution[Params, EL, RL], params: Params, layout: EL): (RL, Seq[ShaderCall]) =
       execution match
         case GExecution.Pure()                           => (layout, Seq.empty)
         case GExecution.Map(innerExec, map, cmap, cmapP) =>
-          val pel = innerExec.layoutBinding
-          val prl = innerExec.resLayoutBinding
+          val pel = innerExec.execLayout
+          val prl = innerExec.resLayout
           val cParams = cmapP(params)
           val cLayout = mockBindings(cmap(layout))(using pel)
           val (prevRl, calls) = interpretImpl(innerExec, cParams, cLayout)(using pel, prl)
           val nextRl = mockBindings(map(prevRl))
           (nextRl, calls)
         case GExecution.FlatMap(execution, f) =>
-          val el = execution.layoutBinding
-          val (rl, calls) = interpretImpl(execution, params, layout)(using el, execution.resLayoutBinding)
+          val el = execution.execLayout
+          val (rl, calls) = interpretImpl(execution, params, layout)(using el, execution.resLayout)
           val nextExecution = f(params, rl)
-          val (rl2, calls2) = interpretImpl(nextExecution, params, layout)(using el, nextExecution.resLayoutBinding)
+          val (rl2, calls2) = interpretImpl(nextExecution, params, layout)(using el, nextExecution.resLayout)
           (rl2, calls ++ calls2)
         case program: GProgram[Params, EL] =>
-          given lb: LayoutBinding[EL] = program.layoutBinding
-          given LayoutStruct[EL] = program.layoutStruct
+          given lb: Layout[EL] = program.execLayout
           val shader =
             runtime.getOrLoadProgram(program)
           val layoutInit =
@@ -153,7 +144,7 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
           case Indirect(buffer, offset) => Indirect(bingingToVk(buffer), offset)
         ShaderCall(pipeline, nextLayout, nextDispatch)
 
-    val mapper = summon[LayoutBinding[RL]]
+    val mapper = summon[Layout[RL]]
     val res = mapper.fromBindings(mapper.toBindings(rl).map(bingingToVk.apply))
     (res, nextSteps)
 

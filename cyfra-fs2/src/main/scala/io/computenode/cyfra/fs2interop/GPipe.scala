@@ -4,8 +4,6 @@ import io.computenode.cyfra.core.{Allocation, layout, GCodec}
 import layout.Layout
 import io.computenode.cyfra.core.{CyfraRuntime, GBufferRegion, GExecution, GProgram}
 import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.core.layout.LayoutBinding
-import io.computenode.cyfra.core.layout.LayoutStruct
 import gio.GIO
 import binding.{GBinding, GBuffer, GUniform}
 import io.computenode.cyfra.spirv.SpirvTypes.typeStride

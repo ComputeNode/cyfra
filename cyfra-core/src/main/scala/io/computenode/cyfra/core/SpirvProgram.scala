@@ -1,6 +1,6 @@
 package io.computenode.cyfra.core
 
-import io.computenode.cyfra.core.layout.{Layout, LayoutBinding, LayoutStruct}
+import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.core.GProgram.{InitProgramLayout, ProgramDispatch, WorkDimensions}
 import io.computenode.cyfra.core.SpirvProgram.Operation.ReadWrite
 import io.computenode.cyfra.core.SpirvProgram.{Binding, ShaderLayout}
@@ -21,7 +21,7 @@ import scala.util.Try
 import scala.util.Using
 import scala.util.chaining.*
 
-case class SpirvProgram[Params, L <: Layout: {LayoutBinding, LayoutStruct}] private (
+case class SpirvProgram[Params, L: Layout] private (
   layout: InitProgramLayout => Params => L,
   dispatch: (L, Params) => ProgramDispatch,
   workgroupSize: WorkDimensions,
@@ -42,7 +42,7 @@ case class SpirvProgram[Params, L <: Layout: {LayoutBinding, LayoutStruct}] priv
         .flatMap(BigInt(_).toByteArray)
         .toArray,
     )
-    val layout = shaderBindings(summon[LayoutStruct[L]].layoutRef)
+    val layout = shaderBindings(summon[Layout[L]].layoutRef)
     layout.flatten.foreach: binding =>
       md.update(binding.binding.tag.toString.getBytes)
       md.update(binding.operation.toString.getBytes)
@@ -58,7 +58,7 @@ object SpirvProgram:
     case Write
     case ReadWrite
 
-  def apply[Params, L <: Layout: {LayoutBinding, LayoutStruct}](
+  def apply[Params, L: Layout](
     layout: InitProgramLayout ?=> Params => L,
     dispatch: (L, Params) => ProgramDispatch,
     code: ByteBuffer,

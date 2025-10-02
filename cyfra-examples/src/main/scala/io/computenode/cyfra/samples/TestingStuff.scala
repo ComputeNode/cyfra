@@ -29,7 +29,7 @@ object TestingStuff:
     in: GBuffer[Int32],
     out: GBuffer[Int32],
     args: GUniform[EmitProgramUniform] = GUniform.fromParams, // todo will be different in the future
-  ) extends Layout
+  )
 
   val emitProgram = GProgram[EmitProgramParams, EmitProgramLayout](
     layout = params =>
@@ -53,7 +53,7 @@ object TestingStuff:
 
   case class FilterProgramUniform(filterValue: Int32) extends GStruct[FilterProgramUniform]
 
-  case class FilterProgramLayout(in: GBuffer[Int32], out: GBuffer[Int32], params: GUniform[FilterProgramUniform] = GUniform.fromParams) extends Layout
+  case class FilterProgramLayout(in: GBuffer[Int32], out: GBuffer[Int32], params: GUniform[FilterProgramUniform] = GUniform.fromParams)
 
   val filterProgram = GProgram[FilterProgramParams, FilterProgramLayout](
     layout = params =>
@@ -74,9 +74,9 @@ object TestingStuff:
 
   case class EmitFilterParams(inSize: Int, emitN: Int, filterValue: Int)
 
-  case class EmitFilterLayout(inBuffer: GBuffer[Int32], emitBuffer: GBuffer[Int32], filterBuffer: GBuffer[Int32]) extends Layout
+  case class EmitFilterLayout(inBuffer: GBuffer[Int32], emitBuffer: GBuffer[Int32], filterBuffer: GBuffer[Int32])
 
-  case class EmitFilterResult(out: GBuffer[Int32]) extends Layout
+  case class EmitFilterResult(out: GBuffer[Int32])
 
   val emitFilterExecution = GExecution[EmitFilterParams, EmitFilterLayout]()
     .addProgram(emitProgram)(
@@ -119,6 +119,8 @@ object TestingStuff:
       .zipWithIndex
       .foreach:
         case ((e, a), i) => assert(e == a, s"Mismatch at index $i: expected $e, got $a")
+  
+  val s = summon[Layout[(GBuffer[Int32], GBuffer[Int32], GUniform[EmitProgramUniform])]]
 
   @main
   def test =
