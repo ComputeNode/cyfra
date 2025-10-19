@@ -219,5 +219,4 @@ object GPipe:
           )
           val filteredN = filteredCount.getInt(0)
           val arr = bridge.fromByteBuffer(compactBuf, new Array[S](filteredN))
-          println(arr)
           Stream.emits(arr)

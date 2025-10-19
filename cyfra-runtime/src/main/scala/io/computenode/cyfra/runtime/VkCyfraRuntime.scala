@@ -22,11 +22,12 @@ class VkCyfraRuntime(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()) ex
 
     val spirvProgram: SpirvProgram[Params, L] = program match
       case p: GioProgram[Params, L] if gProgramCache.contains(p) =>
-        gProgramCache(p).asInstanceOf
+        gProgramCache(p).asInstanceOf[SpirvProgram[Params, L]]
       case p: GioProgram[Params, L]   => compile(p)
       case p: SpirvProgram[Params, L] => p
       case _                          => throw new IllegalArgumentException(s"Unsupported program type: ${program.getClass.getName}")
 
+    gProgramCache.update(program, spirvProgram)
     shaderCache.getOrElseUpdate(spirvProgram.shaderHash, VkShader(spirvProgram)).asInstanceOf[VkShader[L]]
 
   private def compile[Params, L <: Layout: {LayoutBinding as lbinding, LayoutStruct as lstruct}](
