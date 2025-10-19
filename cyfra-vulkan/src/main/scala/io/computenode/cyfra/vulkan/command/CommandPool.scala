@@ -57,6 +57,8 @@ private[cyfra] abstract class CommandPool private (flags: Int, val queue: Queue)
       val pointerBuffer = stack.callocPointer(commandBuffer.length)
       commandBuffer.foreach(pointerBuffer.put)
       pointerBuffer.flip()
+      // TODO remove vkQueueWaitIdle, but currently crashes without it - Likely the printf debug buffer is still in use?
+      vkQueueWaitIdle(queue.get)
       vkFreeCommandBuffers(device.get, commandPool, pointerBuffer)
 
   protected def close(): Unit =

@@ -8,6 +8,7 @@ import io.computenode.cyfra.core.layout.{Layout, LayoutBinding, LayoutStruct}
 import io.computenode.cyfra.dsl.Value
 import io.computenode.cyfra.dsl.Value.FromExpr
 import io.computenode.cyfra.dsl.binding.{GBinding, GBuffer, GUniform}
+import io.computenode.cyfra.dsl.struct.{GStruct, GStructSchema}
 import io.computenode.cyfra.runtime.ExecutionHandler.{
   BindingLogicError,
   Dispatch,
@@ -95,7 +96,6 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
             val e = ExecutionBinding(x)(using x.fromExpr, x.tag)
             bindingsAcc.put(e, mutable.Buffer(x))
             e
-
       mapper.fromBindings(res)
 
     // noinspection TypeParameterShadow
@@ -187,7 +187,7 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
           case _: GUniform.ParamUniform[?]   => false
           case x                             => throw BindingLogicError(x, "Unsupported binding type")
         if allocations.size > 1 then throw BindingLogicError(allocations, "Multiple allocations for uniform")
-        allocations.headOption.getOrElse(throw new IllegalStateException("Uniform never allocated"))
+        allocations.headOption.getOrElse(throw new BindingLogicError(Seq(), "Uniform never allocated"))
       case x => throw new IllegalArgumentException(s"Binding of type ${x.getClass.getName} should not be here")
 
   private def recordCommandBuffer(steps: Seq[ExecutionStep]): VkCommandBuffer = pushStack: stack =>
@@ -250,12 +250,15 @@ object ExecutionHandler:
 
   sealed trait ExecutionBinding[T <: Value: {FromExpr, Tag}]
   object ExecutionBinding:
-    class UniformBinding[T <: Value: {FromExpr, Tag}] extends ExecutionBinding[T] with GUniform[T]
+    class UniformBinding[T <: GStruct[?]: {FromExpr, Tag, GStructSchema}] extends ExecutionBinding[T] with GUniform[T]
     class BufferBinding[T <: Value: {FromExpr, Tag}] extends ExecutionBinding[T] with GBuffer[T]
 
-    def apply[T <: Value: {FromExpr, Tag}](binding: GBinding[T]): ExecutionBinding[T] & GBinding[T] = binding match
-      case _: GUniform[T] => new UniformBinding()
-      case _: GBuffer[T]  => new BufferBinding()
+    def apply[T <: Value: {FromExpr as fe, Tag as t}](binding: GBinding[T]): ExecutionBinding[T] & GBinding[T] = binding match
+      // todo types are a mess here
+      case u: GUniform[GStruct[?]] =>
+        new UniformBinding[GStruct[?]](using fe.asInstanceOf[FromExpr[GStruct[?]]], t.asInstanceOf[Tag[GStruct[?]]], u.schema.asInstanceOf)
+          .asInstanceOf[UniformBinding[T]]
+      case _: GBuffer[T] => new BufferBinding()
 
   case class BindingLogicError(bindings: Seq[GBinding[?]], message: String) extends RuntimeException(s"Error in binding logic for $bindings: $message")
   object BindingLogicError:

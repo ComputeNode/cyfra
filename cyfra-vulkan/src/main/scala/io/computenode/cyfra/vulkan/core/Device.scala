@@ -1,6 +1,5 @@
 package io.computenode.cyfra.vulkan.core
 
-import io.computenode.cyfra.vulkan.VulkanContext.ValidationLayer
 import Device.MacOsExtension
 import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import io.computenode.cyfra.vulkan.util.{VulkanObject, VulkanObjectHandle}

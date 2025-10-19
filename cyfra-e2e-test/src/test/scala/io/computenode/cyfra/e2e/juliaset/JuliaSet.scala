@@ -2,12 +2,14 @@ package io.computenode.cyfra.e2e.juliaset
 
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.*
+import io.computenode.cyfra.core.GCodec.{*, given}
+import io.computenode.cyfra.core.CyfraRuntime
 import io.computenode.cyfra.dsl.collections.GSeq
 import io.computenode.cyfra.dsl.control.Pure.pure
 import io.computenode.cyfra.dsl.struct.GStruct.Empty
 import io.computenode.cyfra.e2e.ImageTests
-import io.computenode.cyfra.core.archive.mem.Vec4FloatMem
-import io.computenode.cyfra.core.archive.{GContext, GFunction}
+import io.computenode.cyfra.core.archive.GFunction
+import io.computenode.cyfra.runtime.VkCyfraRuntime
 import io.computenode.cyfra.spirvtools.*
 import io.computenode.cyfra.spirvtools.SpirvTool.{Param, ToFile}
 import io.computenode.cyfra.utility.ImageUtility
@@ -21,7 +23,7 @@ import scala.concurrent.ExecutionContext.Implicits
 class JuliaSet extends FunSuite:
   given ExecutionContext = Implicits.global
 
-  def runJuliaSet(referenceImgName: String)(using GContext): Unit =
+  def runJuliaSet(referenceImgName: String)(using CyfraRuntime): Unit =
     val dim = 4096
     val max = 1
     val RECURSION_LIMIT = 1000
@@ -65,18 +67,19 @@ class JuliaSet extends FunSuite:
         .otherwise:
           (8f / 255f, 22f / 255f, 104f / 255f, 1.0f)
 
-    val r = Vec4FloatMem(dim * dim).map(function).asInstanceOf[Vec4FloatMem].toArray
+    val vec4arr = Array.ofDim[fRGBA](dim * dim)
+    val r: Array[fRGBA] = function.run(vec4arr, Empty())
     val outputTemp = File.createTempFile("julia", ".png")
     ImageUtility.renderToImage(r, dim, outputTemp.toPath)
     val referenceImage = getClass.getResource(referenceImgName)
     ImageTests.assertImagesEquals(outputTemp, new File(referenceImage.getPath))
 
   test("Render julia set"):
-    given GContext = new GContext
+    given CyfraRuntime = VkCyfraRuntime()
     runJuliaSet("/julia.png")
 
   test("Render julia set optimized"):
-    given GContext = new GContext(
+    given CyfraRuntime = new VkCyfraRuntime(
       SpirvToolsRunner(
         validator = SpirvValidator.Enable(throwOnFail = true),
         optimizer = SpirvOptimizer.Enable(toolOutput = ToFile(Paths.get("output/optimized.spv")), settings = Seq(Param("-O"))),

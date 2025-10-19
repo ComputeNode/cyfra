@@ -2,19 +2,21 @@ package io.computenode.cyfra.foton.rt
 
 import io.computenode.cyfra
 import io.computenode.cyfra.*
+import io.computenode.cyfra.core.CyfraRuntime
 import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.foton.rt.ImageRtRenderer.RaytracingIteration
-import io.computenode.cyfra.core.archive.mem.GMem.fRGBA
-import io.computenode.cyfra.core.archive.mem.Vec4FloatMem
-import io.computenode.cyfra.core.archive.{GFunction, UniformContext}
+import io.computenode.cyfra.core.archive.GFunction
+import io.computenode.cyfra.runtime.VkCyfraRuntime
 import io.computenode.cyfra.utility.ImageUtility
 import io.computenode.cyfra.utility.Utility.timed
 
 import java.nio.file.Path
 
 class ImageRtRenderer(params: ImageRtRenderer.Parameters) extends RtRenderer(params):
+
+  given CyfraRuntime = VkCyfraRuntime()
 
   def renderToFile(scene: Scene, destinationPath: Path): Unit =
     val images = render(scene)
@@ -26,12 +28,11 @@ class ImageRtRenderer(params: ImageRtRenderer.Parameters) extends RtRenderer(par
   private def render(scene: Scene, fn: GFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]]): LazyList[Array[fRGBA]] =
     val initialMem = Array.fill(params.width * params.height)((0.5f, 0.5f, 0.5f, 0.5f))
     LazyList
-      .iterate((initialMem, 0), params.iterations + 1) { case (mem, render) =>
-        UniformContext.withUniform(RaytracingIteration(render)):
-          val fmem = Vec4FloatMem(mem)
-          val result = timed(s"Rendered iteration $render")(fmem.map(fn).asInstanceOf[Vec4FloatMem].toArray)
+      .iterate((initialMem, 0), params.iterations + 1):
+        case (mem, render) =>
+          val result: Array[fRGBA] = timed(s"Render iteration $render"):
+            fn.run(mem, RaytracingIteration(render))
           (result, render + 1)
-      }
       .drop(1)
       .map(_._1)
 
