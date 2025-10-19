@@ -54,6 +54,7 @@ private[cyfra] object SpirvTypes:
     case LGBooleanTag       => 4
     case v if v <:< LVecTag =>
       vecSize(v) * typeStride(v.typeArgs.head)
+    case _ => 4
 
   def typeStride(tag: Tag[?]): Int = typeStride(tag.tag)
 

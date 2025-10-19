@@ -9,12 +9,12 @@ import org.lwjgl.vulkan.VkFenceCreateInfo
 /** @author
   *   MarconZet Created 13.04.2020
   */
-private[cyfra] class Fence(device: Device, flags: Int = 0, onDestroy: () => Unit = () => ()) extends VulkanObjectHandle:
+private[cyfra] class Fence(flags: Int = 0)(using device: Device) extends VulkanObjectHandle:
   protected val handle: Long = pushStack(stack =>
     val fenceInfo = VkFenceCreateInfo
       .calloc(stack)
       .sType$Default()
-      .pNext(VK_NULL_HANDLE)
+      .pNext(0)
       .flags(flags)
 
     val pFence = stack.callocLong(1)
@@ -23,7 +23,6 @@ private[cyfra] class Fence(device: Device, flags: Int = 0, onDestroy: () => Unit
   )
 
   override def close(): Unit =
-    onDestroy.apply()
     vkDestroyFence(device.get, handle, null)
 
   def isSignaled: Boolean =

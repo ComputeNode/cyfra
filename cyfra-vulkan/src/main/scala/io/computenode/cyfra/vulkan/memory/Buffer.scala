@@ -1,26 +1,27 @@
 package io.computenode.cyfra.vulkan.memory
 
 import io.computenode.cyfra.vulkan.command.{CommandPool, Fence}
+import io.computenode.cyfra.vulkan.core.Device
 import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import io.computenode.cyfra.vulkan.util.VulkanObjectHandle
 import org.lwjgl.system.MemoryUtil.*
 import org.lwjgl.util.vma.Vma.*
 import org.lwjgl.util.vma.VmaAllocationCreateInfo
 import org.lwjgl.vulkan.VK10.*
-import org.lwjgl.vulkan.{VkBufferCopy, VkBufferCreateInfo}
+import org.lwjgl.vulkan.{VkBufferCopy, VkBufferCreateInfo, VkCommandBuffer, VkSubmitInfo}
 
 import java.nio.ByteBuffer
 
 /** @author
   *   MarconZet Created 11.05.2019
   */
-private[cyfra] class Buffer(val size: Int, val usage: Int, flags: Int, memUsage: Int, val allocator: Allocator) extends VulkanObjectHandle:
 
+private[cyfra] sealed abstract class Buffer private (val size: Int, usage: Int, flags: Int)(using allocator: Allocator) extends VulkanObjectHandle:
   val (handle, allocation) = pushStack: stack =>
     val bufferInfo = VkBufferCreateInfo
       .calloc(stack)
       .sType$Default()
-      .pNext(NULL)
+      .pNext(0)
       .size(size)
       .usage(usage)
       .flags(0)
@@ -28,7 +29,7 @@ private[cyfra] class Buffer(val size: Int, val usage: Int, flags: Int, memUsage:
 
     val allocInfo = VmaAllocationCreateInfo
       .calloc(stack)
-      .usage(memUsage)
+      .usage(VMA_MEMORY_USAGE_UNKNOWN)
       .requiredFlags(flags)
 
     val pBuffer = stack.callocLong(1)
@@ -36,43 +37,50 @@ private[cyfra] class Buffer(val size: Int, val usage: Int, flags: Int, memUsage:
     check(vmaCreateBuffer(allocator.get, bufferInfo, allocInfo, pBuffer, pAllocation, null), "Failed to create buffer")
     (pBuffer.get(), pAllocation.get())
 
-  def get(dst: Array[Byte]): Unit =
-    val len = Math.min(dst.length, size)
-    val byteBuffer = memCalloc(len)
-    Buffer.copyBuffer(this, byteBuffer, len)
-    byteBuffer.get(dst)
-    memFree(byteBuffer)
-
   protected def close(): Unit =
     vmaDestroyBuffer(allocator.get, handle, allocation)
 
 object Buffer:
-  def copyBuffer(src: ByteBuffer, dst: Buffer, bytes: Long): Unit =
-    pushStack: stack =>
+  private[cyfra] class DeviceBuffer(size: Int, usage: Int)(using allocator: Allocator)
+      extends Buffer(size, usage, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)(using allocator)
+
+  private[cyfra] class HostBuffer(size: Int, usage: Int)(using allocator: Allocator)
+      extends Buffer(size, usage, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)(using allocator):
+    def mapped(flush: Boolean)(f: ByteBuffer => Unit): Unit = pushStack: stack =>
       val pData = stack.callocPointer(1)
-      check(vmaMapMemory(dst.allocator.get, dst.allocation, pData), "Failed to map destination buffer memory")
+      check(vmaMapMemory(this.allocator.get, this.allocation, pData), "Failed to map buffer to memory")
       val data = pData.get()
-      memCopy(memAddress(src), data, bytes)
-      vmaFlushAllocation(dst.allocator.get, dst.allocation, 0, bytes)
-      vmaUnmapMemory(dst.allocator.get, dst.allocation)
+      val bb = memByteBuffer(data, size)
+      try f(bb)
+      finally
+        if flush then vmaFlushAllocation(this.allocator.get, this.allocation, 0, size)
+        vmaUnmapMemory(this.allocator.get, this.allocation)
 
-  def copyBuffer(src: Buffer, dst: ByteBuffer, bytes: Long): Unit =
-    pushStack: stack =>
-      val pData = stack.callocPointer(1)
-      check(vmaMapMemory(src.allocator.get, src.allocation, pData), "Failed to map destination buffer memory")
-      val data = pData.get()
-      memCopy(data, memAddress(dst), bytes)
-      vmaUnmapMemory(src.allocator.get, src.allocation)
+    def copyTo(dst: ByteBuffer, srcOffset: Int): Unit = pushStack: stack =>
+      vmaCopyAllocationToMemory(allocator.get, allocation, srcOffset, dst)
+    def copyFrom(src: ByteBuffer, dstOffset: Int): Unit = pushStack: stack =>
+      vmaCopyMemoryToAllocation(allocator.get, src, allocation, dstOffset)
 
-  def copyBuffer(src: Buffer, dst: Buffer, bytes: Long, commandPool: CommandPool): Fence =
-    pushStack: stack =>
-      val commandBuffer = commandPool.beginSingleTimeCommands()
+  def copyBuffer(src: Buffer, dst: Buffer, srcOffset: Int, dstOffset: Int, bytes: Int, commandPool: CommandPool)(using Device): Unit = pushStack:
+    stack =>
+      val cb = copyBufferCommandBuffer(src, dst, srcOffset, dstOffset, bytes, commandPool)
 
-      val copyRegion = VkBufferCopy
-        .calloc(1, stack)
-        .srcOffset(0)
-        .dstOffset(0)
-        .size(bytes)
-      vkCmdCopyBuffer(commandBuffer, src.get, dst.get, copyRegion)
+      val pCB = stack.callocPointer(1).put(0, cb)
+      val submitInfo = VkSubmitInfo
+        .calloc(stack)
+        .sType$Default()
+        .pCommandBuffers(pCB)
 
-      commandPool.endSingleTimeCommands(commandBuffer)
+      val fence = Fence()
+      check(vkQueueSubmit(commandPool.queue.get, submitInfo, fence.get), "Failed to submit single time command buffer")
+      fence.block().destroy()
+
+  def copyBufferCommandBuffer(src: Buffer, dst: Buffer, srcOffset: Int, dstOffset: Int, bytes: Int, commandPool: CommandPool): VkCommandBuffer =
+    commandPool.recordSingleTimeCommand: commandBuffer =>
+      pushStack: stack =>
+        val copyRegion = VkBufferCopy
+          .calloc(1, stack)
+          .srcOffset(srcOffset)
+          .dstOffset(dstOffset)
+          .size(bytes)
+        vkCmdCopyBuffer(commandBuffer, src.get, dst.get, copyRegion)

@@ -1,8 +1,8 @@
 ThisBuild / organization := "com.computenode.cyfra"
 ThisBuild / scalaVersion := "3.6.4"
-ThisBuild / version := "0.1.0-SNAPSHOT"
+ThisBuild / version := "0.2.0-SNAPSHOT"
 
-val lwjglVersion = "3.3.6"
+val lwjglVersion = "3.4.0-SNAPSHOT"
 val jomlVersion = "1.10.0"
 
 lazy val osName = System.getProperty("os.name").toLowerCase
@@ -37,8 +37,9 @@ lazy val vulkanNatives =
 
 lazy val commonSettings = Seq(
   scalacOptions ++= Seq("-feature", "-deprecation", "-unchecked", "-language:implicitConversions"),
+  resolvers += "maven snapshots" at "https://central.sonatype.com/repository/maven-snapshots/",
   libraryDependencies ++= Seq(
-    "dev.zio" % "izumi-reflect_3" % "2.3.10",
+    "dev.zio" % "izumi-reflect_3" % "3.0.5",
     "com.lihaoyi" % "pprint_3" % "0.9.0",
     "com.diogonunes" % "JColor" % "5.5.1",
     "org.lwjgl" % "lwjgl" % lwjglVersion,
@@ -57,6 +58,8 @@ lazy val commonSettings = Seq(
 
 lazy val runnerSettings = Seq(libraryDependencies += "org.apache.logging.log4j" % "log4j-slf4j2-impl" % "2.24.3")
 
+lazy val fs2Settings = Seq(libraryDependencies ++= Seq("co.fs2" %% "fs2-core" % "3.12.0", "co.fs2" %% "fs2-io" % "3.12.0"))
+
 lazy val utility = (project in file("cyfra-utility"))
   .settings(commonSettings)
 
@@ -70,15 +73,19 @@ lazy val vulkan = (project in file("cyfra-vulkan"))
 
 lazy val dsl = (project in file("cyfra-dsl"))
   .settings(commonSettings)
-  .dependsOn(vulkan, utility)
+  .dependsOn(utility)
 
 lazy val compiler = (project in file("cyfra-compiler"))
   .settings(commonSettings)
   .dependsOn(dsl, utility)
 
+lazy val core = (project in file("cyfra-core"))
+  .settings(commonSettings)
+  .dependsOn(compiler, dsl, utility, spirvTools)
+
 lazy val runtime = (project in file("cyfra-runtime"))
   .settings(commonSettings)
-  .dependsOn(compiler, dsl, vulkan, utility, spirvTools)
+  .dependsOn(core, vulkan)
 
 lazy val foton = (project in file("cyfra-foton"))
   .settings(commonSettings)
@@ -86,19 +93,24 @@ lazy val foton = (project in file("cyfra-foton"))
 
 lazy val examples = (project in file("cyfra-examples"))
   .settings(commonSettings, runnerSettings)
+  .settings(libraryDependencies += "org.scala-lang.modules" % "scala-parallel-collections_3" % "1.2.0")
   .dependsOn(foton)
 
 lazy val vscode = (project in file("cyfra-vscode"))
   .settings(commonSettings)
   .dependsOn(foton)
 
+lazy val fs2interop = (project in file("cyfra-fs2"))
+  .settings(commonSettings, fs2Settings)
+  .dependsOn(runtime)
+
 lazy val e2eTest = (project in file("cyfra-e2e-test"))
   .settings(commonSettings, runnerSettings)
-  .dependsOn(runtime)
+  .dependsOn(runtime, fs2interop)
 
 lazy val root = (project in file("."))
   .settings(name := "Cyfra")
-  .aggregate(compiler, dsl, foton, runtime, vulkan, examples)
+  .aggregate(compiler, dsl, foton, core, runtime, vulkan, examples, fs2interop)
 
 e2eTest / Test / javaOptions ++= Seq("-Dorg.lwjgl.system.stackSize=1024", "-DuniqueLibraryNames=true")
 

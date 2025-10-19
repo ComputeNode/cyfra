@@ -19,8 +19,8 @@ object SpirvOptimizer extends SpirvTool("spirv-opt"):
             None
           case Right(optimizedShaderCode) =>
             toolOutput match
-              case SpirvTool.Ignore             =>
-              case toFile @ SpirvTool.ToFile(_) =>
+              case SpirvTool.Ignore                =>
+              case toFile @ SpirvTool.ToFile(_, _) =>
                 toFile.write(optimizedShaderCode)
                 logger.debug(s"Saved optimized shader code in ${toFile.filePath}.")
             Some(optimizedShaderCode)

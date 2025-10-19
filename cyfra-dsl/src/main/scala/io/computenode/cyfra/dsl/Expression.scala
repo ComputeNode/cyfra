@@ -1,5 +1,5 @@
 package io.computenode.cyfra.dsl
-import io.computenode.cyfra.dsl.Expression
+
 import Expression.{Const, treeidState}
 import io.computenode.cyfra.dsl.library.Functions.*
 import io.computenode.cyfra.dsl.Value.*
@@ -101,13 +101,17 @@ object Expression:
   case class ConstUInt32(value: Int) extends Const[UInt32]
   case class ConstGB(value: Boolean) extends Const[GBoolean]
 
-  case class ComposeVec2[T <: Scalar: Tag](a: T, b: T) extends Expression[Vec2[T]]
-  case class ComposeVec3[T <: Scalar: Tag](a: T, b: T, c: T) extends Expression[Vec3[T]]
-  case class ComposeVec4[T <: Scalar: Tag](a: T, b: T, c: T, d: T) extends Expression[Vec4[T]]
+  trait ComposeVec[T <: Vec[?]: Tag] extends Expression[T]
+
+  case class ComposeVec2[T <: Scalar: Tag](a: T, b: T) extends ComposeVec[Vec2[T]]
+  case class ComposeVec3[T <: Scalar: Tag](a: T, b: T, c: T) extends ComposeVec[Vec3[T]]
+  case class ComposeVec4[T <: Scalar: Tag](a: T, b: T, c: T, d: T) extends ComposeVec[Vec4[T]]
 
   case class ExtFunctionCall[R <: Value: Tag](fn: FunctionName, args: List[Value]) extends Expression[R]
   case class FunctionCall[R <: Value: Tag](fn: FnIdentifier, body: Scope[R], args: List[Value]) extends E[R]
+  case object InvocationId extends E[Int32]
 
   case class Pass[T <: Value: Tag](value: T) extends E[T]
 
-  case class Dynamic[T <: Value: Tag](source: String) extends E[T]
+  case object WorkerIndex extends E[Int32]
+  case class Binding[T <: Value: Tag](binding: Int) extends E[T]

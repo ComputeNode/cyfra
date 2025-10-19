@@ -9,10 +9,13 @@ private[cyfra] object SpirvConstants:
 
   val BOUND_VARIABLE = "bound"
   val GLSL_EXT_NAME = "GLSL.std.450"
+  val NON_SEMANTIC_DEBUG_PRINTF = "NonSemantic.DebugPrintf"
   val GLSL_EXT_REF = 1
   val TYPE_VOID_REF = 2
   val VOID_FUNC_TYPE_REF = 3
   val MAIN_FUNC_REF = 4
   val GL_GLOBAL_INVOCATION_ID_REF = 5
   val GL_WORKGROUP_SIZE_REF = 6
-  val HEADER_REFS_TOP = 7
+  val DEBUG_PRINTF_REF = 7
+
+  val HEADER_REFS_TOP = 8

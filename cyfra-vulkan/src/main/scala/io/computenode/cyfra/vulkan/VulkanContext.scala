@@ -1,36 +1,60 @@
 package io.computenode.cyfra.vulkan
 
 import io.computenode.cyfra.utility.Logger.logger
-import io.computenode.cyfra.vulkan.VulkanContext.ValidationLayers
-import io.computenode.cyfra.vulkan.command.{CommandPool, Queue, StandardCommandPool}
-import io.computenode.cyfra.vulkan.core.{DebugCallback, Device, Instance}
-import io.computenode.cyfra.vulkan.memory.{Allocator, DescriptorPool}
+import io.computenode.cyfra.vulkan.VulkanContext.{validation, vulkanPrintf}
+import io.computenode.cyfra.vulkan.command.CommandPool
+import io.computenode.cyfra.vulkan.core.{DebugMessengerCallback, DebugReportCallback, Device, Instance, PhysicalDevice, Queue}
+import io.computenode.cyfra.vulkan.memory.{Allocator, DescriptorPool, DescriptorPoolManager, DescriptorSetManager}
+import org.lwjgl.system.Configuration
+
+import java.util.concurrent.{ArrayBlockingQueue, BlockingQueue}
+import scala.util.chaining.*
+import scala.jdk.CollectionConverters.*
 
 /** @author
   *   MarconZet Created 13.04.2020
   */
 private[cyfra] object VulkanContext:
-  val ValidationLayer: String = "VK_LAYER_KHRONOS_validation"
-  val SyncLayer: String = "VK_LAYER_KHRONOS_synchronization2"
-  private val ValidationLayers: Boolean = System.getProperty("io.computenode.cyfra.vulkan.validation", "false").toBoolean
+  private val validation: Boolean = System.getProperty("io.computenode.cyfra.vulkan.validation", "false").toBoolean
+  private val vulkanPrintf: Boolean = System.getProperty("io.computenode.cyfra.vulkan.printf", "false").toBoolean
 
 private[cyfra] class VulkanContext:
-  val instance: Instance = new Instance(ValidationLayers)
-  val debugCallback: Option[DebugCallback] = if ValidationLayers then Some(new DebugCallback(instance)) else None
-  val device: Device = new Device(instance)
-  val computeQueue: Queue = new Queue(device.computeQueueFamily, 0, device)
-  val allocator: Allocator = new Allocator(instance, device)
-  val descriptorPool: DescriptorPool = new DescriptorPool(device)
-  val commandPool: CommandPool = new StandardCommandPool(device, computeQueue)
+  private val instance: Instance = new Instance(validation, vulkanPrintf)
+  private val debugReport: Option[DebugReportCallback] = if validation then Some(new DebugReportCallback(instance)) else None
+  private val debugMessenger: Option[DebugMessengerCallback] = if validation & vulkanPrintf then Some(new DebugMessengerCallback(instance)) else None
+  private val physicalDevice = new PhysicalDevice(instance)
+  physicalDevice.assertRequirements()
+
+  given device: Device = new Device(instance, physicalDevice)
+  given allocator: Allocator = new Allocator(instance, physicalDevice, device)
+
+  private val descriptorPoolManager = new DescriptorPoolManager()
+  private val commandPools = device.getQueues.map(new CommandPool.Transient(_))
 
   logger.debug("Vulkan context created")
-  logger.debug("Running on device: " + device.physicalDeviceName)
+  logger.debug("Running on device: " + physicalDevice.name)
+
+  private val blockingQueue: BlockingQueue[CommandPool] = new ArrayBlockingQueue[CommandPool](commandPools.length).tap(_.addAll(commandPools.asJava))
+  def withThreadContext[T](f: VulkanThreadContext => T): T =
+    assert(
+      VulkanThreadContext.guard.get() == 0,
+      "VulkanThreadContext is not thread-safe. Each thread can have only one VulkanThreadContext at a time. You cannot stack VulkanThreadContext.",
+    )
+    val commandPool = blockingQueue.take()
+    val descriptorSetManager = new DescriptorSetManager(descriptorPoolManager)
+    val threadContext = new VulkanThreadContext(commandPool, descriptorSetManager)
+    VulkanThreadContext.guard.set(threadContext.hashCode())
+    try f(threadContext)
+    finally
+      blockingQueue.put(commandPool)
+      descriptorSetManager.destroy()
+      VulkanThreadContext.guard.set(0)
 
   def destroy(): Unit =
-    commandPool.destroy()
-    descriptorPool.destroy()
+    commandPools.foreach(_.destroy())
+    descriptorPoolManager.destroy()
     allocator.destroy()
-    computeQueue.destroy()
     device.destroy()
-    debugCallback.foreach(_.destroy())
+    debugReport.foreach(_.destroy())
+    debugMessenger.foreach(_.destroy())
     instance.destroy()
