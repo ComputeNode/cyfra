@@ -6,9 +6,10 @@ import algebra.VectorAlgebra
 import io.computenode.cyfra.fs2interop.*
 import io.computenode.cyfra.core.CyfraRuntime
 import io.computenode.cyfra.runtime.VkCyfraRuntime
-import fs2.{io as fs2io, *}
-import _root_.io.computenode.cyfra.spirvtools.{SpirvCross, SpirvDisassembler, SpirvToolsRunner}
-import _root_.io.computenode.cyfra.spirvtools.SpirvTool.ToFile
+import io.computenode.cyfra.spirvtools.{SpirvCross, SpirvDisassembler, SpirvToolsRunner}
+import io.computenode.cyfra.spirvtools.SpirvTool.ToFile
+
+import fs2.*
 
 import java.nio.file.Paths
 

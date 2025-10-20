@@ -13,16 +13,9 @@ import io.computenode.cyfra.spirvtools.{SpirvCross, SpirvToolsRunner, SpirvValid
 import org.lwjgl.BufferUtils
 import org.lwjgl.system.MemoryUtil
 
-import java.nio.ByteBuffer
 import java.nio.file.Paths
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.parallel.CollectionConverters.given
-
-def printBuffer(bb: ByteBuffer): Unit =
-  val l = bb.asIntBuffer()
-  val a = new Array[Int](l.remaining())
-  l.get(a)
-  println(a.mkString(" "))
 
 object TestingStuff:
 
@@ -60,14 +53,13 @@ object TestingStuff:
 
   case class FilterProgramUniform(filterValue: Int32) extends GStruct[FilterProgramUniform]
 
-  case class FilterProgramLayout(in: GBuffer[Int32], out: GBuffer[GBoolean], params: GUniform[FilterProgramUniform] = GUniform.fromParams)
-      extends Layout
+  case class FilterProgramLayout(in: GBuffer[Int32], out: GBuffer[Int32], params: GUniform[FilterProgramUniform] = GUniform.fromParams) extends Layout
 
   val filterProgram = GProgram[FilterProgramParams, FilterProgramLayout](
     layout = params =>
       FilterProgramLayout(
         in = GBuffer[Int32](params.inSize),
-        out = GBuffer[GBoolean](params.inSize),
+        out = GBuffer[Int32](params.inSize),
         params = GUniform(FilterProgramUniform(params.filterValue)),
       ),
     dispatch = (_, args) => GProgram.StaticDispatch((args.inSize / 128, 1, 1)),
@@ -75,15 +67,16 @@ object TestingStuff:
     val invocId = GIO.invocationId
     val element = GIO.read(layout.in, invocId)
     val isMatch = element === layout.params.read.filterValue
-    GIO.write(layout.out, invocId, isMatch)
+    val a: Int32 = when[Int32](isMatch)(1).otherwise(0)
+    GIO.write(layout.out, invocId, a)
 
   // === GExecution ===
 
   case class EmitFilterParams(inSize: Int, emitN: Int, filterValue: Int)
 
-  case class EmitFilterLayout(inBuffer: GBuffer[Int32], emitBuffer: GBuffer[Int32], filterBuffer: GBuffer[GBoolean]) extends Layout
+  case class EmitFilterLayout(inBuffer: GBuffer[Int32], emitBuffer: GBuffer[Int32], filterBuffer: GBuffer[Int32]) extends Layout
 
-  case class EmitFilterResult(out: GBuffer[GBoolean]) extends Layout
+  case class EmitFilterResult(out: GBuffer[Int32]) extends Layout
 
   val emitFilterExecution = GExecution[EmitFilterParams, EmitFilterLayout]()
     .addProgram(emitProgram)(
@@ -153,13 +146,12 @@ object TestingStuff:
       init = EmitFilterLayout(
         inBuffer = GBuffer[Int32](buffer),
         emitBuffer = GBuffer[Int32](data.length * 2),
-        filterBuffer = GBuffer[GBoolean](data.length * 2),
+        filterBuffer = GBuffer[Int32](data.length * 2),
       ),
       onDone = layout => layout.filterBuffer.read(rbb),
     )
     runtime.close()
 
-    printBuffer(rbb)
     val actual = (0 until 2 * 1024).map(i => result.get(i) != 0)
     val expected = (0 until 1024).flatMap(x => Seq.fill(emitFilterParams.emitN)(x)).map(_ == emitFilterParams.filterValue)
     expected
@@ -167,3 +159,4 @@ object TestingStuff:
       .zipWithIndex
       .foreach:
         case ((e, a), i) => assert(e == a, s"Mismatch at index $i: expected $e, got $a")
+    println("DONE")

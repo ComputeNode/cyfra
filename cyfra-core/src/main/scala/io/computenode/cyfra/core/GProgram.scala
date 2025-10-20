@@ -20,7 +20,7 @@ trait GProgram[Params, L <: Layout: {LayoutBinding, LayoutStruct}] extends GExec
   val layout: InitProgramLayout => Params => L
   val dispatch: (L, Params) => ProgramDispatch
   val workgroupSize: WorkDimensions
-  def layoutStruct = summon[LayoutStruct[L]]
+  def layoutStruct: LayoutStruct[L] = summon[LayoutStruct[L]]
 
 object GProgram:
   type WorkDimensions = (Int, Int, Int)

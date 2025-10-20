@@ -81,18 +81,17 @@ object GPipe:
         val invocId = GIO.invocationId
         val element = GIO.read[C](layout.in, invocId)
         val result = when(pred(element))(1: Int32).otherwise(0)
-        for
-          _ <- GIO.printf("Pred: Element %d -> %d", invocId, result)
-          _ <- GIO.write[Int32](layout.out, invocId, result)
+        for _ <- GIO.write[Int32](layout.out, invocId, result)
         yield Empty()
 
       // Prefix sum (inclusive), upsweep/downsweep
       case class ScanParams(inSize: Int, intervalSize: Int)
       case class ScanArgs(intervalSize: Int32) extends GStruct[ScanArgs]
-      case class ScanLayout(ints: GBuffer[Int32], intervalSize: GUniform[ScanArgs] = GUniform.fromParams) extends Layout
+      case class ScanLayout(ints: GBuffer[Int32]) extends Layout
+      case class ScanProgramLayout(ints: GBuffer[Int32], intervalSize: GUniform[ScanArgs] = GUniform.fromParams) extends Layout
 
-      val upsweep = GProgram[ScanParams, ScanLayout](
-        layout = params => ScanLayout(ints = GBuffer[Int32](params.inSize), intervalSize = GUniform(ScanArgs(params.intervalSize))),
+      val upsweep = GProgram[ScanParams, ScanProgramLayout](
+        layout = params => ScanProgramLayout(ints = GBuffer[Int32](params.inSize), intervalSize = GUniform(ScanArgs(params.intervalSize))),
         dispatch = (layout, params) => GProgram.StaticDispatch((Math.ceil(params.inSize.toFloat / params.intervalSize / 256).toInt, 1, 1)),
       ): layout =>
         val ScanArgs(size) = layout.intervalSize.read
@@ -104,23 +103,11 @@ object GPipe:
           val oldValue = GIO.read[Int32](layout.ints, end)
           val addValue = GIO.read[Int32](layout.ints, mid)
           val newValue = oldValue + addValue
-          for
-            _ <- GIO.printf(
-              "Upsweep: invocId %d, root %d, size %d, mid %d, end %d, oldValue %d, addValue %d, newValue %d",
-              invocId,
-              root,
-              size,
-              mid,
-              end,
-              oldValue,
-              addValue,
-              newValue,
-            )
-            _ <- GIO.write[Int32](layout.ints, end, newValue)
+          for _ <- GIO.write[Int32](layout.ints, end, newValue)
           yield Empty()
 
-      val downsweep = GProgram[ScanParams, ScanLayout](
-        layout = params => ScanLayout(ints = GBuffer[Int32](params.inSize), intervalSize = GUniform(ScanArgs(params.intervalSize))),
+      val downsweep = GProgram[ScanParams, ScanProgramLayout](
+        layout = params => ScanProgramLayout(ints = GBuffer[Int32](params.inSize), intervalSize = GUniform(ScanArgs(params.intervalSize))),
         dispatch = (layout, params) => GProgram.StaticDispatch((Math.ceil(params.inSize.toFloat / params.intervalSize / 256).toInt, 1, 1)),
       ): layout =>
         val ScanArgs(size) = layout.intervalSize.read
@@ -131,17 +118,7 @@ object GPipe:
           val oldValue = GIO.read[Int32](layout.ints, mid)
           val addValue = when(end > 0)(GIO.read[Int32](layout.ints, end)).otherwise(0)
           val newValue = oldValue + addValue
-          for
-            _ <- GIO.printf(
-              "Downsweep: invocId %d, end %d, mid %d, oldValue %d, addValue %d, newValue %d",
-              invocId,
-              end,
-              mid,
-              oldValue,
-              addValue,
-              newValue,
-            )
-            _ <- GIO.write[Int32](layout.ints, mid, newValue)
+          for _ <- GIO.write[Int32](layout.ints, mid, newValue)
           yield Empty()
 
       // Stitch together many upsweep / downsweep program phases recursively
@@ -153,7 +130,7 @@ object GPipe:
       ): GExecution[ScanParams, ScanLayout, ScanLayout] =
         if intervalSize > inSize then exec
         else
-          val newExec = exec.addProgram(upsweep)(params => ScanParams(inSize, intervalSize), layout => layout)
+          val newExec = exec.addProgram(upsweep)(params => ScanParams(inSize, intervalSize), layout => ScanProgramLayout(layout.ints))
           upsweepPhases(newExec, inSize, intervalSize * 2)
 
       @annotation.tailrec
@@ -164,7 +141,7 @@ object GPipe:
       ): GExecution[ScanParams, ScanLayout, ScanLayout] =
         if intervalSize < 2 then exec
         else
-          val newExec = exec.addProgram(downsweep)(params => ScanParams(inSize, intervalSize), layout => layout)
+          val newExec = exec.addProgram(downsweep)(params => ScanParams(inSize, intervalSize), layout => ScanProgramLayout(layout.ints))
           downsweepPhases(newExec, inSize, intervalSize / 2)
 
       val initExec = GExecution[ScanParams, ScanLayout]() // no program
@@ -183,7 +160,6 @@ object GPipe:
         val element = GIO.read[C](layout.in, invocId)
         val prefixSum = GIO.read[Int32](layout.scan, invocId)
         for
-          _ <- GIO.printf("Compact: Element %d, prefix sum %d", invocId, prefixSum)
           _ <- GIO.when(invocId > 0):
             val prevScan = GIO.read[Int32](layout.scan, invocId - 1)
             GIO.when(prevScan < prefixSum):
