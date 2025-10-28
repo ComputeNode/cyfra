@@ -38,6 +38,8 @@ lazy val vulkanNatives =
 lazy val commonSettings = Seq(
   scalacOptions ++= Seq("-feature", "-deprecation", "-unchecked", "-language:implicitConversions"),
   resolvers += "maven snapshots" at "https://central.sonatype.com/repository/maven-snapshots/",
+  resolvers += "OSGeo Release Repository" at "https://repo.osgeo.org/repository/release/",
+  resolvers += "OSGeo Snapshot Repository" at "https://repo.osgeo.org/repository/snapshot/",
   libraryDependencies ++= Seq(
     "dev.zio" % "izumi-reflect_3" % "3.0.5",
     "com.lihaoyi" % "pprint_3" % "0.9.0",
@@ -91,6 +93,37 @@ lazy val foton = (project in file("cyfra-foton"))
   .settings(commonSettings)
   .dependsOn(compiler, dsl, runtime, utility)
 
+lazy val satellite = (project in file("cyfra-satellite"))
+  .settings(
+    commonSettings,
+    runnerSettings,
+    libraryDependencies ++= Seq(
+      // Web server
+      "org.http4s" %% "http4s-ember-server" % "0.23.27",
+      "org.http4s" %% "http4s-ember-client" % "0.23.27",
+      "org.http4s" %% "http4s-dsl" % "0.23.27",
+      "org.http4s" %% "http4s-circe" % "0.23.27",
+      // JSON
+      "io.circe" %% "circe-generic" % "0.14.7",
+      "io.circe" %% "circe-parser" % "0.14.7",
+      "io.circe" %% "circe-literal" % "0.14.7",
+      // GeoTIFF/TIFF support - TwelveMonkeys ImageIO (pure Java)
+      "com.twelvemonkeys.imageio" % "imageio-tiff" % "3.11.0",
+      "com.twelvemonkeys.imageio" % "imageio-core" % "3.11.0",
+      "com.github.jai-imageio" % "jai-imageio-jpeg2000" % "1.4.0",
+      // Note: JPEG2000 files >100MB cannot be read by pure Java libraries
+      // Users should convert with GDAL: gdal_translate -of GTiff input.jp2 output.tif
+      // Logging
+      "org.typelevel" %% "log4cats-slf4j" % "2.7.0",
+      "ch.qos.logback" % "logback-classic" % "1.5.6"
+    )
+  )
+  .dependsOn(foton, runtime, dsl, utility)
+
+lazy val fluids = (project in file("cyfra-fluids"))
+  .settings(commonSettings, runnerSettings)
+  .dependsOn(foton, runtime, dsl, utility)
+
 lazy val examples = (project in file("cyfra-examples"))
   .settings(commonSettings, runnerSettings)
   .settings(libraryDependencies += "org.scala-lang.modules" % "scala-parallel-collections_3" % "1.2.0")
@@ -110,7 +143,7 @@ lazy val e2eTest = (project in file("cyfra-e2e-test"))
 
 lazy val root = (project in file("."))
   .settings(name := "Cyfra")
-  .aggregate(compiler, dsl, foton, core, runtime, vulkan, examples, fs2interop)
+  .aggregate(compiler, dsl, foton, core, runtime, vulkan, examples, fs2interop, satellite, fluids)
 
 e2eTest / Test / javaOptions ++= Seq("-Dorg.lwjgl.system.stackSize=1024", "-DuniqueLibraryNames=true")
 

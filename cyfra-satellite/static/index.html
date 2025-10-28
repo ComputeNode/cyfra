@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyfra Satellite Analysis</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🛰️ Cyfra Satellite Analysis</h1>
+            <p class="subtitle">GPU-Accelerated Environmental Monitoring</p>
+        </header>
+
+        <div class="controls-section">
+            <h2>Analysis Configuration</h2>
+            
+            <div class="mode-selector">
+                <label>
+                    <input type="radio" name="mode" value="real" id="mode-real">
+                    Real Sentinel-2 Data
+                </label>
+                <label>
+                    <input type="radio" name="mode" value="synthetic" id="mode-synthetic" checked>
+                    Synthetic Data (Demo)
+                </label>
+            </div>
+
+            <!-- Real data controls -->
+            <div id="real-controls" class="control-group" style="display: none;">
+                <div class="form-group">
+                    <label for="tile-search">Search Tiles:</label>
+                    <input type="text" id="tile-search" placeholder="Search by name, location, or keyword...">
+                </div>
+                
+                <div class="form-group">
+                    <label>Filter By:</label>
+                    <div class="filter-group">
+                        <select id="region-filter">
+                            <option value="">All Regions</option>
+                        </select>
+                        <select id="category-filter">
+                            <option value="">All Categories</option>
+                        </select>
+                        <select id="country-filter">
+                            <option value="">All Countries</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="tile-select">Select Tile (<span id="tile-count">0</span> tiles):</label>
+                    <select id="tile-select" size="8">
+                        <option value="">Loading...</option>
+                    </select>
+                </div>
+                
+                <div id="tile-details" class="tile-details" style="display: none;">
+                    <h4 id="tile-detail-name"></h4>
+                    <p id="tile-detail-description"></p>
+                    <div class="tile-meta">
+                        <span id="tile-detail-category"></span>
+                        <span id="tile-detail-country"></span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="date-input">Date:</label>
+                    <input type="date" id="date-input" max="2024-12-31">
+                </div>
+                
+                <div id="available-dates" class="available-dates" style="display: none;">
+                    <h4>Available Dates:</h4>
+                    <div id="available-dates-list">Loading...</div>
+                </div>
+            </div>
+
+            <!-- Synthetic data controls -->
+            <div id="synthetic-controls" class="control-group">
+                <div class="form-group">
+                    <label for="width-input">Width:</label>
+                    <input type="number" id="width-input" value="512" min="64" max="4096" step="64">
+                </div>
+
+                <div class="form-group">
+                    <label for="height-input">Height:</label>
+                    <input type="number" id="height-input" value="512" min="64" max="4096" step="64">
+                </div>
+            </div>
+
+            <!-- Spectral indices -->
+            <div class="form-group">
+                <label>Spectral Indices:</label>
+                <div class="checkbox-group">
+                    <label><input type="checkbox" name="index" value="NDVI" checked> NDVI (Vegetation)</label>
+                    <label><input type="checkbox" name="index" value="EVI" checked> EVI (Enhanced Vegetation)</label>
+                    <label><input type="checkbox" name="index" value="NDWI" checked> NDWI (Water)</label>
+                    <label><input type="checkbox" name="index" value="SAVI"> SAVI (Soil-Adjusted Vegetation)</label>
+                    <label><input type="checkbox" name="index" value="NBR"> NBR (Burn Ratio)</label>
+                </div>
+            </div>
+
+            <button id="analyze-btn" class="btn-primary">🚀 Analyze</button>
+        </div>
+
+        <div id="loading" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>Processing satellite data on GPU...</p>
+        </div>
+
+        <div id="error" class="error-message" style="display: none;"></div>
+
+        <div id="results" class="results-section" style="display: none;">
+            <h2>Analysis Results</h2>
+            
+            <div id="metadata" class="metadata-card"></div>
+            
+            <div id="visualizations" class="visualization-grid"></div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
+
+
