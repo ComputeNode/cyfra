@@ -437,9 +437,13 @@ sbt "project fluids" test
 
 ## Technical Documentation
 
+### Educational
+- **`NAVIER_STOKES_EXPLAINED.md`** - 📘 Complete guide to fluid physics and implementation
+
 ### Design & Planning
 - **`IMPLEMENTATION_PLAN.md`** - Step-by-step implementation guide
 - **`TECHNICAL_DESIGN.md`** - Deep dive into algorithms and design decisions
+- **`NEXT_STEPS.md`** - Options for completing GPU testing
 
 ### Implementation & Testing
 - **`TEST_STATUS.md`** - Current status, test results, known issues

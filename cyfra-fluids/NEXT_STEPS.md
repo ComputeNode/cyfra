@@ -82,3 +82,4 @@ The **fluid solver implementation is complete and correct**. The compilation suc
 **Immediate next step**: Convert ForcesProgram to GFunction pattern to demonstrate full solver works on GPU.
 
 
+

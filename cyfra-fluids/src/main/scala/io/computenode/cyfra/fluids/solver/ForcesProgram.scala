@@ -31,21 +31,18 @@ object ForcesProgram:
     ): state =>
       val idx = GIO.invocationId
       val params = state.params.read
-      val n = params.gridSize
-      val totalCells = n * n * n
-
-      GIO.when(idx < totalCells):
-        // Read values (pure operations)
-        val oldVel = GIO.read(state.velocity, idx)
-        val temp = GIO.read(state.temperature, idx)
-        
-        // Compute buoyancy force
-        val buoyancyForce = vec3(
-          0.0f,
-          params.buoyancy * (temp - params.ambient),
-          0.0f
-        )
-        val newVel = oldVel + buoyancyForce * params.dt
-        
-        // Write result
-        GIO.write(state.velocity, idx, newVel)
+      
+      // Read values (pure operations)
+      val oldVel = GIO.read(state.velocity, idx)
+      val temp = GIO.read(state.temperature, idx)
+      
+      // Compute buoyancy force
+      val buoyancyForce = vec3(
+        0.0f,
+        params.buoyancy * (temp - params.ambient),
+        0.0f
+      )
+      val newVel = oldVel + buoyancyForce * params.dt
+      
+      // Write result
+      GIO.write(state.velocity, idx, newVel)

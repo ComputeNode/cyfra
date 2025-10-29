@@ -23,7 +23,7 @@ class NavierStokesSolver(params: FluidParams)(using runtime: CyfraRuntime):
   // For now, comment out - will need to properly handle when integrating with GPU execution
   // private val gridSize = params.gridSize
   // private val totalCells = gridSize * gridSize * gridSize
-  
+
   /** Execute one simulation time step.
     * 
     * Takes current state and returns updated state after dt time has passed.

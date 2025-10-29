@@ -35,31 +35,29 @@ object ProjectionProgram:
       val idx = GIO.invocationId
       val params = state.params.read
       val n = params.gridSize
-      val totalCells = n * n * n
 
-      GIO.when(idx < totalCells):
-        // Convert 1D index to 3D coordinates
-        val z = idx / (n * n)
-        val y = (idx / n).mod(n)
-        val x = idx.mod(n)
+      // Convert 1D index to 3D coordinates
+      val z = idx / (n * n)
+      val y = (idx / n).mod(n)
+      val x = idx.mod(n)
 
-        // Fetch neighbors (pure operations)
-        val velXP = readVec3Safe(state.velocity, x + 1, y, z, n)
-        val velXM = readVec3Safe(state.velocity, x - 1, y, z, n)
-        val velYP = readVec3Safe(state.velocity, x, y + 1, z, n)
-        val velYM = readVec3Safe(state.velocity, x, y - 1, z, n)
-        val velZP = readVec3Safe(state.velocity, x, y, z + 1, n)
-        val velZM = readVec3Safe(state.velocity, x, y, z - 1, n)
+      // Fetch neighbors (pure operations)
+      val velXP = readVec3Safe(state.velocity, x + 1, y, z, n)
+      val velXM = readVec3Safe(state.velocity, x - 1, y, z, n)
+      val velYP = readVec3Safe(state.velocity, x, y + 1, z, n)
+      val velYM = readVec3Safe(state.velocity, x, y - 1, z, n)
+      val velZP = readVec3Safe(state.velocity, x, y, z + 1, n)
+      val velZM = readVec3Safe(state.velocity, x, y, z - 1, n)
 
-        // Central difference approximation of divergence
-        val dx = (velXP.x - velXM.x) * 0.5f
-        val dy = (velYP.y - velYM.y) * 0.5f
-        val dz = (velZP.z - velZM.z) * 0.5f
+      // Central difference approximation of divergence
+      val dx = (velXP.x - velXM.x) * 0.5f
+      val dy = (velYP.y - velYM.y) * 0.5f
+      val dz = (velZP.z - velZM.z) * 0.5f
 
-        val div = dx + dy + dz
+      val div = dx + dy + dz
 
-        // Write result
-        GIO.write(state.divergence, idx, div)
+      // Write result
+      GIO.write(state.divergence, idx, div)
 
   /** Step 2: Solve Poisson equation for pressure via Jacobi iteration */
   def pressureSolve: GProgram[Int, FluidStateDouble] =
