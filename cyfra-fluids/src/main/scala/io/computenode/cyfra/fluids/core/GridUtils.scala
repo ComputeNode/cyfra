@@ -27,13 +27,13 @@ object GridUtils:
   inline def maxInt32(a: Int32, b: Int32)(using Source): Int32 =
     when(a > b)(a).otherwise(b)
   
-  /** Read from buffer with bounds checking, return zero if out of bounds */
-  def readVec3Safe(buffer: GBuffer[Vec3[Float32]], x: Int32, y: Int32, z: Int32, n: Int32)
-                  (using Source): Vec3[Float32] =
+  /** Read Vec4 from buffer with bounds checking, return zero if out of bounds */
+  def readVec3Safe(buffer: GBuffer[Vec4[Float32]], x: Int32, y: Int32, z: Int32, n: Int32)
+                  (using Source): Vec4[Float32] =
     when(inBounds(x, y, z, n)):
       buffer.read(idx3D(x, y, z, n))
     .otherwise:
-      vec3(0.0f, 0.0f, 0.0f)
+      vec4(0.0f, 0.0f, 0.0f, 0.0f)
   
   /** Read scalar from buffer with bounds checking */
   def readFloat32Safe(buffer: GBuffer[Float32], x: Int32, y: Int32, z: Int32, n: Int32)
@@ -43,14 +43,15 @@ object GridUtils:
     .otherwise:
       0.0f
   
-  /** Trilinear interpolation for Vec3 field.
+  /** Trilinear interpolation for Vec4 field.
     * Samples 8 surrounding grid points and blends them.
+    * Note: pos only uses x,y,z components
     */
   def trilinearInterpolateVec3(
-    buffer: GBuffer[Vec3[Float32]], 
+    buffer: GBuffer[Vec4[Float32]], 
     pos: Vec3[Float32], 
     size: Int32
-  )(using Source): Vec3[Float32] =
+  )(using Source): Vec4[Float32] =
     // Clamp position to valid range [0, size-1]
     val maxPos = (size - 1).asFloat
     val x = clamp(pos.x, 0.0f, maxPos)

@@ -18,7 +18,7 @@ object VelocityReadTest:
     layout = totalCells => {
       import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
       FluidState(
-        velocity = GBuffer[Vec3[Float32]](totalCells),
+        velocity = GBuffer[Vec4[Float32]](totalCells),
         pressure = GBuffer[Float32](totalCells),
         density = GBuffer[Float32](totalCells),
         temperature = GBuffer[Float32](totalCells),
@@ -46,22 +46,23 @@ object VelocityReadTest:
     
     try
       println("=" * 70)
-      println("Velocity Read Test - Verify Vec3 Component Access")
+      println("Velocity Read Test - Verify Vec4 Component Access")
       println("=" * 70)
       println()
       
       val totalCells = 10
       
-      // Create test velocity data
-      val velData = Array.ofDim[Float](totalCells * 3)
+      // Create test velocity data (Vec4 with w=0)
+      val velData = Array.ofDim[Float](totalCells * 4)
       for i <- 0 until totalCells do
-        velData(i * 3 + 0) = i * 1.0f      // x = i
-        velData(i * 3 + 1) = i * 10.0f     // y = i * 10
-        velData(i * 3 + 2) = i * 100.0f    // z = i * 100
+        velData(i * 4 + 0) = i * 1.0f      // x = i
+        velData(i * 4 + 1) = i * 10.0f     // y = i * 10
+        velData(i * 4 + 2) = i * 100.0f    // z = i * 100
+        velData(i * 4 + 3) = 0.0f          // w = 0
       
       println("Input velocity data:")
       for i <- 0 until totalCells do
-        println(s"  vel[$i] = (${velData(i * 3 + 0)}, ${velData(i * 3 + 1)}, ${velData(i * 3 + 2)})")
+        println(s"  vel[$i] = (${velData(i * 4 + 0)}, ${velData(i * 4 + 1)}, ${velData(i * 4 + 2)}, ${velData(i * 4 + 3)})")
       println()
       
       val region = GBufferRegion
@@ -96,7 +97,7 @@ object VelocityReadTest:
       
       region.runUnsafe(
         init = FluidState(
-          velocity = GBuffer[Vec3[Float32]](velBuffer),
+          velocity = GBuffer[Vec4[Float32]](velBuffer),
           pressure = GBuffer[Float32](totalCells),
           density = GBuffer[Float32](totalCells),
           temperature = GBuffer[Float32](totalCells),
@@ -136,12 +137,14 @@ object VelocityReadTest:
       
       println()
       if allCorrect then
-        println("✅ ALL CORRECT! Vec3 reading works perfectly.")
+        println("✅ ALL CORRECT! Vec4 reading works perfectly.")
       else
-        println("❌ ERRORS FOUND in Vec3 reading.")
+        println("❌ ERRORS FOUND in Vec4 reading.")
       
       println("=" * 70)
       
     finally
       runtime.close()
+
+
 

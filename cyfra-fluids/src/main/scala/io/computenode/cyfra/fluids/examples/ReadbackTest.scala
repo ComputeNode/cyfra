@@ -15,15 +15,15 @@ import org.lwjgl.system.MemoryUtil
 object ReadbackTest:
   
   case class SimpleLayout(
-    input: GBuffer[Vec3[Float32]],
-    output: GBuffer[Vec3[Float32]],
+    input: GBuffer[Vec4[Float32]],
+    output: GBuffer[Vec4[Float32]],
     params: GUniform[FluidParams]
   ) extends Layout
   
   val readbackProgram = GProgram[Int, SimpleLayout](
     layout = totalCells => SimpleLayout(
-      input = GBuffer[Vec3[Float32]](totalCells),
-      output = GBuffer[Vec3[Float32]](totalCells),
+      input = GBuffer[Vec4[Float32]](totalCells),
+      output = GBuffer[Vec4[Float32]](totalCells),
       params = GUniform[FluidParams]()
     ),
     dispatch = (_, totalCells) => StaticDispatch((totalCells / 256 + 1, 1, 1)),
@@ -45,12 +45,13 @@ object ReadbackTest:
       
       val totalCells = 100
       
-      // Create test data
-      val velData = Array.ofDim[Float](totalCells * 3)
+      // Create test data (Vec4 with w=0)
+      val velData = Array.ofDim[Float](totalCells * 4)
       for i <- 0 until totalCells do
-        velData(i * 3 + 0) = i.toFloat      // x
-        velData(i * 3 + 1) = i * 10.0f      // y
-        velData(i * 3 + 2) = i * 100.0f     // z
+        velData(i * 4 + 0) = i.toFloat      // x
+        velData(i * 4 + 1) = i * 10.0f      // y
+        velData(i * 4 + 2) = i * 100.0f     // z
+        velData(i * 4 + 3) = 0.0f           // w
       
       val velBuffer = BufferUtils.createByteBuffer(velData.length * 4)
       velBuffer.asFloatBuffer().put(velData).flip()
@@ -70,13 +71,13 @@ object ReadbackTest:
         .map: layout =>
           readbackProgram.execute(totalCells, layout)
       
-      val resultBuffer = BufferUtils.createFloatBuffer(totalCells * 3)
+      val resultBuffer = BufferUtils.createFloatBuffer(totalCells * 4)
       val resultBB = MemoryUtil.memByteBuffer(resultBuffer)
       
       region.runUnsafe(
         init = SimpleLayout(
-          input = GBuffer[Vec3[Float32]](velBuffer),
-          output = GBuffer[Vec3[Float32]](totalCells),
+          input = GBuffer[Vec4[Float32]](velBuffer),
+          output = GBuffer[Vec4[Float32]](totalCells),
           params = GUniform[FluidParams](paramsBuffer)
         ),
         onDone = layout => layout.output.read(resultBB)
@@ -89,9 +90,9 @@ object ReadbackTest:
         val expectedY = i * 10.0f
         val expectedZ = i * 100.0f
         
-        val actualX = resultBuffer.get(i * 3 + 0)
-        val actualY = resultBuffer.get(i * 3 + 1)
-        val actualZ = resultBuffer.get(i * 3 + 2)
+        val actualX = resultBuffer.get(i * 4 + 0)
+        val actualY = resultBuffer.get(i * 4 + 1)
+        val actualZ = resultBuffer.get(i * 4 + 2)
         
         if Math.abs(actualX - expectedX) < 0.001f &&
            Math.abs(actualY - expectedY) < 0.001f &&
@@ -110,13 +111,15 @@ object ReadbackTest:
           val ex = i.toFloat
           val ey = i * 10.0f
           val ez = i * 100.0f
-          val ax = resultBuffer.get(i * 3 + 0)
-          val ay = resultBuffer.get(i * 3 + 1)
-          val az = resultBuffer.get(i * 3 + 2)
+          val ax = resultBuffer.get(i * 4 + 0)
+          val ay = resultBuffer.get(i * 4 + 1)
+          val az = resultBuffer.get(i * 4 + 2)
           println(s"  Cell $i: expected=($ex,$ey,$ez), actual=($ax,$ay,$az)")
       
       println("=" * 60)
       
     finally
       runtime.close()
+
+
 

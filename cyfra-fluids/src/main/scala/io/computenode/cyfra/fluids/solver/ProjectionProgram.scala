@@ -17,7 +17,7 @@ object ProjectionProgram:
       layout = totalCells => {
         import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
         FluidState(
-          velocity = GBuffer[Vec3[Float32]](totalCells),
+          velocity = GBuffer[Vec4[Float32]](totalCells),
           pressure = GBuffer[Float32](totalCells),
           density = GBuffer[Float32](totalCells),
           temperature = GBuffer[Float32](totalCells),
@@ -65,12 +65,12 @@ object ProjectionProgram:
       layout = totalCells => {
         import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
         FluidStateDouble(
-          velocityCurrent = GBuffer[Vec3[Float32]](totalCells),
+          velocityCurrent = GBuffer[Vec4[Float32]](totalCells),
           pressureCurrent = GBuffer[Float32](totalCells),
           densityCurrent = GBuffer[Float32](totalCells),
           temperatureCurrent = GBuffer[Float32](totalCells),
           divergenceCurrent = GBuffer[Float32](totalCells),
-          velocityPrevious = GBuffer[Vec3[Float32]](totalCells),
+          velocityPrevious = GBuffer[Vec4[Float32]](totalCells),
           pressurePrevious = GBuffer[Float32](totalCells),
           densityPrevious = GBuffer[Float32](totalCells),
           temperaturePrevious = GBuffer[Float32](totalCells),
@@ -121,7 +121,7 @@ object ProjectionProgram:
       layout = totalCells => {
         import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
         FluidState(
-          velocity = GBuffer[Vec3[Float32]](totalCells),
+          velocity = GBuffer[Vec4[Float32]](totalCells),
           pressure = GBuffer[Float32](totalCells),
           density = GBuffer[Float32](totalCells),
           temperature = GBuffer[Float32](totalCells),
@@ -158,10 +158,11 @@ object ProjectionProgram:
         val pZP = readFloat32Safe(state.pressure, x, y, z + 1, n)
         val pZM = readFloat32Safe(state.pressure, x, y, z - 1, n)
 
-        val gradPressure = vec3(
+        val gradPressure = vec4(
           (pXP - pXM) * 0.5f,
           (pYP - pYM) * 0.5f,
-          (pZP - pZM) * 0.5f
+          (pZP - pZM) * 0.5f,
+          0.0f
         )
 
         // Subtract gradient to project onto divergence-free subspace

@@ -18,12 +18,12 @@ object DiffusionProgram:
       layout = totalCells => {
         import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
         FluidStateDouble(
-          velocityCurrent = GBuffer[Vec3[Float32]](totalCells),
+          velocityCurrent = GBuffer[Vec4[Float32]](totalCells),
           pressureCurrent = GBuffer[Float32](totalCells),
           densityCurrent = GBuffer[Float32](totalCells),
           temperatureCurrent = GBuffer[Float32](totalCells),
           divergenceCurrent = GBuffer[Float32](totalCells),
-          velocityPrevious = GBuffer[Vec3[Float32]](totalCells),
+          velocityPrevious = GBuffer[Vec4[Float32]](totalCells),
           pressurePrevious = GBuffer[Float32](totalCells),
           densityPrevious = GBuffer[Float32](totalCells),
           temperaturePrevious = GBuffer[Float32](totalCells),

@@ -15,12 +15,12 @@ object AdvectionProgram:
       layout = totalCells => {
         import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
         FluidStateDouble(
-          velocityCurrent = GBuffer[Vec3[Float32]](totalCells),
+          velocityCurrent = GBuffer[Vec4[Float32]](totalCells),
           pressureCurrent = GBuffer[Float32](totalCells),
           densityCurrent = GBuffer[Float32](totalCells),
           temperatureCurrent = GBuffer[Float32](totalCells),
           divergenceCurrent = GBuffer[Float32](totalCells),
-          velocityPrevious = GBuffer[Vec3[Float32]](totalCells),
+          velocityPrevious = GBuffer[Vec4[Float32]](totalCells),
           pressurePrevious = GBuffer[Float32](totalCells),
           densityPrevious = GBuffer[Float32](totalCells),
           temperaturePrevious = GBuffer[Float32](totalCells),
@@ -51,8 +51,9 @@ object AdvectionProgram:
         // Read velocity from previous buffer (pure operation)
         val vel = GIO.read(state.velocityPrevious, idx)
         
-        // Backtrace to previous position
-        val prevPos = pos - vel * params.dt
+        // Backtrace to previous position (use xyz components only)
+        val vel3 = vec3(vel.x, vel.y, vel.z)
+        val prevPos = pos - vel3 * params.dt
 
         // Interpolate values at previous position
         val interpolatedVel = trilinearInterpolateVec3(

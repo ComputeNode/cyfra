@@ -18,7 +18,7 @@ object ForcesProgramDirectTest:
     layout = totalCells => {
       import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
       FluidState(
-        velocity = GBuffer[Vec3[Float32]](totalCells),
+        velocity = GBuffer[Vec4[Float32]](totalCells),
         pressure = GBuffer[Float32](totalCells),
         density = GBuffer[Float32](totalCells),
         temperature = GBuffer[Float32](totalCells),
@@ -40,10 +40,11 @@ object ForcesProgramDirectTest:
     val oldVel = GIO.read(state.velocity, idx)
     val temp = GIO.read(state.temperature, idx)
     
-    // Compute buoyancy force
-    val buoyancyForce = vec3(
+    // Compute buoyancy force (Vec4 with w=0)
+    val buoyancyForce = vec4(
       0.0f,
       params.buoyancy * (temp - params.ambient),
+      0.0f,
       0.0f
     )
     val newVel = oldVel + buoyancyForce * params.dt
@@ -78,8 +79,8 @@ object ForcesProgramDirectTest:
         .map: layout =>
           forcesDirectProgram.execute(totalCells, layout)
       
-      // Initialize: zero velocity, hot spot in center
-      val velocityData = Array.fill(totalCells * 3)(0.0f)
+      // Initialize: zero velocity (Vec4 with w=0), hot spot in center
+      val velocityData = Array.fill(totalCells * 4)(0.0f)
       val temperatureData = Array.ofDim[Float](totalCells)
       
       var hotCellCount = 0
@@ -115,12 +116,12 @@ object ForcesProgramDirectTest:
       paramsBuffer.putInt(2)  // iterations
       paramsBuffer.flip()
       
-      val velResultBuffer = BufferUtils.createFloatBuffer(totalCells * 3)
+      val velResultBuffer = BufferUtils.createFloatBuffer(totalCells * 4)
       val velResultBB = MemoryUtil.memByteBuffer(velResultBuffer)
       
       region.runUnsafe(
         init = FluidState(
-          velocity = GBuffer[Vec3[Float32]](velBuffer),
+          velocity = GBuffer[Vec4[Float32]](velBuffer),
           pressure = GBuffer[Float32](totalCells),
           density = GBuffer[Float32](totalCells),
           temperature = GBuffer[Float32](tempBuffer),
@@ -137,9 +138,9 @@ object ForcesProgramDirectTest:
       var coldCellsWithVel = 0
       
       for i <- 0 until totalCells do
-        val vx = velResultBuffer.get(i * 3 + 0)
-        val vy = velResultBuffer.get(i * 3 + 1)
-        val vz = velResultBuffer.get(i * 3 + 2)
+        val vx = velResultBuffer.get(i * 4 + 0)
+        val vy = velResultBuffer.get(i * 4 + 1)
+        val vz = velResultBuffer.get(i * 4 + 2)
         val temp = temperatureData(i)
         
         if temp > 0.5f then
@@ -167,7 +168,7 @@ object ForcesProgramDirectTest:
         println("Sample hot cells:")
         var count = 0
         for i <- 0 until totalCells if count < 5 && temperatureData(i) > 0.5f do
-          val vy = velResultBuffer.get(i * 3 + 1)
+          val vy = velResultBuffer.get(i * 4 + 1)
           println(s"  Cell $i: temp=${temperatureData(i)}, vy=$vy")
           count += 1
       else
@@ -176,9 +177,9 @@ object ForcesProgramDirectTest:
         println("Debug - first 10 hot cells:")
         var count = 0
         for i <- 0 until totalCells if count < 10 && temperatureData(i) > 0.5f do
-          val vx = velResultBuffer.get(i * 3 + 0)
-          val vy = velResultBuffer.get(i * 3 + 1)
-          val vz = velResultBuffer.get(i * 3 + 2)
+          val vx = velResultBuffer.get(i * 4 + 0)
+          val vy = velResultBuffer.get(i * 4 + 1)
+          val vz = velResultBuffer.get(i * 4 + 2)
           println(s"  Cell $i: temp=${temperatureData(i)}, vel=($vx, $vy, $vz)")
           count += 1
       
@@ -186,4 +187,6 @@ object ForcesProgramDirectTest:
       
     finally
       runtime.close()
+
+
 

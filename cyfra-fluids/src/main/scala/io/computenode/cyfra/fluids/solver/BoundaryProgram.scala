@@ -15,7 +15,7 @@ object BoundaryProgram:
       layout = totalCells => {
         import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
         FluidState(
-          velocity = GBuffer[Vec3[Float32]](totalCells),
+          velocity = GBuffer[Vec4[Float32]](totalCells),
           pressure = GBuffer[Float32](totalCells),
           density = GBuffer[Float32](totalCells),
           temperature = GBuffer[Float32](totalCells),
@@ -48,5 +48,5 @@ object BoundaryProgram:
 
         GIO.when(onBoundary):
           // No-slip: velocity = 0 at walls
-          val boundaryVel = vec3(0.0f, 0.0f, 0.0f)
+          val boundaryVel = vec4(0.0f, 0.0f, 0.0f, 0.0f)
           GIO.write(state.velocity, idx, boundaryVel)

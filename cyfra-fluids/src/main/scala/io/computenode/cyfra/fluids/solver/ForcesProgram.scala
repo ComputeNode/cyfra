@@ -14,7 +14,7 @@ object ForcesProgram:
       layout = totalCells => {
         import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
         FluidState(
-          velocity = GBuffer[Vec3[Float32]](totalCells),
+          velocity = GBuffer[Vec4[Float32]](totalCells),
           pressure = GBuffer[Float32](totalCells),
           density = GBuffer[Float32](totalCells),
           temperature = GBuffer[Float32](totalCells),
@@ -36,10 +36,11 @@ object ForcesProgram:
       val oldVel = GIO.read(state.velocity, idx)
       val temp = GIO.read(state.temperature, idx)
       
-      // Compute buoyancy force
-      val buoyancyForce = vec3(
+      // Compute buoyancy force (Vec4 with w=0)
+      val buoyancyForce = vec4(
         0.0f,
         params.buoyancy * (temp - params.ambient),
+        0.0f,
         0.0f
       )
       val newVel = oldVel + buoyancyForce * params.dt

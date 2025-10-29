@@ -62,8 +62,8 @@ object ComprehensiveFluidTest:
         .map: layout =>
           forcesProgram.execute(totalCells, layout)
       
-      // Initialize: zero velocity, hot spot in center
-      val velocityData = Array.fill(totalCells * 3)(0.0f)
+      // Initialize: zero velocity (Vec4 with w=0), hot spot in center
+      val velocityData = Array.fill(totalCells * 4)(0.0f)
       val temperatureData = Array.ofDim[Float](totalCells)
       
       // Create hot sphere in center
@@ -98,12 +98,12 @@ object ComprehensiveFluidTest:
       
       val paramsBuffer = createParamsBuffer(dt, viscosity, diffusion, buoyancy, ambient, gridSize, iterationCount)
       
-      val velResultBuffer = BufferUtils.createFloatBuffer(totalCells * 3)
+      val velResultBuffer = BufferUtils.createFloatBuffer(totalCells * 4)
       val velResultBB = MemoryUtil.memByteBuffer(velResultBuffer)
       
       forcesRegion.runUnsafe(
         init = FluidState(
-          velocity = GBuffer[Vec3[Float32]](velBuffer),
+          velocity = GBuffer[Vec4[Float32]](velBuffer),
           pressure = GBuffer[Float32](totalCells),
           density = GBuffer[Float32](totalCells),
           temperature = GBuffer[Float32](tempBuffer),
@@ -121,7 +121,7 @@ object ComprehensiveFluidTest:
       
       for i <- 0 until totalCells do
         if temperatureData(i) > 0.5f then
-          val vy = velResultBuffer.get(i * 3 + 1)  // Y component
+          val vy = velResultBuffer.get(i * 4 + 1)  // Y component
           avgUpVel += vy
           hotCellsChecked += 1
           if vy > 0.001f then
@@ -146,9 +146,9 @@ object ComprehensiveFluidTest:
         println(s"\n  Debug: First 5 hot cells:")
         var debugCount = 0
         for i <- 0 until totalCells if debugCount < 5 && temperatureData(i) > 0.5f do
-          val vx = velResultBuffer.get(i * 3 + 0)
-          val vy = velResultBuffer.get(i * 3 + 1)
-          val vz = velResultBuffer.get(i * 3 + 2)
+          val vx = velResultBuffer.get(i * 4 + 0)
+          val vy = velResultBuffer.get(i * 4 + 1)
+          val vz = velResultBuffer.get(i * 4 + 2)
           val temp = temperatureData(i)
           println(s"    Cell $i: temp=$temp, vel=($vx, $vy, $vz)")
           debugCount += 1
@@ -165,8 +165,8 @@ object ComprehensiveFluidTest:
         .map: layout =>
           divergenceProgram.execute(totalCells, layout)
       
-      // Create expanding velocity field
-      val divVelData = Array.ofDim[Float](totalCells * 3)
+      // Create expanding velocity field (Vec4 with w=0)
+      val divVelData = Array.ofDim[Float](totalCells * 4)
       for i <- 0 until totalCells do
         val z = i / (gridSize * gridSize)
         val y = (i / gridSize) % gridSize
@@ -175,9 +175,10 @@ object ComprehensiveFluidTest:
         val cy = gridSize / 2.0f
         val cz = gridSize / 2.0f
         // Velocity pointing away from center (positive divergence)
-        divVelData(i * 3 + 0) = (x - cx) * 0.2f
-        divVelData(i * 3 + 1) = (y - cy) * 0.2f
-        divVelData(i * 3 + 2) = (z - cz) * 0.2f
+        divVelData(i * 4 + 0) = (x - cx) * 0.2f
+        divVelData(i * 4 + 1) = (y - cy) * 0.2f
+        divVelData(i * 4 + 2) = (z - cz) * 0.2f
+        divVelData(i * 4 + 3) = 0.0f  // w component
       
       val divVelBuffer = BufferUtils.createByteBuffer(divVelData.length * 4)
       divVelBuffer.asFloatBuffer().put(divVelData).flip()
@@ -189,7 +190,7 @@ object ComprehensiveFluidTest:
       
       divRegion.runUnsafe(
         init = FluidState(
-          velocity = GBuffer[Vec3[Float32]](divVelBuffer),
+          velocity = GBuffer[Vec4[Float32]](divVelBuffer),
           pressure = GBuffer[Float32](totalCells),
           density = GBuffer[Float32](totalCells),
           temperature = GBuffer[Float32](totalCells),

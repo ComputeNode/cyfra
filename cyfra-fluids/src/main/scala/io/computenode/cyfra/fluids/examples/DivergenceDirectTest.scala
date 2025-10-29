@@ -18,7 +18,7 @@ object DivergenceDirectTest:
     layout = totalCells => {
       import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
       FluidState(
-        velocity = GBuffer[Vec3[Float32]](totalCells),
+        velocity = GBuffer[Vec4[Float32]](totalCells),
         pressure = GBuffer[Float32](totalCells),
         density = GBuffer[Float32](totalCells),
         temperature = GBuffer[Float32](totalCells),
@@ -97,8 +97,8 @@ object DivergenceDirectTest:
         .map: layout =>
           divergenceDirectProgram.execute(totalCells, layout)
       
-      // Create expanding velocity field
-      val velData = Array.ofDim[Float](totalCells * 3)
+      // Create expanding velocity field (Vec4 with w=0)
+      val velData = Array.ofDim[Float](totalCells * 4)
       for i <- 0 until totalCells do
         val z = i / (gridSize * gridSize)
         val y = (i / gridSize) % gridSize
@@ -107,9 +107,10 @@ object DivergenceDirectTest:
         val cy = gridSize / 2.0f
         val cz = gridSize / 2.0f
         // Velocity pointing away from center (positive divergence)
-        velData(i * 3 + 0) = (x - cx) * 0.2f
-        velData(i * 3 + 1) = (y - cy) * 0.2f
-        velData(i * 3 + 2) = (z - cz) * 0.2f
+        velData(i * 4 + 0) = (x - cx) * 0.2f
+        velData(i * 4 + 1) = (y - cy) * 0.2f
+        velData(i * 4 + 2) = (z - cz) * 0.2f
+        velData(i * 4 + 3) = 0.0f  // w component
       
       println("Velocity field: expanding from center")
       println("Expected: positive divergence in most cells")
@@ -133,7 +134,7 @@ object DivergenceDirectTest:
       
       region.runUnsafe(
         init = FluidState(
-          velocity = GBuffer[Vec3[Float32]](velBuffer),
+          velocity = GBuffer[Vec4[Float32]](velBuffer),
           pressure = GBuffer[Float32](totalCells),
           density = GBuffer[Float32](totalCells),
           temperature = GBuffer[Float32](totalCells),
@@ -182,9 +183,9 @@ object DivergenceDirectTest:
           val idx = x + y * gridSize + z * gridSize * gridSize
           if idx < totalCells then
             val div = divResultBuffer.get(idx)
-            val vx = velData(idx * 3 + 0)
-            val vy = velData(idx * 3 + 1)
-            val vz = velData(idx * 3 + 2)
+            val vx = velData(idx * 4 + 0)
+            val vy = velData(idx * 4 + 1)
+            val vz = velData(idx * 4 + 2)
             println(s"  [$x,$y,$z]: vel=($vx,$vy,$vz), div=$div")
       
       println("=" * 70)

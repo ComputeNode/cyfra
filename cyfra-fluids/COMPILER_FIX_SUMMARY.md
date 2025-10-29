@@ -97,3 +97,5 @@ sbt "project fluids" "runMain io.computenode.cyfra.fluids.examples.testFluidSolv
 - **Uses Fix**: All programs accessing struct fields (ForcesProgram, ProjectionProgram, etc.)
 - **Test**: `cyfra-fluids/src/main/scala/io/computenode/cyfra/fluids/examples/FluidSolverTest.scala`
 
+
+

@@ -18,7 +18,7 @@ object IndexPrintTest:
     layout = totalCells => {
       import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
       FluidState(
-        velocity = GBuffer[Vec3[Float32]](totalCells),
+        velocity = GBuffer[Vec4[Float32]](totalCells),
         pressure = GBuffer[Float32](totalCells),
         density = GBuffer[Float32](totalCells),
         temperature = GBuffer[Float32](totalCells),
@@ -79,7 +79,7 @@ object IndexPrintTest:
       
       region.runUnsafe(
         init = FluidState(
-          velocity = GBuffer[Vec3[Float32]](totalCells),
+          velocity = GBuffer[Vec4[Float32]](totalCells),
           pressure = GBuffer[Float32](totalCells),
           density = GBuffer[Float32](totalCells),
           temperature = GBuffer[Float32](totalCells),
