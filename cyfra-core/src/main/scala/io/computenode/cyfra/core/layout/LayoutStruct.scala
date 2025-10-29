@@ -85,7 +85,6 @@ object LayoutStruct:
             }
 
     val constructor = sym.primaryConstructor
-    report.info(s"Constructor: ${constructor.fullName} with params ${constructor.paramSymss.flatten.map(_.name).mkString(", ")}")
 
     val typeArgs = tpe.typeArgs
 

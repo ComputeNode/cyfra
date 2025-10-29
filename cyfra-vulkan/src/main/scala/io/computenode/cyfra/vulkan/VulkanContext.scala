@@ -15,8 +15,8 @@ import scala.jdk.CollectionConverters.*
   *   MarconZet Created 13.04.2020
   */
 private[cyfra] object VulkanContext:
-  private val validation: Boolean = System.getProperty("io.computenode.cyfra.vulkan.validation", "false").toBoolean
-  private val vulkanPrintf: Boolean = System.getProperty("io.computenode.cyfra.vulkan.printf", "false").toBoolean
+  private val validation: Boolean = System.getProperty("io.computenode.cyfra.vulkan.validation", "true").toBoolean
+  private val vulkanPrintf: Boolean = System.getProperty("io.computenode.cyfra.vulkan.printf", "true").toBoolean
 
 private[cyfra] class VulkanContext:
   private val instance: Instance = new Instance(validation, vulkanPrintf)

@@ -18,6 +18,7 @@ import io.computenode.cyfra.dsl.Value
 import io.computenode.cyfra.dsl.Value.FromExpr
 import io.computenode.cyfra.dsl.binding.GUniform
 import io.computenode.cyfra.dsl.struct.{GStruct, GStructSchema}
+import io.computenode.cyfra.spirv.compilers.SpirvProgramCompiler.totalStride
 import io.computenode.cyfra.vulkan.memory.{Allocator, Buffer}
 import izumi.reflect.Tag
 import org.lwjgl.vulkan.VK10
@@ -68,6 +69,7 @@ object VkUniform:
     VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT
 
   def apply[T <: GStruct[_]: {Tag, FromExpr, GStructSchema}]()(using Allocator): VkUniform[T] =
-    val sizeOfT = typeStride(summon[Tag[T]])
+    val schema = summon[GStructSchema[T]]
+    val sizeOfT = totalStride(schema)
     val buffer = new Buffer.DeviceBuffer(sizeOfT, UsageFlags)
     new VkUniform[T](buffer)
