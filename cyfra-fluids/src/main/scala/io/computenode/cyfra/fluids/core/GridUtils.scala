@@ -30,18 +30,20 @@ object GridUtils:
   /** Read Vec4 from buffer with bounds checking, return zero if out of bounds */
   def readVec3Safe(buffer: GBuffer[Vec4[Float32]], x: Int32, y: Int32, z: Int32, n: Int32)
                   (using Source): Vec4[Float32] =
-    when(inBounds(x, y, z, n)):
-      buffer.read(idx3D(x, y, z, n))
-    .otherwise:
-      vec4(0.0f, 0.0f, 0.0f, 0.0f)
+    // Clamp coordinates to valid range instead of using when/otherwise
+    val xClamped = maxInt32(0, minInt32(x, n - 1))
+    val yClamped = maxInt32(0, minInt32(y, n - 1))
+    val zClamped = maxInt32(0, minInt32(z, n - 1))
+    buffer.read(idx3D(xClamped, yClamped, zClamped, n))
   
   /** Read scalar from buffer with bounds checking */
   def readFloat32Safe(buffer: GBuffer[Float32], x: Int32, y: Int32, z: Int32, n: Int32)
                      (using Source): Float32 =
-    when(inBounds(x, y, z, n)):
-      buffer.read(idx3D(x, y, z, n))
-    .otherwise:
-      0.0f
+    // Clamp coordinates to valid range instead of using when/otherwise
+    val xClamped = maxInt32(0, minInt32(x, n - 1))
+    val yClamped = maxInt32(0, minInt32(y, n - 1))
+    val zClamped = maxInt32(0, minInt32(z, n - 1))
+    buffer.read(idx3D(xClamped, yClamped, zClamped, n))
   
   /** Trilinear interpolation for Vec4 field.
     * Samples 8 surrounding grid points and blends them.

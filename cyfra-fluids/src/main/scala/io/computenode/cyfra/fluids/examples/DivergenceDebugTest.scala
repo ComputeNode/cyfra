@@ -49,24 +49,13 @@ object DivergenceDebugTest:
       val y = (idx / n).mod(n)
       val x = idx.mod(n)
 
-      // Calculate neighbor indices
-      val idxXP = idx3D(x + 1, y, z, n)
-      val idxXM = idx3D(x - 1, y, z, n)
-      val idxYP = idx3D(x, y + 1, z, n)
-      val idxYM = idx3D(x, y - 1, z, n)
-      val idxZP = idx3D(x, y, z + 1, n)
-      val idxZM = idx3D(x, y, z - 1, n)
-
-      // Read center cell
-      val velCenter = GIO.read(state.velocity, idx)
-      
-      // Read neighbors
-      val velXP = GIO.read(state.velocity, idxXP)
-      val velXM = GIO.read(state.velocity, idxXM)
-      val velYP = GIO.read(state.velocity, idxYP)
-      val velYM = GIO.read(state.velocity, idxYM)
-      val velZP = GIO.read(state.velocity, idxZP)
-      val velZM = GIO.read(state.velocity, idxZM)
+      // Read neighbors with bounds checking (returns zero vector if out of bounds)
+      val velXP = readVec3Safe(state.velocity, x + 1, y, z, n)
+      val velXM = readVec3Safe(state.velocity, x - 1, y, z, n)
+      val velYP = readVec3Safe(state.velocity, x, y + 1, z, n)
+      val velYM = readVec3Safe(state.velocity, x, y - 1, z, n)
+      val velZP = readVec3Safe(state.velocity, x, y, z + 1, n)
+      val velZM = readVec3Safe(state.velocity, x, y, z - 1, n)
 
       // Divergence
       val dx = (velXP.x - velXM.x) * 0.5f
