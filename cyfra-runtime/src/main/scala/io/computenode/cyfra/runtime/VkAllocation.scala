@@ -24,6 +24,7 @@ import org.lwjgl.vulkan.VK10.*
 
 import java.nio.ByteBuffer
 import scala.collection.mutable
+import scala.util.Try
 import scala.util.chaining.*
 
 class VkAllocation(val commandPool: CommandPool, executionHandler: ExecutionHandler)(using Allocator, Device) extends Allocation:
@@ -32,7 +33,7 @@ class VkAllocation(val commandPool: CommandPool, executionHandler: ExecutionHand
   override def submitLayout[L <: Layout: LayoutBinding](layout: L): Unit =
     val executions = summon[LayoutBinding[L]]
       .toBindings(layout)
-      .map(getUnderlying)
+      .flatMap(x => Try(getUnderlying(x)).toOption)
       .flatMap(_.execution.fold(Seq(_), _.toSeq))
       .filter(_.isPending)
 
