@@ -1,10 +1,12 @@
 package io.computenode.cyfra.fluids.examples
 
 import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.fluids.solver.ObstacleUtils
 import io.computenode.cyfra.runtime.VkCyfraRuntime
 import io.computenode.cyfra.fluids.visualization.{Camera3D, RayMarchRenderer}
 import io.computenode.cyfra.spirvtools.SpirvTool.ToFile
 import io.computenode.cyfra.spirvtools.{SpirvCross, SpirvDisassembler, SpirvToolsRunner}
+import io.computenode.cyfra.utility.Logger.logger
 
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -27,7 +29,7 @@ object RayMarchVisualizationDemo:
       ),
     )
     
-    println("=== Ray March Visualization Demo ===")
+    logger.info("=== Ray March Visualization Demo ===")
     
     // Grid parameters
     val gridSize = 32
@@ -38,8 +40,8 @@ object RayMarchVisualizationDemo:
     val imageHeight = 512
     val aspectRatio = imageWidth.toFloat / imageHeight.toFloat
     
-    println(s"Grid: ${gridSize}³ = $totalCells cells")
-    println(s"Image: ${imageWidth}×${imageHeight}")
+    logger.info(s"Grid: ${gridSize}³ = $totalCells cells")
+    logger.info(s"Image: ${imageWidth}×${imageHeight}")
     
     // Create test density field: sphere in center
     val densityData = createSphereDensity(gridSize)
@@ -60,15 +62,15 @@ object RayMarchVisualizationDemo:
       val centerPos = gridSize.toFloat / 2.0f
       
       // Debug: print raw calculation values
-      val radius = gridSize.toFloat * 1.5f
+      val radius = gridSize.toFloat * 3f
       val cosAngle = Math.cos(angle).toFloat
       val sinAngle = Math.sin(angle).toFloat
       val camX = centerPos + radius * cosAngle
       val camZ = centerPos + radius * sinAngle
       
-      println(s"Rendering frame $frame (angle = ${Math.toDegrees(angle).toInt}°)...")
-      println(s"  Raw: cos=$cosAngle, sin=$sinAngle")
-      println(s"  Computed position: x=$camX, z=$camZ")
+      logger.info(s"Rendering frame $frame (angle = ${Math.toDegrees(angle).toInt}°)...")
+      logger.debug(s"Raw: cos=$cosAngle, sin=$sinAngle")
+      logger.debug(s"Computed position: x=$camX, z=$camZ")
       
       val camera = Camera3D.orbit(
         centerX = centerPos,
@@ -80,17 +82,23 @@ object RayMarchVisualizationDemo:
         aspectRatio = aspectRatio
       )
       
-      println(s"  Camera.position fields: ${camera.position}")
+      logger.debug(s"Camera.position fields: ${camera.position}")
+      
+      // Create empty obstacles buffer for this demo (no obstacles)
+      val obstaclesBuffer = ObstacleUtils.createEmpty(gridSize)
+      ObstacleUtils.addSphere(obstaclesBuffer, gridSize, gridSize / 2.0f, gridSize / 2.0f, gridSize / 2.0f, gridSize / 3.0f, 0.8f)
+      // test if buffer is correct
+             
       
       densityBuffer.rewind()  // Reset buffer position for reuse
-      val imageData = renderer.renderFrame(densityBuffer, gridSize, camera)
+      val imageData = renderer.renderFrame(densityBuffer, obstaclesBuffer, gridSize, camera)
       
       // Save image
       saveImage(imageData, imageWidth, imageHeight, s"raymarch_frame_$frame.png")
       
-      println(s"  Saved raymarch_frame_$frame.png")
+      logger.debug(s"Saved raymarch_frame_$frame.png")
     
-    println(s"Done! Created $numFrames frames")
+    logger.info(s"Done! Created $numFrames frames")
     summon[VkCyfraRuntime].close()
   
   /** Create a test density field with a sphere in the center.
@@ -125,13 +133,13 @@ object RayMarchVisualizationDemo:
       
       data(idx) = density
     
-    println(s"Created sphere density field: radius=$radius, center=$center")
+    logger.info(s"Created sphere density field: radius=$radius, center=$center")
     
     // Print some statistics
     val nonZero = data.count(_ > 0.0f)
     val maxDensity = data.max
-    println(s"  Non-zero cells: $nonZero / ${data.length} (${100*nonZero/data.length}%)")
-    println(s"  Max density: $maxDensity")
+    logger.info(s"Non-zero cells: $nonZero / ${data.length} (${100*nonZero/data.length}%)")
+    logger.info(s"Max density: $maxDensity")
     
     data
   

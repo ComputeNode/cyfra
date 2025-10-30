@@ -5,7 +5,6 @@ import io.computenode.cyfra.core.GProgram.StaticDispatch
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.dsl.gio.GIO
 import io.computenode.cyfra.dsl.struct.GStruct.Empty
-import io.computenode.cyfra.fluids.core.{FluidParams, FluidState, FluidStateDouble, GridUtils}
 import GridUtils.*
 
 /** Implements diffusion via Jacobi iteration.
@@ -28,6 +27,7 @@ object DiffusionProgram:
           densityPrevious = GBuffer[Float32](totalCells),
           temperaturePrevious = GBuffer[Float32](totalCells),
           divergencePrevious = GBuffer[Float32](totalCells),
+          obstacles = GBuffer[Float32](totalCells),
           params = GUniform[FluidParams]()
         )
       },
@@ -45,9 +45,7 @@ object DiffusionProgram:
 
       GIO.when(idx < totalCells):
         // Convert 1D index to 3D coordinates
-        val z = idx / (n * n)
-        val y = (idx / n).mod(n)
-        val x = idx.mod(n)
+        val (x, y, z) = idxTo3D(idx, n)
 
         // Jacobi iteration coefficients
         val alpha = 1.0f / (params.viscosity * params.dt)

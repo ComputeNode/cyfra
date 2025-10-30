@@ -1,4 +1,4 @@
-package io.computenode.cyfra.fluids.core
+package io.computenode.cyfra.fluids.solver
 
 import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.dsl.Value.{Float32, Int32, Vec3, Vec4}
@@ -13,6 +13,7 @@ case class FluidState(
   density: GBuffer[Float32],            // Density/smoke field
   temperature: GBuffer[Float32],        // Temperature field
   divergence: GBuffer[Float32],         // Divergence scratch buffer
+  obstacles: GBuffer[Float32],          // Obstacle field (<=0=fluid, >0=solid with color)
   params: GUniform[FluidParams]         // Simulation parameters
 ) extends Layout
 
@@ -33,6 +34,9 @@ case class FluidStateDouble(
   densityPrevious: GBuffer[Float32],
   temperaturePrevious: GBuffer[Float32],
   divergencePrevious: GBuffer[Float32],
+  
+  // Shared read-only buffers
+  obstacles: GBuffer[Float32],          // Obstacle field (<=0=fluid, >0=solid with color)
   
   // Shared parameters
   params: GUniform[FluidParams]

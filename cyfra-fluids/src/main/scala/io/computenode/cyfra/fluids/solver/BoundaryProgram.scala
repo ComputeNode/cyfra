@@ -5,9 +5,9 @@ import io.computenode.cyfra.core.GProgram.StaticDispatch
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.dsl.gio.GIO
 import io.computenode.cyfra.dsl.struct.GStruct.Empty
-import io.computenode.cyfra.fluids.core.{FluidParams, FluidState}
+import io.computenode.cyfra.fluids.solver.GridUtils.idxTo3D
 
-/** Applies no-slip boundary conditions at domain walls */
+/** Applies no-slip boundary conditions at domain walls and obstacles */
 object BoundaryProgram:
 
   def create: GProgram[Int, FluidState] =
@@ -20,6 +20,7 @@ object BoundaryProgram:
           density = GBuffer[Float32](totalCells),
           temperature = GBuffer[Float32](totalCells),
           divergence = GBuffer[Float32](totalCells),
+          obstacles = GBuffer[Float32](totalCells),
           params = GUniform[FluidParams]()
         )
       },
@@ -37,16 +38,18 @@ object BoundaryProgram:
 
       GIO.when(idx < totalCells):
         // Convert 1D index to 3D coordinates
-        val z = idx / (n * n)
-        val y = (idx / n).mod(n)
-        val x = idx.mod(n)
+        val (x, y, z) = idxTo3D(idx, n)
 
-        // Check if on boundary
-        val onBoundary = (x === 0) || (x === n - 1) ||
-                         (y === 0) || (y === n - 1) ||
-                         (z === 0) || (z === n - 1)
+        // Check if on domain boundary
+        val onDomainBoundary = (x === 0) || (x === n - 1) ||
+                                (y === 0) || (y === n - 1) ||
+                                (z === 0) || (z === n - 1)
 
-        GIO.when(onBoundary):
-          // No-slip: velocity = 0 at walls
+        // Check if inside obstacle
+        val isSolid = ObstacleUtils.isSolid(state.obstacles, idx, totalCells)
+
+        // Apply no-slip conditions at walls or obstacles
+        GIO.when(onDomainBoundary || isSolid):
+          // No-slip: velocity = 0 at walls/obstacles
           val boundaryVel = vec4(0.0f, 0.0f, 0.0f, 0.0f)
           GIO.write(state.velocity, idx, boundaryVel)

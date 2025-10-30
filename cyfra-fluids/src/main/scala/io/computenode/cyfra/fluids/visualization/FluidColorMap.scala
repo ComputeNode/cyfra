@@ -40,7 +40,7 @@ object FluidColorMap:
     )
     val b = when(d < 0.5f)(1.0f - d * 2.0f).otherwise(0.0f)
     
-    vec4(r, g, b, 1)
+    vec4(r, g, b, 1.0f)
   
   /** Smoke-like appearance with soft falloff.
     * 
@@ -53,7 +53,7 @@ object FluidColorMap:
     val d = clamp(density, 0.0f, 1.0f)
     val brightness = sqrt(d)  // Gamma correction for softer appearance
     val alpha = d * 0.8f  // Not fully opaque
-    vec4(brightness, brightness, brightness, 1)
+    vec4(brightness, brightness, brightness, 1.0f)
   
   /** Velocity magnitude-based coloring.
     * 

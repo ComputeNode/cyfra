@@ -1,7 +1,7 @@
-package io.computenode.cyfra.fluids.core
+package io.computenode.cyfra.fluids.solver
 
-import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.dsl.struct.GStruct
+import io.computenode.cyfra.dsl.{*, given}
 
 /** Simulation parameters for 3D fluid dynamics.
   *
@@ -22,6 +22,7 @@ case class FluidParams(
   gridSize: Int32,
   iterationCount: Int32,
   windX: Float32,
+  windY: Float32,
   windZ: Float32
 ) extends GStruct[FluidParams]
 
@@ -37,6 +38,7 @@ object FluidParams:
       gridSize = gridSize,
       iterationCount = 20,
       windX = 0.0f,
+      windY = 0.0f,
       windZ = 0.0f
     )
   
@@ -51,6 +53,7 @@ object FluidParams:
       gridSize = gridSize,
       iterationCount = 30,
       windX = 0.0f,
+      windY = 0.0f,
       windZ = 0.0f
     )
 

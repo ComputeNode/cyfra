@@ -5,9 +5,10 @@ import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.runtime.VkCyfraRuntime
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
-import io.computenode.cyfra.fluids.core.{FluidParams, FluidState, FluidStateDouble}
 import io.computenode.cyfra.fluids.solver.*
+import io.computenode.cyfra.fluids.solver.ObstacleUtils
 import io.computenode.cyfra.fluids.visualization.{Camera3D, RayMarchRenderer}
+import io.computenode.cyfra.utility.Logger.logger
 
 import java.nio.{ByteBuffer, ByteOrder}
 import java.nio.file.Paths
@@ -38,6 +39,7 @@ object FullFluidSimulation:
     pressureCurrent: GBuffer[Float32],
     pressurePrevious: GBuffer[Float32],
     divergence: GBuffer[Float32],
+    obstacles: GBuffer[Float32],
     params: GUniform[FluidParams]
   ) extends Layout
   
@@ -53,6 +55,7 @@ object FullFluidSimulation:
           density = layout.densityPrevious,
           temperature = layout.temperaturePrevious,
           divergence = layout.divergence,
+          obstacles = layout.obstacles,
           params = layout.params
         )
       )
@@ -70,6 +73,7 @@ object FullFluidSimulation:
           densityPrevious = layout.densityPrevious,
           temperaturePrevious = layout.temperaturePrevious,
           divergencePrevious = layout.divergence,
+          obstacles = layout.obstacles,
           params = layout.params
         )
       )
@@ -87,6 +91,7 @@ object FullFluidSimulation:
           densityPrevious = layout.densityPrevious,
           temperaturePrevious = layout.temperaturePrevious,
           divergencePrevious = layout.divergence,
+          obstacles = layout.obstacles,
           params = layout.params
         )
       )
@@ -100,6 +105,7 @@ object FullFluidSimulation:
           density = layout.densityCurrent,
           temperature = layout.temperatureCurrent,
           divergence = layout.divergence,
+          obstacles = layout.obstacles,
           params = layout.params
         )
       )
@@ -117,6 +123,7 @@ object FullFluidSimulation:
           densityPrevious = layout.densityPrevious,
           temperaturePrevious = layout.temperaturePrevious,
           divergencePrevious = layout.divergence,
+          obstacles = layout.obstacles,
           params = layout.params
         )
       )
@@ -129,6 +136,7 @@ object FullFluidSimulation:
           density = layout.densityCurrent,
           temperature = layout.temperatureCurrent,
           divergence = layout.divergence,
+          obstacles = layout.obstacles,
           params = layout.params
         )
       )
@@ -141,6 +149,7 @@ object FullFluidSimulation:
           density = layout.densityCurrent,
           temperature = layout.temperatureCurrent,
           divergence = layout.divergence,
+          obstacles = layout.obstacles,
           params = layout.params
         )
       )
@@ -149,21 +158,20 @@ object FullFluidSimulation:
     given runtime: VkCyfraRuntime = VkCyfraRuntime()
     
     try
-      println("=== Full Fluid Simulation (All Solver Steps) ===")
+      logger.info("=== Full Fluid Simulation (All Solver Steps) ===")
       
       // Parameters
-      val gridSize = 64
+      val gridSize = 128
       val totalCells = gridSize * gridSize * gridSize
       val imageSize = (512, 512)
       val numFrames =  200
       
-      println(s"Grid: ${gridSize}³ = $totalCells cells")
-      println(s"Image: ${imageSize._1}×${imageSize._2}")
-      println(s"Frames: $numFrames")
-      println()
+      logger.info(s"Grid: ${gridSize}³ = $totalCells cells")
+      logger.info(s"Image: ${imageSize._1}×${imageSize._2}")
+      logger.info(s"Frames: $numFrames")
       
-      // Build complete simulation pipeline
-      println("Building complete simulation pipeline...")
+      // Build complete simulation pipeline      
+      logger.info("Building complete simulation pipeline...")
       val simPipeline = buildPipeline()
       
       // Create renderer
@@ -171,7 +179,7 @@ object FullFluidSimulation:
       
       // Initialize parameters with stronger buoyancy
       val params = FluidParams(
-        dt = 0.3f,              // Time step
+        dt = 0.2f,              // Time step
         viscosity = 0.0001f,    // Low viscosity (smoke is not very viscous)
         diffusion = 0.001f,     // Slight diffusion
         buoyancy = 8.0f,        // Strong buoyancy (hot smoke rises!)
@@ -179,7 +187,8 @@ object FullFluidSimulation:
         gridSize = gridSize,
         iterationCount = 20,    // Jacobi iterations (don't need 100)
         windX = 0f,           // Wind in X direction
-        windZ = 1f            // Wind in Z direction
+        windY = 1.0f,
+        windZ = 0f            // Wind in Z direction
       )
       val paramsBuffer = createParamsBuffer(params)
       
@@ -189,14 +198,14 @@ object FullFluidSimulation:
         val lookAtCenter = (gridSize / 2.0f, gridSize / 2.0f, gridSize / 2.0f)  // Look at grid center
       
       // Allocate GPU memory region
-      println("Allocating GPU memory...")
+      logger.info("Allocating GPU memory...")
       val region = GBufferRegion
         .allocate[SimulationLayout]
         .map: region =>
           simPipeline.execute(totalCells, region)
       
-      // Initialize state buffers
-      println("Initializing fluid state...")
+      // Initialize state buffers      
+      logger.info("Initializing fluid state...")
       val velocityCurrent = createZeroVec4Buffer(totalCells)
       val velocityPrevious = createZeroVec4Buffer(totalCells)
       val densityCurrent = createZeroFloatBuffer(totalCells)
@@ -207,13 +216,27 @@ object FullFluidSimulation:
       val pressurePrevious = createZeroFloatBuffer(totalCells)
       val divergence = createZeroFloatBuffer(totalCells)
       
+      logger.info("Creating obstacles...")
+      val obstacles = ObstacleUtils.createEmpty(gridSize)
+      ObstacleUtils.addBox(
+        obstacles,
+        gridSize,
+        minX = (gridSize * 0.4f).toInt,
+        maxX = (gridSize * 0.6f).toInt,
+        minY = (gridSize * 0.4f).toInt,
+        maxY = (gridSize * 0.6f).toInt,
+        minZ = (gridSize * 0.4f).toInt,
+        maxZ = (gridSize * 0.6f).toInt,
+        0.8f
+      )
+      
       // Main simulation loop
       for frameIdx <- 0 until numFrames do
         val t = frameIdx.toFloat / numFrames.toFloat
-        println(s"\nFrame $frameIdx / $numFrames")
-        
+        logger.info(s"Frame $frameIdx / $numFrames")
+
         // Add smoke source at bottom center
-        println("  Adding smoke source...")
+        logger.debug("Adding smoke source...")
         addSmokeSource(densityCurrent, temperatureCurrent, gridSize, frameIdx)
         
         // Copy current to previous for this timestep
@@ -223,7 +246,7 @@ object FullFluidSimulation:
         copyBuffer(pressureCurrent, pressurePrevious)
         
         // Run complete simulation pipeline
-        println("  Running simulation pipeline...")
+        logger.debug("Running simulation pipeline...")
         val resultLayout = region.runUnsafe(
           init = SimulationLayout(
             velocityCurrent = GBuffer(velocityCurrent),
@@ -235,6 +258,7 @@ object FullFluidSimulation:
             pressureCurrent = GBuffer(pressureCurrent),
             pressurePrevious = GBuffer(pressurePrevious),
             divergence = GBuffer(divergence),
+            obstacles = GBuffer(obstacles),
             params = GUniform(paramsBuffer)
           ),
           onDone = layout =>
@@ -249,46 +273,13 @@ object FullFluidSimulation:
         densityCurrent.rewind()
         temperatureCurrent.rewind()
         pressureCurrent.rewind()
-        
-        // Debug: Check velocity magnitude
-        velocityCurrent.rewind()
-        var maxVelY = 0.0f
-        for i <- 0 until totalCells do
-          val vx = velocityCurrent.getFloat()
-          val vy = velocityCurrent.getFloat()
-          val vz = velocityCurrent.getFloat()
-          val vw = velocityCurrent.getFloat()
-          if Math.abs(vy) > Math.abs(maxVelY) then maxVelY = vy
-        velocityCurrent.rewind()
-        
-        // Debug: Check density distribution at different heights
-        densityCurrent.rewind()
-        val densityAtHeight = Array.fill(gridSize)(0.0f)
-        for z <- 0 until gridSize do
-          for y <- 0 until gridSize do
-            for x <- 0 until gridSize do
-              val idx = x + y * gridSize + z * gridSize * gridSize
-              densityCurrent.position(idx * 4)
-              val density = densityCurrent.getFloat()
-              if density > 0.01f then  // Only count significant density
-                densityAtHeight(y) += density
-        densityCurrent.rewind()
-        
-        // Print density distribution every 8 layers
-        println(s"  Max Y velocity: $maxVelY")
-        print(s"  Density by height: ")
-        for i <- 0 until gridSize by 8 do
-          val layerDensity = densityAtHeight.slice(i, i+8).sum
-          print(f"[$i-${i+7}]=$layerDensity%.0f ")
-        println()
-        val total = densityAtHeight.sum
-        println(s"  Total density: $total%.0f")
+
         
         // Render current state
-        println("  Rendering frame...")
+        logger.debug("Rendering frame...")
         val angle = 0
         val angleRad = angle * Math.PI.toFloat / 180.0f
-        val radius = gridSize  * 1.5f
+        val radius = gridSize  * 2f
         
         val camera = Camera3D.orbit(
           centerX = lookAtCenter._1,
@@ -300,15 +291,14 @@ object FullFluidSimulation:
           aspectRatio = imageSize._1.toFloat / imageSize._2.toFloat
         )
         
-        val rendered = renderer.renderFrame(densityCurrent, gridSize, camera)
+        val rendered = renderer.renderFrame(densityCurrent, obstacles, gridSize, camera)
         val renderedBuffer = ByteBuffer.wrap(rendered).order(ByteOrder.nativeOrder())
         saveFrame(renderedBuffer, imageSize, s"smoke/full_fluid_$frameIdx.png")
         
-        println(s"  Saved full_fluid_$frameIdx.png")
+        logger.debug(s"Saved full_fluid_$frameIdx.png")
       
-      println()
-      println(s"Done! Created $numFrames frames")
-      println("Generate video with: ffmpeg -framerate 10 -i smoke/full_fluid_%d.png -c:v libx264 -pix_fmt yuv420p full_fluid.mp4")
+      logger.info(s"Done! Created $numFrames frames")
+      logger.info("Generate video with: ffmpeg -framerate 10 -i smoke/full_fluid_%d.png -c:v libx264 -pix_fmt yuv420p full_fluid.mp4")
       
     finally
       runtime.close()
@@ -328,8 +318,8 @@ object FullFluidSimulation:
     frameIdx: Int
   ): Unit =
     val time = frameIdx
-    val pulseFactor = (Math.sin(frameIdx * 0.2).toFloat * 0.3f + 0.7f).max(0.3f)
-    val sourceRadius = gridSize / 5
+    val pulseFactor = 1.0f
+    val sourceRadius = gridSize / 6f
     val centerX = gridSize / 2
     val centerZ = gridSize / 2
     
@@ -339,21 +329,14 @@ object FullFluidSimulation:
       val idx = x + y * gridSize + z * gridSize * gridSize
       densityBuffer.position(idx * 4)
       
-      if y < 2 && y > -2 then
+      if y < 2 then
         val dx = x - centerX
         val dz = z - centerZ
         val distSq = dx * dx + dz * dz
         val dist = Math.sqrt(distSq.toDouble).toFloat
         
         if distSq < sourceRadius * sourceRadius then
-          // Add noise to create irregular smoke patterns
-          val noise = simpleNoise(x.toFloat, y.toFloat, z.toFloat, time)
-          val falloff = 1.0f - (dist / sourceRadius)
-          val strength = falloff * (0.3f + noise * 0.7f) * pulseFactor
-          
-          val existing = densityBuffer.getFloat()
-          densityBuffer.position(idx * 4)
-          val newVal = (existing + 0.6f * strength).min(1.0f) * 0.7f
+          val newVal = 0.8f
           densityBuffer.putFloat(newVal)
     
     // Add temperature with noise
@@ -362,7 +345,7 @@ object FullFluidSimulation:
       val idx = x + y * gridSize + z * gridSize * gridSize
       temperatureBuffer.position(idx * 4)
       
-      if y < 2 && y > -2 then
+      if y < 2 then
         val dx = x - centerX
         val dz = z - centerZ
         val distSq = dx * dx + dz * dz
@@ -370,7 +353,7 @@ object FullFluidSimulation:
         
         if distSq < sourceRadius * sourceRadius then
           // Add noise for irregular heat distribution
-          val noise = simpleNoise(x.toFloat + 10, y.toFloat, z.toFloat + 10, time)
+          val noise = simpleNoise(x.toFloat + 10, y.toFloat, z.toFloat + 10, time.toFloat)
           val falloff = 1.0f - (dist / sourceRadius)
           val strength = falloff * (0.4f + noise * 0.6f) * pulseFactor
           

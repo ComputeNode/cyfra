@@ -15,7 +15,7 @@ import io.computenode.cyfra.dsl.control.When.when
 import io.computenode.cyfra.dsl.library.Functions.{abs, clamp, max, min, mix, tan}
 import io.computenode.cyfra.dsl.library.Math3D.*
 import io.computenode.cyfra.dsl.collections.GSeq
-import io.computenode.cyfra.fluids.core.GridUtils
+import io.computenode.cyfra.fluids.solver.GridUtils
 import org.lwjgl.BufferUtils
 
 import java.nio.ByteBuffer
@@ -32,14 +32,19 @@ import java.nio.ByteOrder
 class RayMarchRenderer(width: Int, height: Int)(using runtime: VkCyfraRuntime):
   
   import GridUtils.*
-  
+
+  object MarchState:
+    val MARCHING: Int32 = 0
+    val LAST_STEP: Int32 = 1
+    val DONE: Int32 = 2
+
   /** Ray marching state for accumulation along ray */
   private case class RayMarchState(
     pos: Vec3[Float32],
     accumColor: Vec4[Float32],
     transmittance: Float32,
     t: Float32,
-    finished: GBoolean = false
+    state: Int32 = MarchState.MARCHING
   ) extends GStruct[RayMarchState]
   
   /** Parameters for rendering */
@@ -51,6 +56,7 @@ class RayMarchRenderer(width: Int, height: Int)(using runtime: VkCyfraRuntime):
   case class RenderLayout(
     output: GBuffer[Vec4[Float32]],
     density: GBuffer[Float32],
+    obstacles: GBuffer[Float32],
     camera: GUniform[Camera3D],
     params: GUniform[RenderParams]
   ) extends Layout
@@ -100,6 +106,7 @@ class RayMarchRenderer(width: Int, height: Int)(using runtime: VkCyfraRuntime):
     origin: Vec3[Float32],
     direction: Vec3[Float32],
     densityBuffer: GBuffer[Float32],
+    obstaclesBuffer: GBuffer[Float32],
     gridSize: Int32
   ): Vec4[Float32] =
     val maxSteps = 512
@@ -129,23 +136,63 @@ class RayMarchRenderer(width: Int, height: Int)(using runtime: VkCyfraRuntime):
         pos = startPos,
         accumColor = vec4(0.0f, 0.0f, 0.0f, 0.0f),
         transmittance = 1.0f,
-        t = entryDist,
-        finished = false
+        t = entryDist
       )
       
       val finalState = GSeq
         .gen[RayMarchState](
           first = initState,
           next = state =>
+            import io.computenode.cyfra.fluids.solver.ObstacleUtils
+            
             val nextPos = state.pos + direction * stepSize
             val nextT = state.t + stepSize
+            
+            // Check if ray is still inside the grid volume (continuous bounds check)
+            val gridMax = gridSize.asFloat
+            val posInBounds = (state.pos.x >= 0.0f) && (state.pos.x <= gridMax) &&
+                             (state.pos.y >= 0.0f) && (state.pos.y <= gridMax) &&
+                             (state.pos.z >= 0.0f) && (state.pos.z <= gridMax)
+            
+            // Check if next position will be outside (to stop BEFORE exiting)
+            val nextPosInBounds = (nextPos.x >= 0.0f) && (nextPos.x <= gridMax) &&
+                                 (nextPos.y >= 0.0f) && (nextPos.y <= gridMax) &&
+                                 (nextPos.z >= 0.0f) && (nextPos.z <= gridMax)
+            
+            // Check if we're inside an obstacle (only if in bounds)
+            val cellX = state.pos.x.asInt
+            val cellY = state.pos.y.asInt
+            val cellZ = state.pos.z.asInt
+            val cellInBounds = (cellX >= 0) && (cellX < gridSize) && 
+                              (cellY >= 0) && (cellY < gridSize) && 
+                              (cellZ >= 0) && (cellZ < gridSize)
+            val cellIdx = coord3dToIdx(cellX, cellY, cellZ, gridSize)
+            val totalCells = gridSize * gridSize * gridSize
+            val hitObstacle = cellInBounds && ObstacleUtils.isSolid(obstaclesBuffer, cellIdx, totalCells)
+            
+            // Sample color (obstacle or fluid)
+            val sampleColor = when(hitObstacle):
+              // Get obstacle color/brightness value
+              val obstacleValue = ObstacleUtils.getObstacleValue(obstaclesBuffer, cellIdx)
+
+              // Simple ambient + diffuse lighting for obstacle
+              val lightDir = normalize(vec3(0.5f, 1.0f, 0.3f))
+              val normal = ObstacleUtils.computeNormal(obstaclesBuffer, cellX, cellY, cellZ, gridSize)
+              val diffuse = max(0.0f, normal dot lightDir)
+              val ambient = 0.3f
+              val brightness = clamp(ambient + diffuse * 0.7f, 0.0f, 1.0f)
+
+              // Use obstacle value to tint the surface (can encode different materials)
+              val baseColor = obstacleValue // Use obstacle value as brightness/color factor
+              vec4(brightness * baseColor, brightness * baseColor, brightness * baseColor * 1.1f, 1.0f)
+            .otherwise:
+              // Sample fluid density
+              val density = trilinearInterpolateFloat32(densityBuffer, state.pos, gridSize)
+              FluidColorMap.heatMap(density)
+            
+            // Calculate opacity
             val density = trilinearInterpolateFloat32(densityBuffer, state.pos, gridSize)
-            
-            // Map density to color (heat map)
-            val sampleColor = FluidColorMap.heatMap(density)
-            
-            // Calculate opacity from density
-            val alpha = clamp(density * absorptionCoeff, 0.0f, 1.0f)
+            val alpha = when(hitObstacle)(1.0f).otherwise(clamp(density * absorptionCoeff, 0.0f, 1.0f))
             
             // Accumulate color with current transmittance
             val colorContribution = sampleColor * alpha * state.transmittance
@@ -154,12 +201,17 @@ class RayMarchRenderer(width: Int, height: Int)(using runtime: VkCyfraRuntime):
             // Update transmittance
             val nextTransmittance = state.transmittance * (1.0f - alpha)
             
-            // Check if ray should terminate
-            val shouldFinish = (nextTransmittance < transmittanceThreshold) || (nextT > maxDistance)
-            RayMarchState(nextPos, nextColor, nextTransmittance, nextT, shouldFinish)
+            // Check if ray should terminate (stop if next step would exit volume)
+            val shouldFinish = (!nextPosInBounds) || (nextTransmittance < transmittanceThreshold) || (nextT > maxDistance)
+            val nextState = 
+              when(state.state === MarchState.LAST_STEP)(MarchState.DONE)
+              .elseWhen(hitObstacle)(MarchState.LAST_STEP)
+              .elseWhen(shouldFinish)(MarchState.DONE)
+              .otherwise(MarchState.MARCHING)
+            RayMarchState(nextPos, nextColor, nextTransmittance, nextT, nextState)
         )
         .limit(maxSteps)
-        .takeWhile(!_.finished)
+        .takeWhile(_.state !== MarchState.DONE)
         .lastOr(initState)
       
       // Add background with remaining transmittance
@@ -199,7 +251,8 @@ class RayMarchRenderer(width: Int, height: Int)(using runtime: VkCyfraRuntime):
       val totalCells = gridSize * gridSize * gridSize
       RenderLayout(
         output = GBuffer[Vec4[Float32]](width * height),
-        density = GBuffer[Float32](totalCells),  // Matches the density buffer size
+        density = GBuffer[Float32](totalCells),
+        obstacles = GBuffer[Float32](totalCells),
         camera = GUniform[Camera3D](),
         params = GUniform[RenderParams]()
       )
@@ -231,7 +284,7 @@ class RayMarchRenderer(width: Int, height: Int)(using runtime: VkCyfraRuntime):
       val camPos = vec3(cam.position.x, cam.position.y, cam.position.z)
       
       // March along ray and accumulate color
-      val finalColor = marchRay(camPos, rayDirection, layout.density, params.gridSize)
+      val finalColor = marchRay(camPos, rayDirection, layout.density, layout.obstacles, params.gridSize)
       
       for
         _ <- GIO.write(layout.output, idx, finalColor)
@@ -240,12 +293,14 @@ class RayMarchRenderer(width: Int, height: Int)(using runtime: VkCyfraRuntime):
   /** Render a frame of the fluid simulation.
     * 
     * @param densityBuffer Fluid density buffer (must be gridSize³ elements)
+    * @param obstaclesBuffer Obstacles buffer (must be gridSize³ elements)
     * @param gridSize Grid resolution
     * @param camera Camera parameters
     * @return RGBA image data as byte array (width × height × 4)
     */
   def renderFrame(
     densityBuffer: ByteBuffer,
+    obstaclesBuffer: ByteBuffer,
     gridSize: Int,
     camera: Camera3D
   ): Array[Byte] =
@@ -275,6 +330,7 @@ class RayMarchRenderer(width: Int, height: Int)(using runtime: VkCyfraRuntime):
       init = RenderLayout(
         output = GBuffer[Vec4[Float32]](width * height),
         density = GBuffer[Float32](densityBuffer),
+        obstacles = GBuffer[Float32](obstaclesBuffer),
         camera = GUniform[Camera3D](cameraBuffer),
         params = GUniform[RenderParams](paramsBuffer)
       ),

@@ -41,18 +41,18 @@ A fluid is a substance that continuously deforms under applied shear stress. Unl
 
 ### Key Properties
 
-1. **Velocity Field** $ \mathbf{u}(\mathbf{x}, t) $$   - At every point in space and time, the fluid has a velocity
+1. **Velocity Field** $ \mathbf{u}(\mathbf{x}, t) $   - At every point in space and time, the fluid has a velocity
    - This is a **vector field**: each point has a direction and magnitude
    - In 3D: $ \mathbf{u} = (u_x, u_y, u_z) $
-2. **Pressure Field** $ p(\mathbf{x}, t) $$   - Internal pressure at each point
+2. **Pressure Field** $ p(\mathbf{x}, t) $   - Internal pressure at each point
    - Pushes fluid from high to low pressure regions
    - Scalar field: just a number at each point
 
-3. **Density Field** $ \rho(\mathbf{x}, t) $$   - Mass per unit volume
+3. **Density Field** $ \rho(\mathbf{x}, t) $   - Mass per unit volume
    - For smoke: how "thick" or "dense" the smoke is
    - Scalar field
 
-4. **Temperature Field** $ T(\mathbf{x}, t) $$   - For effects like buoyancy (hot air rises)
+4. **Temperature Field** $ T(\mathbf{x}, t) $  - For effects like buoyancy (hot air rises)
    - Scalar field
 
 ### Conservation Laws
@@ -84,7 +84,7 @@ Before diving into the equations, let's understand the mathematical symbols and 
 #### 1. **Dot Product**: $\mathbf{a} \cdot \mathbf{b}$
 Combines two vectors → produces a **scalar**
 
-**Formula**:
+**Formula**:\
 $$
 \mathbf{a} \cdot \mathbf{b} = a_x b_x + a_y b_y + a_z b_z
 $$
@@ -110,7 +110,7 @@ These measure **how things change** in space and time.
 #### 3. **Gradient**: $\nabla$ (nabla operator)
 "Which direction is uphill?"
 
-For a scalar field $f(x, y, z)$:
+For a scalar field $f(x, y, z)$:\
 $$
 \nabla f = \left(\frac{\partial f}{\partial x}, \frac{\partial f}{\partial y}, \frac{\partial f}{\partial z}\right)
 $$
@@ -131,7 +131,7 @@ High pressure → → → Low pressure
 #### 4. **Divergence**: $\nabla \cdot \mathbf{u}$
 "Is this point a source or sink of fluid?"
 
-For a vector field $\mathbf{u}(x, y, z)$:
+For a vector field $\mathbf{u}(x, y, z)$:\
 $$
 \nabla \cdot \mathbf{u} = \frac{\partial u_x}{\partial x} + \frac{\partial u_y}{\partial y} + \frac{\partial u_z}{\partial z}
 $$
@@ -156,7 +156,7 @@ Divergence > 0:          Divergence = 0:
 #### 5. **Laplacian**: $\nabla^2$ or $\Delta$
 "How different is this point from its neighbors?"
 
-For a scalar or vector field:
+For a scalar or vector field:\
 $$
 \nabla^2 f = \frac{\partial^2 f}{\partial x^2} + \frac{\partial^2 f}{\partial y^2} + \frac{\partial^2 f}{\partial z^2}
 $$
@@ -192,7 +192,7 @@ Now the really interesting parts - combining operators:
 2. $\mathbf{u} \cdot \nabla$ = "Look in the direction the fluid is moving"
 3. $(\mathbf{u} \cdot \nabla)\mathbf{u}$ = "How much does velocity change in the direction of motion?"
 
-**Expanded form**:
+**Expanded form**:\
 $$
 (\mathbf{u} \cdot \nabla)\mathbf{u} = \left(u_x \frac{\partial \mathbf{u}}{\partial x} + u_y \frac{\partial \mathbf{u}}{\partial y} + u_z \frac{\partial \mathbf{u}}{\partial z}\right)
 $$
@@ -233,8 +233,7 @@ Now we can read the full Navier-Stokes equation with understanding!
 
 ### The Full Equation
 
-The incompressible Navier-Stokes equation for velocity is:
-
+The incompressible Navier-Stokes equation for velocity is:\
 $$
 \frac{\partial \mathbf{u}}{\partial t} = -(\mathbf{u} \cdot \nabla)\mathbf{u} - \frac{1}{\rho}\nabla p + \nu \nabla^2 \mathbf{u} + \mathbf{f}
 $$
@@ -300,8 +299,7 @@ diffusion will smooth this out, transferring momentum to neighbors
 - **Buoyancy**: Hot fluid rises: $\mathbf{f} = (0, \alpha(T - T_{\text{ambient}}), 0)$
 ### The Continuity Equation (Incompressibility)
 
-For incompressible flow:
-
+For incompressible flow:\
 $$
 \nabla \cdot \mathbf{u} = 0
 $$
@@ -370,13 +368,12 @@ The **Stable Fluids** method guarantees stability by:
 
 ### The Problem: Solving Navier-Stokes Directly
 
-The full Navier-Stokes equation is a **coupled system** - all terms interact simultaneously:
-
+The full Navier-Stokes equation is a **coupled system** - all terms interact simultaneously:\
 $$
 \frac{\partial \mathbf{u}}{\partial t} = -(\mathbf{u} \cdot \nabla)\mathbf{u} - \frac{1}{\rho}\nabla p + \nu \nabla^2 \mathbf{u} + \mathbf{f}
 $$
 
-Plus the incompressibility constraint:
+Plus the incompressibility constraint:\
 $$
 \nabla \cdot \mathbf{u} = 0
 $$
@@ -402,18 +399,18 @@ For a modest $64^3$ grid: **$4 \times 262,144 = 1,048,576$ unknowns!**
 
 Writing the discretized equations at each grid point $(i,j,k)$ for one timestep:
 
-**Momentum equations** (3 per cell):
+**Momentum equations** (3 per cell):\
 $$
 \frac{u_x^{n+1}_{i,j,k} - u_x^n_{i,j,k}}{\Delta t} = -(\mathbf{u}^{n+1} \cdot \nabla)u_x^{n+1} - \frac{1}{\rho}\frac{\partial p^{n+1}}{\partial x} + \nu \nabla^2 u_x^{n+1} + f_x
-$$
+$$\
 $$
 \frac{u_y^{n+1}_{i,j,k} - u_y^n_{i,j,k}}{\Delta t} = -(\mathbf{u}^{n+1} \cdot \nabla)u_y^{n+1} - \frac{1}{\rho}\frac{\partial p^{n+1}}{\partial y} + \nu \nabla^2 u_y^{n+1} + f_y
-$$
+$$\
 $$
 \frac{u_z^{n+1}_{i,j,k} - u_z^n_{i,j,k}}{\Delta t} = -(\mathbf{u}^{n+1} \cdot \nabla)u_z^{n+1} - \frac{1}{\rho}\frac{\partial p^{n+1}}{\partial z} + \nu \nabla^2 u_z^{n+1} + f_z
 $$
 
-**Continuity equation** (1 per cell):
+**Continuity equation** (1 per cell):\
 $$
 \frac{\partial u_x^{n+1}}{\partial x} + \frac{\partial u_y^{n+1}}{\partial y} + \frac{\partial u_z^{n+1}}{\partial z} = 0
 $$
@@ -422,7 +419,7 @@ $$
 
 #### Matrix Representation
 
-If we could linearize this (big if!), we'd have a system:
+If we could linearize this (big if!), we'd have a system:\
 $$
 \mathbf{A} \mathbf{x}^{n+1} = \mathbf{b}(\mathbf{x}^n)
 $$
@@ -465,7 +462,7 @@ Compare to operator splitting:
 
 ##### 2. **Nonlinearity Problem**
 
-The advection term $(\mathbf{u} \cdot \nabla)\mathbf{u}$ is **quadratic** in $\mathbf{u}$:
+The advection term $(\mathbf{u} \cdot \nabla)\mathbf{u}$ is **quadratic** in $\mathbf{u}$:\
 $$
 (\mathbf{u}^{n+1} \cdot \nabla)\mathbf{u}^{n+1} = u_x^{n+1}\frac{\partial \mathbf{u}^{n+1}}{\partial x} + u_y^{n+1}\frac{\partial \mathbf{u}^{n+1}}{\partial y} + u_z^{n+1}\frac{\partial \mathbf{u}^{n+1}}{\partial z}
 $$
@@ -556,12 +553,12 @@ Even if we could linearize, solving $\mathbf{A}\mathbf{x} = \mathbf{b}$ for a mi
 
 Without splitting, timestep limited by **all** processes:
 
-**CFL condition** (advection):
+**CFL condition** (advection):\
 $$
 \Delta t < \frac{h}{|\mathbf{u}_{\max}|}
 $$
 
-**Diffusion stability**:
+**Diffusion stability**:\
 $$
 \Delta t < \frac{h^2}{2d\nu}
 $$
@@ -598,7 +595,7 @@ Let's work through a tiny $2 \times 2 \times 2$ grid (8 cells) to see the coupli
 
 **Just writing out cell (0,0,0)**:
 
-Momentum x:
+Momentum x:\
 $$
 u_x(0,0,0) = u_x^{\text{old}} - \Delta t[u_x\frac{\partial u_x}{\partial x} + u_y\frac{\partial u_x}{\partial y} + u_z\frac{\partial u_x}{\partial z}] - \frac{\Delta t}{\rho}\frac{p(1,0,0) - p(-1,0,0)}{2h} + \Delta t \cdot \nu[\text{6 neighbors}] + f_x
 $$
@@ -766,7 +763,7 @@ $$
 \frac{\partial \mathbf{u}^{**}}{\partial t} = -(\mathbf{u}^* \cdot \nabla)\mathbf{u}^*
 $$
 
-**Solution** (semi-Lagrangian):
+**Solution** (semi-Lagrangian):\
 $$
 \mathbf{u}^{**}(\mathbf{x}) = \mathbf{u}^*(\mathbf{x} - \mathbf{u}^*(\mathbf{x})\Delta t)
 $$
@@ -785,7 +782,7 @@ $$
 \frac{\partial \mathbf{u}^{***}}{\partial t} = \nu \nabla^2 \mathbf{u}^{**}
 $$
 
-**Solution** (implicit Jacobi):
+**Solution** (implicit Jacobi):\
 $$
 \mathbf{u}^{***} - \nu \Delta t \nabla^2 \mathbf{u}^{***} = \mathbf{u}^{**}
 $$
@@ -802,7 +799,7 @@ $$
 \mathbf{u}^{n+1} = \mathbf{u}^{***} - \Delta t \nabla p
 $$
 
-Where $p$ solves:
+Where $p$ solves:\
 $$
 \nabla^2 p = \frac{1}{\Delta t}\nabla \cdot \mathbf{u}^{***}
 $$
@@ -844,7 +841,7 @@ u^(n+1) = (0.8, 0.09, 0.0) projected (made divergence-free)
 
 ### Error Analysis
 
-**First-order splitting**:
+**First-order splitting**:\
 $$
 \mathbf{u}_{\text{exact}} - \mathbf{u}_{\text{split}} = O(\Delta t^2)
 $$
@@ -978,11 +975,11 @@ def idx3D(x: Int32, y: Int32, z: Int32, n: Int32): Int32 =
 
 ### Step 1: Add Forces (`ForcesProgram.scala`)
 
-**Equation**:
+**Equation**:\
 $$\mathbf{u}_{\text{new}} = \mathbf{u}_{\text{old}} + \Delta t \cdot \mathbf{f}
 $$
 **Forces we apply**:
-1. **Buoyancy** (hot fluid rises):
+1. **Buoyancy** (hot fluid rises):\
    $$   f_{\text{buoyancy}} = (0, \alpha(T - T_{\text{ambient}}), 0)
    $$
 **GPU Implementation**:
@@ -1014,7 +1011,7 @@ GIO.write(state.velocity, idx, newVel)
 
 ### Step 2: Advection (`AdvectionProgram.scala`)
 
-**Equation**:
+**Equation**:\
 $$\frac{\partial q}{\partial t} = -(\mathbf{u} \cdot \nabla)q
 $$
 Where $ q $ is any quantity (velocity, density, temperature)
@@ -1094,20 +1091,20 @@ val result = c000*tx*ty*tz + c100*sx*ty*tz + ...
 
 ### Step 3: Diffusion (`DiffusionProgram.scala`)
 
-**Equation**:
+**Equation**:\
 $$\frac{\partial \mathbf{u}}{\partial t} = \nu \nabla^2 \mathbf{u}
-$$
-The Laplacian $ \nabla^2 $ in discrete form:
+$$\
+The Laplacian $ \nabla^2 $ in discrete form:\
 $$\nabla^2 u_{i,j,k} \approx \frac{1}{h^2}(u_{i+1,j,k} + u_{i-1,j,k} + u_{i,j+1,k} + u_{i,j-1,k} + u_{i,j,k+1} + u_{i,j,k-1} - 6u_{i,j,k})
-$$
+$$\
 "Average of 6 neighbors minus 6 times center"
 
-**Problem**: Implicit solve required for stability
+**Problem**: Implicit solve required for stability\
 $$\mathbf{u}_{\text{new}} = \mathbf{u}_{\text{old}} + \Delta t \cdot \nu \nabla^2 \mathbf{u}_{\text{new}}
-$$
-Rearranging:
+$$\
+Rearranging:\
 $$(\mathbf{I} - \Delta t \cdot \nu \nabla^2) \mathbf{u}_{\text{new}} = \mathbf{u}_{\text{old}}
-$$
+$$\
 This is a **large sparse linear system!**
 
 **Solution: Jacobi Iteration**
@@ -1156,9 +1153,9 @@ GIO.write(state.velocityCurrent, idx, result)
 **Goal**: Enforce incompressibility $ \nabla \cdot \mathbf{u} = 0 $
 **Method: Helmholtz-Hodge Decomposition**
 
-Any vector field can be decomposed:
+Any vector field can be decomposed:\
 $$\mathbf{u} = \mathbf{u}_{\text{div-free}} + \nabla p
-$$
+$$\
 Where:
 - $ \mathbf{u}_{\text{div-free}} $ has no divergence (incompressible part)
 - $ \nabla p $ is gradient of pressure (compressible part)
@@ -1173,10 +1170,10 @@ Where:
 #### Sub-step 4a: Compute Divergence
 
 $$\text{div} = \nabla \cdot \mathbf{u} = \frac{\partial u_x}{\partial x} + \frac{\partial u_y}{\partial y} + \frac{\partial u_z}{\partial z}
-$$
-Discrete form:
+$$\
+Discrete form:\
 $$\text{div}_{i,j,k} = \frac{1}{2h}[(u_x)_{i+1,j,k} - (u_x)_{i-1,j,k} + (u_y)_{i,j+1,k} - (u_y)_{i,j-1,k} + (u_z)_{i,j,k+1} - (u_z)_{i,j,k-1}]
-$$
+$$\
 **GPU Implementation**:
 ```scala
 // Read velocities from 6 neighbors
@@ -1200,10 +1197,10 @@ GIO.write(state.divergence, idx, div)
 #### Sub-step 4b: Solve Poisson Equation for Pressure
 
 $$\nabla^2 p = \nabla \cdot \mathbf{u}
-$$
-In discrete form:
+$$\
+In discrete form:\
 $$\frac{p_{i+1,j,k} + p_{i-1,j,k} + p_{i,j+1,k} + p_{i,j-1,k} + p_{i,j,k+1} + p_{i,j,k-1} - 6p_{i,j,k}}{h^2} = \text{div}_{i,j,k}
-$$
+$$\
 **Solution: Jacobi Iteration (again!)**
 
 ```
@@ -1236,10 +1233,10 @@ GIO.write(state.pressureCurrent, idx, pNew)
 #### Sub-step 4c: Subtract Pressure Gradient
 
 $$\mathbf{u}_{\text{new}} = \mathbf{u}_{\text{old}} - \nabla p
-$$
-Discrete gradient:
+$$\
+Discrete gradient:\
 $$\nabla p = \left( \frac{p_{i+1,j,k} - p_{i-1,j,k}}{2h}, \frac{p_{i,j+1,k} - p_{i,j-1,k}}{2h}, \frac{p_{i,j,k+1} - p_{i,j,k-1}}{2h} \right)
-$$
+$$\
 **GPU Implementation**:
 ```scala
 // Read current velocity
@@ -1433,7 +1430,7 @@ Complexity: $ O(N^3) $ where N = grid resolution $
 
 ### Vorticity Confinement
 
-Semi-Lagrangian advection is dissipative (smooths out details). **Vorticity confinement** adds energy back:
+Semi-Lagrangian advection is dissipative (smooths out details). **Vorticity confinement** adds energy back:\
 $$\mathbf{f}_{\text{conf}} = \epsilon h (N \times \omega)
 $$
 Where $ \omega = \nabla \times \mathbf{u} $ is the curl (vorticity)
@@ -1442,7 +1439,7 @@ Where $ \omega = \nabla \times \mathbf{u} $ is the curl (vorticity)
 
 ### Adaptive Time Stepping
 
-Adjust $ \Delta t $ based on velocity:
+Adjust $ \Delta t $ based on velocity:\
 $$\Delta t = \text{CFL} \cdot \frac{h}{|u_{\max}|}
 $$
 **Benefit**: Larger steps when safe, smaller when needed

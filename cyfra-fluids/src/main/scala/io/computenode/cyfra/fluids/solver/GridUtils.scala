@@ -1,10 +1,10 @@
-package io.computenode.cyfra.fluids.core
+package io.computenode.cyfra.fluids.solver
 
-import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.dsl.binding.GBuffer
-import io.computenode.cyfra.dsl.macros.Source
 import io.computenode.cyfra.dsl.control.When.when
-import io.computenode.cyfra.dsl.library.Functions.{mix, clamp, min, max}
+import io.computenode.cyfra.dsl.library.Functions.{clamp, max, min, mix}
+import io.computenode.cyfra.dsl.macros.Source
+import io.computenode.cyfra.dsl.{*, given}
 
 /** Utility functions for 3D grid operations */
 object GridUtils:
@@ -12,8 +12,15 @@ object GridUtils:
   /** Convert 3D coordinates to 1D flattened index.
     * Uses row-major order: index = x + y*N + z*N²
     */
-  inline def idx3D(x: Int32, y: Int32, z: Int32, n: Int32): Int32 =
+  inline def coord3dToIdx(x: Int32, y: Int32, z: Int32, n: Int32): Int32 =
     x + y * n + z * n * n
+
+  def idxTo3D(idx: Int32, n: Int32): (Int32, Int32, Int32) =
+    val z = idx / (n * n)
+    val y = (idx / n).mod(n)
+    val x = idx.mod(n)
+    (x, y, z)
+    
   
   /** Check if 3D coordinates are within grid bounds */
   inline def inBounds(x: Int32, y: Int32, z: Int32, n: Int32): GBoolean =
@@ -34,7 +41,7 @@ object GridUtils:
     val xClamped = maxInt32(0, minInt32(x, n - 1))
     val yClamped = maxInt32(0, minInt32(y, n - 1))
     val zClamped = maxInt32(0, minInt32(z, n - 1))
-    buffer.read(idx3D(xClamped, yClamped, zClamped, n))
+    buffer.read(coord3dToIdx(xClamped, yClamped, zClamped, n))
   
   /** Read scalar from buffer with bounds checking */
   def readFloat32Safe(buffer: GBuffer[Float32], x: Int32, y: Int32, z: Int32, n: Int32)
@@ -43,7 +50,7 @@ object GridUtils:
     val xClamped = maxInt32(0, minInt32(x, n - 1))
     val yClamped = maxInt32(0, minInt32(y, n - 1))
     val zClamped = maxInt32(0, minInt32(z, n - 1))
-    buffer.read(idx3D(xClamped, yClamped, zClamped, n))
+    buffer.read(coord3dToIdx(xClamped, yClamped, zClamped, n))
   
   /** Trilinear interpolation for Vec4 field.
     * Samples 8 surrounding grid points and blends them.

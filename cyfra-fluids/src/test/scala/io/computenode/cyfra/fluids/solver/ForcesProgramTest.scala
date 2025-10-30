@@ -1,40 +1,45 @@
-package io.computenode.cyfra.fluids.tests
+package io.computenode.cyfra.fluids.solver
 
-import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.runtime.VkCyfraRuntime
-import io.computenode.cyfra.fluids.solver.ForcesProgram
-import io.computenode.cyfra.fluids.core.FluidParams
 import io.computenode.cyfra.core.GBufferRegion
 import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
-import io.computenode.cyfra.fluids.core.FluidState
+import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.fluids.solver.{FluidParams, FluidState, ForcesProgram}
+import io.computenode.cyfra.runtime.VkCyfraRuntime
+
 import java.nio.{ByteBuffer, ByteOrder}
 
-@main def testForcesProgram(): Unit =
-  given runtime: VkCyfraRuntime = VkCyfraRuntime()
-
-  try
+class ForcesProgramTest extends munit.FunSuite:
+  
+  var runtime: VkCyfraRuntime = null
+  
+  override def beforeAll(): Unit =
+    runtime = VkCyfraRuntime()
+  
+  override def afterAll(): Unit =
+    if runtime != null then runtime.close()
+  
+  test("ForcesProgram applies buoyancy force correctly"):
     val gridSize = 32
     val totalCells = gridSize * gridSize * gridSize
-    
-    println(s"Testing ForcesProgram with grid $gridSize³ = $totalCells cells")
     
     // Create fluid parameters
     val params = FluidParams(
       dt = 0.3f,
-      viscosity = 0.0001f,
-      diffusion = 0.0001f,
+      viscosity = 0.0000f,
+      diffusion = 0.0000f,
       buoyancy = 8.0f,
       ambient = 0.0f,
       gridSize = gridSize,
       iterationCount = 20,
       windX = 0.0f,
+      windY = 0f,
       windZ = 0.0f
     )
     
     val paramsBuffer = {
-      import io.computenode.cyfra.spirv.compilers.SpirvProgramCompiler.totalStride
-      import io.computenode.cyfra.dsl.struct.GStruct.given
       import io.computenode.cyfra.core.GCodec
+      import io.computenode.cyfra.dsl.struct.GStruct.given
+      import io.computenode.cyfra.spirv.compilers.SpirvProgramCompiler.totalStride
       
       val schema = summon[io.computenode.cyfra.dsl.struct.GStructSchema[FluidParams]]
       val size = totalStride(schema)
@@ -62,6 +67,8 @@ import java.nio.{ByteBuffer, ByteOrder}
     temperatureBuffer.rewind()
     
     // Execute program
+    given VkCyfraRuntime = runtime
+    
     val region = GBufferRegion
       .allocate[FluidState]
       .map: region =>
@@ -82,17 +89,6 @@ import java.nio.{ByteBuffer, ByteOrder}
         layout.velocity.read(velocityOut)
     )
     
-    // Check results
-    velocityOut.rewind()
-    println("\n=== ForcesProgram Results ===")
-    println("First 10 cells (after buoyancy):")
-    for i <- 0 until 10 do
-      val vx = velocityOut.getFloat()
-      val vy = velocityOut.getFloat()
-      val vz = velocityOut.getFloat()
-      val vw = velocityOut.getFloat()
-      println(f"Cell $i: vel=($vx%.4f, $vy%.4f, $vz%.4f, $vw%.4f)")
-    
     // Find max Y velocity
     velocityOut.rewind()
     var maxVy = 0.0f
@@ -101,13 +97,8 @@ import java.nio.{ByteBuffer, ByteOrder}
       val vy = velocityOut.getFloat()
       if math.abs(vy) > math.abs(maxVy) then maxVy = vy
     
-    println(f"\nMax Y velocity: $maxVy%.4f")
-    println(f"Expected: ~${8.0f * 0.3f * 10.0f}%.4f (buoyancy * dt * temp)")
+    val expectedVy = 8.0f * 0.3f * 10.0f
     
-    if maxVy > 1.0f then
-      println("✅ PASS: Buoyancy force applied correctly")
-    else
-      println("❌ FAIL: Buoyancy force too weak or not applied")
-      
-  finally
-    runtime.close()
+    // Assert buoyancy force was applied
+    assert(maxVy > 1.0f, s"Max Y velocity ($maxVy) should be > 1.0 (expected ~$expectedVy)")
+    assert(maxVy > expectedVy * 0.9f, s"Max Y velocity ($maxVy) should be at least 90% of expected (~$expectedVy)")
