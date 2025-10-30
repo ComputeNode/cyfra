@@ -42,11 +42,11 @@ object ForcesProgram:
         GIO.when(idx < 3):
           GIO.printf("Forces[%d]: temp=%f, oldVel.y=%f\n", idx, temp, oldVel.y)
         
-        // Compute buoyancy force (Vec4 with w=0)
+        // Compute buoyancy force + wind (Vec4 with w=0)
         val buoyancyForce = vec4(
-          0.0f,
+          params.windX,
           params.buoyancy * (temp - params.ambient),
-          0.0f,
+          params.windZ,
           0.0f
         )
         val newVel = oldVel + buoyancyForce * params.dt

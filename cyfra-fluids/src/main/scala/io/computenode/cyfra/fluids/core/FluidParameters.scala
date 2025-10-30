@@ -20,7 +20,9 @@ case class FluidParams(
   buoyancy: Float32,
   ambient: Float32,
   gridSize: Int32,
-  iterationCount: Int32
+  iterationCount: Int32,
+  windX: Float32,
+  windZ: Float32
 ) extends GStruct[FluidParams]
 
 object FluidParams:
@@ -33,7 +35,9 @@ object FluidParams:
       buoyancy = 0.5f,
       ambient = 0.0f,
       gridSize = gridSize,
-      iterationCount = 20
+      iterationCount = 20,
+      windX = 0.0f,
+      windZ = 0.0f
     )
   
   /** Parameters for thick, viscous fluid */
@@ -45,7 +49,9 @@ object FluidParams:
       buoyancy = 0.0f,
       ambient = 0.0f,
       gridSize = gridSize,
-      iterationCount = 30
+      iterationCount = 30,
+      windX = 0.0f,
+      windZ = 0.0f
     )
 
 

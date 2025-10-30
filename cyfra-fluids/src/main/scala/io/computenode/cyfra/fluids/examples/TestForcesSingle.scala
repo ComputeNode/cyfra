@@ -25,10 +25,12 @@ import java.nio.{ByteBuffer, ByteOrder}
       dt = 0.3f,
       viscosity = 0.0001f,
       diffusion = 0.001f,
-      buoyancy = 8.0f,
+      buoyancy = 4.0f,
       ambient = 0.0f,
       gridSize = gridSize,
-      iterationCount = 20
+      iterationCount = 20,
+      windX = 0.0f,
+      windZ = 0.0f
     )
     
     val paramsBuffer = {

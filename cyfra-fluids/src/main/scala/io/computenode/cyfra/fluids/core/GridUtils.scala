@@ -84,15 +84,21 @@ object GridUtils:
     val v111 = readVec3Safe(buffer, x1, y1, z1, size)
     
     // Trilinear blend
-    val v00 = mix(v000, v100, fx)
-    val v10 = mix(v010, v110, fx)
-    val v01 = mix(v001, v101, fx)
-    val v11 = mix(v011, v111, fx)
+    // NOTE: Broadcast scalars to Vec4 to avoid SPIR-V FMix type mismatch
+    //       The mix(Vec4, Vec4, Float32) overload generates invalid SPIR-V
+    val fxVec = vec4(fx, fx, fx, fx)
+    val fyVec = vec4(fy, fy, fy, fy)
+    val fzVec = vec4(fz, fz, fz, fz)
     
-    val v0 = mix(v00, v10, fy)
-    val v1 = mix(v01, v11, fy)
+    val v00 = mix(v000, v100, fxVec)
+    val v10 = mix(v010, v110, fxVec)
+    val v01 = mix(v001, v101, fxVec)
+    val v11 = mix(v011, v111, fxVec)
     
-    mix(v0, v1, fz)
+    val v0 = mix(v00, v10, fyVec)
+    val v1 = mix(v01, v11, fyVec)
+    
+    mix(v0, v1, fzVec)
 
   /** Trilinear interpolation for Float32 field */
   def trilinearInterpolateFloat32(

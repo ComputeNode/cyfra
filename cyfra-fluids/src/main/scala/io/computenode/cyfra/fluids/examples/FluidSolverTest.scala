@@ -37,7 +37,9 @@ object FluidSolverTest:
         buoyancy = 1.0f,
         ambient = 0.0f,
         gridSize = gridSize,
-        iterationCount = 2  // Just 2 iterations for testing
+        iterationCount = 2,  // Just 2 iterations for testing
+        windX = 0.0f,
+        windZ = 0.0f
       )
       
       println("Testing ForcesProgram...")

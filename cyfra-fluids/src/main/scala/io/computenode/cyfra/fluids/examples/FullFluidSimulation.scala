@@ -41,11 +41,58 @@ object FullFluidSimulation:
     params: GUniform[FluidParams]
   ) extends Layout
   
-  /** Build simplified pipeline (just forces for now - advection has SPIR-V bug) */
+  /** Build complete simulation pipeline with all solver steps */
   def buildPipeline(): GExecution[Int, SimulationLayout, SimulationLayout] =
     GExecution[Int, SimulationLayout]()
-      // 1. Forces (buoyancy) - VERIFIED WORKING
+      // 1. Forces - Apply to velocityPrevious buffer (in-place)
       .addProgram(ForcesProgram.create)(
+        totalCells => totalCells,
+        layout => FluidState(
+          velocity = layout.velocityPrevious,
+          pressure = layout.pressurePrevious,
+          density = layout.densityPrevious,
+          temperature = layout.temperaturePrevious,
+          divergence = layout.divergence,
+          params = layout.params
+        )
+      )
+      // 2. Advection - Reads velocityPrevious WITH forces, writes velocityCurrent
+      .addProgram(AdvectionProgram.create)(
+        totalCells => totalCells,
+        layout => FluidStateDouble(
+          velocityCurrent = layout.velocityCurrent,
+          pressureCurrent = layout.pressureCurrent,
+          densityCurrent = layout.densityCurrent,
+          temperatureCurrent = layout.temperatureCurrent,
+          divergenceCurrent = layout.divergence,
+          velocityPrevious = layout.velocityPrevious,
+          pressurePrevious = layout.pressurePrevious,
+          densityPrevious = layout.densityPrevious,
+          temperaturePrevious = layout.temperaturePrevious,
+          divergencePrevious = layout.divergence,
+          params = layout.params
+        )
+      )
+      // 3. Diffusion - Apply viscosity to velocity
+      .addProgram(DiffusionProgram.create)(
+        totalCells => totalCells,
+        layout => FluidStateDouble(
+          velocityCurrent = layout.velocityCurrent,
+          pressureCurrent = layout.pressureCurrent,
+          densityCurrent = layout.densityCurrent,
+          temperatureCurrent = layout.temperatureCurrent,
+          divergenceCurrent = layout.divergence,
+          velocityPrevious = layout.velocityPrevious,
+          pressurePrevious = layout.pressurePrevious,
+          densityPrevious = layout.densityPrevious,
+          temperaturePrevious = layout.temperaturePrevious,
+          divergencePrevious = layout.divergence,
+          params = layout.params
+        )
+      )
+      // 4. Projection - Enforce incompressibility (∇·u = 0)
+      // 4a. Compute divergence
+      .addProgram(ProjectionProgram.divergence)(
         totalCells => totalCells,
         layout => FluidState(
           velocity = layout.velocityCurrent,
@@ -56,8 +103,47 @@ object FullFluidSimulation:
           params = layout.params
         )
       )
-      // TODO: Fix SPIR-V FMix error in AdvectionProgram before re-enabling
-      // Advection, Diffusion, Projection, Boundary programs temporarily disabled
+      // 4b. Solve Poisson equation for pressure (Jacobi iteration)
+      .addProgram(ProjectionProgram.pressureSolve)(
+        totalCells => totalCells,
+        layout => FluidStateDouble(
+          velocityCurrent = layout.velocityCurrent,
+          pressureCurrent = layout.pressureCurrent,
+          densityCurrent = layout.densityCurrent,
+          temperatureCurrent = layout.temperatureCurrent,
+          divergenceCurrent = layout.divergence,
+          velocityPrevious = layout.velocityPrevious,
+          pressurePrevious = layout.pressurePrevious,
+          densityPrevious = layout.densityPrevious,
+          temperaturePrevious = layout.temperaturePrevious,
+          divergencePrevious = layout.divergence,
+          params = layout.params
+        )
+      )
+      // 4c. Subtract pressure gradient from velocity
+      .addProgram(ProjectionProgram.subtractGradient)(
+        totalCells => totalCells,
+        layout => FluidState(
+          velocity = layout.velocityCurrent,
+          pressure = layout.pressureCurrent,
+          density = layout.densityCurrent,
+          temperature = layout.temperatureCurrent,
+          divergence = layout.divergence,
+          params = layout.params
+        )
+      )
+      // 5. Boundary conditions
+      .addProgram(BoundaryProgram.create)(
+        totalCells => totalCells,
+        layout => FluidState(
+          velocity = layout.velocityCurrent,
+          pressure = layout.pressureCurrent,
+          density = layout.densityCurrent,
+          temperature = layout.temperatureCurrent,
+          divergence = layout.divergence,
+          params = layout.params
+        )
+      )
   
   @main def runFullFluidSimulation(): Unit =
     given runtime: VkCyfraRuntime = VkCyfraRuntime()
@@ -66,10 +152,10 @@ object FullFluidSimulation:
       println("=== Full Fluid Simulation (All Solver Steps) ===")
       
       // Parameters
-      val gridSize = 32
+      val gridSize = 64
       val totalCells = gridSize * gridSize * gridSize
       val imageSize = (512, 512)
-      val numFrames =  10
+      val numFrames =  200
       
       println(s"Grid: ${gridSize}³ = $totalCells cells")
       println(s"Image: ${imageSize._1}×${imageSize._2}")
@@ -89,15 +175,18 @@ object FullFluidSimulation:
         viscosity = 0.0001f,    // Low viscosity (smoke is not very viscous)
         diffusion = 0.001f,     // Slight diffusion
         buoyancy = 8.0f,        // Strong buoyancy (hot smoke rises!)
-        ambient = 0.0f,         // Ambient temperature
+        ambient = 0.005f,         // Ambient temperature
         gridSize = gridSize,
-        iterationCount = 20     // Jacobi iterations (don't need 100)
+        iterationCount = 20,    // Jacobi iterations (don't need 100)
+        windX = 0f,           // Wind in X direction
+        windZ = 1f            // Wind in Z direction
       )
       val paramsBuffer = createParamsBuffer(params)
       
-      // Camera setup
-      val cameraHeight = -gridSize * 2f
-      val lookAtCenter = (gridSize / 2.0f, gridSize / 2.0f, gridSize / 2.0f)
+        // Camera setup
+        // Grid is at Y=0 (bottom) to Y=gridSize (top), so look at middle height
+        val cameraHeight = gridSize * 0.3f  // Camera slightly below center
+        val lookAtCenter = (gridSize / 2.0f, gridSize / 2.0f, gridSize / 2.0f)  // Look at grid center
       
       // Allocate GPU memory region
       println("Allocating GPU memory...")
@@ -108,14 +197,14 @@ object FullFluidSimulation:
       
       // Initialize state buffers
       println("Initializing fluid state...")
-      var velocityCurrent = createZeroVec4Buffer(totalCells)
-      var velocityPrevious = createZeroVec4Buffer(totalCells)
-      var densityCurrent = createZeroFloatBuffer(totalCells)
-      var densityPrevious = createZeroFloatBuffer(totalCells)
-      var temperatureCurrent = createZeroFloatBuffer(totalCells)
-      var temperaturePrevious = createZeroFloatBuffer(totalCells)
-      var pressureCurrent = createZeroFloatBuffer(totalCells)
-      var pressurePrevious = createZeroFloatBuffer(totalCells)
+      val velocityCurrent = createZeroVec4Buffer(totalCells)
+      val velocityPrevious = createZeroVec4Buffer(totalCells)
+      val densityCurrent = createZeroFloatBuffer(totalCells)
+      val densityPrevious = createZeroFloatBuffer(totalCells)
+      val temperatureCurrent = createZeroFloatBuffer(totalCells)
+      val temperaturePrevious = createZeroFloatBuffer(totalCells)
+      val pressureCurrent = createZeroFloatBuffer(totalCells)
+      val pressurePrevious = createZeroFloatBuffer(totalCells)
       val divergence = createZeroFloatBuffer(totalCells)
       
       // Main simulation loop
@@ -171,7 +260,29 @@ object FullFluidSimulation:
           val vw = velocityCurrent.getFloat()
           if Math.abs(vy) > Math.abs(maxVelY) then maxVelY = vy
         velocityCurrent.rewind()
+        
+        // Debug: Check density distribution at different heights
+        densityCurrent.rewind()
+        val densityAtHeight = Array.fill(gridSize)(0.0f)
+        for z <- 0 until gridSize do
+          for y <- 0 until gridSize do
+            for x <- 0 until gridSize do
+              val idx = x + y * gridSize + z * gridSize * gridSize
+              densityCurrent.position(idx * 4)
+              val density = densityCurrent.getFloat()
+              if density > 0.01f then  // Only count significant density
+                densityAtHeight(y) += density
+        densityCurrent.rewind()
+        
+        // Print density distribution every 8 layers
         println(s"  Max Y velocity: $maxVelY")
+        print(s"  Density by height: ")
+        for i <- 0 until gridSize by 8 do
+          val layerDensity = densityAtHeight.slice(i, i+8).sum
+          print(f"[$i-${i+7}]=$layerDensity%.0f ")
+        println()
+        val total = densityAtHeight.sum
+        println(s"  Total density: $total%.0f")
         
         // Render current state
         println("  Rendering frame...")
@@ -202,48 +313,70 @@ object FullFluidSimulation:
     finally
       runtime.close()
 
-  /** Add smoke source at bottom center */
+  /** Simple noise function for adding irregularity */
+  def simpleNoise(x: Float, y: Float, z: Float, time: Float): Float =
+    val s = Math.sin(x * 0.5 + time * 0.3).toFloat
+    val c = Math.cos(z * 0.5 + time * 0.2).toFloat
+    val s2 = Math.sin((x + z) * 0.3 + time * 0.5).toFloat
+    (s * c + s2 * 0.5f) * 0.5f + 0.5f
+  
+  /** Add smoke source at bottom center with noise for irregularity */
   def addSmokeSource(
     densityBuffer: ByteBuffer,
     temperatureBuffer: ByteBuffer,
     gridSize: Int,
     frameIdx: Int
   ): Unit =
+    val time = frameIdx
     val pulseFactor = (Math.sin(frameIdx * 0.2).toFloat * 0.3f + 0.7f).max(0.3f)
     val sourceRadius = gridSize / 5
     val centerX = gridSize / 2
     val centerZ = gridSize / 2
     
-    // Add density at bottom
+    // Add density at bottom with noise
     densityBuffer.rewind()
     for z <- 0 until gridSize; y <- 0 until gridSize; x <- 0 until gridSize do
       val idx = x + y * gridSize + z * gridSize * gridSize
       densityBuffer.position(idx * 4)
       
-      if y < 4 then
+      if y < 2 && y > -2 then
         val dx = x - centerX
         val dz = z - centerZ
         val distSq = dx * dx + dz * dz
+        val dist = Math.sqrt(distSq.toDouble).toFloat
+        
         if distSq < sourceRadius * sourceRadius then
+          // Add noise to create irregular smoke patterns
+          val noise = simpleNoise(x.toFloat, y.toFloat, z.toFloat, time)
+          val falloff = 1.0f - (dist / sourceRadius)
+          val strength = falloff * (0.3f + noise * 0.7f) * pulseFactor
+          
           val existing = densityBuffer.getFloat()
           densityBuffer.position(idx * 4)
-          val newVal = (existing + 0.6f * pulseFactor).min(1.0f)
+          val newVal = (existing + 0.6f * strength).min(1.0f) * 0.7f
           densityBuffer.putFloat(newVal)
     
-    // Add temperature
+    // Add temperature with noise
     temperatureBuffer.rewind()
     for z <- 0 until gridSize; y <- 0 until gridSize; x <- 0 until gridSize do
       val idx = x + y * gridSize + z * gridSize * gridSize
       temperatureBuffer.position(idx * 4)
       
-      if y < 4 then
+      if y < 2 && y > -2 then
         val dx = x - centerX
         val dz = z - centerZ
         val distSq = dx * dx + dz * dz
+        val dist = Math.sqrt(distSq.toDouble).toFloat
+        
         if distSq < sourceRadius * sourceRadius then
+          // Add noise for irregular heat distribution
+          val noise = simpleNoise(x.toFloat + 10, y.toFloat, z.toFloat + 10, time)
+          val falloff = 1.0f - (dist / sourceRadius)
+          val strength = falloff * (0.4f + noise * 0.6f) * pulseFactor
+          
           val existing = temperatureBuffer.getFloat()
           temperatureBuffer.position(idx * 4)
-          val newVal = (existing + 1.5f * pulseFactor).min(3.0f)
+          val newVal = (existing + 1.5f * strength).min(3.0f) * 0.6f
           temperatureBuffer.putFloat(newVal)
     
     densityBuffer.rewind()
@@ -279,7 +412,7 @@ object FullFluidSimulation:
   def createZeroFloatBuffer(totalCells: Int): ByteBuffer =
     ByteBuffer.allocateDirect(totalCells * 4).order(ByteOrder.nativeOrder())
 
-  /** Save frame as PNG */
+  /** Save frame as PNG (flip Y: image Y=0 is top, but 3D Y=0 is bottom) */
   def saveFrame(pixels: ByteBuffer, imageSize: (Int, Int), filename: String): Unit =
     val (width, height) = imageSize
     val image = BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)
@@ -292,7 +425,8 @@ object FullFluidSimulation:
       val a = (pixels.get() & 0xFF)
       
       val rgb = (r << 16) | (g << 8) | b
-      image.setRGB(x, y, rgb)
+      // Flip Y coordinate: image Y=0 is top, but 3D Y=0 should be at bottom of image
+      image.setRGB(x, height - 1 - y, rgb)
     
     ImageIO.write(image, "png", Paths.get(filename).toFile)
 
