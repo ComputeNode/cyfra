@@ -78,12 +78,15 @@ object ScalarAlgebra:
 
     def equal(a: T, b: T)(using Source): GBoolean = GBoolean(Equal(a, b))
 
+    def notEqual(a: T, b: T)(using Source): GBoolean = GBoolean(Not(equal(a, b)))
+
   extension [T <: Scalar: {Comparable, Tag}](a: T)
     inline def >(b: T)(using Source): GBoolean = summon[Comparable[T]].greaterThan(a, b)
     inline def <(b: T)(using Source): GBoolean = summon[Comparable[T]].lessThan(a, b)
     inline def >=(b: T)(using Source): GBoolean = summon[Comparable[T]].greaterThanEqual(a, b)
     inline def <=(b: T)(using Source): GBoolean = summon[Comparable[T]].lessThanEqual(a, b)
     inline def ===(b: T)(using Source): GBoolean = summon[Comparable[T]].equal(a, b)
+    inline def !==(b: T)(using Source): GBoolean = summon[Comparable[T]].notEqual(a, b)
 
   case class Epsilon(eps: Float)
 
