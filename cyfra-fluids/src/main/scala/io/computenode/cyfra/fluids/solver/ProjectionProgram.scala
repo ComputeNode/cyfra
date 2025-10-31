@@ -45,7 +45,17 @@ object ProjectionProgram:
       val isSolid = ObstacleUtils.isSolid(state.obstacles, idx, n)
       
       GIO.when(!isSolid):
-        // Fetch neighbors (pure operations)
+        val velCenter = GIO.read(state.velocity, idx)
+        
+        // Check if neighbors are solid
+        val solidXP = ObstacleUtils.isSolidAt(state.obstacles, x + 1, y, z, n)
+        val solidXM = ObstacleUtils.isSolidAt(state.obstacles, x - 1, y, z, n)
+        val solidYP = ObstacleUtils.isSolidAt(state.obstacles, x, y + 1, z, n)
+        val solidYM = ObstacleUtils.isSolidAt(state.obstacles, x, y - 1, z, n)
+        val solidZP = ObstacleUtils.isSolidAt(state.obstacles, x, y, z + 1, n)
+        val solidZM = ObstacleUtils.isSolidAt(state.obstacles, x, y, z - 1, n)
+        
+        // Fetch fluid neighbors
         val velXP = readVec3Safe(state.velocity, x + 1, y, z, n)
         val velXM = readVec3Safe(state.velocity, x - 1, y, z, n)
         val velYP = readVec3Safe(state.velocity, x, y + 1, z, n)
@@ -53,10 +63,39 @@ object ProjectionProgram:
         val velZP = readVec3Safe(state.velocity, x, y, z + 1, n)
         val velZM = readVec3Safe(state.velocity, x, y, z - 1, n)
 
-        // Central difference approximation of divergence
-        val dx = (velXP.x - velXM.x) * 0.5f
-        val dy = (velYP.y - velYM.y) * 0.5f
-        val dz = (velZP.z - velZM.z) * 0.5f
+        // Use one-sided differences where there are solid neighbors
+        // At solid interface, normal velocity = 0 (no penetration)
+        val dx = when(solidXP && solidXM)(
+          0.0f  // Fully enclosed
+        ).elseWhen(solidXP)(
+          // Solid on +x: interface has u=0, so ∂u/∂x ≈ (0 - u_center) + (u_center - u_xm)/2
+          -velCenter.x  // Simplified: normal component goes to zero
+        ).elseWhen(solidXM)(
+          // Solid on -x: interface has u=0, so ∂u/∂x ≈ (u_xp - u_center)/2 + (u_center - 0)
+          velCenter.x  // Simplified
+        ).otherwise(
+          (velXP.x - velXM.x) * 0.5f  // Standard central difference
+        )
+        
+        val dy = when(solidYP && solidYM)(
+          0.0f
+        ).elseWhen(solidYP)(
+          -velCenter.y
+        ).elseWhen(solidYM)(
+          velCenter.y
+        ).otherwise(
+          (velYP.y - velYM.y) * 0.5f
+        )
+        
+        val dz = when(solidZP && solidZM)(
+          0.0f
+        ).elseWhen(solidZP)(
+          -velCenter.z
+        ).elseWhen(solidZM)(
+          velCenter.z
+        ).otherwise(
+          (velZP.z - velZM.z) * 0.5f
+        )
 
         val div = dx + dy + dz
 
@@ -106,14 +145,23 @@ object ProjectionProgram:
         GIO.when(!isSolid):
           // Fetch divergence (right-hand side) - pure operation
           val div = GIO.read(state.divergenceCurrent, idx)
+          val pCenter = GIO.read(state.pressurePrevious, idx)
 
-          // Fetch neighbor pressures from previous buffer (pure operations)
-          val pXM = readFloat32Safe(state.pressurePrevious, x - 1, y, z, n)
-          val pXP = readFloat32Safe(state.pressurePrevious, x + 1, y, z, n)
-          val pYM = readFloat32Safe(state.pressurePrevious, x, y - 1, z, n)
-          val pYP = readFloat32Safe(state.pressurePrevious, x, y + 1, z, n)
-          val pZM = readFloat32Safe(state.pressurePrevious, x, y, z - 1, n)
-          val pZP = readFloat32Safe(state.pressurePrevious, x, y, z + 1, n)
+          // Check if neighbors are solid (for Neumann boundary condition)
+          val solidXM = ObstacleUtils.isSolidAt(state.obstacles, x - 1, y, z, n)
+          val solidXP = ObstacleUtils.isSolidAt(state.obstacles, x + 1, y, z, n)
+          val solidYM = ObstacleUtils.isSolidAt(state.obstacles, x, y - 1, z, n)
+          val solidYP = ObstacleUtils.isSolidAt(state.obstacles, x, y + 1, z, n)
+          val solidZM = ObstacleUtils.isSolidAt(state.obstacles, x, y, z - 1, n)
+          val solidZP = ObstacleUtils.isSolidAt(state.obstacles, x, y, z + 1, n)
+
+          // Fetch neighbor pressures, use current pressure for solid neighbors (Neumann BC: ∂p/∂n = 0)
+          val pXM = when(solidXM)(pCenter).otherwise(readFloat32Safe(state.pressurePrevious, x - 1, y, z, n))
+          val pXP = when(solidXP)(pCenter).otherwise(readFloat32Safe(state.pressurePrevious, x + 1, y, z, n))
+          val pYM = when(solidYM)(pCenter).otherwise(readFloat32Safe(state.pressurePrevious, x, y - 1, z, n))
+          val pYP = when(solidYP)(pCenter).otherwise(readFloat32Safe(state.pressurePrevious, x, y + 1, z, n))
+          val pZM = when(solidZM)(pCenter).otherwise(readFloat32Safe(state.pressurePrevious, x, y, z - 1, n))
+          val pZP = when(solidZP)(pCenter).otherwise(readFloat32Safe(state.pressurePrevious, x, y, z + 1, n))
 
           val neighborSum = pXM + pXP + pYM + pYP + pZM + pZP
 
@@ -157,16 +205,25 @@ object ProjectionProgram:
         val isSolid = ObstacleUtils.isSolid(state.obstacles, idx, n)
         
         GIO.when(!isSolid):
-          // Read velocity (pure operation)
+          // Read velocity and pressure (pure operations)
           val vel = GIO.read(state.velocity, idx)
+          val pCenter = GIO.read(state.pressure, idx)
 
-          // Compute pressure gradient via central differences (pure operations)
-          val pXP = readFloat32Safe(state.pressure, x + 1, y, z, n)
-          val pXM = readFloat32Safe(state.pressure, x - 1, y, z, n)
-          val pYP = readFloat32Safe(state.pressure, x, y + 1, z, n)
-          val pYM = readFloat32Safe(state.pressure, x, y - 1, z, n)
-          val pZP = readFloat32Safe(state.pressure, x, y, z + 1, n)
-          val pZM = readFloat32Safe(state.pressure, x, y, z - 1, n)
+          // Check if neighbors are solid (for Neumann boundary condition)
+          val solidXM = ObstacleUtils.isSolidAt(state.obstacles, x - 1, y, z, n)
+          val solidXP = ObstacleUtils.isSolidAt(state.obstacles, x + 1, y, z, n)
+          val solidYM = ObstacleUtils.isSolidAt(state.obstacles, x, y - 1, z, n)
+          val solidYP = ObstacleUtils.isSolidAt(state.obstacles, x, y + 1, z, n)
+          val solidZM = ObstacleUtils.isSolidAt(state.obstacles, x, y, z - 1, n)
+          val solidZP = ObstacleUtils.isSolidAt(state.obstacles, x, y, z + 1, n)
+
+          // Compute pressure gradient, use current pressure for solid neighbors (Neumann BC: ∂p/∂n = 0)
+          val pXM = when(solidXM)(pCenter).otherwise(readFloat32Safe(state.pressure, x - 1, y, z, n))
+          val pXP = when(solidXP)(pCenter).otherwise(readFloat32Safe(state.pressure, x + 1, y, z, n))
+          val pYM = when(solidYM)(pCenter).otherwise(readFloat32Safe(state.pressure, x, y - 1, z, n))
+          val pYP = when(solidYP)(pCenter).otherwise(readFloat32Safe(state.pressure, x, y + 1, z, n))
+          val pZM = when(solidZM)(pCenter).otherwise(readFloat32Safe(state.pressure, x, y, z - 1, n))
+          val pZP = when(solidZP)(pCenter).otherwise(readFloat32Safe(state.pressure, x, y, z + 1, n))
 
           val gradPressure = vec4(
             (pXP - pXM) * 0.5f,
