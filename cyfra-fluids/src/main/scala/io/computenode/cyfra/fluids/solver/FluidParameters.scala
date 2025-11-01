@@ -20,7 +20,6 @@ case class FluidParams(
   buoyancy: Float32,
   ambient: Float32,
   gridSize: Int32,
-  iterationCount: Int32,
   windX: Float32,
   windY: Float32,
   windZ: Float32
@@ -36,7 +35,6 @@ object FluidParams:
       buoyancy = 0.5f,
       ambient = 0.0f,
       gridSize = gridSize,
-      iterationCount = 20,
       windX = 0.0f,
       windY = 0.0f,
       windZ = 0.0f
@@ -51,7 +49,6 @@ object FluidParams:
       buoyancy = 0.0f,
       ambient = 0.0f,
       gridSize = gridSize,
-      iterationCount = 30,
       windX = 0.0f,
       windY = 0.0f,
       windZ = 0.0f
