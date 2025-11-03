@@ -52,7 +52,7 @@ object AdvectionProgram:
         val prevPos = pos - vel3 * params.dt
 
         // Interpolate values at previous position
-        val interpolatedVel = trilinearInterpolateVec3(
+        val interpolatedVel = trilinearInterpolateVec4(
           state.velocityPrevious,
           prevPos,
           n

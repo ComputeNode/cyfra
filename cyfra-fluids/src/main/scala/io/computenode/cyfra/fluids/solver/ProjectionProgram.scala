@@ -56,12 +56,12 @@ object ProjectionProgram:
         val solidZM = ObstacleUtils.isSolidAt(state.obstacles, x, y, z - 1, n)
         
         // Fetch fluid neighbors
-        val velXP = readVec3Safe(state.velocity, x + 1, y, z, n)
-        val velXM = readVec3Safe(state.velocity, x - 1, y, z, n)
-        val velYP = readVec3Safe(state.velocity, x, y + 1, z, n)
-        val velYM = readVec3Safe(state.velocity, x, y - 1, z, n)
-        val velZP = readVec3Safe(state.velocity, x, y, z + 1, n)
-        val velZM = readVec3Safe(state.velocity, x, y, z - 1, n)
+        val velXP = readVec4Safe(state.velocity, x + 1, y, z, n)
+        val velXM = readVec4Safe(state.velocity, x - 1, y, z, n)
+        val velYP = readVec4Safe(state.velocity, x, y + 1, z, n)
+        val velYM = readVec4Safe(state.velocity, x, y - 1, z, n)
+        val velZP = readVec4Safe(state.velocity, x, y, z + 1, n)
+        val velZM = readVec4Safe(state.velocity, x, y, z - 1, n)
 
         // Use one-sided differences where there are solid neighbors
         // At solid interface, normal velocity = 0 (no penetration)

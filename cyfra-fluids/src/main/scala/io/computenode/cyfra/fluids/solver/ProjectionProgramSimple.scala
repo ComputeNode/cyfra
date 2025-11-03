@@ -43,12 +43,12 @@ object ProjectionProgramSimple:
         val (x, y, z) = idxTo3D(idx, n)
         
         // Fetch neighbors - simple, no obstacle checks
-        val velXP = readVec3Safe(state.velocity, x + 1, y, z, n)
-        val velXM = readVec3Safe(state.velocity, x - 1, y, z, n)
-        val velYP = readVec3Safe(state.velocity, x, y + 1, z, n)
-        val velYM = readVec3Safe(state.velocity, x, y - 1, z, n)
-        val velZP = readVec3Safe(state.velocity, x, y, z + 1, n)
-        val velZM = readVec3Safe(state.velocity, x, y, z - 1, n)
+        val velXP = readVec4Safe(state.velocity, x + 1, y, z, n)
+        val velXM = readVec4Safe(state.velocity, x - 1, y, z, n)
+        val velYP = readVec4Safe(state.velocity, x, y + 1, z, n)
+        val velYM = readVec4Safe(state.velocity, x, y - 1, z, n)
+        val velZP = readVec4Safe(state.velocity, x, y, z + 1, n)
+        val velZM = readVec4Safe(state.velocity, x, y, z - 1, n)
 
         // Central differences: ∇·u = ∂u/∂x + ∂v/∂y + ∂w/∂z
         val dx = (velXP.x - velXM.x) * 0.5f
@@ -165,5 +165,6 @@ object ProjectionProgramSimple:
         val newVel = vel - gradPressure
 
         GIO.write(state.velocity, idx, newVel)
+
 
 

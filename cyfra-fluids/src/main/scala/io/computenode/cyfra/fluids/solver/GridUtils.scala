@@ -35,7 +35,7 @@ object GridUtils:
     when(a > b)(a).otherwise(b)
   
   /** Read Vec4 from buffer with bounds checking, return zero if out of bounds */
-  def readVec3Safe(buffer: GBuffer[Vec4[Float32]], x: Int32, y: Int32, z: Int32, n: Int32)
+  def readVec4Safe(buffer: GBuffer[Vec4[Float32]], x: Int32, y: Int32, z: Int32, n: Int32)
                   (using Source): Vec4[Float32] =
     // Clamp coordinates to valid range instead of using when/otherwise
     val xClamped = maxInt32(0, minInt32(x, n - 1))
@@ -56,7 +56,7 @@ object GridUtils:
     * Samples 8 surrounding grid points and blends them.
     * Note: pos only uses x,y,z components
     */
-  def trilinearInterpolateVec3(
+  def trilinearInterpolateVec4(
     buffer: GBuffer[Vec4[Float32]], 
     pos: Vec3[Float32], 
     size: Int32
@@ -81,14 +81,14 @@ object GridUtils:
     val fz = z - z0.asFloat
     
     // Sample 8 corner values
-    val v000 = readVec3Safe(buffer, x0, y0, z0, size)
-    val v100 = readVec3Safe(buffer, x1, y0, z0, size)
-    val v010 = readVec3Safe(buffer, x0, y1, z0, size)
-    val v110 = readVec3Safe(buffer, x1, y1, z0, size)
-    val v001 = readVec3Safe(buffer, x0, y0, z1, size)
-    val v101 = readVec3Safe(buffer, x1, y0, z1, size)
-    val v011 = readVec3Safe(buffer, x0, y1, z1, size)
-    val v111 = readVec3Safe(buffer, x1, y1, z1, size)
+    val v000 = readVec4Safe(buffer, x0, y0, z0, size)
+    val v100 = readVec4Safe(buffer, x1, y0, z0, size)
+    val v010 = readVec4Safe(buffer, x0, y1, z0, size)
+    val v110 = readVec4Safe(buffer, x1, y1, z0, size)
+    val v001 = readVec4Safe(buffer, x0, y0, z1, size)
+    val v101 = readVec4Safe(buffer, x1, y0, z1, size)
+    val v011 = readVec4Safe(buffer, x0, y1, z1, size)
+    val v111 = readVec4Safe(buffer, x1, y1, z1, size)
     
     // Trilinear blend
     // NOTE: Broadcast scalars to Vec4 to avoid SPIR-V FMix type mismatch

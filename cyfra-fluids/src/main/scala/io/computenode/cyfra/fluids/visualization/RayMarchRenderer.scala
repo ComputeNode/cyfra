@@ -21,6 +21,7 @@ import org.lwjgl.BufferUtils
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import RayMarchRenderer.*
+import GridUtils.*
 
 /** Volume ray marching renderer for fluid visualization.
   *
@@ -33,9 +34,10 @@ import RayMarchRenderer.*
   * @param runtime
   *   Cyfra runtime for GPU execution
   */
-class RayMarchRenderer(width: Int, height: Int):
+class RayMarchRenderer(rendererConfig: RendererConfig):
 
-  import GridUtils.*
+  private val width = rendererConfig.width
+  private val height = rendererConfig.height
 
   /** Compute ray-box intersection and return entry distance. Returns -1 if no intersection.
     */
@@ -75,7 +77,10 @@ class RayMarchRenderer(width: Int, height: Int):
   private def marchRay(
     origin: Vec3[Float32],
     direction: Vec3[Float32],
+    velocityBuffer: GBuffer[Vec4[Float32]],
+    pressureBuffer: GBuffer[Float32],
     densityBuffer: GBuffer[Float32],
+    temperatureBuffer: GBuffer[Float32],
     obstaclesBuffer: GBuffer[Float32],
     gridSize: Int32,
   ): Vec4[Float32] =
@@ -147,45 +152,65 @@ class RayMarchRenderer(width: Int, height: Int):
             val totalCells = gridSize * gridSize * gridSize
             val hitObstacle = cellInBounds && ObstacleUtils.isSolid(obstaclesBuffer, cellIdx, totalCells)
 
-            // Sample color (obstacle or fluid)
-            val sampleColor = when(hitObstacle):
+            when(hitObstacle && rendererConfig.renderObstacles):
               // Get obstacle color/brightness value
               val obstacleValue = ObstacleUtils.getObstacleValue(obstaclesBuffer, cellIdx)
 
               // Simple ambient + diffuse lighting for obstacle
-              val lightDir = normalize(vec3(0.5f, 1.0f, 0.3f))
+              val lightDir = normalize(vec3(-1f, -1f, -1f))
               val normal = ObstacleUtils.computeNormal(obstaclesBuffer, cellX, cellY, cellZ, gridSize)
               val diffuse = max(0.0f, normal dot lightDir)
               val ambient = 0.3f
               val brightness = clamp(ambient + diffuse * 0.7f, 0.0f, 1.0f)
 
-              // Use obstacle value to tint the surface (can encode different materials)
-              val baseColor = obstacleValue // Use obstacle value as brightness/color factor
-              vec4(brightness * baseColor, brightness * baseColor, brightness * baseColor * 1.1f, 1.0f)
+              val sampleColor = vec4(brightness * 1f, brightness * 0.3f, brightness * 0.3f * 1.1f, 1.0f)
+
+              val colorContribution = sampleColor  * state.transmittance
+              val nextColor = state.accumColor + colorContribution
+
+              val nextState =
+                when(state.state === MarchState.LAST_STEP)(MarchState.DONE)
+                  .otherwise(MarchState.LAST_STEP)
+              RayMarchState(nextPos, nextColor, 0f, nextT, nextState)
             .otherwise:
-              // Sample fluid density
-              val density = trilinearInterpolateFloat32(densityBuffer, state.pos, gridSize)
-              FluidColorMap.heatMap(density)
+              val rescaleFactor = rendererConfig.renderMax - rendererConfig.renderOver
+              val (sampleColor, opacity) = rendererConfig.fieldToRender match
+                case Field.Density =>
+                  val density = trilinearInterpolateFloat32(densityBuffer, state.pos, gridSize)
+                  val clamped = clamp(density - rendererConfig.renderOver, 0.0f, rendererConfig.renderMax) / rescaleFactor
+                  (FluidColorMap.heatMap(clamped), clamped)
+                case Field.Pressure =>
+                  val pressure = trilinearInterpolateFloat32(pressureBuffer, state.pos, gridSize)
+                  val clamped = clamp(pressure - rendererConfig.renderOver, 0.0f, rendererConfig.renderMax) / rescaleFactor
+                  (FluidColorMap.heatMap(clamped), clamped)
+                case Field.Temperature =>
+                  val temperature = trilinearInterpolateFloat32(temperatureBuffer, state.pos, gridSize)
+                  val clamped = clamp(temperature - rendererConfig.renderOver, 0.0f, rendererConfig.renderMax) / rescaleFactor
+                  (FluidColorMap.heatMap(clamped), clamped)
+                case Field.Velocity =>
+                  val velocity = abs(trilinearInterpolateVec4(velocityBuffer, state.pos, gridSize))
+                  val velLen = length(velocity.xyz)
+                  val clamped = clamp(velLen - rendererConfig.renderOver, 0.0f, rendererConfig.renderMax) / rescaleFactor
+                  (FluidColorMap.heatMap(clamped), clamped)
 
-            // Calculate opacity
-            val density = trilinearInterpolateFloat32(densityBuffer, state.pos, gridSize)
-            val alpha = when(hitObstacle)(1.0f).otherwise(clamp(density * absorptionCoeff, 0.0f, 1.0f))
+              val alpha = clamp(opacity * absorptionCoeff, 0.0f, 1.0f)
 
-            // Accumulate color with current transmittance
-            val colorContribution = sampleColor * alpha * state.transmittance
-            val nextColor = state.accumColor + colorContribution
+              // Accumulate color with current transmittance
+              val colorContribution = sampleColor * alpha * state.transmittance
+              val nextColor = state.accumColor + colorContribution
 
-            // Update transmittance
-            val nextTransmittance = state.transmittance * (1.0f - alpha)
+              // Update transmittance
+              val nextTransmittance = state.transmittance * (1.0f - alpha)
 
-            // Check if ray should terminate (stop if next step would exit volume)
-            val shouldFinish = (!nextPosInBounds) || (nextTransmittance < transmittanceThreshold) || (nextT > maxDistance)
-            val nextState =
-              when(state.state === MarchState.LAST_STEP)(MarchState.DONE)
-                .elseWhen(hitObstacle)(MarchState.LAST_STEP)
-                .elseWhen(shouldFinish)(MarchState.DONE)
-                .otherwise(MarchState.MARCHING)
-            RayMarchState(nextPos, nextColor, nextTransmittance, nextT, nextState),
+              // Check if ray should terminate (stop if next step would exit volume)
+              val shouldFinish = (!nextPosInBounds) || (nextTransmittance < transmittanceThreshold) || (nextT > maxDistance)
+              val nextState =
+                when(state.state === MarchState.LAST_STEP)(MarchState.DONE)
+                  .elseWhen(hitObstacle)(MarchState.LAST_STEP)
+                  .elseWhen(shouldFinish)(MarchState.DONE)
+                  .otherwise(MarchState.MARCHING)
+              RayMarchState(nextPos, nextColor, nextTransmittance, nextT, nextState),
+
         )
         .limit(maxSteps)
         .takeWhile(_.state !== MarchState.DONE)
@@ -223,7 +248,10 @@ class RayMarchRenderer(width: Int, height: Int):
       import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
       RenderLayout(
         output = GBuffer[Vec4[Float32]](width * height),
+        velocity = GBuffer[Vec4[Float32]](totalCells),
+        pressure = GBuffer[Float32](totalCells),
         density = GBuffer[Float32](totalCells),
+        temperature = GBuffer[Float32](totalCells),
         obstacles = GBuffer[Float32](totalCells),
         camera = GUniform[Camera3D](),
         params = GUniform[RenderParams](),
@@ -256,7 +284,7 @@ class RayMarchRenderer(width: Int, height: Int):
       val camPos = vec3(cam.position.x, cam.position.y, cam.position.z)
 
       // March along ray and accumulate color
-      val finalColor = marchRay(camPos, rayDirection, layout.density, layout.obstacles, params.gridSize)
+      val finalColor = marchRay(camPos, rayDirection, layout.velocity, layout.pressure, layout.density, layout.temperature, layout.obstacles, params.gridSize)
 
       for _ <- GIO.write(layout.output, idx, finalColor)
       yield Empty()
@@ -268,6 +296,22 @@ class RayMarchRenderer(width: Int, height: Int):
     else value
 
 object RayMarchRenderer:
+
+  case class RendererConfig(
+    width: Int, height: Int,
+    fieldToRender: Field,
+    renderOver: Float = 0f,
+    renderMax: Float = 1f,
+    renderObstacles: Boolean = true
+  )
+
+  enum Field:
+    case Velocity
+    case Pressure
+    case Density
+    case Temperature
+
+
   object MarchState:
     val MARCHING: Int32 = 0
     val LAST_STEP: Int32 = 1
@@ -288,7 +332,10 @@ object RayMarchRenderer:
   /** Layout for rendering. */
   case class RenderLayout(
     output: GBuffer[Vec4[Float32]],
+    velocity: GBuffer[Vec4[Float32]],
+    pressure: GBuffer[Float32],
     density: GBuffer[Float32],
+    temperature: GBuffer[Float32],
     obstacles: GBuffer[Float32],
     camera: GUniform[Camera3D],
     params: GUniform[RenderParams],

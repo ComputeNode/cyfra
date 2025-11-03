@@ -55,12 +55,12 @@ object DiffusionProgram:
         val center = GIO.read(state.velocityPrevious, idx)
 
         // Sample six neighbors from previous buffer (pure operations)
-        val xm = readVec3Safe(state.velocityPrevious, x - 1, y, z, n)
-        val xp = readVec3Safe(state.velocityPrevious, x + 1, y, z, n)
-        val ym = readVec3Safe(state.velocityPrevious, x, y - 1, z, n)
-        val yp = readVec3Safe(state.velocityPrevious, x, y + 1, z, n)
-        val zm = readVec3Safe(state.velocityPrevious, x, y, z - 1, n)
-        val zp = readVec3Safe(state.velocityPrevious, x, y, z + 1, n)
+        val xm = readVec4Safe(state.velocityPrevious, x - 1, y, z, n)
+        val xp = readVec4Safe(state.velocityPrevious, x + 1, y, z, n)
+        val ym = readVec4Safe(state.velocityPrevious, x, y - 1, z, n)
+        val yp = readVec4Safe(state.velocityPrevious, x, y + 1, z, n)
+        val zm = readVec4Safe(state.velocityPrevious, x, y, z - 1, n)
+        val zp = readVec4Safe(state.velocityPrevious, x, y, z + 1, n)
 
         val neighborSum = xm + xp + ym + yp + zm + zp
 
