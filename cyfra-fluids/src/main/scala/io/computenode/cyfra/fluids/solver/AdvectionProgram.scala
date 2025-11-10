@@ -25,6 +25,8 @@ object AdvectionProgram:
           temperaturePrevious = GBuffer[Float32](totalCells),
           divergencePrevious = GBuffer[Float32](totalCells),
           obstacles = GBuffer[Float32](totalCells),
+          dyeCurrent = GBuffer[Float32](totalCells),
+          dyePrevious = GBuffer[Float32](totalCells),
           params = GUniform[FluidParams]()
         )
       },
@@ -70,9 +72,16 @@ object AdvectionProgram:
           n
         )
 
+        val interpolatedDye = trilinearInterpolateFloat32(
+          state.dyePrevious,
+          prevPos,
+          n
+        )
+
         // Write advected values to current buffers
         for
           _ <- GIO.write(state.velocityCurrent, idx, interpolatedVel)
           _ <- GIO.write(state.densityCurrent, idx, interpolatedDensity)
           _ <- GIO.write(state.temperatureCurrent, idx, interpolatedTemperature)
+          _ <- GIO.write(state.dyeCurrent, idx, interpolatedDye)
         yield Empty()

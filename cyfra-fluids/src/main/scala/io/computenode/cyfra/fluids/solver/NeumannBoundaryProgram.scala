@@ -27,6 +27,7 @@ object NeumannBoundaryProgram:
           temperature = GBuffer[Float32](totalCells),
           divergence = GBuffer[Float32](totalCells),
           obstacles = GBuffer[Float32](totalCells),
+          dye = GBuffer[Float32](totalCells),
           params = GUniform[FluidParams]()
         )
       },

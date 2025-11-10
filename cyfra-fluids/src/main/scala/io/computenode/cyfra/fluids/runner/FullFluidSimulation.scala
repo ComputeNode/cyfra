@@ -7,7 +7,7 @@ import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
 import io.computenode.cyfra.dsl.struct.GStructSchema
 import io.computenode.cyfra.fluids.solver.*
-import io.computenode.cyfra.fluids.visualization.RayMarchRenderer.Field.{Density, Pressure, Temperature, Velocity}
+import io.computenode.cyfra.fluids.visualization.RayMarchRenderer.Field.{Density, Dye, Pressure, Temperature, Velocity}
 import io.computenode.cyfra.fluids.visualization.{Camera3D, RayMarchRenderer}
 import io.computenode.cyfra.fluids.visualization.RayMarchRenderer.{RenderLayout, RenderParams, RendererConfig}
 import io.computenode.cyfra.spirv.compilers.SpirvProgramCompiler.totalStride
@@ -41,6 +41,8 @@ object FullFluidSimulation:
     densityPrevious: GBuffer[Float32],
     temperatureCurrent: GBuffer[Float32],
     temperaturePrevious: GBuffer[Float32],
+    dyeCurrent: GBuffer[Float32],
+    dyePrevious: GBuffer[Float32],
     pressureCurrent: GBuffer[Float32],
     pressurePrevious: GBuffer[Float32],
     divergence: GBuffer[Float32],
@@ -57,6 +59,7 @@ object FullFluidSimulation:
         pressure = pressureCurrent,
         density = densityCurrent,
         temperature = temperatureCurrent,
+        dye = dyeCurrent,
         divergence = divergence,
         obstacles = obstacles,
         params = fluidParams
@@ -68,6 +71,7 @@ object FullFluidSimulation:
         pressure = pressurePrevious,
         density = densityPrevious,
         temperature = temperaturePrevious,
+        dye = dyePrevious,
         divergence = divergence,
         obstacles = obstacles,
         params = fluidParams
@@ -79,11 +83,13 @@ object FullFluidSimulation:
         pressureCurrent = pressureCurrent,
         densityCurrent = densityCurrent,
         temperatureCurrent = temperatureCurrent,
+        dyeCurrent = dyeCurrent,
         divergenceCurrent = divergence,
         velocityPrevious = velocityPrevious,
         pressurePrevious = pressurePrevious,
         densityPrevious = densityPrevious,
         temperaturePrevious = temperaturePrevious,
+        dyePrevious = dyePrevious,
         divergencePrevious = divergence,
         obstacles = obstacles,
         params = fluidParams
@@ -95,14 +101,28 @@ object FullFluidSimulation:
         pressureCurrent = pressurePrevious,
         densityCurrent = densityPrevious,
         temperatureCurrent = temperaturePrevious,
+        dyeCurrent = dyePrevious,
         divergenceCurrent = divergence,
         velocityPrevious = velocityCurrent,
         pressurePrevious = pressureCurrent,
         densityPrevious = densityCurrent,
         temperaturePrevious = temperatureCurrent,
+        dyePrevious = dyeCurrent,
         divergencePrevious = divergence,
         obstacles = obstacles,
         params = fluidParams
+      )
+
+    def swap: SimulationLayout =
+      this.copy(
+        velocityCurrent = velocityPrevious,
+        velocityPrevious = velocityCurrent,
+        densityCurrent = densityPrevious,
+        densityPrevious = densityCurrent,
+        temperatureCurrent = temperaturePrevious,
+        temperaturePrevious = temperatureCurrent,
+        dyeCurrent = dyePrevious,
+        dyePrevious = dyeCurrent,
       )
 
   /** Build complete simulation pipeline with all solver steps */
@@ -163,7 +183,7 @@ object FullFluidSimulation:
       .addProgram(RayMarchRenderer(RendererConfig(
         width = renderDim._1,
         height = renderDim._2,
-        fieldToRender = Density,
+        fieldToRender = Dye,
         renderOver = 0.0f,
         renderMax = 1.0f
       )).renderProgram)(
@@ -174,6 +194,7 @@ object FullFluidSimulation:
           pressure = l.pressureCurrent,
           density = l.densityCurrent,
           temperature = l.temperatureCurrent,
+          dye = l.dyeCurrent,
           l.obstacles,
           l.camera,
           l.renderParams
@@ -188,7 +209,7 @@ object FullFluidSimulation:
       logger.info("=== Full Fluid Simulation (All Solver Steps) ===")
       
       // Parameters
-      val gridSize = 128
+      val gridSize = 64
       val totalCells = gridSize * gridSize * gridSize
       val imageSize = (512, 512)
       val numFrames = 2000
@@ -199,14 +220,14 @@ object FullFluidSimulation:
       
       // Build complete simulation pipeline      
       logger.info("Building complete simulation pipeline...")
-      val simPipeline = buildPipeline(imageSize, 128)
+      val simPipeline = buildPipeline(imageSize, 64)
 
       // Initialize parameters with stronger buoyancy
       val params = FluidParams(
-        dt = 0.1f,              // Time step
+        dt = 0.05f,              // Time step
         viscosity = 0.001f,    // Low viscosity (smoke is not very viscous)
-        diffusion = 0.001f,     // Slight diffusion
-        buoyancy = 0.5f,        // Strong buoyancy (hot smoke rises!)
+        diffusion = 0.00001f,     // Slight diffusion
+        buoyancy = 0.001f,        // Strong buoyancy (hot smoke rises!)
         ambient = 0.005f,         // Ambient temperature
         gridSize = gridSize,
         windX = 0f,           // Wind in X direction
@@ -220,12 +241,6 @@ object FullFluidSimulation:
         val cameraHeight = gridSize * 0f  // Camera slightly below center
         val lookAtCenter = (gridSize / 2.0f, gridSize / 2.0f, gridSize / 2.0f)  // Look at grid center
       
-      logger.info("Allocating GPU memory...")
-      val region = GBufferRegion
-        .allocate[SimulationLayout]
-        .map: region =>
-          simPipeline.execute(totalCells, region)
-      
       // Initialize state buffers      
       logger.info("Initializing fluid state...")
       val velocityCurrent = createZeroVec4Buffer(totalCells)
@@ -234,408 +249,167 @@ object FullFluidSimulation:
       val densityPrevious = createZeroFloatBuffer(totalCells)
       val temperatureCurrent = createZeroFloatBuffer(totalCells)
       val temperaturePrevious = createZeroFloatBuffer(totalCells)
+      val dyeCurrent = createZeroFloatBuffer(totalCells)
+      val dyePrevious = createZeroFloatBuffer(totalCells)
       val pressureCurrent = createZeroFloatBuffer(totalCells)
       val pressurePrevious = createZeroFloatBuffer(totalCells)
       val divergence = createZeroFloatBuffer(totalCells)
-      
+      val renderParamsStride = totalStride(summon[GStructSchema[RenderParams]])
+      val renderParamsBuffer = BufferUtils.createByteBuffer(renderParamsStride)
+      val cameraStride = totalStride(summon[GStructSchema[Camera3D]])
+      val cameraBuffer = BufferUtils.createByteBuffer(cameraStride)
+
       logger.info("Creating obstacles...")
       val obstacles = FieldUtils.createEmpty(gridSize)
-//      FieldUtils.addBox(
-//        obstacles,
-//        gridSize,
-//        minX = (gridSize * 0.4f).toInt,
-//        maxX = (gridSize * 0.6f).toInt,
-//        minY = (gridSize * 0.2f).toInt,
-//        maxY = (gridSize * 0.4f).toInt,
-//        minZ = (gridSize * 0.4f).toInt,
-//        maxZ = (gridSize * 0.6f).toInt,
-//        0.8f
-//      )
 
-      // Option 1: Simple uniform initialization
-//      FieldUtils.addBox(densityCurrent, gridSize, 0, gridSize, 0, gridSize, 0, gridSize, 0.4f)
-//      FieldUtils.addBox(temperatureCurrent, gridSize, 0, gridSize, 0, gridSize, 0, gridSize, 0.4f)
+      // Set uniform density everywhere
+      FieldUtils.addBox(
+        densityCurrent,
+        gridSize,
+        minX = 0,
+        maxX = gridSize - 1,
+        minY = 0,
+        maxY = gridSize - 1,
+        minZ = 0,
+        maxZ = gridSize - 1,
+        value = 0.5f
+      )
+
+      // Uniform temperature (optional, for visualization)
+      FieldUtils.addBox(
+        temperatureCurrent,
+        gridSize,
+        minX = 0,
+        maxX = gridSize - 1,
+        minY = 0,
+        maxY = gridSize - 1,
+        minZ = 0,
+        maxZ = gridSize - 1,
+        value = 0.5f
+      )
+
+      // Add dye discs at the velocity current source locations
+      // Discs are perpendicular to flow (X direction), circular in YZ plane
+      val center = gridSize / 2.0f
+      val currentRadius = gridSize * 0.15f
+      val separation = gridSize * 0.35f
+      val discThickness = gridSize * 0.05f  // Thin disc in X direction
+
+      // Create the spiral obstacle (Scala logo with constant radius and ribbon shape!)
+      addSpiralObstacle(
+        obstacles,
+        gridSize,
+        centerX = center,
+        centerY = gridSize * 0.4f,
+        centerZ = center,
+        spiralRadius = gridSize * 0.1f,
+        spiralHeight = gridSize * 0.3f,
+        numTurns = 2.5f,
+        ribbonWidth = gridSize * 0.08f, // Width along curve (tangent)
+        ribbonThickness = gridSize * 0.03f, // Thickness perpendicular to curve (thin!)
+        ribbonHeight = gridSize * 0.07f, // Vertical height of ribbon
+        rotationDegrees = 180f, // Can adjust to rotate the spiral
+        value = 1.0f
+      )
+
+      logger.info("Allocating GPU memory...")
+      val region = GBufferRegion
+        .allocate[SimulationLayout]
+        .map: layout =>
+          LazyList.iterate(layout)(_.swap)
+            .zipWithIndex
+            .map: (layout, frameIdx) =>
+
+              logger.info(s"Frame $frameIdx / $numFrames")
+
+              layout.velocityCurrent.read(velocityCurrent)
+              layout.dyeCurrent.read(dyeCurrent)
+
+              addCollidingDiscCurrents(velocityCurrent, dyeCurrent, gridSize)
       
-      // Option 2: Setup with swirling vortices
-      // setupSwirlFields(velocityCurrent, densityCurrent, temperatureCurrent, gridSize)
+              // Prepare output buffer for reading back
+              val outputData = Array.ofDim[Float](imageSize._1 * imageSize._2 * 4)
+              val outputBuffer = BufferUtils.createFloatBuffer(imageSize._1 * imageSize._2 * 4)
+              val outputBB = org.lwjgl.system.MemoryUtil.memByteBuffer(outputBuffer)
+              
+              val angle = 90
+              val angleRad = angle * Math.PI.toFloat / 180.0f
+              val radius = gridSize * 1.4f
       
-      // Option 3: Complex collision scene with multiple pockets
-      // setupCollisionScene(velocityCurrent, densityCurrent, temperatureCurrent, gridSize)
+              // Prepare camera buffer
+              val camera = Camera3D.orbit(
+                centerX = lookAtCenter._1,
+                centerY = lookAtCenter._2,
+                centerZ = lookAtCenter._3,
+                radius = radius,
+                angle = angleRad,
+                height = cameraHeight,
+                aspectRatio = imageSize._1.toFloat / imageSize._2.toFloat
+              )
+
+              summon[GCodec[Camera3D, Camera3D]].toByteBuffer(cameraBuffer, Array(camera))
       
-      // Option 4: Wind tunnel with Scala spiral obstacle
-      setupWindTunnelScene(velocityCurrent, densityCurrent, temperatureCurrent, obstacles, gridSize)
+              // Prepare params buffer
+              val renderParams = RenderParams(gridSize = gridSize)
+              summon[GCodec[RenderParams, RenderParams]].toByteBuffer(renderParamsBuffer, Array(renderParams))
 
-      // Main simulation loop
-      for frameIdx <- 0 until numFrames do
-
-//        FieldUtils.addBox(
-//          densityCurrent,
-//          gridSize,
-//          minX = (gridSize * 0.4f).toInt,
-//          maxX = (gridSize * 0.6f).toInt,
-//          minY = (gridSize * 0.0f).toInt,
-//          maxY = (gridSize * 0.1f).toInt,
-//          minZ = (gridSize * 0.4f).toInt,
-//          maxZ = (gridSize * 0.6f).toInt,
-//          0.5f
-//        )
-//
-//        FieldUtils.addBox(
-//          temperatureCurrent,
-//          gridSize,
-//          minX = (gridSize * 0.4f).toInt,
-//          maxX = (gridSize * 0.6f).toInt,
-//          minY = (gridSize * 0.0f).toInt,
-//          maxY = (gridSize * 0.1f).toInt,
-//          minZ = (gridSize * 0.4f).toInt,
-//          maxZ = (gridSize * 0.6f).toInt,
-//          1f
-//        )
-        
-        // Optional: Add swirling velocity at smoke source for continuous vortex generation
-        // Uncomment to create ongoing swirling motion at the injection point:
-//        addVortexVelocity(
-//           velocityCurrent,
-//           gridSize,
-//           centerX = gridSize / 2.0f,
-//           centerY = gridSize * 0.05f,
-//           centerZ = gridSize / 2.0f,
-//           strength = 3.0f,
-//           radius = gridSize * 0.2f,
-//           upwardForce = 1.0f
-//        )
-        
-        // Optional: Wind tunnel continuous injection (for Option 4)
-        // Maintains smoke flow from the inlet (back Z=0 plane)
-
-        val t = frameIdx.toFloat / numFrames.toFloat
-        logger.info(s"Frame $frameIdx / $numFrames")
-
-        // Add smoke source at bottom center
-        logger.debug("Adding smoke source...")
-
-        
-        // Copy current to previous for this timestep
-        copyBuffer(velocityCurrent, velocityPrevious)
-        copyBuffer(densityCurrent, densityPrevious)
-        copyBuffer(temperatureCurrent, temperaturePrevious)
-        copyBuffer(pressureCurrent, pressurePrevious)
-        
-        // Rendering buffers 
-
-        // Prepare output buffer for reading back
-        val outputData = Array.ofDim[Float](imageSize._1 * imageSize._2 * 4)
-        val outputBuffer = BufferUtils.createFloatBuffer(imageSize._1 * imageSize._2 * 4)
-        val outputBB = org.lwjgl.system.MemoryUtil.memByteBuffer(outputBuffer)
+              // Write back prepared data
+              layout.velocityCurrent.write(velocityCurrent)
+              layout.dyeCurrent.write(dyeCurrent)
+              layout.renderParams.write(renderParams)
+              layout.camera.write(camera)
 
 
-        val angle = 0
-        val angleRad = angle * Math.PI.toFloat / 180.0f
-        val radius = gridSize * 1.4f
-
-        // Prepare camera buffer
-        val camera = Camera3D.orbit(
-          centerX = lookAtCenter._1,
-          centerY = lookAtCenter._2,
-          centerZ = lookAtCenter._3,
-          radius = radius,
-          angle = angleRad,
-          height = cameraHeight,
-          aspectRatio = imageSize._1.toFloat / imageSize._2.toFloat
-        )
-        val cameraStride = totalStride(summon[GStructSchema[Camera3D]])
-        val cameraBuffer = BufferUtils.createByteBuffer(cameraStride)
-        summon[GCodec[Camera3D, Camera3D]].toByteBuffer(cameraBuffer, Array(camera))
-
-        // Prepare params buffer
-        val renderParamsStride = totalStride(summon[GStructSchema[RenderParams]])
-        val renderParamsBuffer = BufferUtils.createByteBuffer(renderParamsStride)
-        val renderParams = RenderParams(gridSize = gridSize)
-        summon[GCodec[RenderParams, RenderParams]].toByteBuffer(renderParamsBuffer, Array(renderParams))
-        
-        // Run complete simulation pipeline
-        logger.debug("Running simulation pipeline...")
-        val resultLayout = region.runUnsafe(
-          init = SimulationLayout(
-            velocityCurrent = GBuffer(velocityCurrent),
-            velocityPrevious = GBuffer(velocityPrevious),
-            densityCurrent = GBuffer(densityCurrent),
-            densityPrevious = GBuffer(densityPrevious),
-            temperatureCurrent = GBuffer(temperatureCurrent),
-            temperaturePrevious = GBuffer(temperaturePrevious),
-            pressureCurrent = GBuffer(pressureCurrent),
-            pressurePrevious = GBuffer(pressurePrevious),
-            divergence = GBuffer(divergence),
-            obstacles = GBuffer(obstacles),
-            fluidParams = GUniform(paramsBuffer),
-            renderParams = GUniform(renderParamsBuffer),
-            camera = GUniform(cameraBuffer),
-            imageOutput = GBuffer[Vec4[Float32]](imageSize._1 * imageSize._2)
-          ),
-          onDone = layout =>
-            // Read back updated state
-            layout.velocityCurrent.read(velocityCurrent.rewind())
-            layout.densityCurrent.read(densityCurrent.rewind())
-            layout.temperatureCurrent.read(temperatureCurrent.rewind())
-            layout.pressureCurrent.read(pressureCurrent.rewind())
-            layout.imageOutput.read(outputBB)
-        )
-        
-        velocityCurrent.rewind()
-        densityCurrent.rewind()
-        temperatureCurrent.rewind()
-        pressureCurrent.rewind()
-
-        val outputPixels = ByteBuffer.allocateDirect(imageSize._1 * imageSize._2 * 4)
-        while outputBuffer.hasRemaining do
-          val pixel = (Math.clamp(outputBuffer.get(), 0.0f, 1.0f) * 255).toByte
-          outputPixels.put(pixel)
-        
-        saveFrame(outputPixels, (imageSize._1, imageSize._2), s"smoke/full_fluid_$frameIdx.png")
-        
-        logger.debug(s"Saved full_fluid_$frameIdx.png")
+              // Run complete simulation pipeline
+              logger.debug("Running simulation pipeline...")
+              simPipeline.execute(totalCells, layout)
       
-      logger.info(s"Done! Created $numFrames frames")
-      logger.info("Generate video with: ffmpeg -framerate 10 -i smoke/full_fluid_%d.png -c:v libx264 -pix_fmt yuv420p full_fluid.mp4")
+              velocityCurrent.rewind()
+              densityCurrent.rewind()
+              temperatureCurrent.rewind()
+              dyeCurrent.rewind()
+              pressureCurrent.rewind()
+      
+              val outputPixels = ByteBuffer.allocateDirect(imageSize._1 * imageSize._2 * 4)
+              while outputBuffer.hasRemaining do
+                val pixel = (Math.clamp(outputBuffer.get(), 0.0f, 1.0f) * 255).toByte
+                outputPixels.put(pixel)
+      
+              saveFrame(outputPixels, (imageSize._1, imageSize._2), s"smoke/full_fluid_$frameIdx.png")
+      
+              logger.debug(s"Saved full_fluid_$frameIdx.png")
+      
+              layout
+          .last
+          
+      val resultLayout = region.runUnsafe(
+            init = SimulationLayout(
+              velocityCurrent = GBuffer(velocityCurrent),
+              velocityPrevious = GBuffer(velocityPrevious),
+              densityCurrent = GBuffer(densityCurrent),
+              densityPrevious = GBuffer(densityPrevious),
+              temperatureCurrent = GBuffer(temperatureCurrent),
+              temperaturePrevious = GBuffer(temperaturePrevious),
+              dyeCurrent = GBuffer(dyeCurrent),
+              dyePrevious = GBuffer(dyePrevious),
+              pressureCurrent = GBuffer(pressureCurrent),
+              pressurePrevious = GBuffer(pressurePrevious),
+              divergence = GBuffer(divergence),
+              obstacles = GBuffer(obstacles),
+              fluidParams = GUniform(paramsBuffer),
+              renderParams = GUniform(renderParamsBuffer),
+              camera = GUniform(cameraBuffer),
+              imageOutput = GBuffer[Vec4[Float32]](imageSize._1 * imageSize._2)
+            ),
+            onDone = layout =>
+              logger.info(s"Done! Created $numFrames frames")
+              logger.info("Generate video with: ffmpeg -framerate 10 -i smoke/full_fluid_%d.png -c:v libx264 -pix_fmt yuv420p full_fluid.mp4")
+          )
+
+
       
     finally
       runtime.close()
-
-  /** Simple noise function for adding irregularity */
-  def simpleNoise(x: Float, y: Float, z: Float, time: Float): Float =
-    val s = Math.sin(x * 0.5 + time * 0.3).toFloat
-    val c = Math.cos(z * 0.5 + time * 0.2).toFloat
-    val s2 = Math.sin((x + z) * 0.3 + time * 0.5).toFloat
-    (s * c + s2 * 0.5f) * 0.5f + 0.5f
-
-  /** Add rotational velocity field to create a vortex.
-    * 
-    * Creates circular motion around a vertical axis.
-    * 
-    * @param velocity Vec4 velocity buffer to modify
-    * @param gridSize Grid resolution
-    * @param centerX Vortex center X coordinate
-    * @param centerY Vortex center Y coordinate (height)
-    * @param centerZ Vortex center Z coordinate
-    * @param strength Maximum tangential velocity
-    * @param radius Radius of influence
-    * @param upwardForce Vertical velocity component (positive = upward)
-    */
-  def addVortexVelocity(
-    velocity: ByteBuffer,
-    gridSize: Int,
-    centerX: Float,
-    centerY: Float,
-    centerZ: Float,
-    strength: Float = 5.0f,
-    radius: Float = 10.0f,
-    upwardForce: Float = 2.0f
-  ): Unit =
-    velocity.rewind()
-    
-    for z <- 0 until gridSize do
-      for y <- 0 until gridSize do
-        for x <- 0 until gridSize do
-          val idx = x + y * gridSize + z * gridSize * gridSize
-          velocity.position(idx * 16) // Vec4 = 16 bytes
-          
-          // Distance from vortex center in XZ plane
-          val dx = x.toFloat - centerX
-          val dz = z.toFloat - centerZ
-          val dy = y.toFloat - centerY
-          val distXZ = Math.sqrt(dx*dx + dz*dz).toFloat
-          
-          // Falloff based on distance (Gaussian-like)
-          val distFactor = Math.exp(-distXZ * distXZ / (radius * radius)).toFloat
-          val heightFactor = Math.exp(-dy * dy / (radius * radius * 0.5)).toFloat
-          val combinedFactor = distFactor * heightFactor
-          
-          // Create circular motion (tangent to radius vector)
-          // Velocity perpendicular to radius vector in XZ plane
-          val velX = if (distXZ > 0.01f) (-dz / distXZ) * strength * combinedFactor else 0.0f
-          val velZ = if (distXZ > 0.01f) (dx / distXZ) * strength * combinedFactor else 0.0f
-          val velY = upwardForce * combinedFactor
-          
-          // Read existing velocity and add vortex component
-          val existingX = velocity.getFloat(idx * 16)
-          val existingY = velocity.getFloat(idx * 16 + 4)
-          val existingZ = velocity.getFloat(idx * 16 + 8)
-          
-          velocity.position(idx * 16)
-          velocity.putFloat(existingX + velX)
-          velocity.putFloat(existingY + velY)
-          velocity.putFloat(existingZ + velZ)
-          velocity.putFloat(0.0f) // w component
-    
-    velocity.rewind()
-
-  /** Add counter-rotating vortex pair for more complex swirling patterns.
-    * 
-    * Creates two vortices rotating in opposite directions, which creates
-    * interesting turbulent interactions.
-    * 
-    * @param velocity Vec4 velocity buffer to modify
-    * @param gridSize Grid resolution
-    * @param centerX Center X coordinate between the two vortices
-    * @param centerY Center Y coordinate (height)
-    * @param centerZ Center Z coordinate
-    * @param separation Distance between vortex centers
-    * @param strength Maximum tangential velocity
-    * @param radius Radius of influence for each vortex
-    */
-  def addCounterRotatingVortices(
-    velocity: ByteBuffer,
-    gridSize: Int,
-    centerX: Float,
-    centerY: Float,
-    centerZ: Float,
-    separation: Float = 10.0f,
-    strength: Float = 5.0f,
-    radius: Float = 8.0f
-  ): Unit =
-    // First vortex (clockwise when viewed from above)
-    addVortexVelocity(
-      velocity,
-      gridSize,
-      centerX - separation / 2.0f,
-      centerY,
-      centerZ,
-      strength,
-      radius,
-      upwardForce = 2.0f
-    )
-    
-    // Second vortex (counter-clockwise when viewed from above)
-    addVortexVelocity(
-      velocity,
-      gridSize,
-      centerX + separation / 2.0f,
-      centerY,
-      centerZ,
-      -strength,  // Negative strength for opposite rotation
-      radius,
-      upwardForce = 2.0f
-    )
-
-  /** Setup initial swirling fields for smoke simulation.
-    * 
-    * Creates an initial velocity configuration with multiple vortices
-    * and sets up density/temperature fields to visualize the swirling motion.
-    * 
-    * @param velocityBuffer Velocity field to initialize
-    * @param densityBuffer Density field to initialize  
-    * @param temperatureBuffer Temperature field to initialize
-    * @param gridSize Grid resolution
-    */
-  def setupSwirlFields(
-    velocityBuffer: ByteBuffer,
-    densityBuffer: ByteBuffer,
-    temperatureBuffer: ByteBuffer,
-    gridSize: Int
-  ): Unit =
-    val center = gridSize / 2.0f
-    
-    // Add a strong central vortex at bottom-center
-    addVortexVelocity(
-      velocityBuffer,
-      gridSize,
-      centerX = center,
-      centerY = gridSize * 0.15f,
-      centerZ = center,
-      strength = 6.0f,
-      radius = gridSize * 0.3f,
-      upwardForce = 0.3f
-    )
-    
-    // Add counter-rotating vortices slightly higher up for complexity
-    addCounterRotatingVortices(
-      velocityBuffer,
-      gridSize,
-      centerX = center,
-      centerY = gridSize * 0.3f,
-      centerZ = center,
-      separation = gridSize * 0.3f,
-      strength = 4.0f,
-      radius = gridSize * 0.2f
-    )
-    
-    // Add initial smoke density in a column at the center
-    FieldUtils.addCylinder(
-      densityBuffer,
-      gridSize,
-      centerX = center,
-      centerZ = center,
-      radius = gridSize * 0.15f,
-      minY = 0,
-      maxY = (gridSize * 0.25f).toInt,
-      value = 1f
-    )
-    
-    // Add temperature to drive buoyancy
-    FieldUtils.addCylinder(
-      temperatureBuffer,
-      gridSize,
-      centerX = center,
-      centerZ = center,
-      radius = gridSize * 0.15f,
-      minY = 0,
-      maxY = (gridSize * 0.25f).toInt,
-      value = 1.0f
-    )
-
-  /** Add directional velocity to a spherical region.
-    * 
-    * @param velocity Velocity buffer to modify
-    * @param gridSize Grid resolution
-    * @param centerX Center X position
-    * @param centerY Center Y position
-    * @param centerZ Center Z position
-    * @param radius Sphere radius
-    * @param velocityX Velocity in X direction
-    * @param velocityY Velocity in Y direction
-    * @param velocityZ Velocity in Z direction
-    */
-  def addDirectionalVelocity(
-    velocity: ByteBuffer,
-    gridSize: Int,
-    centerX: Float,
-    centerY: Float,
-    centerZ: Float,
-    radius: Float,
-    velocityX: Float,
-    velocityY: Float,
-    velocityZ: Float
-  ): Unit =
-    velocity.rewind()
-    
-    for z <- 0 until gridSize do
-      for y <- 0 until gridSize do
-        for x <- 0 until gridSize do
-          val idx = x + y * gridSize + z * gridSize * gridSize
-          
-          // Calculate distance from center
-          val dx = x.toFloat - centerX
-          val dy = y.toFloat - centerY
-          val dz = z.toFloat - centerZ
-          val dist = Math.sqrt(dx*dx + dy*dy + dz*dz).toFloat
-          
-          // Apply velocity with smooth falloff
-          if dist < radius then
-            val falloff = Math.cos((dist / radius) * Math.PI * 0.5).toFloat
-            falloff * falloff // Squared for smoother falloff
-            
-            velocity.position(idx * 16)
-            val existingX = velocity.getFloat()
-            val existingY = velocity.getFloat()
-            val existingZ = velocity.getFloat()
-            
-            velocity.position(idx * 16)
-            velocity.putFloat(existingX + velocityX * falloff)
-            velocity.putFloat(existingY + velocityY * falloff)
-            velocity.putFloat(existingZ + velocityZ * falloff)
-            velocity.putFloat(0.0f)
-    
-    velocity.rewind()
 
   /** Add a spiral obstacle pattern inspired by Scala logo.
     * 
@@ -783,251 +557,161 @@ object FullFluidSimulation:
           value = value
         )
 
-  /** Setup wind tunnel scene with spiral obstacle.
-    * 
-    * Creates a wind tunnel simulation with wind flowing in +Z direction
-    * (toward the camera when viewed from +X side), with a Scala logo spiral
-    * obstacle in the center that creates turbulent flow patterns.
-    * 
-    * @param velocityBuffer Velocity field to initialize
-    * @param densityBuffer Density field to initialize
-    * @param temperatureBuffer Temperature field to initialize
-    * @param obstacleBuffer Obstacle field to initialize
-    * @param gridSize Grid resolution
-    */
-  def setupWindTunnelScene(
-    velocityBuffer: ByteBuffer,
-    densityBuffer: ByteBuffer,
-    temperatureBuffer: ByteBuffer,
-    obstacleBuffer: ByteBuffer,
-    gridSize: Int
-  ): Unit =
-    val center = gridSize / 2.0f
-    
-    // Create the spiral obstacle (Scala logo with constant radius and ribbon shape!)
-    addSpiralObstacle(
-      obstacleBuffer,
-      gridSize,
-      centerX = center,
-      centerY = gridSize * 0.2f,
-      centerZ = center,
-      spiralRadius = gridSize * 0.2f,
-      spiralHeight = gridSize * 0.6f,
-      numTurns = 2.5f,
-      ribbonWidth = gridSize * 0.15f,        // Width along curve (tangent)
-      ribbonThickness = gridSize * 0.03f,    // Thickness perpendicular to curve (thin!)
-      ribbonHeight = gridSize * 0.1f,       // Vertical height of ribbon
-      rotationDegrees = 60.0f,                // Can adjust to rotate the spiral
-      value = 1.0f
-    )
 
-    // Initialize uniform wind flow in +Z direction (flows across your view from the side)
-    val windSpeed = 2.0f
-    velocityBuffer.rewind()
+
+  /** Add a disc perpendicular to X axis (circular in YZ plane) - for scalar fields.
+    * 
+    * Creates a thin disc that faces along the X direction.
+    * 
+    * @param buffer Field buffer to modify (Float32 buffer)
+    * @param gridSize Grid resolution
+    * @param centerX Center X position
+    * @param centerY Center Y position
+    * @param centerZ Center Z position
+    * @param radius Disc radius (in YZ plane)
+    * @param thickness Disc thickness (in X direction)
+    * @param value Field value to set
+    */
+  def addDiscPerpToX(
+    buffer: ByteBuffer,
+    gridSize: Int,
+    centerX: Float,
+    centerY: Float,
+    centerZ: Float,
+    radius: Float,
+    thickness: Float,
+    value: Float
+  ): Unit =
+    buffer.rewind()
+    val halfThickness = thickness / 2.0f
     
     for z <- 0 until gridSize do
       for y <- 0 until gridSize do
         for x <- 0 until gridSize do
-          val idx = x + y * gridSize + z * gridSize * gridSize
-          velocityBuffer.position(idx * 16)
-          
-          // Uniform wind in +Z direction (perpendicular to side view)
-          velocityBuffer.putFloat(0.0f)
-          velocityBuffer.putFloat(0.0f)
-          velocityBuffer.putFloat(windSpeed)
-          velocityBuffer.putFloat(0.0f)
+          // Check if within thickness in X direction
+          val dx = x.toFloat - centerX
+          if Math.abs(dx) <= halfThickness then
+            // Check if within radius in YZ plane
+            val dy = y.toFloat - centerY
+            val dz = z.toFloat - centerZ
+            val distYZ = Math.sqrt(dy * dy + dz * dz).toFloat
+            
+            if distYZ <= radius then
+              val idx = x + y * gridSize + z * gridSize * gridSize
+              buffer.position(idx * 4)
+              val existingValue = buffer.getFloat(idx * 4)
+              buffer.position(idx * 4)
+              buffer.putFloat(existingValue + value)
+    
+    buffer.rewind()
+
+  /** Add velocity in a disc perpendicular to X axis (circular in YZ plane) - for Vec4 velocity fields.
+    * 
+    * Creates a thin disc with velocity that faces along the X direction.
+    * 
+    * @param velocityBuffer Velocity field buffer to modify (Vec4[Float32] = 16 bytes per cell)
+    * @param gridSize Grid resolution
+    * @param centerX Center X position
+    * @param centerY Center Y position
+    * @param centerZ Center Z position
+    * @param radius Disc radius (in YZ plane)
+    * @param thickness Disc thickness (in X direction)
+    * @param velocityX Velocity X component
+    * @param velocityY Velocity Y component
+    * @param velocityZ Velocity Z component
+    */
+  def addDiscVecPerpToX(
+    velocityBuffer: ByteBuffer,
+    gridSize: Int,
+    centerX: Float,
+    centerY: Float,
+    centerZ: Float,
+    radius: Float,
+    thickness: Float,
+    velocityX: Float,
+    velocityY: Float,
+    velocityZ: Float
+  ): Unit =
+    velocityBuffer.rewind()
+    val halfThickness = thickness / 2.0f
+    
+    for z <- 0 until gridSize do
+      for y <- 0 until gridSize do
+        for x <- 0 until gridSize do
+          // Check if within thickness in X direction
+          val dx = x.toFloat - centerX
+          if Math.abs(dx) <= halfThickness then
+            // Check if within radius in YZ plane
+            val dy = y.toFloat - centerY
+            val dz = z.toFloat - centerZ
+            val distYZ = Math.sqrt(dy * dy + dz * dz).toFloat
+            
+            if distYZ <= radius then
+              val idx = x + y * gridSize + z * gridSize * gridSize
+              velocityBuffer.position(idx * 16) // Vec4 = 16 bytes
+              
+              // Read existing velocity
+              val existingX = velocityBuffer.getFloat()
+              val existingY = velocityBuffer.getFloat()
+              val existingZ = velocityBuffer.getFloat()
+              
+              // Write new velocity (add to existing)
+              velocityBuffer.position(idx * 16)
+              velocityBuffer.putFloat(existingX + velocityX)
+              velocityBuffer.putFloat(existingY + velocityY)
+              velocityBuffer.putFloat(existingZ + velocityZ)
+              velocityBuffer.putFloat(0.0f) // w component
     
     velocityBuffer.rewind()
-    
-    // Add smoke/density at the inlet (back of the tunnel, Z=0)
-    FieldUtils.addBox(
-      densityBuffer,
-      gridSize,
-      minX = (gridSize * 0.4f).toInt,
-      maxX = (gridSize * 0.6f).toInt,
-      minY = (gridSize * 0.4f).toInt,
-      maxY = (gridSize * 0.6f).toInt,
-      minZ = 0,
-      maxZ = (gridSize * 0.1f).toInt,
-      value = 0.8f
-    )
-    
-    // Add slight temperature variation for buoyancy effects
-    FieldUtils.addBox(
-      temperatureBuffer,
-      gridSize,
-      minX = (gridSize * 0.2f).toInt,
-      maxX = (gridSize * 0.8f).toInt,
-      minY = (gridSize * 0.2f).toInt,
-      maxY = (gridSize * 0.7f).toInt,
-      minZ = 0,
-      maxZ = (gridSize * 0.15f).toInt,
-      value = 0.6f
-    )
-    
-    // Add some vortex generators at the inlet for turbulence
-    for i <- 0 until 3 do
-      val y = gridSize * (0.3f + i * 0.15f)
-      val x = gridSize * (0.25f + i * 0.25f)
-      
-      addVortexVelocity(
-        velocityBuffer,
-        gridSize,
-        centerX = x,
-        centerY = y,
-        centerZ = gridSize * 0.1f,
-        strength = 2.0f,
-        radius = gridSize * 0.08f,
-        upwardForce = 0.0f
-      )
 
-  /** Setup complex collision scene with multiple hot pockets moving toward each other.
+  /** Add colliding disc-shaped velocity currents.
     * 
-    * Creates multiple sources of density/temperature at different locations,
-    * each with initial velocities that cause them to collide and interact.
-    * Includes swirling motions for dramatic turbulent effects.
+    * This should be called EVERY FRAME to continuously inject velocity.
+    * Creates two disc-shaped regions with strong velocities flowing toward each other.
     * 
-    * @param velocityBuffer Velocity field to initialize
-    * @param densityBuffer Density field to initialize
-    * @param temperatureBuffer Temperature field to initialize
+    * @param velocityBuffer Velocity field to modify
     * @param gridSize Grid resolution
     */
-  def setupCollisionScene(
+  def addCollidingDiscCurrents(
     velocityBuffer: ByteBuffer,
-    densityBuffer: ByteBuffer,
-    temperatureBuffer: ByteBuffer,
+    dyeBuffer: ByteBuffer,
     gridSize: Int
   ): Unit =
     val center = gridSize / 2.0f
-    val third = gridSize / 3.0f
+    val currentRadius = gridSize * 0.15f
+    val separation = gridSize * 0.35f
+    val discThickness = gridSize * 0.05f
+    val collisionSpeed = 2.0f
     
-    // Define 6 "pockets" arranged in a ring, all moving toward center
-    val numPockets = 6
-    val pocketRadius = gridSize * 0.35f // Distance from center
-    val pocketSize = gridSize * 0.12f
-    val inwardSpeed = 4.0f
-    val swirlingSpeed = 3.0f
+    val leftDiscX = center - separation
+    val rightDiscX = center + separation
     
-    for i <- 0 until numPockets do
-      val angle = (i.toFloat / numPockets.toFloat) * 2.0f * Math.PI.toFloat
-      val x = center + Math.cos(angle).toFloat * pocketRadius
-      val z = center + Math.sin(angle).toFloat * pocketRadius
-      val y = gridSize * (0.15f + 0.05f * Math.sin(i * 1.5).toFloat) // Varying heights
-      
-      // Add density pocket (sphere)
-      FieldUtils.addSphere(
-        densityBuffer,
-        gridSize,
-        centerX = x,
-        centerY = y,
-        centerZ = z,
-        radius = pocketSize,
-        value = 0.8f + 0.2f * (i % 3) / 3.0f // Varying densities
-      )
-      
-      // Add temperature pocket (hotter = more buoyancy)
-      FieldUtils.addSphere(
-        temperatureBuffer,
-        gridSize,
-        centerX = x,
-        centerY = y,
-        centerZ = z,
-        radius = pocketSize * 0.9f,
-        value = 0.9f + 0.1f * ((i + 1) % 2) // Alternating temperatures
-      )
-      
-      // Calculate velocity toward center with swirling component
-      val towardCenterX = (center - x) / pocketRadius * inwardSpeed
-      val towardCenterZ = (center - z) / pocketRadius * inwardSpeed
-      
-      // Add tangential component for swirling
-      val tangentX = -Math.sin(angle).toFloat * swirlingSpeed * (if i % 2 == 0 then 1 else -1)
-      val tangentZ = Math.cos(angle).toFloat * swirlingSpeed * (if i % 2 == 0 then 1 else -1)
-      
-      // Add upward component
-      val upwardSpeed = 1.5f + 0.5f * (i % 3)
-      
-      // Apply directional velocity to the pocket
-      addDirectionalVelocity(
-        velocityBuffer,
-        gridSize,
-        centerX = x,
-        centerY = y,
-        centerZ = z,
-        radius = pocketSize * 1.2f,
-        velocityX = towardCenterX + tangentX,
-        velocityY = upwardSpeed,
-        velocityZ = towardCenterZ + tangentZ
-      )
-    
-    // Add a central upward vortex to enhance the collision dynamics
-    addVortexVelocity(
+    // Left disc velocity - flowing RIGHT (positive X direction)
+    addDiscVecPerpToX(
       velocityBuffer,
       gridSize,
-      centerX = center,
-      centerY = gridSize * 0.2f,
+      centerX = leftDiscX,
+      centerY = center,
       centerZ = center,
-      strength = 5.0f,
-      radius = gridSize * 0.25f,
-      upwardForce = 2.0f
+      radius = currentRadius * 3f,
+      thickness = discThickness * 100f,
+      velocityX = collisionSpeed,
+      velocityY = 0.0f,
+      velocityZ = 0.0f
     )
-    
-    // Add three counter-rotating pairs at different heights for chaos
-    for i <- 0 until 3 do
-      val angle = (i.toFloat / 3.0f) * 2.0f * Math.PI.toFloat
-      val offsetX = Math.cos(angle).toFloat * gridSize * 0.2f
-      val offsetZ = Math.sin(angle).toFloat * gridSize * 0.2f
-      
-      addCounterRotatingVortices(
-        velocityBuffer,
-        gridSize,
-        centerX = center + offsetX,
-        centerY = gridSize * (0.3f + i * 0.15f),
-        centerZ = center + offsetZ,
-        separation = gridSize * 0.15f,
-        strength = 3.0f * (1.0f - i * 0.2f),
-        radius = gridSize * 0.12f
-      )
-    
-    // Add some extra density pockets at top corners moving down
-    for i <- 0 until 4 do
-      val angle = i * Math.PI.toFloat / 2.0f + Math.PI.toFloat / 4.0f
-      val x = center + Math.cos(angle).toFloat * gridSize * 0.4f
-      val z = center + Math.sin(angle).toFloat * gridSize * 0.4f
-      val y = gridSize * 0.7f
-      
-      FieldUtils.addSphere(
-        densityBuffer,
-        gridSize,
-        centerX = x,
-        centerY = y,
-        centerZ = z,
-        radius = gridSize * 0.08f,
-        value = 0.6f
-      )
-      
-      FieldUtils.addSphere(
-        temperatureBuffer,
-        gridSize,
-        centerX = x,
-        centerY = y,
-        centerZ = z,
-        radius = gridSize * 0.08f,
-        value = 0.7f
-      )
-      
-      // Downward spiral motion
-      addDirectionalVelocity(
-        velocityBuffer,
-        gridSize,
-        centerX = x,
-        centerY = y,
-        centerZ = z,
-        radius = gridSize * 0.1f,
-        velocityX = -Math.cos(angle).toFloat * 2.0f,
-        velocityY = -3.0f,
-        velocityZ = -Math.sin(angle).toFloat * 2.0f
-      )
+
+    addDiscPerpToX(
+      dyeBuffer,
+      gridSize,
+      centerX = leftDiscX,
+      centerY = center,
+      centerZ = center,
+      radius = currentRadius,
+      thickness = discThickness,
+      value = 0.5f
+    )
+
+
 
   /** Copy buffer contents */
   def copyBuffer(src: ByteBuffer, dst: ByteBuffer): Unit =

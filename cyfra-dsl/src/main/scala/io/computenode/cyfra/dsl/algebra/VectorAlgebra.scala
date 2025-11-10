@@ -66,6 +66,9 @@ object VectorAlgebra:
   def vec4(x: FloatOrFloat32, y: FloatOrFloat32, z: FloatOrFloat32, w: FloatOrFloat32)(using Source): Vec4[Float32] =
     Vec4(ComposeVec4(toFloat32(x), toFloat32(y), toFloat32(z), toFloat32(w)))
 
+  def vec4(v3: Vec3[Float32], w: FloatOrFloat32)(using Source): Vec4[Float32] =
+    Vec4(ComposeVec4(toFloat32(v3.x), toFloat32(v3.y), toFloat32(v3.z), toFloat32(w)))
+
   def vec3(x: FloatOrFloat32, y: FloatOrFloat32, z: FloatOrFloat32)(using Source): Vec3[Float32] =
     Vec3(ComposeVec3(toFloat32(x), toFloat32(y), toFloat32(z)))
 

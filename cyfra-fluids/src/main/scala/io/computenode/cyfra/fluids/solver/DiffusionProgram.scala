@@ -28,6 +28,8 @@ object DiffusionProgram:
           temperaturePrevious = GBuffer[Float32](totalCells),
           divergencePrevious = GBuffer[Float32](totalCells),
           obstacles = GBuffer[Float32](totalCells),
+          dyeCurrent = GBuffer[Float32](totalCells),
+          dyePrevious = GBuffer[Float32](totalCells),
           params = GUniform[FluidParams]()
         )
       },

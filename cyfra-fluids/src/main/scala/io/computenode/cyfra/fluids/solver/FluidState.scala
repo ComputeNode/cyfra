@@ -12,6 +12,7 @@ case class FluidState(
   pressure: GBuffer[Float32],           // Pressure field
   density: GBuffer[Float32],            // Density/smoke field
   temperature: GBuffer[Float32],        // Temperature field
+  dye: GBuffer[Float32],                // Dye/tracer field (passive advection)
   divergence: GBuffer[Float32],         // Divergence scratch buffer
   obstacles: GBuffer[Float32],          // Obstacle field (<=0=fluid, >0=solid with color)
   params: GUniform[FluidParams]         // Simulation parameters
@@ -26,6 +27,7 @@ case class FluidStateDouble(
   pressureCurrent: GBuffer[Float32],
   densityCurrent: GBuffer[Float32],
   temperatureCurrent: GBuffer[Float32],
+  dyeCurrent: GBuffer[Float32],
   divergenceCurrent: GBuffer[Float32],
   
   // Previous state buffers (for ping-pong)
@@ -33,6 +35,7 @@ case class FluidStateDouble(
   pressurePrevious: GBuffer[Float32],
   densityPrevious: GBuffer[Float32],
   temperaturePrevious: GBuffer[Float32],
+  dyePrevious: GBuffer[Float32],
   divergencePrevious: GBuffer[Float32],
   
   // Shared read-only buffers

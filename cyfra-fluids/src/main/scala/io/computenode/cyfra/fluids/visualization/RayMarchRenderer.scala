@@ -81,6 +81,7 @@ class RayMarchRenderer(rendererConfig: RendererConfig):
     pressureBuffer: GBuffer[Float32],
     densityBuffer: GBuffer[Float32],
     temperatureBuffer: GBuffer[Float32],
+    dyeBuffer: GBuffer[Float32],
     obstaclesBuffer: GBuffer[Float32],
     gridSize: Int32,
   ): Vec4[Float32] =
@@ -187,6 +188,10 @@ class RayMarchRenderer(rendererConfig: RendererConfig):
                   val temperature = trilinearInterpolateFloat32(temperatureBuffer, state.pos, gridSize)
                   val clamped = clamp(temperature - rendererConfig.renderOver, 0.0f, rendererConfig.renderMax) / rescaleFactor
                   (FluidColorMap.heatMap(clamped), clamped)
+                case Field.Dye =>
+                  val dye = trilinearInterpolateFloat32(dyeBuffer, state.pos, gridSize)
+                  val clamped = clamp(dye - rendererConfig.renderOver, 0.0f, rendererConfig.renderMax) / rescaleFactor
+                  (FluidColorMap.heatMap(clamped), clamped)
                 case Field.Velocity =>
                   val velocity = abs(trilinearInterpolateVec4(velocityBuffer, state.pos, gridSize))
                   val velLen = length(velocity.xyz)
@@ -252,6 +257,7 @@ class RayMarchRenderer(rendererConfig: RendererConfig):
         pressure = GBuffer[Float32](totalCells),
         density = GBuffer[Float32](totalCells),
         temperature = GBuffer[Float32](totalCells),
+        dye = GBuffer[Float32](totalCells),
         obstacles = GBuffer[Float32](totalCells),
         camera = GUniform[Camera3D](),
         params = GUniform[RenderParams](),
@@ -284,7 +290,7 @@ class RayMarchRenderer(rendererConfig: RendererConfig):
       val camPos = vec3(cam.position.x, cam.position.y, cam.position.z)
 
       // March along ray and accumulate color
-      val finalColor = marchRay(camPos, rayDirection, layout.velocity, layout.pressure, layout.density, layout.temperature, layout.obstacles, params.gridSize)
+      val finalColor = marchRay(camPos, rayDirection, layout.velocity, layout.pressure, layout.density, layout.temperature, layout.dye, layout.obstacles, params.gridSize)
 
       for _ <- GIO.write(layout.output, idx, finalColor)
       yield Empty()
@@ -310,6 +316,7 @@ object RayMarchRenderer:
     case Pressure
     case Density
     case Temperature
+    case Dye
 
 
   object MarchState:
@@ -336,6 +343,7 @@ object RayMarchRenderer:
     pressure: GBuffer[Float32],
     density: GBuffer[Float32],
     temperature: GBuffer[Float32],
+    dye: GBuffer[Float32],
     obstacles: GBuffer[Float32],
     camera: GUniform[Camera3D],
     params: GUniform[RenderParams],

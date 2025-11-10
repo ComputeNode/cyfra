@@ -33,6 +33,7 @@ object VorticityConfinementProgram:
           temperature = GBuffer[Float32](totalCells),
           divergence = GBuffer[Float32](totalCells),
           obstacles = GBuffer[Float32](totalCells),
+          dye = GBuffer[Float32](totalCells),
           params = GUniform[FluidParams]()
         )
       },
@@ -164,7 +165,7 @@ object VorticityConfinementProgram:
           
           // Vorticity confinement coefficient (adjustable parameter)
           // Typical values: 0.1 to 0.5 for smoke simulation
-          val vorticityEpsilon = 0.5f
+          val vorticityEpsilon = 0.3f
           
           val confinementForce = vec3(
             forceX * vorticityEpsilon,
