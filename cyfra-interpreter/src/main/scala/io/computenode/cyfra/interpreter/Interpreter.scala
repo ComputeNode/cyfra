@@ -55,7 +55,7 @@ object Interpreter:
       // can different invocations run different numbers of GIOs?
       val newSc = Simulate.sim(n, sc)
       val repeat = newSc.results.values.head.asInstanceOf[Int]
-      val newGios = (0 until repeat).map(i => f(i)).toList
+      val newGios = (0 until repeat).map(i => f).toList
       interpretMany(newGios ::: tail, newSc)
     case head :: tail => interpretMany(tail, interpretOne(head, sc))
     case Nil          => sc

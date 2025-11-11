@@ -2,7 +2,7 @@ package io.computenode.cyfra.interpreter
 
 import io.computenode.cyfra.dsl.{*, given}
 import binding.*, macros.FnCall.FnIdentifier, control.Scope
-import collections.*, GArray.GArrayElem, GSeq.{CurrentElem, AggregateElem, FoldSeq}
+import collections.*, GSeq.{CurrentElem, AggregateElem, FoldSeq}
 import struct.*, GStruct.{ComposeStruct, GetField}
 import io.computenode.cyfra.spirv.BlockBuilder.buildBlock
 
@@ -67,12 +67,12 @@ object Simulate:
     case FunctionCall(fn, body, args) => ??? // simFunc(fn, simScope(body), args.map(simValue))
     case InvocationId                 => simInvocId(records)
     case Pass(value)                  => ???
-    case Dynamic(source)              => ???
-    case e: GArrayElem[?]             => simGArrayElem(e)
-    case e: FoldSeq[?, ?]             => simFoldSeq(e)
-    case e: ComposeStruct[?]          => simComposeStruct(e)
-    case e: GetField[?, ?]            => simGetField(e)
-    case _                            => throw IllegalArgumentException("sim: wrong argument")
+    // case Dynamic(source)              => ???
+    // case e: GArrayElem[?]    => simGArrayElem(e)
+    case e: FoldSeq[?, ?]    => simFoldSeq(e)
+    case e: ComposeStruct[?] => simComposeStruct(e)
+    case e: GetField[?, ?]   => simGetField(e)
+    case _                   => throw IllegalArgumentException("sim: wrong argument")
 
   private def simPhantom(e: PhantomExpression[?])(using Records): Results = e match
     case CurrentElem(tid: Int)   => ???
@@ -212,8 +212,8 @@ object Simulate:
         invocId -> record.addRead(ReadUni(e.treeid, uniform, readValue))
       (newResults, newRecords)
 
-  private def simGArrayElem(gElem: GArrayElem[?]): Results = gElem match
-    case GArrayElem(index, i) => ???
+  // private def simGArrayElem(gElem: GArrayElem[?]): Results = gElem match
+  //   case GArrayElem(index, i) => ???
 
   private def simFoldSeq(seq: FoldSeq[?, ?]): Results = seq match
     case FoldSeq(zero, fn, seq) => ???
