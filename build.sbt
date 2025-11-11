@@ -100,17 +100,21 @@ lazy val vscode = (project in file("cyfra-vscode"))
   .settings(commonSettings)
   .dependsOn(foton)
 
+lazy val interpreter = (project in file("cyfra-interpreter"))
+  .settings(commonSettings)
+  .dependsOn(dsl, compiler)
+
 lazy val fs2interop = (project in file("cyfra-fs2"))
   .settings(commonSettings, fs2Settings)
   .dependsOn(runtime)
 
 lazy val e2eTest = (project in file("cyfra-e2e-test"))
   .settings(commonSettings, runnerSettings)
-  .dependsOn(runtime, fs2interop)
+  .dependsOn(runtime, fs2interop, interpreter)
 
 lazy val root = (project in file("."))
   .settings(name := "Cyfra")
-  .aggregate(compiler, dsl, foton, core, runtime, vulkan, examples, fs2interop)
+  .aggregate(compiler, dsl, foton, core, runtime, vulkan, examples, fs2interop, interpreter)
 
 e2eTest / Test / javaOptions ++= Seq("-Dorg.lwjgl.system.stackSize=1024", "-DuniqueLibraryNames=true")
 
