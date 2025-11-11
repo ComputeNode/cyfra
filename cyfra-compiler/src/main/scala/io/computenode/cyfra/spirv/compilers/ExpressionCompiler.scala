@@ -3,7 +3,7 @@ package io.computenode.cyfra.spirv.compilers
 import io.computenode.cyfra.dsl.*
 import io.computenode.cyfra.dsl.Expression.*
 import io.computenode.cyfra.dsl.Value.*
-import io.computenode.cyfra.dsl.collections.GArray.GArrayElem
+import io.computenode.cyfra.dsl.binding.*
 import io.computenode.cyfra.dsl.collections.GSeq
 import io.computenode.cyfra.dsl.macros.Source
 import io.computenode.cyfra.dsl.struct.GStruct.{ComposeStruct, GetField}
@@ -21,10 +21,6 @@ import scala.annotation.tailrec
 private[cyfra] object ExpressionCompiler:
 
   val WorkerIndexTag = "worker_index"
-
-  val WorkerIndex: Int32 = Int32(Dynamic(WorkerIndexTag))
-  val UniformStructRefTag = "uniform_struct"
-  def UniformStructRef[G <: Value: Tag] = Dynamic(UniformStructRefTag)
 
   private def binaryOpOpcode(expr: BinaryOpExpression[?]) = expr match
     case _: Sum[?]  => (Op.OpIAdd, Op.OpFAdd)
@@ -110,11 +106,11 @@ private[cyfra] object ExpressionCompiler:
               val updatedContext = ctx.copy(exprRefs = ctx.exprRefs + (c.treeid -> constRef))
               (List(), updatedContext)
 
-            case d @ Dynamic(WorkerIndexTag) =>
-              (Nil, ctx.copy(exprRefs = ctx.exprRefs + (d.treeid -> ctx.workerIndexRef)))
+            case w @ InvocationId =>
+              (Nil, ctx.copy(exprRefs = ctx.exprRefs + (w.treeid -> ctx.workerIndexRef)))
 
-            case d @ Dynamic(UniformStructRefTag) =>
-              (Nil, ctx.copy(exprRefs = ctx.exprRefs + (d.treeid -> ctx.uniformVarRef)))
+            case d @ ReadUniform(u) =>
+              (Nil, ctx.copy(exprRefs = ctx.exprRefs + (d.treeid -> ctx.uniformVarRefs(u))))
 
             case c: ConvertExpression[?, ?] =>
               compileConvertExpression(c, ctx)
@@ -293,19 +289,19 @@ private[cyfra] object ExpressionCompiler:
             case fc: FunctionCall[?] =>
               compileFunctionCall(fc, ctx)
 
-            case ga @ GArrayElem(index, i) =>
+            case ReadBuffer(buffer, i) =>
               val instructions = List(
                 Instruction(
                   Op.OpAccessChain,
                   List(
-                    ResultRef(ctx.uniformPointerMap(ctx.valueTypeMap(ga.tag.tag))),
+                    ResultRef(ctx.uniformPointerMap(ctx.valueTypeMap(buffer.tag.tag))),
                     ResultRef(ctx.nextResultId),
-                    ResultRef(ctx.inBufferBlocks(index).blockVarRef),
+                    ResultRef(ctx.bufferBlocks(buffer).blockVarRef),
                     ResultRef(ctx.constRefs((Int32Tag, 0))),
                     ResultRef(ctx.exprRefs(i.treeid)),
                   ),
                 ),
-                Instruction(Op.OpLoad, List(IntWord(ctx.valueTypeMap(ga.tag.tag)), ResultRef(ctx.nextResultId + 1), ResultRef(ctx.nextResultId))),
+                Instruction(Op.OpLoad, List(IntWord(ctx.valueTypeMap(buffer.tag.tag)), ResultRef(ctx.nextResultId + 1), ResultRef(ctx.nextResultId))),
               )
               val updatedContext = ctx.copy(exprRefs = ctx.exprRefs + (expr.treeid -> (ctx.nextResultId + 1)), nextResultId = ctx.nextResultId + 2)
               (instructions, updatedContext)
@@ -330,14 +326,15 @@ private[cyfra] object ExpressionCompiler:
               )
               val updatedContext = ctx.copy(exprRefs = ctx.exprRefs + (cs.treeid -> ctx.nextResultId), nextResultId = ctx.nextResultId + 1)
               (insns, updatedContext)
-            case gf @ GetField(dynamic @ Dynamic(UniformStructRefTag), fieldIndex) =>
+
+            case gf @ GetField(binding @ ReadUniform(uf), fieldIndex) =>
               val insns: List[Instruction] = List(
                 Instruction(
                   Op.OpAccessChain,
                   List(
                     ResultRef(ctx.uniformPointerMap(ctx.valueTypeMap(gf.tag.tag))),
                     ResultRef(ctx.nextResultId),
-                    ResultRef(ctx.uniformVarRef),
+                    ResultRef(ctx.uniformVarRefs(uf)),
                     ResultRef(ctx.constRefs((Int32Tag, gf.fieldIndex))),
                   ),
                 ),
@@ -345,6 +342,7 @@ private[cyfra] object ExpressionCompiler:
               )
               val updatedContext = ctx.copy(exprRefs = ctx.exprRefs + (expr.treeid -> (ctx.nextResultId + 1)), nextResultId = ctx.nextResultId + 2)
               (insns, updatedContext)
+
             case gf: GetField[?, ?] =>
               val insns: List[Instruction] = List(
                 Instruction(

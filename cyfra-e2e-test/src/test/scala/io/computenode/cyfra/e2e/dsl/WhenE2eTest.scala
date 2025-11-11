@@ -1,12 +1,14 @@
-package io.computenode.cyfra.e2e
+package io.computenode.cyfra.e2e.dsl
 
+import io.computenode.cyfra.core.CyfraRuntime
+import io.computenode.cyfra.core.archive.GFunction
 import io.computenode.cyfra.dsl.struct.GStruct
-import io.computenode.cyfra.core.archive.*
-import mem.*
 import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.runtime.VkCyfraRuntime
+import io.computenode.cyfra.core.GCodec.{*, given}
 
 class WhenE2eTest extends munit.FunSuite:
-  given gc: GContext = GContext()
+  given CyfraRuntime = VkCyfraRuntime()
 
   test("when elseWhen otherwise"):
     val oneHundred = 100.0f
@@ -17,8 +19,7 @@ class WhenE2eTest extends munit.FunSuite:
         .otherwise(2.0f)
 
     val inArr: Array[Float] = (0 to 255).map(_.toFloat).toArray
-    val gmem = FloatMem(inArr)
-    val result = gmem.map(gf).asInstanceOf[FloatMem].toArray
+    val result: Array[Float] = gf.run(inArr)
 
     val expected = inArr.map: f =>
       if f <= oneHundred then 0.0f else if f <= twoHundred then 1.0f else 2.0f

@@ -1,6 +1,6 @@
 package io.computenode.cyfra.vulkan.memory
 
-import io.computenode.cyfra.vulkan.core.{Device, Instance}
+import io.computenode.cyfra.vulkan.core.{Device, Instance, PhysicalDevice}
 import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import io.computenode.cyfra.vulkan.util.VulkanObjectHandle
 import org.lwjgl.util.vma.Vma.{vmaCreateAllocator, vmaDestroyAllocator}
@@ -9,7 +9,7 @@ import org.lwjgl.util.vma.{VmaAllocatorCreateInfo, VmaVulkanFunctions}
 /** @author
   *   MarconZet Created 13.04.2020
   */
-private[cyfra] class Allocator(instance: Instance, device: Device) extends VulkanObjectHandle:
+private[cyfra] class Allocator(instance: Instance, physicalDevice: PhysicalDevice, device: Device) extends VulkanObjectHandle:
 
   protected val handle: Long = pushStack: stack =>
     val functions = VmaVulkanFunctions.calloc(stack)
@@ -17,7 +17,7 @@ private[cyfra] class Allocator(instance: Instance, device: Device) extends Vulka
     val allocatorInfo = VmaAllocatorCreateInfo
       .calloc(stack)
       .device(device.get)
-      .physicalDevice(device.physicalDevice)
+      .physicalDevice(physicalDevice.get)
       .instance(instance.get)
       .pVulkanFunctions(functions)
 

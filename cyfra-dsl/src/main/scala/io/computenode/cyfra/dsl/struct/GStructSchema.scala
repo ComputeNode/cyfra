@@ -10,7 +10,7 @@ import izumi.reflect.Tag
 import scala.compiletime.{constValue, erasedValue, error, summonAll}
 import scala.deriving.Mirror
 
-case class GStructSchema[T <: GStruct[T]: Tag](fields: List[(String, FromExpr[?], Tag[?])], dependsOn: Option[E[T]], fromTuple: (Tuple, Source) => T):
+case class GStructSchema[T <: GStruct[?]: Tag](fields: List[(String, FromExpr[?], Tag[?])], dependsOn: Option[E[T]], fromTuple: (Tuple, Source) => T):
   given GStructSchema[T] = this
   val structTag = summon[Tag[T]]
 
@@ -23,7 +23,7 @@ case class GStructSchema[T <: GStruct[T]: Tag](fields: List[(String, FromExpr[?]
   def create(values: List[Value], schema: GStructSchema[T])(using name: Source): T =
     val valuesTuple = Tuple.fromArray(values.toArray)
     val newStruct = fromTuple(valuesTuple, name)
-    newStruct._schema = schema
+    newStruct._schema = schema.asInstanceOf
     newStruct.tree.of = Some(newStruct)
     newStruct
 

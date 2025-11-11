@@ -1,12 +1,14 @@
-package io.computenode.cyfra.e2e
+package io.computenode.cyfra.e2e.dsl
 
-import io.computenode.cyfra.core.archive.*, mem.*
+import io.computenode.cyfra.core.CyfraRuntime
+import io.computenode.cyfra.core.archive.*
 import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.dsl.{*, given}
-import GMem.fRGBA
+import io.computenode.cyfra.runtime.VkCyfraRuntime
+import io.computenode.cyfra.core.GCodec.{*, given}
 
 class FunctionsE2eTest extends munit.FunSuite:
-  given gc: GContext = GContext()
+  given CyfraRuntime = VkCyfraRuntime()
 
   test("Functions"):
     val gf: GFunction[GStruct.Empty, Float32, Float32] = GFunction: f =>
@@ -15,8 +17,7 @@ class FunctionsE2eTest extends munit.FunSuite:
       abs(min(res1, res2) - max(res1, res2))
 
     val inArr = (0 to 255).map(_.toFloat).toArray
-    val gmem = FloatMem(inArr)
-    val result = gmem.map(gf).asInstanceOf[FloatMem].toArray
+    val result: Array[Float] = gf.run(inArr)
 
     val expected = inArr.map: f =>
       val res1 = math.pow(math.sqrt(math.exp(math.sin(math.cos(math.tan(f))))), 2)
@@ -41,8 +42,7 @@ class FunctionsE2eTest extends munit.FunSuite:
       v5.dot(v1)
 
     val inArr = (0 to 255).map(_.toFloat).toArray
-    val gmem = FloatMem(inArr)
-    val result = gmem.map(gf).asInstanceOf[FloatMem].toArray
+    val result: Array[Float] = gf.run(inArr)
 
     extension (f: fRGBA)
       def neg: fRGBA = (-f._1, -f._2, -f._3, -f._4)

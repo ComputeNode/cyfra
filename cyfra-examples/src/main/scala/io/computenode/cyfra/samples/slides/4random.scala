@@ -1,11 +1,12 @@
 package io.computenode.cyfra.samples.slides
 
+import io.computenode.cyfra.core.CyfraRuntime
 import io.computenode.cyfra.dsl.collections.GSeq
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.dsl.struct.GStruct.Empty
 import io.computenode.cyfra.core.archive.*
-import io.computenode.cyfra.core.archive.mem.Vec4FloatMem
+import io.computenode.cyfra.runtime.VkCyfraRuntime
 import io.computenode.cyfra.utility.ImageUtility
 
 import java.nio.file.Paths
@@ -36,6 +37,9 @@ def randomVector(seed: UInt32): Random[Vec3[Float32]] =
 
 @main
 def randomRays() =
+
+  given CyfraRuntime = VkCyfraRuntime()
+
   val raysPerPixel = 10
   val dim = 1024
   val fovDeg = 80
@@ -202,6 +206,6 @@ def randomRays() =
         .fold((0f, 0f, 0f), { case (acc, RenderIteration(color, _)) => acc + (color * (1.0f / pixelIterationsPerFrame.toFloat)) })
       (color, 1f)
 
-  val mem = Vec4FloatMem(Array.fill(dim * dim)((0f, 0f, 0f, 0f)))
-  val result = mem.map(raytracing).asInstanceOf[Vec4FloatMem].toArray
+  val mem = Array.fill(dim * dim)((0f, 0f, 0f, 0f))
+  val result: Array[fRGBA] = raytracing.run(mem)
   ImageUtility.renderToImage(result, dim, Paths.get(s"generated4.png"))
