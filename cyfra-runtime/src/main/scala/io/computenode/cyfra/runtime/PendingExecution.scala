@@ -16,7 +16,9 @@ import scala.collection.mutable
   *
   * You can call `destroy()` only when all dependants are `isClosed`
   */
-class PendingExecution(protected val handle: VkCommandBuffer, val dependencies: Seq[PendingExecution], cleanup: () => Unit)(using Device):
+class PendingExecution(protected val handle: VkCommandBuffer, val dependencies: Seq[PendingExecution], cleanup: () => Unit, val message: String = "")(
+  using Device,
+):
   private val semaphore: Semaphore = Semaphore()
   private var fence: Option[Fence] = None
 
@@ -42,9 +44,14 @@ class PendingExecution(protected val handle: VkCommandBuffer, val dependencies: 
     fence.foreach(x => if x.isAlive then x.destroy())
     destroyed = true
 
+  override def toString: String =
+    val state = if isPending then "Pending" else if isRunning then "Running" else if isFinished then "Finished" else "Unknown"
+    s"PendingExecution($message, $handle, $semaphore, state=$state dependencies=${dependencies.size})"
+
   /** Gathers all command buffers and their semaphores for submission to the queue, in the correct order.
     *
     * When you call this method, you are expected to submit the command buffers to the queue, and signal the provided fence when done.
+    *
     * @param f
     *   The fence to signal when the command buffers are done executing.
     * @return
@@ -57,7 +64,7 @@ class PendingExecution(protected val handle: VkCommandBuffer, val dependencies: 
     dependencies.flatMap(_.gatherForSubmission(f)).appended(mySubmission)
 
 object PendingExecution:
-  def executeAll(executions: Seq[PendingExecution], queue: Queue)(using Device): Fence = pushStack: stack =>
+  def executeAll(executions: Seq[PendingExecution], allocation: VkAllocation)(using Device): Fence = pushStack: stack =>
     assert(executions.forall(_.isPending), "All executions must be pending")
     assert(executions.nonEmpty, "At least one execution must be provided")
 
@@ -68,46 +75,32 @@ object PendingExecution:
       val ordering = gathered.zipWithIndex.map(x => (x._1._1._1, x._2)).toMap
       gathered.toSet.groupMap(_._2)(_._1).toSeq.sortBy(x => x._2.map(_._1).map(ordering).min)
 
-    val submitInfos = VkSubmitInfo2.calloc(exec.size, stack)
+    val submitInfos = VkSubmitInfo2.calloc(exec.size * 2, stack)
     exec.foreach: (semaphores, executions) =>
-      val pCommandBuffersSI = VkCommandBufferSubmitInfo.calloc(executions.size, stack)
-      val signalSemaphoreSI = VkSemaphoreSubmitInfo.calloc(executions.size, stack)
+      val pCommandBuffersSI = VkCommandBufferSubmitInfo.calloc(executions.size + 1, stack)
       executions.foreach: (cb, s) =>
         pCommandBuffersSI
           .get()
           .sType$Default()
           .commandBuffer(cb)
           .deviceMask(0)
-        signalSemaphoreSI
-          .get()
-          .sType$Default()
-          .semaphore(s.get)
-          .stageMask(VK13.VK_PIPELINE_STAGE_2_COPY_BIT | VK13.VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT)
 
+      pCommandBuffersSI
+        .get()
+        .sType$Default()
+        .commandBuffer(allocation.synchroniseCommand)
+        .deviceMask(0)
       pCommandBuffersSI.flip()
-      signalSemaphoreSI.flip()
-
-      val waitSemaphoreSI = VkSemaphoreSubmitInfo.calloc(semaphores.size, stack)
-      semaphores.foreach: s =>
-        waitSemaphoreSI
-          .get()
-          .sType$Default()
-          .semaphore(s.get)
-          .stageMask(VK13.VK_PIPELINE_STAGE_2_COPY_BIT | VK13.VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT)
-
-      waitSemaphoreSI.flip()
 
       submitInfos
         .get()
         .sType$Default()
         .flags(0)
         .pCommandBufferInfos(pCommandBuffersSI)
-        .pSignalSemaphoreInfos(signalSemaphoreSI)
-        .pWaitSemaphoreInfos(waitSemaphoreSI)
 
     submitInfos.flip()
 
-    check(vkQueueSubmit2(queue.get, submitInfos, fence.get), "Failed to submit command buffer to queue")
+    check(vkQueueSubmit2(allocation.commandPool.queue.get, submitInfos, fence.get), "Failed to submit command buffer to queue")
     fence
 
   def cleanupAll(executions: Seq[PendingExecution]): Unit =

@@ -34,10 +34,10 @@ sealed abstract class VkBinding[T <: Value: {Tag, FromExpr}](val buffer: Buffer)
     */
   var execution: Either[PendingExecution, mutable.Buffer[PendingExecution]] = Right(mutable.Buffer.empty)
 
-  def materialise(queue: Queue)(using Device): Unit =
+  def materialise(allocation: VkAllocation)(using Device): Unit =
     val (pendingExecs, runningExecs) = execution.fold(Seq(_), _.toSeq).partition(_.isPending) // TODO better handle read only executions
     if pendingExecs.nonEmpty then
-      val fence = PendingExecution.executeAll(pendingExecs, queue)
+      val fence = PendingExecution.executeAll(pendingExecs,allocation)
       fence.block()
       PendingExecution.cleanupAll(pendingExecs)
 
