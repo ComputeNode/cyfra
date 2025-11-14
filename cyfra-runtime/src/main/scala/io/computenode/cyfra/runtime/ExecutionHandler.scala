@@ -40,9 +40,12 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
   private val dsManager: DescriptorSetManager = threadContext.descriptorSetManager
   private val commandPool: CommandPool = threadContext.commandPool
 
-  def handle[Params, EL <: Layout: LayoutBinding, RL <: Layout: LayoutBinding](execution: GExecution[Params, EL, RL], params: Params, layout: EL, message: String)(
-    using VkAllocation,
-  ): RL =
+  def handle[Params, EL <: Layout: LayoutBinding, RL <: Layout: LayoutBinding](
+    execution: GExecution[Params, EL, RL],
+    params: Params,
+    layout: EL,
+    message: String,
+  )(using VkAllocation): RL =
     val (result, shaderCalls) = interpret(execution, params, layout)
 
     val descriptorSets = shaderCalls.map:

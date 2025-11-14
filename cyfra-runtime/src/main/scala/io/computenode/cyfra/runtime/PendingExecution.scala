@@ -24,8 +24,8 @@ import scala.util.boundary
   *
   * You can call `destroy()` only when all dependants are `isClosed`
   */
-class PendingExecution(protected val handle: VkCommandBuffer, val dependencies: Seq[PendingExecution], cleanup: () => Unit, val message: String)(
-  using Device,
+class PendingExecution(protected val handle: VkCommandBuffer, val dependencies: Seq[PendingExecution], cleanup: () => Unit, val message: String)(using
+  Device,
 ):
   private var gathered = false
   def isPending: Boolean = !gathered

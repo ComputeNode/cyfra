@@ -7,6 +7,6 @@ import scala.util.Using
 import scala.util.boundary
 
 object Util:
-  def pushStack[T](f: MemoryStack => T): T = 
-    Using(MemoryStack.stackPush())(f).get 
+  def pushStack[T](f: MemoryStack => T): T =
+    Using(MemoryStack.stackPush())(f).get
   def check(err: Int, message: String = ""): Unit = if err != VK_SUCCESS then throw new VulkanAssertionError(message, err)
