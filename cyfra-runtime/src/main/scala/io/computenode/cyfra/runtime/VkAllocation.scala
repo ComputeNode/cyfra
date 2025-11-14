@@ -36,7 +36,7 @@ class VkAllocation(val commandPool: CommandPool, executionHandler: ExecutionHand
       .flatMap(_.execution.fold(Seq(_), _.toSeq))
       .filter(_.isPending)
 
-    PendingExecution.executeAll(executions,this)
+    if executions.nonEmpty then PendingExecution.executeAll(executions, this)
 
   extension (buffer: GBinding[?])
     def read(bb: ByteBuffer, offset: Int = 0): Unit =
@@ -129,9 +129,15 @@ class VkAllocation(val commandPool: CommandPool, executionHandler: ExecutionHand
       .calloc(1, stack)
       .sType$Default()
       .srcStageMask(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT)
-      .srcAccessMask(VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_2_UNIFORM_READ_BIT)
+      .srcAccessMask(
+        VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT |
+          VK_ACCESS_2_UNIFORM_READ_BIT,
+      )
       .dstStageMask(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT)
-      .dstAccessMask(VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_2_UNIFORM_READ_BIT)
+      .dstAccessMask(
+        VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT |
+          VK_ACCESS_2_UNIFORM_READ_BIT,
+      )
 
     val dependencyInfo = VkDependencyInfo
       .calloc(stack)
