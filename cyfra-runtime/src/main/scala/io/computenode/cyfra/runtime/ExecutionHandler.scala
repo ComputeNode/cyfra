@@ -40,9 +40,12 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
   private val dsManager: DescriptorSetManager = threadContext.descriptorSetManager
   private val commandPool: CommandPool = threadContext.commandPool
 
-  def handle[Params, EL <: Layout: LayoutBinding, RL <: Layout: LayoutBinding](execution: GExecution[Params, EL, RL], params: Params, layout: EL)(
-    using VkAllocation,
-  ): RL =
+  def handle[Params, EL <: Layout: LayoutBinding, RL <: Layout: LayoutBinding](
+    execution: GExecution[Params, EL, RL],
+    params: Params,
+    layout: EL,
+    message: String,
+  )(using VkAllocation): RL =
     val (result, shaderCalls) = interpret(execution, params, layout)
 
     val descriptorSets = shaderCalls.map:
@@ -74,7 +77,7 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
 
     val externalBindings = getAllBindings(executeSteps).map(VkAllocation.getUnderlying)
     val deps = externalBindings.flatMap(_.execution.fold(Seq(_), _.toSeq))
-    val pe = new PendingExecution(commandBuffer, deps, cleanup)
+    val pe = new PendingExecution(commandBuffer, deps, cleanup, message)
     summon[VkAllocation].addExecution(pe)
     externalBindings.foreach(_.execution = Left(pe)) // TODO we assume all accesses are read-write
     result
