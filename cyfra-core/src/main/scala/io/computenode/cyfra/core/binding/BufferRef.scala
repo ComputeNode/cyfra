@@ -1,9 +1,6 @@
 package io.computenode.cyfra.core.binding
 
-import io.computenode.cyfra.dsl.Value
-import io.computenode.cyfra.dsl.Value.FromExpr
-import io.computenode.cyfra.dsl.binding.GBuffer
 import izumi.reflect.Tag
-import izumi.reflect.macrortti.LightTypeTag
+import io.computenode.cyfra.core.expression.Value
 
-case class BufferRef[T <: Value: {Tag, FromExpr}](layoutOffset: Int, valueTag: Tag[T]) extends GBuffer[T]
+case class BufferRef[T: Value](layoutOffset: Int, valueTag: Tag[T]) extends GBuffer[T]

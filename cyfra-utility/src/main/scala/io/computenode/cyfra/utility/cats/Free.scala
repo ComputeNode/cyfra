@@ -1,5 +1,7 @@
 package io.computenode.cyfra.utility.cats
 
+import io.computenode.cyfra.utility.cats.Free.*
+
 sealed abstract class Free[S[_], A] extends Product with Serializable:
 
   final def map[B](f: A => B): Free[S, B] =

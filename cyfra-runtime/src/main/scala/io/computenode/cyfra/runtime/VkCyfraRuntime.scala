@@ -2,7 +2,7 @@ package io.computenode.cyfra.runtime
 
 import io.computenode.cyfra.core.GProgram.InitProgramLayout
 import io.computenode.cyfra.core.layout.{Layout, LayoutBinding, LayoutStruct}
-import io.computenode.cyfra.core.{Allocation, CyfraRuntime, GExecution, GProgram, GioProgram, SpirvProgram}
+import io.computenode.cyfra.core.{Allocation, CyfraRuntime, GExecution, GProgram, ExpressionProgram, SpirvProgram}
 import io.computenode.cyfra.spirv.compilers.DSLCompiler
 import io.computenode.cyfra.spirvtools.SpirvToolsRunner
 import io.computenode.cyfra.vulkan.VulkanContext
@@ -21,9 +21,9 @@ class VkCyfraRuntime(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()) ex
   private[cyfra] def getOrLoadProgram[Params, L <: Layout: {LayoutBinding, LayoutStruct}](program: GProgram[Params, L]): VkShader[L] = synchronized:
 
     val spirvProgram: SpirvProgram[Params, L] = program match
-      case p: GioProgram[Params, L] if gProgramCache.contains(p) =>
+      case p: ExpressionProgram[Params, L] if gProgramCache.contains(p) =>
         gProgramCache(p).asInstanceOf[SpirvProgram[Params, L]]
-      case p: GioProgram[Params, L]   => compile(p)
+      case p: ExpressionProgram[Params, L]   => compile(p)
       case p: SpirvProgram[Params, L] => p
       case _                          => throw new IllegalArgumentException(s"Unsupported program type: ${program.getClass.getName}")
 
@@ -31,9 +31,9 @@ class VkCyfraRuntime(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()) ex
     shaderCache.getOrElseUpdate(spirvProgram.shaderHash, VkShader(spirvProgram)).asInstanceOf[VkShader[L]]
 
   private def compile[Params, L <: Layout: {LayoutBinding as lbinding, LayoutStruct as lstruct}](
-    program: GioProgram[Params, L],
+                                                                                                  program: ExpressionProgram[Params, L],
   ): SpirvProgram[Params, L] =
-    val GioProgram(_, layout, dispatch, _) = program
+    val ExpressionProgram(_, layout, dispatch, _) = program
     val bindings = lbinding.toBindings(lstruct.layoutRef).toList
     val compiled = DSLCompiler.compile(program.body(summon[LayoutStruct[L]].layoutRef), bindings)
     val optimizedShaderCode = spirvToolsRunner.processShaderCodeWithSpirvTools(compiled)

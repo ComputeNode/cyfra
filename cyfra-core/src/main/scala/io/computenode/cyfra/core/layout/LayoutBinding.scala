@@ -1,10 +1,10 @@
 package io.computenode.cyfra.core.layout
 
-import io.computenode.cyfra.dsl.binding.GBinding
-
 import scala.Tuple.*
 import scala.compiletime.{constValue, erasedValue, error}
 import scala.deriving.Mirror
+
+import io.computenode.cyfra.core.binding.GBinding
 
 trait LayoutBinding[L <: Layout]:
   def fromBindings(bindings: Seq[GBinding[?]]): L

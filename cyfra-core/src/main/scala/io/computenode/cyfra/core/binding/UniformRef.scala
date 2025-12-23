@@ -1,10 +1,6 @@
 package io.computenode.cyfra.core.binding
 
-import io.computenode.cyfra.dsl.Value
-import io.computenode.cyfra.dsl.Value.FromExpr
-import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
-import io.computenode.cyfra.dsl.struct.{GStruct, GStructSchema}
 import izumi.reflect.Tag
-import izumi.reflect.macrortti.LightTypeTag
+import io.computenode.cyfra.core.expression.Value
 
-case class UniformRef[T <: GStruct[?]: {Tag, FromExpr, GStructSchema}](layoutOffset: Int, valueTag: Tag[T]) extends GUniform[T]
+case class UniformRef[T: Value](layoutOffset: Int, valueTag: Tag[T]) extends GUniform[T]

@@ -1,5 +1,5 @@
 // scala
-package io.computenode.cyfra.core
+package io.computenode.cyfra.fs2interop
 
 import io.computenode.cyfra.dsl.*
 import io.computenode.cyfra.dsl.macros.Source

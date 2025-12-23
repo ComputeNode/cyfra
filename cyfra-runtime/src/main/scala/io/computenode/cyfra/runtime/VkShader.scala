@@ -1,6 +1,6 @@
 package io.computenode.cyfra.runtime
 
-import io.computenode.cyfra.core.{GProgram, GioProgram, SpirvProgram}
+import io.computenode.cyfra.core.{GProgram, ExpressionProgram, SpirvProgram}
 import io.computenode.cyfra.core.SpirvProgram.*
 import io.computenode.cyfra.core.GProgram.InitProgramLayout
 import io.computenode.cyfra.core.layout.{Layout, LayoutBinding, LayoutStruct}

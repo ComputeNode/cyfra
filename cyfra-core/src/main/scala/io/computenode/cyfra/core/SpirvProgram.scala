@@ -4,10 +4,8 @@ import io.computenode.cyfra.core.layout.{Layout, LayoutBinding, LayoutStruct}
 import io.computenode.cyfra.core.GProgram.{InitProgramLayout, ProgramDispatch, WorkDimensions}
 import io.computenode.cyfra.core.SpirvProgram.Operation.ReadWrite
 import io.computenode.cyfra.core.SpirvProgram.{Binding, ShaderLayout}
-import io.computenode.cyfra.dsl.Value
-import io.computenode.cyfra.dsl.Value.{FromExpr, GBoolean}
-import io.computenode.cyfra.dsl.binding.GBinding
-import io.computenode.cyfra.dsl.gio.GIO
+import io.computenode.cyfra.core.expression.Value
+import io.computenode.cyfra.core.binding.GBinding
 import izumi.reflect.Tag
 
 import java.io.File
@@ -44,7 +42,7 @@ case class SpirvProgram[Params, L <: Layout: {LayoutBinding, LayoutStruct}] priv
     )
     val layout = shaderBindings(summon[LayoutStruct[L]].layoutRef)
     layout.flatten.foreach: binding =>
-      md.update(binding.binding.tag.toString.getBytes)
+//      md.update(binding.binding.tag.toString.getBytes)
       md.update(binding.operation.toString.getBytes)
     val digest = md.digest()
     val bb = java.nio.ByteBuffer.wrap(digest)
