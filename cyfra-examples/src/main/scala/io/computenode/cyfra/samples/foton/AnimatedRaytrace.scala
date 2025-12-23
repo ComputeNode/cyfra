@@ -1,7 +1,6 @@
 package io.computenode.cyfra.samples.foton
 
-import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.dsl.library.Color.hex
+import io.computenode.cyfra.dsl.archive.library.Color.hex
 import io.computenode.cyfra.foton.*
 import io.computenode.cyfra.foton.animation.AnimationFunctions.smooth
 import io.computenode.cyfra.foton.rt.animation.{AnimatedScene, AnimationRtRenderer}

@@ -1,6 +1,5 @@
 package io.computenode.cyfra.foton.rt.shapes
 
-import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.dsl.given
 import io.computenode.cyfra.foton.rt.RtRenderer.RayHitInfo
 

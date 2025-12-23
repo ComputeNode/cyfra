@@ -1,4 +1,4 @@
-import io.computenode.cyfra.dsl.Value.Int32
+import io.computenode.cyfra.dsl.archive.Value.Int32
 
 val inBuffer = GBuffer[Int32]()
 val outBuffer = GBuffer[Int32]()

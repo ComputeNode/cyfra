@@ -1,11 +1,11 @@
 package io.computenode.cyfra.samples.slides
 
 import io.computenode.cyfra.core.CyfraRuntime
-import io.computenode.cyfra.dsl.collections.GSeq
-import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.dsl.struct.GStruct
-import io.computenode.cyfra.dsl.struct.GStruct.Empty
+import io.computenode.cyfra.dsl.archive.struct.GStruct.Empty
 import io.computenode.cyfra.core.archive.*
+import io.computenode.cyfra.dsl.archive.Value
+import io.computenode.cyfra.dsl.archive.collections.GSeq
+import io.computenode.cyfra.dsl.archive.struct.GStruct
 import io.computenode.cyfra.runtime.VkCyfraRuntime
 import io.computenode.cyfra.utility.ImageUtility
 

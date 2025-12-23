@@ -2,8 +2,7 @@ package io.computenode.cyfra.foton.animation
 
 import io.computenode.cyfra
 import io.computenode.cyfra.*
-import io.computenode.cyfra.dsl.Value.Float32
-import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.dsl.archive.Value.Float32
 import io.computenode.cyfra.utility.Units.Milliseconds
 
 object AnimationFunctions:

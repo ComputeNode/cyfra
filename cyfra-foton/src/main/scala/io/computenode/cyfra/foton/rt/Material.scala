@@ -1,7 +1,6 @@
 package io.computenode.cyfra.foton.rt
 
-import io.computenode.cyfra.dsl.struct.GStruct
-import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.dsl.archive.struct.GStruct
 
 case class Material(
   color: Vec3[Float32],

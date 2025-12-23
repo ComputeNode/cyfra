@@ -1,6 +1,6 @@
 package io.computenode.cyfra.foton.rt.animation
 
-import io.computenode.cyfra.dsl.Value.Float32
+import io.computenode.cyfra.dsl.archive.Value.Float32
 import io.computenode.cyfra.foton.animation.AnimationFunctions.AnimationInstant
 import io.computenode.cyfra.foton.animation.AnimationRenderer
 import io.computenode.cyfra.foton.rt.shapes.Shape

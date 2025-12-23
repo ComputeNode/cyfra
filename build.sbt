@@ -63,25 +63,25 @@ lazy val fs2Settings = Seq(libraryDependencies ++= Seq("co.fs2" %% "fs2-core" % 
 lazy val utility = (project in file("cyfra-utility"))
   .settings(commonSettings)
 
-lazy val spirvTools = (project in file("cyfra-spirv-tools"))
-  .settings(commonSettings)
-  .dependsOn(utility)
-
-lazy val vulkan = (project in file("cyfra-vulkan"))
+lazy val core = (project in file("cyfra-core"))
   .settings(commonSettings)
   .dependsOn(utility)
 
 lazy val dsl = (project in file("cyfra-dsl"))
   .settings(commonSettings)
+  .dependsOn(utility, core)
+
+lazy val spirvTools = (project in file("cyfra-spirv-tools"))
+  .settings(commonSettings)
   .dependsOn(utility)
 
 lazy val compiler = (project in file("cyfra-compiler"))
   .settings(commonSettings)
-  .dependsOn(dsl, utility)
+  .dependsOn(core, utility, spirvTools)
 
-lazy val core = (project in file("cyfra-core"))
+lazy val vulkan = (project in file("cyfra-vulkan"))
   .settings(commonSettings)
-  .dependsOn(compiler, dsl, utility, spirvTools)
+  .dependsOn(utility)
 
 lazy val runtime = (project in file("cyfra-runtime"))
   .settings(commonSettings)
@@ -89,7 +89,7 @@ lazy val runtime = (project in file("cyfra-runtime"))
 
 lazy val foton = (project in file("cyfra-foton"))
   .settings(commonSettings)
-  .dependsOn(compiler, dsl, runtime, utility)
+  .dependsOn(compiler, dsl, core, runtime, utility)
 
 lazy val examples = (project in file("cyfra-examples"))
   .settings(commonSettings, runnerSettings)

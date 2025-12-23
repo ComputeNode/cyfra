@@ -1,9 +1,7 @@
 package io.computenode.cyfra.foton.rt.shapes
 
-import io.computenode.cyfra.dsl.Value.*
-import io.computenode.cyfra.dsl.control.Pure.pure
-import io.computenode.cyfra.dsl.struct.GStruct
-import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.dsl.archive.control.Pure.pure
+import io.computenode.cyfra.dsl.archive.struct.GStruct
 import io.computenode.cyfra.foton.rt.Material
 import io.computenode.cyfra.foton.rt.RtRenderer.{MinRayHitTime, RayHitInfo}
 import io.computenode.cyfra.foton.rt.shapes.Shape.TestRay

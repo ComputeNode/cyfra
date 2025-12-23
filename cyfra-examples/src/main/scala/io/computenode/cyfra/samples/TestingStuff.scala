@@ -2,11 +2,10 @@ package io.computenode.cyfra.samples
 
 import io.computenode.cyfra.core.layout.*
 import io.computenode.cyfra.core.{GBufferRegion, GExecution, GProgram}
-import io.computenode.cyfra.dsl.Value.{GBoolean, Int32}
-import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
-import io.computenode.cyfra.dsl.gio.GIO
-import io.computenode.cyfra.dsl.struct.GStruct
-import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.dsl.archive.Value.{GBoolean, Int32}
+import io.computenode.cyfra.dsl.archive.binding.{GBuffer, GUniform}
+import io.computenode.cyfra.dsl.archive.gio.GIO
+import io.computenode.cyfra.dsl.archive.struct.GStruct
 import io.computenode.cyfra.runtime.VkCyfraRuntime
 import io.computenode.cyfra.spirvtools.SpirvTool.ToFile
 import io.computenode.cyfra.spirvtools.{SpirvCross, SpirvToolsRunner, SpirvValidator}

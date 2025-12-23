@@ -2,12 +2,9 @@ package io.computenode.cyfra.foton.rt.shapes
 
 import io.computenode.cyfra.foton.rt.Material
 import io.computenode.cyfra.foton.rt.RtRenderer.RayHitInfo
-import io.computenode.cyfra.dsl.library.Functions.*
-import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.foton.rt.shapes.Shape.TestRay
-import io.computenode.cyfra.dsl.control.Pure.pure
-import io.computenode.cyfra.dsl.struct.GStruct
+import io.computenode.cyfra.dsl.archive.control.Pure.pure
+import io.computenode.cyfra.dsl.archive.struct.GStruct
 
 case class Plane(point: Vec3[Float32], normal: Vec3[Float32], material: Material) extends GStruct[Plane] with Shape
 
