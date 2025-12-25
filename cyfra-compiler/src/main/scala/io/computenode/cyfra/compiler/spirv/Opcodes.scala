@@ -1,4 +1,4 @@
-package io.computenode.cyfra.spirv.archive
+package io.computenode.cyfra.compiler.spirv
 
 import java.nio.charset.StandardCharsets
 
