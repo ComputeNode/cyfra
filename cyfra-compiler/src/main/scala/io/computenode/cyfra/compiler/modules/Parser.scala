@@ -1,6 +1,6 @@
 package io.computenode.cyfra.compiler.modules
 
-import io.computenode.cyfra.compiler.ir.{Function, IRs}
+import io.computenode.cyfra.compiler.ir.{FunctionIR, IRs}
 import io.computenode.cyfra.compiler.ir.IR
 import io.computenode.cyfra.compiler.ir.IRs
 import io.computenode.cyfra.compiler.CompilationException
@@ -14,7 +14,7 @@ class Parser extends CompilationModule[ExpressionBlock[Unit], Compilation]:
   def compile(body: ExpressionBlock[Unit]): Compilation =
     val main = CustomFunction("main", List(), body)
     val functions = extractCustomFunctions(main).reverse
-    val functionMap = mutable.Map.empty[CustomFunction[?], Function[?]]
+    val functionMap = mutable.Map.empty[CustomFunction[?], FunctionIR[?]]
     val nextFunctions = functions.map: f =>
       val func = convertToFunction(f, functionMap)
       functionMap(f) = func
@@ -37,21 +37,21 @@ class Parser extends CompilationModule[ExpressionBlock[Unit], Compilation]:
 
     rec(f)
 
-  private def convertToFunction(f: CustomFunction[?], functionMap: mutable.Map[CustomFunction[?], Function[?]]): Function[?] = f match
+  private def convertToFunction(f: CustomFunction[?], functionMap: mutable.Map[CustomFunction[?], FunctionIR[?]]): FunctionIR[?] = f match
     case f: CustomFunction[a] =>
       given Value[a] = f.v
-      Function(f.name, f.arg, convertToIRs(f.body, functionMap))
+      FunctionIR(f.name, f.arg, convertToIRs(f.body, functionMap))
 
-  private def convertToIRs[A](block: ExpressionBlock[A], functionMap: mutable.Map[CustomFunction[?], Function[?]]): IRs[A] =
+  private def convertToIRs[A](block: ExpressionBlock[A], functionMap: mutable.Map[CustomFunction[?], FunctionIR[?]]): IRs[A] =
     given Value[A] = block.result.v
     var result: IR[A] = null
-    val body = block.body.reverse.map: expr =>
+    val body = block.body.reverse.distinctBy(_.id).map: expr =>
       val res = convertToIR(expr, functionMap)
       if expr == block.result then result = res.asInstanceOf[IR[A]]
       res
     IRs(result, body)
 
-  private def convertToIR[A](expr: Expression[A], functionMap: mutable.Map[CustomFunction[?], Function[?]]): IR[A] =
+  private def convertToIR[A](expr: Expression[A], functionMap: mutable.Map[CustomFunction[?], FunctionIR[?]]): IR[A] =
     given Value[A] = expr.v
     expr match
       case Expression.Constant(value) =>
@@ -77,7 +77,7 @@ class Parser extends CompilationModule[ExpressionBlock[Unit], Compilation]:
       case Expression.BuildInOperation(func, args) =>
         IR.Operation(func, args.map(convertToIR(_, functionMap)))
       case Expression.CustomCall(func, args) =>
-        IR.Call(functionMap(func).asInstanceOf[Function[A]], args)
+        IR.Call(functionMap(func).asInstanceOf[FunctionIR[A]], args)
       case Expression.Branch(cond, ifTrue, ifFalse, break) =>
         IR.Branch(convertToIR(cond, functionMap), convertToIRs(ifTrue, functionMap), convertToIRs(ifFalse, functionMap), break)
       case Expression.Loop(mainBody, continueBody, break, continue) =>

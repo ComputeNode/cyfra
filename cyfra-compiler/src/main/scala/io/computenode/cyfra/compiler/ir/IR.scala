@@ -36,7 +36,7 @@ object IR:
   case class Operation[A: Value](func: BuildInFunction[A], var args: List[IR[?]]) extends IR[A]:
     override protected def replace(using map: collection.Map[IR[?], IR[?]]): Unit =
       args = args.map(_.replaced)
-  case class Call[A: Value](func: Function[A], args: List[Var[?]]) extends IR[A]
+  case class Call[A: Value](func: FunctionIR[A], args: List[Var[?]]) extends IR[A]
   case class Branch[T: Value](var cond: IR[Bool], ifTrue: IRs[T], ifFalse: IRs[T], var break: JumpTarget[T]) extends IR[T]:
     override protected def replace(using map: collection.Map[IR[?], IR[?]]): Unit =
       cond = cond.replaced

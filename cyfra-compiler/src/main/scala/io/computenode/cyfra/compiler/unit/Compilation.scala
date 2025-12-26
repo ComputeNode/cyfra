@@ -1,16 +1,16 @@
 package io.computenode.cyfra.compiler.unit
 
-import io.computenode.cyfra.compiler.ir.{Function, IR}
+import io.computenode.cyfra.compiler.ir.{FunctionIR, IR}
 import scala.collection.mutable
 import io.computenode.cyfra.compiler.id
 
-case class Compilation(header: List[IR[?]], debug: DebugManager, types: TypeManager, constants: ConstantsManager, functions: List[Function[?]]):
+case class Compilation(header: Header, functions: List[FunctionIR[?]]):
   def output: List[IR[?]] =
-    header ++ debug.output ++ types.output ++ constants.output ++ functions.flatMap(_.body.body)
+    header.output ++ functions.flatMap(_.body.body)
 
 object Compilation:
-  def apply(functions: List[Function[?]]): Compilation =
-    Compilation(Nil, new DebugManager, new TypeManager, new ConstantsManager, functions)
+  def apply(functions: List[FunctionIR[?]]): Compilation =
+    Compilation(Header(Nil, new DebugManager, new TypeManager, new ConstantsManager), functions)
 
   def debugPrint(compilation: Compilation): Unit =
     val irs = compilation.output
@@ -42,5 +42,5 @@ object Compilation:
       .map: ir =>
         val name = ir.getClass.getSimpleName
         val idStr = map(ir)
-        s"${" ".repeat(5-idStr.length) + idStr} = $name " + irInternal(ir)
+        s"${" ".repeat(5 - idStr.length) + idStr} = $name " + irInternal(ir)
       .foreach(println)
