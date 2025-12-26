@@ -1,19 +1,19 @@
 package foton
 
-import io.computenode.cyfra.dsl.archive.algebra.{ScalarAlgebra, VectorAlgebra}
-import io.computenode.cyfra.dsl.archive.library.{Color, Math3D}
-import io.computenode.cyfra.utility.ImageUtility
-import io.computenode.cyfra.foton.animation.AnimationRenderer
-import io.computenode.cyfra.foton.animation.AnimationRenderer.{Parameters, Scene}
-import io.computenode.cyfra.utility.Units.Milliseconds
-
-import java.nio.file.{Path, Paths}
-import scala.concurrent.duration.DurationInt
-import scala.concurrent.Await
-
-export Color.*
-export Math3D.{rotate, lessThan}
-
+//import io.computenode.cyfra.dsl.archive.algebra.{ScalarAlgebra, VectorAlgebra}
+//import io.computenode.cyfra.dsl.archive.library.{Color, Math3D}
+//import io.computenode.cyfra.utility.ImageUtility
+//import io.computenode.cyfra.foton.animation.AnimationRenderer
+//import io.computenode.cyfra.foton.animation.AnimationRenderer.{Parameters, Scene}
+//import io.computenode.cyfra.utility.Units.Milliseconds
+//
+//import java.nio.file.{Path, Paths}
+//import scala.concurrent.duration.DurationInt
+//import scala.concurrent.Await
+//
+//export Color.*
+//export Math3D.{rotate, lessThan}
+//
 /** Define function to be drawn
   */
 

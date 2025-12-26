@@ -13,6 +13,7 @@ import scala.collection
 sealed trait IR[A: Value] extends Product:
   def v: Value[A] = summon[Value[A]]
   def substitute(map: collection.Map[IR[?], IR[?]]): Unit = replace(using map)
+  def name: String = this.getClass.getSimpleName
   protected def replace(using map: collection.Map[IR[?], IR[?]]): Unit = ()
 
 object IR:
@@ -37,7 +38,7 @@ object IR:
     override protected def replace(using map: collection.Map[IR[?], IR[?]]): Unit =
       args = args.map(_.replaced)
   case class Call[A: Value](func: FunctionIR[A], args: List[Var[?]]) extends IR[A]
-  case class Branch[T: Value](var cond: IR[Bool], ifTrue: IRs[T], ifFalse: IRs[T], var break: JumpTarget[T]) extends IR[T]:
+  case class Branch[T: Value](var cond: IR[Bool], ifTrue: IRs[T], ifFalse: IRs[T], break: JumpTarget[T]) extends IR[T]:
     override protected def replace(using map: collection.Map[IR[?], IR[?]]): Unit =
       cond = cond.replaced
   case class Loop(mainBody: IRs[Unit], continueBody: IRs[Unit], break: JumpTarget[Unit], continue: JumpTarget[Unit]) extends IR[Unit]
@@ -48,7 +49,13 @@ object IR:
     override protected def replace(using map: collection.Map[IR[?], IR[?]]): Unit =
       cond = cond.replaced
       value = value.replaced
-  case class Instruction[A: Value](op: Code, operands: List[Words | IR[?]]) extends IR[A]
+  case class SvInst[A: Value] private (op: Code, operands: List[Words | IR[?]]) extends IR[A]:
+    override def name = ""
+
+  object SvInst:
+    def apply(op: Code, operands: List[Words | IR[?]]): SvInst[Unit] = SvInst[Unit](op, operands)
+
+    def T[A: Value](op: Code, operands: List[Words | IR[?]]): SvInst[A] = SvInst[A](op, operands)
 
   extension [T](ir: IR[T])
     private def replaced(using map: collection.Map[IR[?], IR[?]]): IR[T] =

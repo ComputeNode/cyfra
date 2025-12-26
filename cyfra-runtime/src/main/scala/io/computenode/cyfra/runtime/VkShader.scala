@@ -4,7 +4,7 @@ import io.computenode.cyfra.core.{GProgram, ExpressionProgram, SpirvProgram}
 import io.computenode.cyfra.core.SpirvProgram.*
 import io.computenode.cyfra.core.GProgram.InitProgramLayout
 import io.computenode.cyfra.core.layout.{Layout, LayoutBinding, LayoutStruct}
-import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
+import io.computenode.cyfra.core.binding.{GBuffer, GUniform}
 import io.computenode.cyfra.spirv.compilers.DSLCompiler
 import io.computenode.cyfra.vulkan.compute.ComputePipeline
 import io.computenode.cyfra.vulkan.compute.ComputePipeline.*

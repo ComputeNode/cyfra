@@ -3,17 +3,12 @@ package io.computenode.cyfra.runtime
 import io.computenode.cyfra.core.layout.{Layout, LayoutBinding}
 import io.computenode.cyfra.core.{Allocation, GExecution, GProgram}
 import io.computenode.cyfra.core.SpirvProgram
-import io.computenode.cyfra.dsl.Expression.ConstInt32
-import io.computenode.cyfra.dsl.Value
-import io.computenode.cyfra.dsl.Value.FromExpr
-import io.computenode.cyfra.dsl.binding.{GBinding, GBuffer, GUniform}
-import io.computenode.cyfra.dsl.struct.{GStruct, GStructSchema}
+import io.computenode.cyfra.core.expression.{Expression, Int32, Value, typeStride}
+import io.computenode.cyfra.core.binding.{GBinding, GBuffer, GUniform}
 import io.computenode.cyfra.runtime.VkAllocation.getUnderlying
-import io.computenode.cyfra.spirv.SpirvTypes.typeStride
 import io.computenode.cyfra.vulkan.command.CommandPool
 import io.computenode.cyfra.vulkan.memory.{Allocator, Buffer}
 import io.computenode.cyfra.vulkan.util.Util.pushStack
-import io.computenode.cyfra.dsl.Value.Int32
 import io.computenode.cyfra.vulkan.core.Device
 import izumi.reflect.Tag
 import org.lwjgl.BufferUtils
@@ -69,35 +64,36 @@ class VkAllocation(commandPool: CommandPool, executionHandler: ExecutionHandler)
         case _ => throw new IllegalArgumentException(s"Tried to write to non-VkBinding $buffer")
 
   extension (buffers: GBuffer.type)
-    def apply[T <: Value: {Tag, FromExpr}](length: Int): GBuffer[T] =
+    def apply[T: Value](length: Int): GBuffer[T] =
       VkBuffer[T](length).tap(bindings += _)
 
-    def apply[T <: Value: {Tag, FromExpr}](buff: ByteBuffer): GBuffer[T] =
-      val sizeOfT = typeStride(summon[Tag[T]])
+    def apply[T: Value](buff: ByteBuffer): GBuffer[T] =
+      val sizeOfT = typeStride(summon[Value[T]])
       val length = buff.capacity() / sizeOfT
       if buff.capacity() % sizeOfT != 0 then
         throw new IllegalArgumentException(s"ByteBuffer size ${buff.capacity()} is not a multiple of element size $sizeOfT")
       GBuffer[T](length).tap(_.write(buff))
 
   extension (uniforms: GUniform.type)
-    def apply[T <: GStruct[?]: {Tag, FromExpr, GStructSchema}](buff: ByteBuffer): GUniform[T] =
+    def apply[T: Value](buff: ByteBuffer): GUniform[T] =
       GUniform[T]().tap(_.write(buff))
 
-    def apply[T <: GStruct[?]: {Tag, FromExpr, GStructSchema}](): GUniform[T] =
+    def apply[T: Value](): GUniform[T] =
       VkUniform[T]().tap(bindings += _)
 
   extension [Params, EL <: Layout: LayoutBinding, RL <: Layout: LayoutBinding](execution: GExecution[Params, EL, RL])
     def execute(params: Params, layout: EL): RL = executionHandler.handle(execution, params, layout)
 
-  private def direct[T <: GStruct[?]: {Tag, FromExpr, GStructSchema}](buff: ByteBuffer): GUniform[T] =
+  private def direct[T: Value](buff: ByteBuffer): GUniform[T] =
     GUniform[T](buff)
   def getInitProgramLayout: GProgram.InitProgramLayout =
     new GProgram.InitProgramLayout:
       extension (uniforms: GUniform.type)
-        def apply[T <: GStruct[?]: {Tag, FromExpr, GStructSchema}](value: T): GUniform[T] = pushStack: stack =>
-          val bb = value.productElement(0) match
-            case Int32(tree: ConstInt32) => MemoryUtil.memByteBuffer(stack.ints(tree.value))
-            case _                       => ???
+        def apply[T: Value](value: T): GUniform[T] = pushStack: stack =>
+          val exp = summon[Value[T]].peel(value)
+          val bb = exp.result match
+            case x: Expression.Constant[Int32] => MemoryUtil.memByteBuffer(stack.ints(x.value.asInstanceOf[Int]))
+            case _                             => ???
           direct(bb)
 
   private val executions = mutable.Buffer[PendingExecution]()

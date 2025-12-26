@@ -11,22 +11,18 @@ case class IRs[A: Value](result: IR[A], body: mutable.ListBuffer[IR[?]]):
 
   def filterOut(p: IR[?] => Boolean): List[IR[?]] =
     val removed = mutable.Buffer.empty[IR[?]]
-    val funK: IR ~> IRs = new FunctionK:
-      def apply[B](ir: IR[B]): IRs[B] =
-        given Value[B] = ir.v
-        ir match
-          case x if p(x) =>
-            removed += x
-            IRs.proxy(x)
-          case x => IRs(x)
-    flatMapReplace(funK)
+    flatMapReplace:
+      case x if p(x) =>
+        removed += x
+        IRs.proxy(x)(using x.v)
+      case x => IRs(x)(using x.v)
     removed.toList
 
-  def flatMapReplace(f: IR ~> IRs): IRs[A] =
+  def flatMapReplace(f: IR[?] => IRs[?]): IRs[A] =
     flatMapReplaceImpl(f, mutable.Map.empty)
     this
 
-  private def flatMapReplaceImpl(f: IR ~> IRs, replacements: mutable.Map[IR[?], IR[?]]): Unit =
+  private def flatMapReplaceImpl(f: IR[?] => IRs[?], replacements: mutable.Map[IR[?], IR[?]]): Unit =
     body.flatMapInPlace: (x: IR[?]) =>
       x match
         case Branch(cond, ifTrue, ifFalse, _) =>

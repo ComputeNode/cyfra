@@ -31,7 +31,7 @@ object Compilation:
       case IR.Loop(mainBody, continueBody, break, continue) => "???"
       case IR.Jump(target, value)                           => s"${target.id} ${map(value)}"
       case IR.ConditionalJump(cond, target, value)          => s"${map(cond)} ${target.id} ${map(value)}"
-      case IR.Instruction(op, operands)                     =>
+      case IR.SvInst(op, operands)                     =>
         s"${op.mnemo} ${operands
             .map:
               case w: IR[?] => map(w)

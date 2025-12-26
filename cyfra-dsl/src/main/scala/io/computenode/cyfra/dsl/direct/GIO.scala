@@ -13,9 +13,9 @@ class GIO:
 object GIO:
   def reify[T: Value](body: GIO ?=> T): ExpressionBlock[T] =
     val gio = new GIO()
-    val v = body(using gio)
+    val v = body(using gio).irs
     val irs = gio.getResult
-    v.irs
+    ExpressionBlock(v.result, v.body ++ irs)
 
   def reflect[A: Value](res: ExpressionBlock[A])(using gio: GIO): A =
     gio.extend(res.body)

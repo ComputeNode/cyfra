@@ -3,7 +3,6 @@ package io.computenode.cyfra.runtime
 import io.computenode.cyfra.core.GProgram.InitProgramLayout
 import io.computenode.cyfra.core.layout.{Layout, LayoutBinding, LayoutStruct}
 import io.computenode.cyfra.core.{Allocation, CyfraRuntime, GExecution, GProgram, ExpressionProgram, SpirvProgram}
-import io.computenode.cyfra.spirv.compilers.DSLCompiler
 import io.computenode.cyfra.spirvtools.SpirvToolsRunner
 import io.computenode.cyfra.vulkan.VulkanContext
 import io.computenode.cyfra.vulkan.compute.ComputePipeline
@@ -35,7 +34,7 @@ class VkCyfraRuntime(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()) ex
   ): SpirvProgram[Params, L] =
     val ExpressionProgram(_, layout, dispatch, _) = program
     val bindings = lbinding.toBindings(lstruct.layoutRef).toList
-    val compiled = DSLCompiler.compile(program.body(summon[LayoutStruct[L]].layoutRef), bindings)
+    val compiled = ???
     val optimizedShaderCode = spirvToolsRunner.processShaderCodeWithSpirvTools(compiled)
     SpirvProgram((il: InitProgramLayout) ?=> layout(il), dispatch, optimizedShaderCode)
 

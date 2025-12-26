@@ -3,7 +3,8 @@ package io.computenode.cyfra.core.expression
 import io.computenode.cyfra.core.expression.*
 
 abstract class BuildInFunction[-R](val isPure: Boolean):
-  override def toString: String = s"builtin ${this.getClass.getSimpleName.replace("$", "")}"
+  def name: String =  this.getClass.getSimpleName.replace("$", "")
+  override def toString: String = s"builtin $name"
 
 object BuildInFunction:
   abstract class BuildInFunction0[-R](isPure: Boolean) extends BuildInFunction[R](isPure)

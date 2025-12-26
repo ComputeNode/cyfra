@@ -7,7 +7,7 @@ import scala.compiletime.{error, summonAll}
 import scala.deriving.Mirror
 import scala.quoted.{Expr, Quotes, Type}
 
-case class LayoutStruct[T <: Layout: Tag](private[cyfra] val layoutRef: T, private[cyfra] val elementTypes: List[Tag[?]])
+case class LayoutStruct[T <: Layout: Tag]( val layoutRef: T, private[cyfra] val elementTypes: List[Tag[?]])
 
 object LayoutStruct:
 
