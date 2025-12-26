@@ -1,17 +1,17 @@
 package io.computenode.cyfra.compiler.modules
 
-import io.computenode.cyfra.compiler.CompilationUnit
 import io.computenode.cyfra.compiler.ir.{Function, IRs}
 import io.computenode.cyfra.compiler.ir.IR
 import io.computenode.cyfra.compiler.ir.IRs
 import io.computenode.cyfra.compiler.CompilationException
+import io.computenode.cyfra.compiler.unit.Compilation
 import io.computenode.cyfra.core.binding.{GBuffer, GUniform}
 import io.computenode.cyfra.core.expression.{BuildInFunction, CustomFunction, Expression, ExpressionBlock, Value, Var, given}
 
 import scala.collection.mutable
 
-class Parser extends CompilationModule[ExpressionBlock[Unit], CompilationUnit]:
-  def compile(body: ExpressionBlock[Unit]): CompilationUnit =
+class Parser extends CompilationModule[ExpressionBlock[Unit], Compilation]:
+  def compile(body: ExpressionBlock[Unit]): Compilation =
     val main = CustomFunction("main", List(), body)
     val functions = extractCustomFunctions(main).reverse
     val functionMap = mutable.Map.empty[CustomFunction[?], Function[?]]
@@ -19,7 +19,7 @@ class Parser extends CompilationModule[ExpressionBlock[Unit], CompilationUnit]:
       val func = convertToFunction(f, functionMap)
       functionMap(f) = func
       func
-    CompilationUnit(nextFunctions)
+    Compilation(nextFunctions)
 
   private def extractCustomFunctions(f: CustomFunction[Unit]): List[CustomFunction[?]] =
     val visited = mutable.Map[CustomFunction[?], 0 | 1 | 2]().withDefaultValue(0)

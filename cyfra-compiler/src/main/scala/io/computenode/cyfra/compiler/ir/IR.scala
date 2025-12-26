@@ -10,7 +10,7 @@ import io.computenode.cyfra.core.expression.given
 
 import scala.collection
 
-trait IR[A: Value] extends Product:
+sealed trait IR[A: Value] extends Product:
   def v: Value[A] = summon[Value[A]]
   def substitute(map: collection.Map[IR[?], IR[?]]): Unit = replace(using map)
   protected def replace(using map: collection.Map[IR[?], IR[?]]): Unit = ()
