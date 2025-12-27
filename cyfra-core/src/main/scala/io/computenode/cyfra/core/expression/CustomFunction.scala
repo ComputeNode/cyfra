@@ -8,6 +8,7 @@ case class CustomFunction[A: Value] private[cyfra] (name: String, arg: List[Var[
   lazy val isPure: Boolean = body.isPureWith(arg.map(_.id).toSet)
 
 object CustomFunction:
+  
   def apply[A: Value, B: Value](func: Var[A] => ExpressionBlock[B]): CustomFunction[B] =
     val arg = Var[A]()
     val body = func(arg)

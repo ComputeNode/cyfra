@@ -1,16 +1,18 @@
 package io.computenode.cyfra.compiler.unit
 
-import io.computenode.cyfra.compiler.ir.{FunctionIR, IR}
+import io.computenode.cyfra.compiler.ir.{FunctionIR, IR, IRs}
+
 import scala.collection.mutable
 import io.computenode.cyfra.compiler.id
 
-case class Compilation(header: Header, functions: List[FunctionIR[?]]):
+case class Compilation(context: Context, functions: List[FunctionIR[?]], functionBodies: List[IRs[?]]):
   def output: List[IR[?]] =
-    header.output ++ functions.flatMap(_.body.body)
+    context.output ++ functionBodies.flatMap(_.body)
 
 object Compilation:
-  def apply(functions: List[FunctionIR[?]]): Compilation =
-    Compilation(Header(Nil, new DebugManager, new TypeManager, new ConstantsManager), functions)
+  def apply(functions: List[(FunctionIR[?], IRs[?])]): Compilation =
+    val (f, fir) = functions.unzip
+    Compilation(Context(Nil, new DebugManager, new TypeManager, new ConstantsManager), f, fir)
 
   def debugPrint(compilation: Compilation): Unit =
     val irs = compilation.output
@@ -31,7 +33,7 @@ object Compilation:
       case IR.Loop(mainBody, continueBody, break, continue) => "???"
       case IR.Jump(target, value)                           => s"${target.id} ${map(value)}"
       case IR.ConditionalJump(cond, target, value)          => s"${map(cond)} ${target.id} ${map(value)}"
-      case IR.SvInst(op, operands)                     =>
+      case IR.SvInst(op, operands)                          =>
         s"${op.mnemo} ${operands
             .map:
               case w: IR[?] => map(w)

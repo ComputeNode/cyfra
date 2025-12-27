@@ -11,10 +11,10 @@ class Compiler(verbose: Boolean = false):
   private val parser = new Parser()
   private val modules: List[StandardCompilationModule] = List(
     new StructuredControlFlow,
-    new Variables,
-    new Bindings,
-    new Functions,
-    new Algebra
+//    new Variables,
+//    new Bindings,
+//    new Functions,
+//    new Algebra
   )
   private val emitter = new Emitter()
 

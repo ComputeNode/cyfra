@@ -1,7 +1,8 @@
 package io.computenode.cyfra.dsl.monad
 
-import io.computenode.cyfra.core.expression.{Value, Var, JumpTarget, Bool, UInt32, BuildInFunction, CustomFunction, given}
+import io.computenode.cyfra.core.expression.{Bool, BuildInFunction, CustomFunction, JumpTarget, UInt32, Value, Var, given}
 import io.computenode.cyfra.core.binding.GBuffer
+import io.computenode.cyfra.core.expression.JumpTarget.{BreakTarget, ContinueTarget}
 import io.computenode.cyfra.utility.cats.Free
 
 sealed trait GOps[T: Value]:
@@ -19,14 +20,26 @@ object GOps:
   case class CallBuildIn0[Res: Value](func: BuildInFunction.BuildInFunction0[Res]) extends GOps[Res]
   case class CallBuildIn1[A: Value, Res: Value](func: BuildInFunction.BuildInFunction1[A, Res], arg: A) extends GOps[Res]:
     def tv: Value[A] = summon[Value[A]]
-  case class CallBuildIn2[A1: Value, A2: Value, Res: Value](func: BuildInFunction.BuildInFunction2[A1, A2, Res], arg1: A1, arg2: A2) extends GOps[Res]:
+  case class CallBuildIn2[A1: Value, A2: Value, Res: Value](func: BuildInFunction.BuildInFunction2[A1, A2, Res], arg1: A1, arg2: A2)
+      extends GOps[Res]:
     def tv1: Value[A1] = summon[Value[A1]]
     def tv2: Value[A2] = summon[Value[A2]]
-  case class CallBuildIn3[A1: Value, A2: Value, A3: Value, Res: Value](func: BuildInFunction.BuildInFunction3[A1, A2, A3, Res], arg1: A1, arg2: A2, arg3: A3) extends GOps[Res]:
+  case class CallBuildIn3[A1: Value, A2: Value, A3: Value, Res: Value](
+    func: BuildInFunction.BuildInFunction3[A1, A2, A3, Res],
+    arg1: A1,
+    arg2: A2,
+    arg3: A3,
+  ) extends GOps[Res]:
     def tv1: Value[A1] = summon[Value[A1]]
     def tv2: Value[A2] = summon[Value[A2]]
     def tv3: Value[A3] = summon[Value[A3]]
-  case class CallBuildIn4[A1: Value, A2: Value, A3: Value, A4: Value, Res: Value](func: BuildInFunction.BuildInFunction4[A1, A2, A3, A4, Res], arg1: A1, arg2: A2, arg3: A3, arg4: A4) extends GOps[Res]:
+  case class CallBuildIn4[A1: Value, A2: Value, A3: Value, A4: Value, Res: Value](
+    func: BuildInFunction.BuildInFunction4[A1, A2, A3, A4, Res],
+    arg1: A1,
+    arg2: A2,
+    arg3: A3,
+    arg4: A4,
+  ) extends GOps[Res]:
     def tv1: Value[A1] = summon[Value[A1]]
     def tv2: Value[A2] = summon[Value[A2]]
     def tv3: Value[A3] = summon[Value[A3]]
@@ -34,7 +47,7 @@ object GOps:
   case class CallCustom1[A: Value, Res: Value](func: CustomFunction[Res], arg: Var[A]) extends GOps[Res]:
     def tv: Value[A] = summon[Value[A]]
   case class Branch[T: Value](cond: Bool, ifTrue: GIO[T], ifFalse: GIO[T], break: JumpTarget[T]) extends GOps[T]
-  case class Loop(mainBody: GIO[Unit], continueBody: GIO[Unit], break: JumpTarget[Unit], continue: JumpTarget[Unit]) extends GOps[Unit]
+  case class Loop(mainBody: GIO[Unit], continueBody: GIO[Unit], break: BreakTarget, continue: ContinueTarget) extends GOps[Unit]
   case class ConditionalJump[T: Value](cond: Bool, target: JumpTarget[T], value: T) extends GOps[Unit]:
     def tv: Value[T] = summon[Value[T]]
   case class Jump[T: Value](target: JumpTarget[T], value: T) extends GOps[Unit]:
@@ -65,10 +78,21 @@ object GOps:
   def call[A1: Value, A2: Value, Res: Value](func: BuildInFunction.BuildInFunction2[A1, A2, Res], arg1: A1, arg2: A2): GIO[Res] =
     Free.liftF[GOps, Res](CallBuildIn2(func, arg1, arg2))
 
-  def call[A1: Value, A2: Value, A3: Value, Res: Value](func: BuildInFunction.BuildInFunction3[A1, A2, A3, Res], arg1: A1, arg2: A2, arg3: A3): GIO[Res] =
+  def call[A1: Value, A2: Value, A3: Value, Res: Value](
+    func: BuildInFunction.BuildInFunction3[A1, A2, A3, Res],
+    arg1: A1,
+    arg2: A2,
+    arg3: A3,
+  ): GIO[Res] =
     Free.liftF[GOps, Res](CallBuildIn3(func, arg1, arg2, arg3))
 
-  def call[A1: Value, A2: Value, A3: Value, A4: Value, Res: Value](func: BuildInFunction.BuildInFunction4[A1, A2, A3, A4, Res], arg1: A1, arg2: A2, arg3: A3, arg4: A4): GIO[Res] =
+  def call[A1: Value, A2: Value, A3: Value, A4: Value, Res: Value](
+    func: BuildInFunction.BuildInFunction4[A1, A2, A3, A4, Res],
+    arg1: A1,
+    arg2: A2,
+    arg3: A3,
+    arg4: A4,
+  ): GIO[Res] =
     Free.liftF[GOps, Res](CallBuildIn4(func, arg1, arg2, arg3, arg4))
 
   def call[A: Value, Res: Value](func: CustomFunction[Res], arg: Var[A]): GIO[Res] =
@@ -78,9 +102,9 @@ object GOps:
     val target = JumpTarget()
     Free.liftF[GOps, T](Branch(cond, ifTrue(target), ifFalse(target), target))
 
-  def loop(body: (JumpTarget[Unit], JumpTarget[Unit]) => GIO[Unit], continue: GIO[Unit]): GIO[Unit] =
-    val (b, c) = (JumpTarget[Unit](), JumpTarget[Unit]())
-    Free.liftF[GOps, Unit](Loop(body(b, c), continue, b, c))
+  def loop(body: (BreakTarget, ContinueTarget) ?=> GIO[Unit], continue: GIO[Unit]): GIO[Unit] =
+    val (b, c) = (BreakTarget(), ContinueTarget())
+    Free.liftF[GOps, Unit](Loop(body(using b, c), continue, b, c))
 
   def jump[T: Value](target: JumpTarget[T], value: T): GIO[Unit] =
     Free.liftF[GOps, Unit](Jump(target, value))

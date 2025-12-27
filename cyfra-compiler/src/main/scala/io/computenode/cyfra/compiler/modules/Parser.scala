@@ -17,7 +17,7 @@ class Parser extends CompilationModule[ExpressionBlock[Unit], Compilation]:
     val functionMap = mutable.Map.empty[CustomFunction[?], FunctionIR[?]]
     val nextFunctions = functions.map: f =>
       val func = convertToFunction(f, functionMap)
-      functionMap(f) = func
+      functionMap(f) = func._1
       func
     Compilation(nextFunctions)
 
@@ -37,18 +37,20 @@ class Parser extends CompilationModule[ExpressionBlock[Unit], Compilation]:
 
     rec(f)
 
-  private def convertToFunction(f: CustomFunction[?], functionMap: mutable.Map[CustomFunction[?], FunctionIR[?]]): FunctionIR[?] = f match
+  private def convertToFunction(f: CustomFunction[?], functionMap: mutable.Map[CustomFunction[?], FunctionIR[?]]): (FunctionIR[?],IRs[?]) = f match
     case f: CustomFunction[a] =>
       given Value[a] = f.v
-      FunctionIR(f.name, f.arg, convertToIRs(f.body, functionMap))
+      (FunctionIR(f.name, f.arg), convertToIRs(f.body, functionMap))
 
   private def convertToIRs[A](block: ExpressionBlock[A], functionMap: mutable.Map[CustomFunction[?], FunctionIR[?]]): IRs[A] =
     given Value[A] = block.result.v
     var result: IR[A] = null
-    val body = block.body.reverse.distinctBy(_.id).map: expr =>
-      val res = convertToIR(expr, functionMap)
-      if expr == block.result then result = res.asInstanceOf[IR[A]]
-      res
+    val body = block.body.reverse
+      .distinctBy(_.id)
+      .map: expr =>
+        val res = convertToIR(expr, functionMap)
+        if expr == block.result then result = res.asInstanceOf[IR[A]]
+        res
     IRs(result, body)
 
   private def convertToIR[A](expr: Expression[A], functionMap: mutable.Map[CustomFunction[?], FunctionIR[?]]): IR[A] =

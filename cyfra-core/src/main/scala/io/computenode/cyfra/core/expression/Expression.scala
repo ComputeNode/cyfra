@@ -1,6 +1,7 @@
 package io.computenode.cyfra.core.expression
 
 import io.computenode.cyfra.core.binding.{GBuffer, GUniform}
+import io.computenode.cyfra.core.expression.JumpTarget.{BreakTarget, ContinueTarget}
 import io.computenode.cyfra.core.expression.given
 import io.computenode.cyfra.utility.Utility.nextId
 import io.computenode.cyfra.core.expression.{Bool, Float16, Float32, Int16, Int32, UInt16, UInt32, given}
@@ -26,7 +27,7 @@ object Expression:
   case class CustomCall[A: Value](func: CustomFunction[A], args: List[Var[?]]) extends Expression[A]
   case class Branch[T: Value](cond: Expression[Bool], ifTrue: ExpressionBlock[T], ifFalse: ExpressionBlock[T], break: JumpTarget[T])
       extends Expression[T]
-  case class Loop(mainBody: ExpressionBlock[Unit], continueBody: ExpressionBlock[Unit], break: JumpTarget[Unit], continue: JumpTarget[Unit])
+  case class Loop(mainBody: ExpressionBlock[Unit], continueBody: ExpressionBlock[Unit], break: BreakTarget, continue: ContinueTarget)
       extends Expression[Unit]
   case class Jump[A: Value](target: JumpTarget[A], value: Expression[A]) extends Expression[Unit]:
     def v2: Value[A] = summon[Value[A]]

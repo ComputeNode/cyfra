@@ -7,38 +7,39 @@ import io.computenode.cyfra.utility.cats.{FunctionK, ~>}
 
 import scala.collection.mutable
 
-case class IRs[A: Value](result: IR[A], body: mutable.ListBuffer[IR[?]]):
+case class IRs[A: Value](result: IR[A], body: List[IR[?]]):
 
-  def filterOut(p: IR[?] => Boolean): List[IR[?]] =
+  def filterOut(p: IR[?] => Boolean): (IRs[A], List[IR[?]]) =
     val removed = mutable.Buffer.empty[IR[?]]
-    flatMapReplace:
+    val next = flatMapReplace:
       case x if p(x) =>
         removed += x
         IRs.proxy(x)(using x.v)
       case x => IRs(x)(using x.v)
-    removed.toList
+    (next, removed.toList)
 
-  def flatMapReplace(f: IR[?] => IRs[?]): IRs[A] =
-    flatMapReplaceImpl(f, mutable.Map.empty)
-    this
+  def flatMapReplace(f: IR[?] => IRs[?]): IRs[A] = flatMapReplaceImpl(f, mutable.Map.empty)
 
-  private def flatMapReplaceImpl(f: IR[?] => IRs[?], replacements: mutable.Map[IR[?], IR[?]]): Unit =
-    body.flatMapInPlace: (x: IR[?]) =>
-      x match
-        case Branch(cond, ifTrue, ifFalse, _) =>
-          ifTrue.flatMapReplaceImpl(f, replacements)
-          ifFalse.flatMapReplaceImpl(f, replacements)
-        case Loop(mainBody, continueBody, _, _) =>
-          mainBody.flatMapReplace(f)
-          continueBody.flatMapReplace(f)
-        case _ => ()
-      x.substitute(replacements)
-      val IRs(result, body) = f(x)
+  private def flatMapReplaceImpl(f: IR[?] => IRs[?], replacements: mutable.Map[IR[?], IR[?]]): IRs[A] =
+    val nextBody = body.flatMap: (x: IR[?]) =>
+      val next = x match
+        case b: Branch[a] => 
+          given Value[a] = b.v
+          val Branch(cond, ifTrue, ifFalse, t) = b
+          val nextT = ifTrue.flatMapReplaceImpl(f, replacements)
+          val nextF = ifFalse.flatMapReplaceImpl(f, replacements)
+          Branch[a](cond, nextT, nextF, t)
+        case Loop(mainBody, continueBody, b, c) =>
+          val nextM = mainBody.flatMapReplaceImpl(f, replacements)
+          val nextC = continueBody.flatMapReplaceImpl(f, replacements)
+          Loop(nextM, nextC, b, c)
+        case other => other
+      val IRs(result, body) = f(next.substitute(replacements))
       replacements(x) = result
       body
-    ()
+    val nextResult = result.substitute(replacements)
+    IRs(nextResult, nextBody)
 
 object IRs:
-  def apply[A: Value](ir: IR[A]): IRs[A] = new IRs(ir, mutable.ListBuffer(ir))
-  def apply[A: Value](ir: IR[A], body: List[IR[?]]): IRs[A] = new IRs(ir, mutable.ListBuffer.from(body))
-  def proxy[A: Value](ir: IR[A]): IRs[A] = new IRs(ir, mutable.ListBuffer())
+  def apply[A: Value](ir: IR[A]): IRs[A] = new IRs(ir, List(ir))
+  def proxy[A: Value](ir: IR[A]): IRs[A] = new IRs(ir, List())

@@ -1,7 +1,20 @@
 package io.computenode.cyfra.dsl.direct
 
-import io.computenode.cyfra.core.expression.{Bool, BuildInFunction, CustomFunction, Expression, ExpressionBlock, UInt32, JumpTarget, Value, Var, given}
+import io.computenode.cyfra.core.expression.{
+  Bool,
+  unitZero,
+  BuildInFunction,
+  CustomFunction,
+  Expression,
+  ExpressionBlock,
+  JumpTarget,
+  UInt32,
+  Value,
+  Var,
+  given,
+}
 import io.computenode.cyfra.core.binding.GBuffer
+import io.computenode.cyfra.core.expression.JumpTarget.{BreakTarget, ContinueTarget}
 import io.computenode.cyfra.core.expression.Value.irs
 
 class GIO:
@@ -66,7 +79,9 @@ object GIO:
     gio.extend(next :: a1.body ++ a2.body)
     summon[Value[Res]].indirect(next)
 
-  def call[A1: Value, A2: Value, A3: Value, Res: Value](func: BuildInFunction.BuildInFunction3[A1, A2, A3, Res], arg1: A1, arg2: A2, arg3: A3)(using gio: GIO): Res =
+  def call[A1: Value, A2: Value, A3: Value, Res: Value](func: BuildInFunction.BuildInFunction3[A1, A2, A3, Res], arg1: A1, arg2: A2, arg3: A3)(using
+    gio: GIO,
+  ): Res =
     val a1 = arg1.irs
     val a2 = arg2.irs
     val a3 = arg3.irs
@@ -74,7 +89,13 @@ object GIO:
     gio.extend(next :: a1.body ++ a2.body ++ a3.body)
     summon[Value[Res]].indirect(next)
 
-  def call[A1: Value, A2: Value, A3: Value, A4: Value, Res: Value](func: BuildInFunction.BuildInFunction4[A1, A2, A3, A4, Res], arg1: A1, arg2: A2, arg3: A3, arg4: A4)(using gio: GIO): Res =
+  def call[A1: Value, A2: Value, A3: Value, A4: Value, Res: Value](
+    func: BuildInFunction.BuildInFunction4[A1, A2, A3, A4, Res],
+    arg1: A1,
+    arg2: A2,
+    arg3: A3,
+    arg4: A4,
+  )(using gio: GIO): Res =
     val a1 = arg1.irs
     val a2 = arg2.irs
     val a3 = arg3.irs
@@ -88,30 +109,42 @@ object GIO:
     gio.add(next)
     summon[Value[Res]].indirect(next)
 
-  def branch[T: Value](cond: Bool)(ifTrue: JumpTarget[T] => GIO ?=> T)(ifFalse: JumpTarget[T] => GIO ?=> T)(using gio: GIO): T =
+  def branch[T: Value](cond: Bool, ifTrue: (JumpTarget[T], GIO) ?=> T, ifFalse: (JumpTarget[T], GIO) ?=> T)(using gio: GIO): T =
     val c = cond.irs
     val jt = JumpTarget[T]()
-    val t = GIO.reify(ifTrue(jt))
-    val f = GIO.reify(ifFalse(jt))
+    val t = GIO.reify(ifTrue(using jt))
+    val f = GIO.reify(ifFalse(using jt))
     val branch = Expression.Branch(c.result, t, f, jt)
     gio.extend(branch :: c.body)
     summon[Value[T]].indirect(branch)
 
-  def loop(mainBody: (JumpTarget[Unit], JumpTarget[Unit]) => GIO ?=> Unit, continueBody: GIO ?=> Unit)(using gio: GIO): Unit =
-    val jb = JumpTarget[Unit]()
-    val jc = JumpTarget[Unit]()
-    val m = GIO.reify(mainBody(jb, jc))
+  def loop(mainBody: (BreakTarget, ContinueTarget, GIO) ?=> Unit, continueBody: GIO ?=> Unit)(using gio: GIO): Unit =
+    val jb = BreakTarget()
+    val jc = ContinueTarget()
+    val m = GIO.reify(mainBody(using jb, jc))
     val c = GIO.reify(continueBody)
     val loop = Expression.Loop(m, c, jb, jc)
     gio.add(loop)
 
-  def conditionalJump[T: Value](cond: Bool, target: JumpTarget[T], value: T)(using gio: GIO): Unit =
+  def conditionalJump[T: Value](cond: Bool, value: T)(using target: JumpTarget[T], gio: GIO): Unit =
     val c = cond.irs
     val v = value.irs
     val cj = Expression.ConditionalJump(c.result, target, v.result)
     gio.extend(cj :: c.body ++ v.body)
 
-  def jump[T: Value](target: JumpTarget[T], value: T)(using gio: GIO): Unit =
+  def jump[T: Value](value: T)(using target: JumpTarget[T], gio: GIO): Unit =
     val v = value.irs
     val j = Expression.Jump(target, v.result)
     gio.extend(j :: v.body)
+
+  def break(using target: BreakTarget, gio: GIO): Unit =
+    jump(())
+
+  def conditionalBreak(cond: Bool)(using target: BreakTarget, gio: GIO): Unit =
+    conditionalJump(cond, ())
+
+  def continue(using target: ContinueTarget, gio: GIO): Unit =
+    jump(())
+
+  def conditionalContinue(cond: Bool)(using target: ContinueTarget, gio: GIO): Unit =
+    conditionalJump(cond, ())

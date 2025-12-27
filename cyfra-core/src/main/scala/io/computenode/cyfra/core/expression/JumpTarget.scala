@@ -10,3 +10,7 @@ class JumpTarget[A: Value]:
   override def equals(obj: Any): Boolean = obj match
     case value: JumpTarget[A] => value.id == id
     case _                    => false
+
+object JumpTarget:
+  class BreakTarget extends JumpTarget[Unit]
+  class ContinueTarget extends JumpTarget[Unit]
