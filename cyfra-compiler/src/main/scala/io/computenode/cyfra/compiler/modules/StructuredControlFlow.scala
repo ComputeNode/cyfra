@@ -37,7 +37,7 @@ class StructuredControlFlow extends FunctionCompilationModule:
 
         targets(break) = mergeLabel
 
-        val ifBlock = FlatList(
+        val ifBlock: List[IR[?]] = FlatList(
           SvInst(Op.OpSelectionMerge, List(mergeLabel, SelectionControlMask.MaskNone)),
           SvInst(Op.OpBranchConditional, List(cond, trueLabel, falseLabel)),
           trueLabel,

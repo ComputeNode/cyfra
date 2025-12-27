@@ -28,8 +28,10 @@ class Parser extends CompilationModule[ExpressionBlock[Unit], Compilation]:
       visited(f) match
         case 0 =>
           visited(f) = 1
-          val fs: List[CustomFunction[?]] = f.body.collect:
-            case cf: CustomFunction[?] => cf
+          val fs = f.body
+            .collect:
+              case cc: Expression.CustomCall[?] => cc.func
+            .flatMap(rec)
           visited(f) = 2
           f :: fs
         case 1 => throw new CompilationException(s"Cyclic dependency detected involving function: ${f.name}")
@@ -37,7 +39,7 @@ class Parser extends CompilationModule[ExpressionBlock[Unit], Compilation]:
 
     rec(f)
 
-  private def convertToFunction(f: CustomFunction[?], functionMap: mutable.Map[CustomFunction[?], FunctionIR[?]]): (FunctionIR[?],IRs[?]) = f match
+  private def convertToFunction(f: CustomFunction[?], functionMap: mutable.Map[CustomFunction[?], FunctionIR[?]]): (FunctionIR[?], IRs[?]) = f match
     case f: CustomFunction[a] =>
       given Value[a] = f.v
       (FunctionIR(f.name, f.arg), convertToIRs(f.body, functionMap))
