@@ -16,7 +16,7 @@ case class Compilation(context: Context, functions: List[FunctionIR[?]], functio
 object Compilation:
   def apply(functions: List[(FunctionIR[?], IRs[?])]): Compilation =
     val (f, fir) = functions.unzip
-    Compilation(Context(Nil, new DebugManager, new TypeManager, new ConstantsManager), f, fir)
+    Compilation(Context(Nil, DebugManager(), TypeManager(), ConstantsManager()), f, fir)
 
   def debugPrint(compilation: Compilation): Unit =
     val irs = compilation.output

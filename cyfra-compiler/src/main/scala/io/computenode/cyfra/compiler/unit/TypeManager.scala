@@ -7,7 +7,7 @@ import izumi.reflect.Tag
 
 import scala.collection.mutable
 
-class TypeManager(block: List[IR[?]], cache: Map[Tag[?], RefIR[Unit]]):
+class TypeManager(block: List[IR[?]] = Nil, cache: Map[Tag[?], RefIR[Unit]] = Map.empty):
   def getType(value: Value[?]): (RefIR[Unit], TypeManager) =
     cache.get(value.tag) match
       case Some(value) => (value, this)

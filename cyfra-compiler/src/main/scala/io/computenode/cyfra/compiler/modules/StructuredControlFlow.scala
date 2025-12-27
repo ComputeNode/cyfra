@@ -6,6 +6,7 @@ import io.computenode.cyfra.compiler.ir.IRs
 import io.computenode.cyfra.compiler.ir.IR.*
 import io.computenode.cyfra.compiler.modules.CompilationModule.FunctionCompilationModule
 import io.computenode.cyfra.compiler.unit.{Context, TypeManager}
+import io.computenode.cyfra.compiler.unit.Ctx
 import io.computenode.cyfra.compiler.spirv.Opcodes.*
 import io.computenode.cyfra.core.expression.{JumpTarget, Value, given}
 import io.computenode.cyfra.utility.FlatList
@@ -14,16 +15,15 @@ import izumi.reflect.Tag
 import scala.collection.mutable
 
 class StructuredControlFlow extends FunctionCompilationModule:
-  override def compileFunction(input: IRs[?], context: Context) =
-    compileRec(input, None, mutable.Map.empty, mutable.Map.empty.withDefault(_ => mutable.Buffer.empty), context.types)
+  override def compileFunction(input: IRs[?])(using Ctx) =
+    compileRec(input, None, mutable.Map.empty, mutable.Map.empty.withDefault(_ => mutable.Buffer.empty))
 
   private def compileRec(
     irs: IRs[?],
     startingLabel: Option[RefIR[Unit]],
     targets: mutable.Map[JumpTarget[?], RefIR[?]],
-    phiMap: mutable.Map[JumpTarget[?], mutable.Buffer[(RefIR[?], RefIR[?])]],
-    types: TypeManager,
-  ): IRs[?] =
+    phiMap: mutable.Map[JumpTarget[?], mutable.Buffer[(RefIR[?], RefIR[?])]]
+  )(using Ctx): IRs[?] =
     var currentLabel = startingLabel
     irs.flatMapReplace:
       case x: Branch[a] =>
@@ -39,9 +39,9 @@ class StructuredControlFlow extends FunctionCompilationModule:
           SvInst(Op.OpSelectionMerge, List(mergeLabel, SelectionControlMask.MaskNone)),
           SvInst(Op.OpBranchConditional, List(cond, trueLabel, falseLabel)),
           trueLabel,
-          compileRec(ifTrue, Some(trueLabel), targets, phiMap, types).body,
+          compileRec(ifTrue, Some(trueLabel), targets, phiMap).body,
           falseLabel,
-          compileRec(ifFalse, Some(falseLabel), targets, phiMap, types).body,
+          compileRec(ifFalse, Some(falseLabel), targets, phiMap).body,
           mergeLabel,
         )
 
@@ -50,7 +50,7 @@ class StructuredControlFlow extends FunctionCompilationModule:
         if v.tag =:= Tag[Unit] then IRs[Unit](mergeLabel, ifBlock)
         else
           val phiJumps: List[RefIR[?]] = phiMap(break).toList.flatMap(x => List(x._1, x._2))
-          val phi = SvRef[a](Op.OpPhi, types.getType(v) :: phiJumps)
+          val phi = SvRef[a](Op.OpPhi, Ctx.getType(v) :: phiJumps)
           IRs[a](phi, ifBlock.appended(phi))
 
       case Loop(mainBody, continueBody, break, continue) =>
@@ -68,10 +68,10 @@ class StructuredControlFlow extends FunctionCompilationModule:
             SvInst(Op.OpLoopMerge, List(mergeLabel, continueLabel, LoopControlMask.MaskNone)),
             SvInst(Op.OpBranch, List(bodyLabel)),
             bodyLabel,
-            compileRec(mainBody, Some(bodyLabel), targets, phiMap, types).body,
+            compileRec(mainBody, Some(bodyLabel), targets, phiMap).body,
             SvInst(Op.OpBranch, List(continueLabel)),
             continueLabel,
-            compileRec(continueBody, Some(continueLabel), targets, phiMap, types).body,
+            compileRec(continueBody, Some(continueLabel), targets, phiMap).body,
             SvInst(Op.OpBranch, List(loopLabel)),
             mergeLabel,
           )
