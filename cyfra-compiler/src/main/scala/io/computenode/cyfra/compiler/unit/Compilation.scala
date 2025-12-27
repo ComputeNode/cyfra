@@ -1,6 +1,7 @@
 package io.computenode.cyfra.compiler.unit
 
 import io.computenode.cyfra.compiler.ir.{FunctionIR, IR, IRs}
+import io.computenode.cyfra.compiler.unit.Context
 
 import scala.collection.mutable
 import io.computenode.cyfra.compiler.id
@@ -16,7 +17,7 @@ object Compilation:
 
   def debugPrint(compilation: Compilation): Unit =
     val irs = compilation.output
-    val map = irs.zipWithIndex.map(x => (x._1, s"%${x._2}")).toMap
+    val map = irs.filter(_.isInstanceOf[IR.Ref]).zipWithIndex.map(x => (x._1, s"%${x._2}")).toMap
 
     def irInternal(ir: IR[?]): String = ir match
       case IR.Constant(value)                               => s"($value)"
@@ -33,16 +34,29 @@ object Compilation:
       case IR.Loop(mainBody, continueBody, break, continue) => "???"
       case IR.Jump(target, value)                           => s"${target.id} ${map(value)}"
       case IR.ConditionalJump(cond, target, value)          => s"${map(cond)} ${target.id} ${map(value)}"
-      case IR.SvInst(op, operands)                          =>
-        s"${op.mnemo} ${operands
-            .map:
-              case w: IR[?] => map(w)
-              case w        => w.toString
-            .mkString(" ")}"
+      case sv: (IR.SvInst | IR.SvRef[?])                    =>
+        val operands = sv match
+          case x: IR.SvInst   => x.operands
+          case x: IR.SvRef[?] => x.operands
+        operands
+          .map:
+            case w: IR[?] => map(w)
+            case w        => w.toString
+          .mkString(" ")
 
-    irs
-      .map: ir =>
-        val name = ir.getClass.getSimpleName
-        val idStr = map(ir)
-        s"${" ".repeat(5 - idStr.length) + idStr} = $name " + irInternal(ir)
-      .foreach(println)
+    val Context(prefix, debug, types, constants) = compilation.context
+    val data = Seq((prefix, "Prefix"), (debug.output, "Debug Symbols"), (types.output, "Type Info"), (constants.output, "Constants")) ++
+      compilation.functions
+        .zip(compilation.functionBodies)
+        .map: (func, body) =>
+          (body.body, func.name)
+
+    data.flatMap: (body, title) =>
+      val res = body
+        .map: ir =>
+          val row = ir.name + " " + irInternal(ir)
+          map.get(ir) match
+            case Some(id) => s"${" ".repeat(5 - id.length)}$id = $row"
+            case None     => " ".repeat(8) + row
+      s"// $title" :: res
+    .foreach(println)

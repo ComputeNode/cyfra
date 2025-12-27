@@ -17,21 +17,23 @@ sealed trait IR[A: Value] extends Product:
   protected def replace(using map: collection.Map[IR[?], IR[?]]): IR[A] = this
 
 object IR:
-  case class Constant[A: Value](value: Any) extends IR[A]
-  case class VarDeclare[A: Value](variable: Var[A]) extends IR[Unit]
-  case class VarRead[A: Value](variable: Var[A]) extends IR[A]
+  trait Ref
+
+  case class Constant[A: Value](value: Any) extends IR[A] with Ref
+  case class VarDeclare[A: Value](variable: Var[A]) extends IR[Unit] with Ref
+  case class VarRead[A: Value](variable: Var[A]) extends IR[A] with Ref
   case class VarWrite[A: Value](variable: Var[A], value: IR[A]) extends IR[Unit]:
     override protected def replace(using map: collection.Map[IR[?], IR[?]]): IR[Unit] = this.copy(value = value.replaced)
-  case class ReadBuffer[A: Value](buffer: GBuffer[A], index: IR[UInt32]) extends IR[A]:
+  case class ReadBuffer[A: Value](buffer: GBuffer[A], index: IR[UInt32]) extends IR[A] with Ref:
     override protected def replace(using map: collection.Map[IR[?], IR[?]]): IR[A] = this.copy(index = index.replaced)
   case class WriteBuffer[A: Value](buffer: GBuffer[A], index: IR[UInt32], value: IR[A]) extends IR[Unit]:
     override protected def replace(using map: collection.Map[IR[?], IR[?]]): IR[Unit] = this.copy(index = index.replaced, value = value.replaced)
-  case class ReadUniform[A: Value](uniform: GUniform[A]) extends IR[A]
+  case class ReadUniform[A: Value](uniform: GUniform[A]) extends IR[A] with Ref
   case class WriteUniform[A: Value](uniform: GUniform[A], value: IR[A]) extends IR[Unit]:
     override protected def replace(using map: collection.Map[IR[?], IR[?]]): IR[Unit] = this.copy(value = value.replaced)
-  case class Operation[A: Value](func: BuildInFunction[A], args: List[IR[?]]) extends IR[A]:
+  case class Operation[A: Value](func: BuildInFunction[A], args: List[IR[?]]) extends IR[A] with Ref:
     override protected def replace(using map: collection.Map[IR[?], IR[?]]): IR[A] = this.copy(args = args.map(_.replaced))
-  case class Call[A: Value](func: FunctionIR[A], args: List[Var[?]]) extends IR[A]
+  case class Call[A: Value](func: FunctionIR[A], args: List[Var[?]]) extends IR[A] with Ref
   case class Branch[T: Value](cond: IR[Bool], ifTrue: IRs[T], ifFalse: IRs[T], break: JumpTarget[T]) extends IR[T]:
     override protected def replace(using map: collection.Map[IR[?], IR[?]]): IR[T] = this.copy(cond = cond.replaced)
   case class Loop(mainBody: IRs[Unit], continueBody: IRs[Unit], break: JumpTarget[Unit], continue: JumpTarget[Unit]) extends IR[Unit]
@@ -39,13 +41,10 @@ object IR:
     override protected def replace(using map: collection.Map[IR[?], IR[?]]): IR[Unit] = this.copy(value = value.replaced)
   case class ConditionalJump[A: Value](cond: IR[Bool], target: JumpTarget[A], value: IR[A]) extends IR[Unit]:
     override protected def replace(using map: collection.Map[IR[?], IR[?]]): IR[Unit] = this.copy(cond = cond.replaced, value = value.replaced)
-  case class SvInst[A: Value] private (op: Code, operands: List[Words | IR[?]]) extends IR[A]:
-    override def name = ""
-
-  object SvInst:
-    def apply(op: Code, operands: List[Words | IR[?]]): SvInst[Unit] = SvInst[Unit](op, operands)
-
-    def T[A: Value](op: Code, operands: List[Words | IR[?]]): SvInst[A] = SvInst[A](op, operands)
+  case class SvInst(op: Code, operands: List[Words | IR[?]]) extends IR[Unit]:
+    override def name: String = op.mnemo
+  case class SvRef[A: Value](op: Code, operands: List[Words | IR[?]]) extends IR[A] with Ref:
+    override def name: String = op.mnemo
 
   extension [T](ir: IR[T])
     private def replaced(using map: collection.Map[IR[?], IR[?]]): IR[T] =

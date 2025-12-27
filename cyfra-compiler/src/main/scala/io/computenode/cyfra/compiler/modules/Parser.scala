@@ -46,14 +46,14 @@ class Parser extends CompilationModule[ExpressionBlock[Unit], Compilation]:
 
   private def convertToIRs[A](block: ExpressionBlock[A], functionMap: mutable.Map[CustomFunction[?], FunctionIR[?]]): IRs[A] =
     given Value[A] = block.result.v
-    var result: IR[A] = null
+    var result: Option[IR[A]] = None
     val body = block.body.reverse
       .distinctBy(_.id)
       .map: expr =>
         val res = convertToIR(expr, functionMap)
-        if expr == block.result then result = res.asInstanceOf[IR[A]]
+        if expr == block.result then result = Some(res.asInstanceOf[IR[A]])
         res
-    IRs(result, body)
+    IRs(result.get, body)
 
   private def convertToIR[A](expr: Expression[A], functionMap: mutable.Map[CustomFunction[?], FunctionIR[?]]): IR[A] =
     given Value[A] = expr.v
