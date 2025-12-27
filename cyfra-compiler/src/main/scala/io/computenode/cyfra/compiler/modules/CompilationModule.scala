@@ -6,7 +6,7 @@ import io.computenode.cyfra.compiler.unit.{Compilation, Ctx}
 trait CompilationModule[A, B]:
   def compile(input: A): B
 
-  def name: String = this.getClass.getSimpleName.replaceAll("\\$$", "")
+  def name: String = this.getClass.getSimpleName.replace("$", "")
 
 object CompilationModule:
 

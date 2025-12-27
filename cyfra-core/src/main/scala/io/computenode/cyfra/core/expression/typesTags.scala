@@ -53,3 +53,16 @@ private def typeStride(tag: LightTypeTag): Int =
     case _          => ???
 
   base * elementSize
+
+def columns(tag: LightTypeTag): Int =
+  tag.withoutArgs match
+    case Mat2x2Tag => 2
+    case Mat2x3Tag => 3
+    case Mat2x4Tag => 4
+    case Mat3x2Tag => 2
+    case Mat3x3Tag => 3
+    case Mat3x4Tag => 4
+    case Mat4x2Tag => 2
+    case Mat4x3Tag => 3
+    case Mat4x4Tag => 4
+    case _         => ???
