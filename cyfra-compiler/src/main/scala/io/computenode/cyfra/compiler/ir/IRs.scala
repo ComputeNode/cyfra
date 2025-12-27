@@ -37,6 +37,7 @@ case class IRs[A: Value](result: IR[A], body: List[IR[?]]):
       val IRs(result, body) = f(next.substitute(replacements))
       result match
         case x: RefIR[?] => replacements(x) = x
+        case _          => ()
       body
     val nextResult = result.substitute(replacements)
     IRs(nextResult, nextBody)

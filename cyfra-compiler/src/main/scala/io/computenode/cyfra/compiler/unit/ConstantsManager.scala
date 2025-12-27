@@ -1,8 +1,10 @@
 package io.computenode.cyfra.compiler.unit
 
 import io.computenode.cyfra.compiler.ir.IR
+import io.computenode.cyfra.compiler.ir.IR.RefIR
+import io.computenode.cyfra.core.expression.Value
 
-class ConstantsManager extends Manager:
-  private val block: List[IR[?]] = Nil
-  
+case class ConstantsManager(block: List[IR[?]]):
+  def add[A: Value](const: IR.Constant[A]): (RefIR[A], ConstantsManager) =
+    ???
   def output: List[IR[?]] = block.reverse

@@ -2,8 +2,6 @@ package io.computenode.cyfra.compiler.unit
 
 import io.computenode.cyfra.compiler.ir.IR
 
-class DebugManager extends Manager:
-  private val block: List[IR[?]] = Nil
-
-
+case class DebugManager(block: List[IR[?]] = Nil):
+  def add(ir: IR[?]): DebugManager = ???
   def output: List[IR[?]] = block.reverse
