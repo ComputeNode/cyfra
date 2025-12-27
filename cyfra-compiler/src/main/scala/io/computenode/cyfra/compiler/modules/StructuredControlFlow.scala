@@ -22,10 +22,10 @@ class StructuredControlFlow extends FunctionCompilationModule:
     irs: IRs[?],
     startingLabel: Option[RefIR[Unit]],
     targets: mutable.Map[JumpTarget[?], RefIR[?]],
-    phiMap: mutable.Map[JumpTarget[?], mutable.Buffer[(RefIR[?], RefIR[?])]]
+    phiMap: mutable.Map[JumpTarget[?], mutable.Buffer[(RefIR[?], RefIR[?])]],
   )(using Ctx): IRs[?] =
     var currentLabel = startingLabel
-    irs.flatMapReplace:
+    irs.flatMapReplace(enterControlFlow = false):
       case x: Branch[a] =>
         given v: Value[a] = x.v
         val Branch(cond, ifTrue, ifFalse, break) = x

@@ -18,26 +18,29 @@ case class IRs[A: Value](result: IR[A], body: List[IR[?]]):
       case x => IRs(x)(using x.v)
     (next, removed.toList)
 
-  def flatMapReplace(f: IR[?] => IRs[?]): IRs[A] = flatMapReplaceImpl(f, mutable.Map.empty)
+  def flatMapReplace(f: IR[?] => IRs[?]): IRs[A] = flatMapReplace()(f)
 
-  private def flatMapReplaceImpl(f: IR[?] => IRs[?], replacements: mutable.Map[RefIR[?], RefIR[?]]): IRs[A] =
+  def flatMapReplace(enterControlFlow: Boolean = true)(f: IR[?] => IRs[?]): IRs[A] =
+    flatMapReplaceImpl(f, mutable.Map.empty, enterControlFlow)
+
+  private def flatMapReplaceImpl(f: IR[?] => IRs[?], replacements: mutable.Map[RefIR[?], RefIR[?]], enterControlFlow: Boolean): IRs[A] =
     val nextBody = body.flatMap: (x: IR[?]) =>
       val next = x match
-        case b: Branch[a] =>
+        case b: Branch[a] if enterControlFlow =>
           given Value[a] = b.v
           val Branch(cond, ifTrue, ifFalse, t) = b
-          val nextT = ifTrue.flatMapReplaceImpl(f, replacements)
-          val nextF = ifFalse.flatMapReplaceImpl(f, replacements)
+          val nextT = ifTrue.flatMapReplaceImpl(f, replacements, enterControlFlow)
+          val nextF = ifFalse.flatMapReplaceImpl(f, replacements, enterControlFlow)
           Branch[a](cond, nextT, nextF, t)
-        case Loop(mainBody, continueBody, b, c) =>
-          val nextM = mainBody.flatMapReplaceImpl(f, replacements)
-          val nextC = continueBody.flatMapReplaceImpl(f, replacements)
+        case Loop(mainBody, continueBody, b, c) if enterControlFlow =>
+          val nextM = mainBody.flatMapReplaceImpl(f, replacements, enterControlFlow)
+          val nextC = continueBody.flatMapReplaceImpl(f, replacements, enterControlFlow)
           Loop(nextM, nextC, b, c)
         case other => other
       val IRs(result, body) = f(next.substitute(replacements))
       result match
         case x: RefIR[?] => replacements(x) = x
-        case _          => ()
+        case _           => ()
       body
     val nextResult = result.substitute(replacements)
     IRs(nextResult, nextBody)
