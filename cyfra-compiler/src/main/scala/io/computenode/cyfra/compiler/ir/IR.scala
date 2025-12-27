@@ -8,10 +8,12 @@ import io.computenode.cyfra.compiler.spirv.Opcodes.Words
 import io.computenode.cyfra.core.binding.{GBuffer, GUniform}
 import io.computenode.cyfra.core.expression.*
 import io.computenode.cyfra.core.expression.given
+import io.computenode.cyfra.utility.Utility.nextId
 
 import scala.collection
 
 sealed trait IR[A: Value] extends Product:
+  val id: Int = nextId()
   def v: Value[A] = summon[Value[A]]
   def substitute(map: collection.Map[RefIR[?], RefIR[?]]): IR[A] = replace(using map)
   def name: String = this.getClass.getSimpleName

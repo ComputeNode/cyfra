@@ -44,7 +44,7 @@ val funcFlow = CustomFunction[Int32, Unit]: iv =>
 
     const[Unit](())
 
-def readFlow(buffer: GBuffer[Int32]) = CustomFunction[UInt32, Int32]: in =>
+def readFunc(buffer: GBuffer[Int32]) = CustomFunction[UInt32, Int32]: in =>
   reify:
     val i = read(in)
     val a = read(buffer, i)
@@ -56,7 +56,7 @@ def readFlow(buffer: GBuffer[Int32]) = CustomFunction[UInt32, Int32]: in =>
 def program(buffer: GBuffer[Int32])(using GIO): Unit =
   val vA = declare[UInt32]()
   write(vA, const(0))
-  call(readFlow(buffer), vA)
+  call(readFunc(buffer), vA)
   call(funcFlow, vA)
   ()
 

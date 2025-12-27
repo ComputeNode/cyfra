@@ -19,15 +19,16 @@ class Compiler(verbose: Boolean = false):
   private val emitter = new Emitter()
 
   def compile(bindings: Seq[GBinding[?]], body: ExpressionBlock[Unit]): Unit =
-    val unit = parser.compile(body)
-    if verbose then 
+    val parsedUnit = parser.compile(body)
+    if verbose then
       println(s"=== ${parser.name} ===")
-      Compilation.debugPrint(unit)
+      Compilation.debugPrint(parsedUnit)
 
-    modules.foreach: module =>
-      module.compile(unit)
-      if verbose then 
+    val compiledUnit = modules.foldLeft(parsedUnit): (unit, module) =>
+      val res = module.compile(unit)
+      if verbose then
         println(s"\n=== ${module.name} ===")
-        Compilation.debugPrint(unit)
+        Compilation.debugPrint(res)
+      res
 
-    emitter.compile(unit)
+    emitter.compile(compiledUnit)

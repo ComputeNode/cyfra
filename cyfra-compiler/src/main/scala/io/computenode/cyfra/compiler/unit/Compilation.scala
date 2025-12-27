@@ -24,31 +24,31 @@ object Compilation:
       .collect:
         case ref: RefIR[?] => ref
       .zipWithIndex
-      .map(x => (x._1, s"%${x._2}"))
+      .map(x => (x._1.id, s"%${x._2}"))
       .toMap
 
     def irInternal(ir: IR[?]): String = ir match
       case IR.Constant(value)                               => s"($value)"
       case IR.VarDeclare(variable)                          => s"#${variable.id}"
       case IR.VarRead(variable)                             => s"#${variable.id}"
-      case IR.VarWrite(variable, value)                     => s"#${variable.id} ${map(value)}"
-      case IR.ReadBuffer(buffer, index)                     => s"@${buffer.id} ${map(index)}"
-      case IR.WriteBuffer(buffer, index, value)             => s"@${buffer.id} ${map(index)} ${map(value)}"
+      case IR.VarWrite(variable, value)                     => s"#${variable.id} ${map(value.id)}"
+      case IR.ReadBuffer(buffer, index)                     => s"@${buffer.id} ${map(index.id)}"
+      case IR.WriteBuffer(buffer, index, value)             => s"@${buffer.id} ${map(index.id)} ${map(value.id)}"
       case IR.ReadUniform(uniform)                          => s"@${uniform.id}"
-      case IR.WriteUniform(uniform, value)                  => s"@${uniform.id} ${map(value)}"
-      case IR.Operation(func, args)                         => s"${func.name} ${args.map(map).mkString(" ")}"
-      case IR.Call(func, args)                              => s"${func.name} ${args.map(_.id).mkString(" ")}"
-      case IR.Branch(cond, ifTrue, ifFalse, break)          => s"${map(cond)} ???"
+      case IR.WriteUniform(uniform, value)                  => s"@${uniform.id} ${map(value.id)}"
+      case IR.Operation(func, args)                         => s"${func.name} ${args.map(_.id).map(map).mkString(" ")}"
+      case IR.Call(func, args)                              => s"${func.name} ${args.map(x => s"#${x.id}").mkString(" ")}"
+      case IR.Branch(cond, ifTrue, ifFalse, break)          => s"${map(cond.id)} ???"
       case IR.Loop(mainBody, continueBody, break, continue) => "???"
-      case IR.Jump(target, value)                           => s"${target.id} ${map(value)}"
-      case IR.ConditionalJump(cond, target, value)          => s"${map(cond)} ${target.id} ${map(value)}"
+      case IR.Jump(target, value)                           => s"${target.id} ${map(value.id)}"
+      case IR.ConditionalJump(cond, target, value)          => s"${map(cond.id)} ${target.id} ${map(value.id)}"
       case sv: (IR.SvInst | IR.SvRef[?])                    =>
         val operands = sv match
           case x: IR.SvInst   => x.operands
           case x: IR.SvRef[?] => x.operands
         operands
           .map:
-            case w: RefIR[?] => map(w)
+            case w: RefIR[?] => map(w.id)
             case w           => w.toString
           .mkString(" ")
 
@@ -66,7 +66,7 @@ object Compilation:
             val row = ir.name + " " + irInternal(ir)
             ir match
               case r: RefIR[?] =>
-                val id = map(r)
+                val id = map(r.id)
                 s"${" ".repeat(5 - id.length)}$id = $row"
               case _ => " ".repeat(8) + row
         s"// $title" :: res

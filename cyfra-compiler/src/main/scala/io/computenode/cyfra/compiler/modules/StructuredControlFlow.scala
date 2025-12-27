@@ -15,7 +15,7 @@ import izumi.reflect.Tag
 import scala.collection.mutable
 
 class StructuredControlFlow extends FunctionCompilationModule:
-  override def compileFunction(input: IRs[?])(using Ctx) =
+  override def compileFunction(input: IRs[?])(using Ctx): IRs[?] =
     compileRec(input, None, mutable.Map.empty, mutable.Map.empty.withDefault(_ => mutable.Buffer.empty))
 
   private def compileRec(
