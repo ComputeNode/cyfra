@@ -20,10 +20,10 @@ case class IRs[A: Value](result: IR[A], body: List[IR[?]]):
 
   def flatMapReplace(f: IR[?] => IRs[?]): IRs[A] = flatMapReplaceImpl(f, mutable.Map.empty)
 
-  private def flatMapReplaceImpl(f: IR[?] => IRs[?], replacements: mutable.Map[IR[?], IR[?]]): IRs[A] =
+  private def flatMapReplaceImpl(f: IR[?] => IRs[?], replacements: mutable.Map[RefIR[?], RefIR[?]]): IRs[A] =
     val nextBody = body.flatMap: (x: IR[?]) =>
       val next = x match
-        case b: Branch[a] => 
+        case b: Branch[a] =>
           given Value[a] = b.v
           val Branch(cond, ifTrue, ifFalse, t) = b
           val nextT = ifTrue.flatMapReplaceImpl(f, replacements)
@@ -35,7 +35,8 @@ case class IRs[A: Value](result: IR[A], body: List[IR[?]]):
           Loop(nextM, nextC, b, c)
         case other => other
       val IRs(result, body) = f(next.substitute(replacements))
-      replacements(x) = result
+      result match
+        case x: RefIR[?] => replacements(x) = x
       body
     val nextResult = result.substitute(replacements)
     IRs(nextResult, nextBody)

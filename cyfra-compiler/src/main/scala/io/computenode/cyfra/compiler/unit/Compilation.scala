@@ -5,6 +5,9 @@ import io.computenode.cyfra.compiler.unit.Context
 
 import scala.collection.mutable
 import io.computenode.cyfra.compiler.id
+import io.computenode.cyfra.compiler.ir.IR.RefIR
+
+import scala.collection.immutable.{AbstractMap, SeqMap, SortedMap}
 
 case class Compilation(context: Context, functions: List[FunctionIR[?]], functionBodies: List[IRs[?]]):
   def output: List[IR[?]] =
@@ -17,7 +20,12 @@ object Compilation:
 
   def debugPrint(compilation: Compilation): Unit =
     val irs = compilation.output
-    val map = irs.filter(_.isInstanceOf[IR.Ref]).zipWithIndex.map(x => (x._1, s"%${x._2}")).toMap
+    val map = irs
+      .collect:
+        case ref: RefIR[?] => ref
+      .zipWithIndex
+      .map(x => (x._1, s"%${x._2}"))
+      .toMap
 
     def irInternal(ir: IR[?]): String = ir match
       case IR.Constant(value)                               => s"($value)"
@@ -40,8 +48,8 @@ object Compilation:
           case x: IR.SvRef[?] => x.operands
         operands
           .map:
-            case w: IR[?] => map(w)
-            case w        => w.toString
+            case w: RefIR[?] => map(w)
+            case w           => w.toString
           .mkString(" ")
 
     val Context(prefix, debug, types, constants) = compilation.context
@@ -51,12 +59,15 @@ object Compilation:
         .map: (func, body) =>
           (body.body, func.name)
 
-    data.flatMap: (body, title) =>
-      val res = body
-        .map: ir =>
-          val row = ir.name + " " + irInternal(ir)
-          map.get(ir) match
-            case Some(id) => s"${" ".repeat(5 - id.length)}$id = $row"
-            case None     => " ".repeat(8) + row
-      s"// $title" :: res
-    .foreach(println)
+    data
+      .flatMap: (body, title) =>
+        val res = body
+          .map: ir =>
+            val row = ir.name + " " + irInternal(ir)
+            ir match
+              case r: RefIR[?] =>
+                val id = map(r)
+                s"${" ".repeat(5 - id.length)}$id = $row"
+              case _ => " ".repeat(8) + row
+        s"// $title" :: res
+      .foreach(println)

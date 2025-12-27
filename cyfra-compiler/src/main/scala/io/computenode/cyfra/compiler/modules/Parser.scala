@@ -67,28 +67,33 @@ class Parser extends CompilationModule[ExpressionBlock[Unit], Compilation]:
         IR.VarRead(variable)
       case x: Expression.VarWrite[a] =>
         given Value[a] = x.v2
-        IR.VarWrite(x.variable, convertToIR(x.value, functionMap))
+        IR.VarWrite(x.variable, convertToRefIR(x.value, functionMap))
       case Expression.ReadBuffer(buffer, index) =>
-        IR.ReadBuffer(buffer, convertToIR(index, functionMap))
+        IR.ReadBuffer(buffer, convertToRefIR(index, functionMap))
       case x: Expression.WriteBuffer[a] =>
         given Value[a] = x.v2
-        IR.WriteBuffer(x.buffer, convertToIR(x.index, functionMap), convertToIR(x.value, functionMap))
+        IR.WriteBuffer(x.buffer, convertToRefIR(x.index, functionMap), convertToRefIR(x.value, functionMap))
       case Expression.ReadUniform(uniform) =>
         IR.ReadUniform(uniform)
       case x: Expression.WriteUniform[a] =>
         given Value[a] = x.v2
-        IR.WriteUniform(x.uniform, convertToIR(x.value, functionMap))
+        IR.WriteUniform(x.uniform, convertToRefIR(x.value, functionMap))
       case Expression.BuildInOperation(func, args) =>
-        IR.Operation(func, args.map(convertToIR(_, functionMap)))
+        IR.Operation(func, args.map(convertToRefIR(_, functionMap)))
       case Expression.CustomCall(func, args) =>
         IR.Call(functionMap(func).asInstanceOf[FunctionIR[A]], args)
       case Expression.Branch(cond, ifTrue, ifFalse, break) =>
-        IR.Branch(convertToIR(cond, functionMap), convertToIRs(ifTrue, functionMap), convertToIRs(ifFalse, functionMap), break)
+        IR.Branch(convertToRefIR(cond, functionMap), convertToIRs(ifTrue, functionMap), convertToIRs(ifFalse, functionMap), break)
       case Expression.Loop(mainBody, continueBody, break, continue) =>
         IR.Loop(convertToIRs(mainBody, functionMap), convertToIRs(continueBody, functionMap), break, continue)
       case x: Expression.Jump[a] =>
         given Value[a] = x.v2
-        IR.Jump(x.target, convertToIR(x.value, functionMap))
+        IR.Jump(x.target, convertToRefIR(x.value, functionMap))
       case x: Expression.ConditionalJump[a] =>
         given Value[a] = x.v2
-        IR.ConditionalJump(convertToIR(x.cond, functionMap), x.target, convertToIR(x.value, functionMap))
+        IR.ConditionalJump(convertToRefIR(x.cond, functionMap), x.target, convertToRefIR(x.value, functionMap))
+
+  private def convertToRefIR[A](expr: Expression[A], functionMap: mutable.Map[CustomFunction[?], FunctionIR[?]]): IR.RefIR[A] =
+    convertToIR(expr, functionMap) match
+      case ref: IR.RefIR[A] => ref
+      case _                => throw new CompilationException(s"Expected a convertable to RefIR but got: $expr")
