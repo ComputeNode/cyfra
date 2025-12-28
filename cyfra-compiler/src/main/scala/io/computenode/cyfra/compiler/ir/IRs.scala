@@ -1,13 +1,17 @@
 package io.computenode.cyfra.compiler.ir
 
 import IR.*
+import io.computenode.cyfra.compiler.CompilationException
 import io.computenode.cyfra.compiler.ir.IRs.*
 import io.computenode.cyfra.core.expression.Value
+import io.computenode.cyfra.compiler.spirv.Opcodes.Op
 import io.computenode.cyfra.utility.cats.{FunctionK, ~>}
 
 import scala.collection.mutable
 
 case class IRs[A: Value](result: IR[A], body: List[IR[?]]):
+
+  def prepend(ir: IR[?]): IRs[A] = IRs(result, ir :: body)
 
   def filterOut(p: IR[?] => Boolean): (IRs[A], List[IR[?]]) =
     val removed = mutable.Buffer.empty[IR[?]]
@@ -23,9 +27,9 @@ case class IRs[A: Value](result: IR[A], body: List[IR[?]]):
   def flatMapReplace(enterControlFlow: Boolean = true)(f: IR[?] => IRs[?]): IRs[A] =
     flatMapReplaceImpl(f, mutable.Map.empty, enterControlFlow)
 
-  private def flatMapReplaceImpl(f: IR[?] => IRs[?], replacements: mutable.Map[RefIR[?], RefIR[?]], enterControlFlow: Boolean): IRs[A] =
-    val nextBody = body.flatMap: (x: IR[?]) =>
-      val next = x match
+  private def flatMapReplaceImpl(f: IR[?] => IRs[?], replacements: mutable.Map[Int, RefIR[?]], enterControlFlow: Boolean): IRs[A] =
+    val nBody = body.flatMap: (v: IR[?]) =>
+      val next = v match
         case b: Branch[a] if enterControlFlow =>
           given Value[a] = b.v
           val Branch(cond, ifTrue, ifFalse, t) = b
@@ -37,11 +41,27 @@ case class IRs[A: Value](result: IR[A], body: List[IR[?]]):
           val nextC = continueBody.flatMapReplaceImpl(f, replacements, enterControlFlow)
           Loop(nextM, nextC, b, c)
         case other => other
-      val IRs(result, body) = f(next.substitute(replacements))
-      result match
-        case x: RefIR[?] => replacements(x) = x
+      if v.id == 123 then println("processing 104")
+      val subst = next.substitute(replacements)
+      val IRs(result, body) = f(subst)
+      v match
+        case v: RefIR[?] => replacements(v.id) = result.asInstanceOf[RefIR[?]]
         case _           => ()
       body
+
+    // We neet to watch out for forward references
+
+    val codesWithLabels = Set(Op.OpLoopMerge, Op.OpSelectionMerge, Op.OpBranch, Op.OpBranchConditional, Op.OpSwitch)
+    val nextBody = nBody.map:
+      case x @ IR.SvInst(code, _) if codesWithLabels(code) => x.substitute(replacements) // all ops that point labels
+      case x @ IR.SvRef(Op.OpPhi, args)                    =>
+        // this can be a cyclical forward reference, let's crash if we may have to handle it
+        val safe = args.forall:
+          case ref: RefIR[?] => replacements.get(ref.id).forall(_.id == ref.id)
+          case _             => true
+        if safe then x else throw CompilationException("Forward reference detected in OpPhi")
+      case other => other
+
     val nextResult = result.substitute(replacements)
     IRs(nextResult, nextBody)
 

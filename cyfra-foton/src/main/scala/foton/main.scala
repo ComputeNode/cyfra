@@ -20,8 +20,10 @@ val funcFlow = CustomFunction[Int32, Unit]: iv =>
 
     val body: (BreakTarget, ContinueTarget, GIO) ?=> Unit =
       val i = read(iv)
-      conditionalContinue(i >= const[Int32](10))
+      conditionalBreak(i >= const[Int32](10))
+      conditionalContinue(i >= const[Int32](5))
       val j = i + const[Int32](1)
+      write(iv, j)
 
     val continue: GIO ?=> Unit =
       val i = read(iv)

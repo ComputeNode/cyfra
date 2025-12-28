@@ -42,6 +42,8 @@ private[cyfra] object Opcodes:
   private[cyfra] case class Code(mnemo: String, opcode: Int) extends Words:
     override def toWords: List[Byte] = intToBytes(opcode).reverse
 
+    override def toString: String = mnemo
+
     override def length: Int = 1
 
   private[cyfra] case class Text(text: String) extends Words:
@@ -57,6 +59,8 @@ private[cyfra] object Opcodes:
     override def toWords: List[Byte] = intToBytes(i).reverse
 
     override def length: Int = 1
+    
+    override def toString: String = i.toString
 
   private[cyfra] case class ResultRef(result: Int) extends Words:
     override def toWords: List[Byte] = intToBytes(result).reverse

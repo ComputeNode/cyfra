@@ -49,6 +49,7 @@ object Compilation:
         operands
           .map:
             case w: RefIR[?] => map(w.id)
+//            case w: RefIR[?] => map.getOrElse(w.id,s"(${w.id} NOT FOUND)")
             case w           => w.toString
           .mkString(" ")
 
