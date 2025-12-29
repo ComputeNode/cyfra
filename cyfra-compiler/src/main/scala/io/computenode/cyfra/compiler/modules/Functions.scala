@@ -35,10 +35,10 @@ class Functions extends StandardCompilationModule:
         val arg = IR.SvRef[Unit](Op.OpFunctionParameter, List(args.head))
         functionArgs = functionArgs :+ arg
         IRs.proxy(arg)
-      case x: IR.Call[a] =>
+      case x: IR.CallWithIR[a] =>
         given Value[a] = x.v
-        val IR.Call(f, args) = x
-        val inst = IR.SvRef[a](Op.OpFunctionCall, List(Ctx.getType(x.v), funcMap(f.name)) ++ Nil)
+        val IR.CallWithIR(f, args) = x
+        val inst = IR.SvRef[a](Op.OpFunctionCall, List(Ctx.getType(x.v), funcMap(f.name)) ++ args)
         IRs(inst)
       case other => IRs(other)(using other.v)
 

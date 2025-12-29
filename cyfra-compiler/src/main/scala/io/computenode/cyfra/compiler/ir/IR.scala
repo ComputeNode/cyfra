@@ -53,7 +53,9 @@ object IR:
     override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[Unit] = this.copy(value = value.replaced)
   case class Operation[A: Value](func: BuildInFunction[A], args: List[RefIR[?]]) extends RefIR[A]:
     override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[A] = this.copy(args = args.map(_.replaced))
-  case class Call[A: Value](func: FunctionIR[A], args: List[Var[?]]) extends RefIR[A]
+  case class CallWithVar[A: Value](func: FunctionIR[A], args: List[Var[?]]) extends RefIR[A]
+  case class CallWithIR[A: Value](func: FunctionIR[A], args: List[RefIR[?]]) extends RefIR[A]:
+    override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[A] = this.copy(args = args.map(_.replaced))
   case class Branch[T: Value](cond: RefIR[Bool], ifTrue: IRs[T], ifFalse: IRs[T], break: JumpTarget[T]) extends IR[T]:
     override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[T] = this.copy(cond = cond.replaced)
   case class Loop(mainBody: IRs[Unit], continueBody: IRs[Unit], break: JumpTarget[Unit], continue: JumpTarget[Unit]) extends IR[Unit]

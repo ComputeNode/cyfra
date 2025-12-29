@@ -26,4 +26,9 @@ class Variables extends FunctionCompilationModule:
         val IR.VarRead(variable) = x
         val inst = IR.SvRef[a](Op.OpLoad, List(Ctx.getType(variable.v), varDeclarations(variable.id)))
         IRs(inst)
+      case x: IR.CallWithVar[a] =>
+        given v: Value[a] = x.v
+        val IR.CallWithVar(func, args) = x
+        val inst = IR.CallWithIR(func, args.map(arg => varDeclarations(arg.id)))
+        IRs(inst)
       case other => IRs(other)(using other.v)

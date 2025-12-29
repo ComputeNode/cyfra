@@ -75,7 +75,8 @@ object TypeManager:
       (ir :: irs, nextMgr)
 
     if t =:= FunctionTag.withoutArgs then
-      val funcIR = SvRef[Unit](Op.OpTypeFunction, List(irArgs(1), irArgs(0)))
+      val argList = if tArgs(0) =:= UnitTag then List(irArgs(0)) else List(irArgs(1), irArgs(0))
+      val funcIR = SvRef[Unit](Op.OpTypeFunction, argList)
       return nextManager.copy(block = funcIR :: nextManager.block, cache = nextManager.cache.updated(tag, funcIR))
 
     val ta = tArgs.head

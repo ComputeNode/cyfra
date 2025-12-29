@@ -87,7 +87,7 @@ class Parser extends CompilationModule[ExpressionBlock[Unit], Compilation]:
       case Expression.BuildInOperation(func, args) =>
         IR.Operation(func, args.map(convertToRefIR(_, functionMap, expressionMap)))
       case Expression.CustomCall(func, args) =>
-        IR.Call(functionMap(func).asInstanceOf[FunctionIR[A]], args)
+        IR.CallWithVar(functionMap(func).asInstanceOf[FunctionIR[A]], args)
       case Expression.Branch(cond, ifTrue, ifFalse, break) =>
         IR.Branch(convertToRefIR(cond, functionMap, expressionMap), convertToIRs(ifTrue, functionMap, expressionMap), convertToIRs(ifFalse, functionMap, expressionMap), break)
       case Expression.Loop(mainBody, continueBody, break, continue) =>
