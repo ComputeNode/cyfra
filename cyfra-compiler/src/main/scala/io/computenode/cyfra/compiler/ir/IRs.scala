@@ -62,7 +62,7 @@ case class IRs[A: Value](result: IR[A], body: List[IR[?]]):
         if safe then x else throw CompilationException("Forward reference detected in OpPhi")
       case other => other
 
-    val nextResult = result.substitute(replacements)
+    val nextResult = replacements(result.id).asInstanceOf[IR[A]]
     IRs(nextResult, nextBody)
 
 object IRs:
