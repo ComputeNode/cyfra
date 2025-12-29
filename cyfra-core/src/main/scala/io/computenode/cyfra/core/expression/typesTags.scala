@@ -1,36 +1,38 @@
 package io.computenode.cyfra.core.expression
 
-import izumi.reflect.Tag
+import izumi.reflect.{Tag, TagK}
 import izumi.reflect.macrortti.LightTypeTag
 
-val BoolTag = summon[Tag[Bool]].tag
-val Float16Tag = summon[Tag[Float16]].tag
-val Float32Tag = summon[Tag[Float32]].tag
-val Int16Tag = summon[Tag[Int16]].tag
-val Int32Tag = summon[Tag[Int32]].tag
-val UInt16Tag = summon[Tag[UInt16]].tag
-val UInt32Tag = summon[Tag[UInt32]].tag
+val UnitTag = Tag[Unit].tag
+val BoolTag = Tag[Bool].tag
 
-val Vec2Tag = summon[Tag[Vec2[?]]].tag.withoutArgs
-val Vec3Tag = summon[Tag[Vec3[?]]].tag.withoutArgs
-val Vec4Tag = summon[Tag[Vec4[?]]].tag.withoutArgs
+val Float16Tag = Tag[Float16].tag
+val Float32Tag = Tag[Float32].tag
+val Int16Tag = Tag[Int16].tag
+val Int32Tag = Tag[Int32].tag
+val UInt16Tag = Tag[UInt16].tag
+val UInt32Tag = Tag[UInt32].tag
 
-val Mat2x2Tag = summon[Tag[Mat2x2[?]]].tag.withoutArgs
-val Mat2x3Tag = summon[Tag[Mat2x3[?]]].tag.withoutArgs
-val Mat2x4Tag = summon[Tag[Mat2x4[?]]].tag.withoutArgs
-val Mat3x2Tag = summon[Tag[Mat3x2[?]]].tag.withoutArgs
-val Mat3x3Tag = summon[Tag[Mat3x3[?]]].tag.withoutArgs
-val Mat3x4Tag = summon[Tag[Mat3x4[?]]].tag.withoutArgs
-val Mat4x2Tag = summon[Tag[Mat4x2[?]]].tag.withoutArgs
-val Mat4x3Tag = summon[Tag[Mat4x3[?]]].tag.withoutArgs
-val Mat4x4Tag = summon[Tag[Mat4x4[?]]].tag.withoutArgs
+val Vec2Tag = TagK[Vec2].tag
+val Vec3Tag = TagK[Vec3].tag
+val Vec4Tag = TagK[Vec4].tag
+
+val Mat2x2Tag = TagK[Mat2x2].tag
+val Mat2x3Tag = TagK[Mat2x3].tag
+val Mat2x4Tag = TagK[Mat2x4].tag
+val Mat3x2Tag = TagK[Mat3x2].tag
+val Mat3x3Tag = TagK[Mat3x3].tag
+val Mat3x4Tag = TagK[Mat3x4].tag
+val Mat4x2Tag = TagK[Mat4x2].tag
+val Mat4x3Tag = TagK[Mat4x3].tag
+val Mat4x4Tag = TagK[Mat4x4].tag
 
 def typeStride(value: Value[?]): Int = typeStride(value.tag)
 def typeStride(tag: Tag[?]): Int = typeStride(tag.tag)
 
 private def typeStride(tag: LightTypeTag): Int =
   val elementSize = tag.typeArgs.headOption.map(typeStride).getOrElse(1)
-  val base = tag.withoutArgs match
+  val base = tag match
     case BoolTag    => ???
     case Float16Tag => 2
     case Float32Tag => 4
@@ -55,7 +57,7 @@ private def typeStride(tag: LightTypeTag): Int =
   base * elementSize
 
 def columns(tag: LightTypeTag): Int =
-  tag.withoutArgs match
+  tag match
     case Mat2x2Tag => 2
     case Mat2x3Tag => 3
     case Mat2x4Tag => 4

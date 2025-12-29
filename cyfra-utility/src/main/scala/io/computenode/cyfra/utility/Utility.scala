@@ -15,3 +15,8 @@ object Utility:
 
   private val aint = AtomicInteger(0)
   def nextId(): Int = aint.getAndIncrement()
+
+  extension (str: String)
+    def red: String = Console.RED + str + Console.RESET
+    def yellow: String = Console.YELLOW + str + Console.RESET
+    def blue: String = Console.BLUE + str + Console.RESET

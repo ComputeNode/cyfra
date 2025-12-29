@@ -17,8 +17,7 @@ sealed trait IR[A: Value] extends Product:
   def v: Value[A] = summon[Value[A]]
   def substitute(map: collection.Map[Int, RefIR[?]]): IR[A] =
     val that = replace(using map)
-    that
-//    if this.deepEquals(that) then this else that
+    if this.deepEquals(that) then this else that // not reusing IRs would break Structured Control Flow phase (as we don't want to substitute body that is being compiled)
   def name: String = this.getClass.getSimpleName
   protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[A] = this
 

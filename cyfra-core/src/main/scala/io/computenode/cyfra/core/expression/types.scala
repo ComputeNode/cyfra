@@ -25,21 +25,21 @@ sealed trait UnsignedIntType extends IntegerType
 abstract class UInt16 extends UnsignedIntType
 abstract class UInt32 extends UnsignedIntType
 
-sealed trait Vec[T <: Scalar: Value]
-abstract class Vec2[T <: Scalar: Value] extends Vec[T]
-abstract class Vec3[T <: Scalar: Value] extends Vec[T]
-abstract class Vec4[T <: Scalar: Value] extends Vec[T]
+sealed trait Vec[T: Value]
+abstract class Vec2[T: Value] extends Vec[T]
+abstract class Vec3[T: Value] extends Vec[T]
+abstract class Vec4[T: Value] extends Vec[T]
 
-sealed trait Mat[T <: Scalar: Value]
-abstract class Mat2x2[T <: Scalar: Value] extends Mat[T]
-abstract class Mat2x3[T <: Scalar: Value] extends Mat[T]
-abstract class Mat2x4[T <: Scalar: Value] extends Mat[T]
-abstract class Mat3x2[T <: Scalar: Value] extends Mat[T]
-abstract class Mat3x3[T <: Scalar: Value] extends Mat[T]
-abstract class Mat3x4[T <: Scalar: Value] extends Mat[T]
-abstract class Mat4x2[T <: Scalar: Value] extends Mat[T]
-abstract class Mat4x3[T <: Scalar: Value] extends Mat[T]
-abstract class Mat4x4[T <: Scalar: Value] extends Mat[T]
+sealed trait Mat[T: Value]
+abstract class Mat2x2[T: Value] extends Mat[T]
+abstract class Mat2x3[T: Value] extends Mat[T]
+abstract class Mat2x4[T: Value] extends Mat[T]
+abstract class Mat3x2[T: Value] extends Mat[T]
+abstract class Mat3x3[T: Value] extends Mat[T]
+abstract class Mat3x4[T: Value] extends Mat[T]
+abstract class Mat4x2[T: Value] extends Mat[T]
+abstract class Mat4x3[T: Value] extends Mat[T]
+abstract class Mat4x4[T: Value] extends Mat[T]
 
 private def const[A: Value](value: Any): A =
   summon[Value[A]].extract(ExpressionBlock(Expression.Constant[A](value)))
@@ -222,7 +222,3 @@ object Mat4x4:
     m32: Int,
     m33: Int,
   ): Mat4x4[A] = const((m00, m01, m02, m03, m10, m11, m12, m13, m20, m21, m22, m23, m30, m31, m32, m33))
-  
-  
-  
-

@@ -18,6 +18,8 @@ trait Value[A]:
     summon[Monad[ExpressionBlock]].pure(x)
 
 object Value:
+  def apply[A](using v: Value[A]): Value[A] = v
+  
   def map[Res: Value as vr](f: BuildInFunction0[Res]): Res =
     val next = Expression.BuildInOperation(f, Nil)
     vr.extract(ExpressionBlock(next, List(next)))

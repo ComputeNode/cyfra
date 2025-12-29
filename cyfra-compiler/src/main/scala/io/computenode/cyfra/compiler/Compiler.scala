@@ -11,7 +11,8 @@ class Compiler(verbose: Boolean = false):
   private val parser = new Parser()
   private val modules: List[StandardCompilationModule] = List(
     new StructuredControlFlow,
-//    new Variables,
+    new Variables,
+    new Functions,
 //    new Bindings,
 //    new Functions,
 //    new Algebra

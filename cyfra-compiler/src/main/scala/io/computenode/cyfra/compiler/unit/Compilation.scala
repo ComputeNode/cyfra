@@ -4,8 +4,10 @@ import io.computenode.cyfra.compiler.ir.{FunctionIR, IR, IRs}
 import io.computenode.cyfra.compiler.unit.Context
 
 import scala.collection.mutable
-import io.computenode.cyfra.compiler.id
+import io.computenode.cyfra.compiler.{CompilationException, id}
+import io.computenode.cyfra.compiler.spirv.Opcodes.IntWord
 import io.computenode.cyfra.compiler.ir.IR.RefIR
+import io.computenode.cyfra.utility.Utility.*
 
 import scala.collection.immutable.{AbstractMap, SeqMap, SortedMap}
 
@@ -19,12 +21,14 @@ object Compilation:
     Compilation(Context(Nil, DebugManager(), TypeManager(), ConstantsManager()), f, fir)
 
   def debugPrint(compilation: Compilation): Unit =
+    var printingError = false
+
     val irs = compilation.output
     val map = irs
       .collect:
         case ref: RefIR[?] => ref
       .zipWithIndex
-      .map(x => (x._1.id, s"%${x._2}"))
+      .map(x => (x._1.id, s"%${x._2}".yellow))
       .toMap
 
     def irInternal(ir: IR[?]): String = ir match
@@ -48,9 +52,12 @@ object Compilation:
           case x: IR.SvRef[?] => x.operands
         operands
           .map:
-            case w: RefIR[?] => map(w.id)
-//            case w: RefIR[?] => map.getOrElse(w.id,s"(${w.id} NOT FOUND)")
-            case w           => w.toString
+            case w: RefIR[?] if map.contains(w.id) => map(w.id)
+            case w: RefIR[?]                       =>
+              printingError = true
+              s"(${w.id} NOT FOUND)".red
+            case w: IntWord => w.toString.blue
+            case w          => w.toString
           .mkString(" ")
 
     val Context(prefix, debug, types, constants) = compilation.context
@@ -68,7 +75,11 @@ object Compilation:
             ir match
               case r: RefIR[?] =>
                 val id = map(r.id)
-                s"${" ".repeat(5 - id.length)}$id = $row"
+                s"${" ".repeat(14 - id.length)}$id = $row"
               case _ => " ".repeat(8) + row
         s"// $title" :: res
       .foreach(println)
+    if printingError then
+      println("".red)
+      println("Some references were not found in the mapping!".red)
+      throw CompilationException("Debug print failed due to missing references")
