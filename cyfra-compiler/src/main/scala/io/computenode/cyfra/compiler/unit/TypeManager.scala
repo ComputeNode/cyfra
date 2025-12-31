@@ -13,7 +13,7 @@ import izumi.reflect.macrortti.LightTypeTag
 import scala.collection.mutable
 
 case class TypeManager(block: List[IR[?]] = Nil, cache: Map[LightTypeTag, RefIR[Unit]] = Map.empty):
-  def getType(value: Value[?]): (RefIR[Unit], TypeManager) = getTypeInternal(value.tag.tag)
+  def getType(tag: LightTypeTag): (RefIR[Unit], TypeManager) = getTypeInternal(tag)
 
   def getTypeFunction(returnType: Value[?], parameter: Option[Value[?]]): (RefIR[Unit], TypeManager) =
     val tag = FunctionTag.combine(parameter.getOrElse(Value[Unit]).tag.tag, returnType.tag.tag)
@@ -22,6 +22,11 @@ case class TypeManager(block: List[IR[?]] = Nil, cache: Map[LightTypeTag, RefIR[
   def getPointer(baseType: Value[?], storageClass: Code): (RefIR[Unit], TypeManager) =
     val tag = PointerTag.combine(baseType.tag.tag, intToTag(storageClass.opcode))
     val next = TypeManager.withTypePointer(this, baseType.tag.tag, storageClass)
+    (next.cache(tag), next)
+
+  def getPointer(ltag: LightTypeTag, storageClass: Code): (RefIR[Unit], TypeManager) =
+    val tag = PointerTag.combine(ltag, intToTag(storageClass.opcode))
+    val next = TypeManager.withTypePointer(this, ltag, storageClass)
     (next.cache(tag), next)
 
   private def getTypeInternal(tag: LightTypeTag): (RefIR[Unit], TypeManager) =

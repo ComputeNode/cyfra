@@ -13,14 +13,13 @@ class Compiler(verbose: Boolean = false):
     new StructuredControlFlow,
     new Variables,
     new Functions,
-//    new Bindings,
-//    new Functions,
+    new Bindings,
 //    new Algebra
   )
   private val emitter = new Emitter()
 
   def compile(bindings: Seq[GBinding[?]], body: ExpressionBlock[Unit]): Unit =
-    val parsedUnit = parser.compile(body)
+    val parsedUnit = parser.compile(body).copy(bindings = bindings)
     if verbose then
       println(s"=== ${parser.name} ===")
       Compilation.debugPrint(parsedUnit)

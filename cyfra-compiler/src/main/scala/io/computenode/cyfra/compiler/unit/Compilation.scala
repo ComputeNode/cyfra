@@ -7,18 +7,20 @@ import scala.collection.mutable
 import io.computenode.cyfra.compiler.{CompilationException, id}
 import io.computenode.cyfra.compiler.spirv.Opcodes.IntWord
 import io.computenode.cyfra.compiler.ir.IR.RefIR
+import io.computenode.cyfra.core.binding.GBinding
 import io.computenode.cyfra.utility.Utility.*
 
 import scala.collection.immutable.{AbstractMap, SeqMap, SortedMap}
 
-case class Compilation(context: Context, functions: List[FunctionIR[?]], functionBodies: List[IRs[?]]):
+case class Compilation(context: Context, bindings: Seq[GBinding[?]], functions: List[FunctionIR[?]], functionBodies: List[IRs[?]]):
   def output: List[IR[?]] =
     context.output ++ functionBodies.flatMap(_.body)
 
 object Compilation:
   def apply(functions: List[(FunctionIR[?], IRs[?])]): Compilation =
     val (f, fir) = functions.unzip
-    Compilation(Context(Nil, DebugManager(), TypeManager(), ConstantsManager()), f, fir)
+    val context = Context(Nil, DebugManager(), Nil, TypeManager(), ConstantsManager(), Nil)
+    Compilation(context, Nil, f, fir)
 
   def debugPrint(compilation: Compilation): Unit =
     var printingError = false
@@ -41,7 +43,7 @@ object Compilation:
       case IR.ReadUniform(uniform)                          => s"@${uniform.id}"
       case IR.WriteUniform(uniform, value)                  => s"@${uniform.id} ${map(value.id)}"
       case IR.Operation(func, args)                         => s"${func.name} ${args.map(_.id).map(map).mkString(" ")}"
-      case IR.CallWithVar(func, args)                              => s"${func.name} ${args.map(x => s"#${x.id}").mkString(" ")}"
+      case IR.CallWithVar(func, args)                       => s"${func.name} ${args.map(x => s"#${x.id}").mkString(" ")}"
       case IR.CallWithIR(func, args)                        => s"${func.name} ${args.map(x => map(x.id)).mkString(" ")}"
       case IR.Branch(cond, ifTrue, ifFalse, break)          => s"${map(cond.id)} ???"
       case IR.Loop(mainBody, continueBody, break, continue) => "???"
@@ -61,8 +63,15 @@ object Compilation:
             case w          => w.toString
           .mkString(" ")
 
-    val Context(prefix, debug, types, constants) = compilation.context
-    val data = Seq((prefix, "Prefix"), (debug.output, "Debug Symbols"), (types.output, "Type Info"), (constants.output, "Constants")) ++
+    val Context(prefix, debug, decorations, types, constants, suffix) = compilation.context
+    val data = Seq(
+      (prefix, "Prefix"),
+      (debug.output, "Debug Symbols"),
+      (decorations, "Decorations"),
+      (types.output, "Type Info"),
+      (constants.output, "Constants"),
+      (suffix, "Suffix"),
+    ) ++
       compilation.functions
         .zip(compilation.functionBodies)
         .map: (func, body) =>

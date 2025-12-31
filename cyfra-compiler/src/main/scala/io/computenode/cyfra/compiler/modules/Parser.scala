@@ -5,7 +5,7 @@ import io.computenode.cyfra.compiler.ir.IR
 import io.computenode.cyfra.compiler.ir.IRs
 import io.computenode.cyfra.compiler.CompilationException
 import io.computenode.cyfra.compiler.unit.Compilation
-import io.computenode.cyfra.core.binding.{GBuffer, GUniform}
+import io.computenode.cyfra.core.binding.{BufferRef, GBuffer, GUniform, UniformRef}
 import io.computenode.cyfra.core.expression.{BuildInFunction, CustomFunction, Expression, ExpressionBlock, Value, Var, given}
 
 import scala.collection.mutable
@@ -45,7 +45,11 @@ class Parser extends CompilationModule[ExpressionBlock[Unit], Compilation]:
         given Value[a] = f.v
         (FunctionIR(f.name, f.arg), convertToIRs(f.body, functionMap, mutable.Map.empty))
 
-  private def convertToIRs[A](block: ExpressionBlock[A], functionMap: collection.Map[CustomFunction[?], FunctionIR[?]], expressionMap: mutable.Map[Int, IR[?]]): IRs[A] =
+  private def convertToIRs[A](
+    block: ExpressionBlock[A],
+    functionMap: collection.Map[CustomFunction[?], FunctionIR[?]],
+    expressionMap: mutable.Map[Int, IR[?]],
+  ): IRs[A] =
     given Value[A] = block.result.v
     var result: Option[IR[A]] = None
     val body = block.body.reverse
@@ -75,21 +79,26 @@ class Parser extends CompilationModule[ExpressionBlock[Unit], Compilation]:
         given Value[a] = x.v2
         IR.VarWrite(x.variable, convertToRefIR(x.value, functionMap, expressionMap))
       case Expression.ReadBuffer(buffer, index) =>
-        IR.ReadBuffer(buffer, convertToRefIR(index, functionMap, expressionMap))
+        IR.ReadBuffer(asBufferRef(buffer), convertToRefIR(index, functionMap, expressionMap))
       case x: Expression.WriteBuffer[a] =>
         given Value[a] = x.v2
-        IR.WriteBuffer(x.buffer, convertToRefIR(x.index, functionMap, expressionMap), convertToRefIR(x.value, functionMap, expressionMap))
+        IR.WriteBuffer(asBufferRef(x.buffer), convertToRefIR(x.index, functionMap, expressionMap), convertToRefIR(x.value, functionMap, expressionMap))
       case Expression.ReadUniform(uniform) =>
-        IR.ReadUniform(uniform)
+        IR.ReadUniform(asUniformRef(uniform))
       case x: Expression.WriteUniform[a] =>
         given Value[a] = x.v2
-        IR.WriteUniform(x.uniform, convertToRefIR(x.value, functionMap, expressionMap))
+        IR.WriteUniform(asUniformRef(x.uniform), convertToRefIR(x.value, functionMap, expressionMap))
       case Expression.BuildInOperation(func, args) =>
         IR.Operation(func, args.map(convertToRefIR(_, functionMap, expressionMap)))
       case Expression.CustomCall(func, args) =>
         IR.CallWithVar(functionMap(func).asInstanceOf[FunctionIR[A]], args)
       case Expression.Branch(cond, ifTrue, ifFalse, break) =>
-        IR.Branch(convertToRefIR(cond, functionMap, expressionMap), convertToIRs(ifTrue, functionMap, expressionMap), convertToIRs(ifFalse, functionMap, expressionMap), break)
+        IR.Branch(
+          convertToRefIR(cond, functionMap, expressionMap),
+          convertToIRs(ifTrue, functionMap, expressionMap),
+          convertToIRs(ifFalse, functionMap, expressionMap),
+          break,
+        )
       case Expression.Loop(mainBody, continueBody, break, continue) =>
         IR.Loop(convertToIRs(mainBody, functionMap, expressionMap), convertToIRs(continueBody, functionMap, expressionMap), break, continue)
       case x: Expression.Jump[a] =>
@@ -102,7 +111,19 @@ class Parser extends CompilationModule[ExpressionBlock[Unit], Compilation]:
     expressionMap(expr.id) = res
     res
 
-  private def convertToRefIR[A](expr: Expression[A], functionMap: collection.Map[CustomFunction[?], FunctionIR[?]], expressionMap: mutable.Map[Int, IR[?]]): IR.RefIR[A] =
+  def asBufferRef[A](buffer: GBuffer[A]): BufferRef[A] = buffer match
+    case x: BufferRef[A] => x
+    case _               => throw new CompilationException(s"Expected BufferRef but got: $buffer")
+
+  def asUniformRef[A](uniform: GUniform[A]): UniformRef[A] = uniform match
+    case x: UniformRef[A] => x
+    case _                => throw new CompilationException(s"Expected UniformRef but got: $uniform")
+
+  private def convertToRefIR[A](
+    expr: Expression[A],
+    functionMap: collection.Map[CustomFunction[?], FunctionIR[?]],
+    expressionMap: mutable.Map[Int, IR[?]],
+  ): IR.RefIR[A] =
     convertToIR(expr, functionMap, expressionMap) match
       case ref: IR.RefIR[A] => ref
       case _                => throw new CompilationException(s"Expected a convertable to RefIR but got: $expr")

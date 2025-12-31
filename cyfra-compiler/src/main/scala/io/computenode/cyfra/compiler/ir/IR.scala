@@ -5,7 +5,7 @@ import io.computenode.cyfra.compiler.ir.IR.RefIR
 import io.computenode.cyfra.compiler.ir.IRs
 import io.computenode.cyfra.compiler.spirv.Opcodes.Code
 import io.computenode.cyfra.compiler.spirv.Opcodes.Words
-import io.computenode.cyfra.core.binding.{GBuffer, GUniform}
+import io.computenode.cyfra.core.binding.{BufferRef, GBuffer, GUniform, UniformRef}
 import io.computenode.cyfra.core.expression.*
 import io.computenode.cyfra.core.expression.given
 import io.computenode.cyfra.utility.Utility.nextId
@@ -44,12 +44,12 @@ object IR:
   case class VarRead[A: Value](variable: Var[A]) extends RefIR[A]
   case class VarWrite[A: Value](variable: Var[A], value: RefIR[A]) extends IR[Unit]:
     override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[Unit] = this.copy(value = value.replaced)
-  case class ReadBuffer[A: Value](buffer: GBuffer[A], index: RefIR[UInt32]) extends RefIR[A]:
+  case class ReadBuffer[A: Value](buffer: BufferRef[A], index: RefIR[UInt32]) extends RefIR[A]:
     override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[A] = this.copy(index = index.replaced)
-  case class WriteBuffer[A: Value](buffer: GBuffer[A], index: RefIR[UInt32], value: RefIR[A]) extends IR[Unit]:
+  case class WriteBuffer[A: Value](buffer: BufferRef[A], index: RefIR[UInt32], value: RefIR[A]) extends IR[Unit]:
     override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[Unit] = this.copy(index = index.replaced, value = value.replaced)
-  case class ReadUniform[A: Value](uniform: GUniform[A]) extends RefIR[A]
-  case class WriteUniform[A: Value](uniform: GUniform[A], value: RefIR[A]) extends IR[Unit]:
+  case class ReadUniform[A: Value](uniform: UniformRef[A]) extends RefIR[A]
+  case class WriteUniform[A: Value](uniform: UniformRef[A], value: RefIR[A]) extends IR[Unit]:
     override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[Unit] = this.copy(value = value.replaced)
   case class Operation[A: Value](func: BuildInFunction[A], args: List[RefIR[?]]) extends RefIR[A]:
     override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[A] = this.copy(args = args.map(_.replaced))

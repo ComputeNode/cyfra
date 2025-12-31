@@ -20,3 +20,13 @@ object Utility:
     def red: String = Console.RED + str + Console.RESET
     def yellow: String = Console.YELLOW + str + Console.RESET
     def blue: String = Console.BLUE + str + Console.RESET
+  
+  extension [A](seq:Seq[A])
+    def accumulate[B, C](initial: B)(fn: (B, A) => (B, C)): (Seq[C], B) =
+      val builder = Seq.newBuilder[C]
+      var acc = initial
+      for elem <- seq do
+        val (nextAcc, res) = fn(acc, elem)
+        acc = nextAcc
+        builder += res
+      (builder.result(), acc)

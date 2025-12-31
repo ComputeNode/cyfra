@@ -10,6 +10,7 @@ trait Value[A]:
   def extract(block: ExpressionBlock[A]): A =
     if !block.isPure then throw RuntimeException("Cannot embed impure expression")
     extractUnsafe(block)
+  def composite: Option[Value[?]] = None
     
   protected def extractUnsafe(ir: ExpressionBlock[A]): A
   def tag: Tag[A]

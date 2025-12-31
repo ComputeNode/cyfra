@@ -56,8 +56,27 @@ private def typeStride(tag: LightTypeTag): Int =
 
   base * elementSize
 
+def rows(tag: LightTypeTag): Int =
+  tag match
+    case Vec2Tag   => 2
+    case Vec3Tag   => 3
+    case Vec4Tag   => 4
+    case Mat2x2Tag => 2
+    case Mat2x3Tag => 2
+    case Mat2x4Tag => 2
+    case Mat3x2Tag => 3
+    case Mat3x3Tag => 3
+    case Mat3x4Tag => 3
+    case Mat4x2Tag => 4
+    case Mat4x3Tag => 4
+    case Mat4x4Tag => 4
+    case _         => ???
+
 def columns(tag: LightTypeTag): Int =
   tag match
+    case Vec2Tag   => 1
+    case Vec3Tag   => 1
+    case Vec4Tag   => 1
     case Mat2x2Tag => 2
     case Mat2x3Tag => 3
     case Mat2x4Tag => 4

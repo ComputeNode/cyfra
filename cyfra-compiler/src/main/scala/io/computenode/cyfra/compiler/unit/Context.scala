@@ -4,8 +4,10 @@ import io.computenode.cyfra.compiler.ir.IR
 
 case class Context(
   prefix: List[IR[?]],
-  private[unit] debug: DebugManager,
-  private[unit] types: TypeManager,
-  private[unit] constants: ConstantsManager,
+  debug: DebugManager,
+  decorations: List[IR[?]],
+  types: TypeManager,
+  constants: ConstantsManager,
+  suffix: List[IR[?]],
 ):
-  def output: List[IR[?]] = prefix ++ debug.output ++ types.output ++ constants.output
+  def output: List[IR[?]] = prefix ++ debug.output ++ decorations ++ types.output ++ constants.output ++ suffix
