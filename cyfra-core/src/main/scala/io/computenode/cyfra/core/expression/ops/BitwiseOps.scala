@@ -38,11 +38,8 @@ extension [T: {BitwiseOps, Value}](self: T)
   def bitFieldInsert[Offset: Value, Count: Value](insert: T, offset: Offset, count: Count): T =
     self.map[T, Offset, Count, T](insert, offset, count)(BuildInFunction.BitFieldInsert)
   
-  def bitFieldSExtract[Offset: Value, Count: Value](offset: Offset, count: Count): T =
-    self.map[Offset, Count, T](offset, count)(BuildInFunction.BitFieldSExtract)
-  
-  def bitFieldUExtract[Offset: Value, Count: Value](offset: Offset, count: Count): T =
-    self.map[Offset, Count, T](offset, count)(BuildInFunction.BitFieldUExtract)
+  def bitFieldExtract[Offset: Value, Count: Value](offset: Offset, count: Count): T =
+    self.map[Offset, Count, T](offset, count)(BuildInFunction.BitFieldExtract)
   
   def bitReverse: T = self.map(BuildInFunction.BitReverse)
   

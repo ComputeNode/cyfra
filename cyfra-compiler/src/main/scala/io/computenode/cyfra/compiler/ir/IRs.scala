@@ -41,7 +41,6 @@ case class IRs[A: Value](result: IR[A], body: List[IR[?]]):
           val nextC = continueBody.flatMapReplaceImpl(f, replacements, enterControlFlow)
           Loop(nextM, nextC, b, c)
         case other => other
-      if v.id == 123 then println("processing 104")
       val subst = next.substitute(replacements)
       val IRs(result, body) = f(subst)
       v match
@@ -50,19 +49,18 @@ case class IRs[A: Value](result: IR[A], body: List[IR[?]]):
       body
 
     // We neet to watch out for forward references
-
     val codesWithLabels = Set(Op.OpLoopMerge, Op.OpSelectionMerge, Op.OpBranch, Op.OpBranchConditional, Op.OpSwitch)
     val nextBody = nBody.map:
-      case x @ IR.SvInst(code, _) if codesWithLabels(code) => x.substitute(replacements) // all ops that point labels
+      case x @ IR.SvInst(code, _) if codesWithLabels(code) => x.substitute(replacements) // all ops that point to labels
       case x @ IR.SvRef(Op.OpPhi, args)                    =>
-        // this can be a cyclical forward reference, let's crash if we may have to handle it
+        // this can contain a cyclical forward reference, let's crash if we may have to handle it
         val safe = args.forall:
           case ref: RefIR[?] => replacements.get(ref.id).forall(_.id == ref.id)
           case _             => true
         if safe then x else throw CompilationException("Forward reference detected in OpPhi")
       case other => other
 
-    val nextResult = replacements(result.id).asInstanceOf[IR[A]]
+    val nextResult = replacements.getOrElse(result.id, result).asInstanceOf[IR[A]]
     IRs(nextResult, nextBody)
 
 object IRs:

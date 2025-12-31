@@ -9,14 +9,8 @@ import io.computenode.cyfra.compiler.unit.Compilation
 
 class Compiler(verbose: Boolean = false):
   private val parser = new Parser()
-  private val modules: List[StandardCompilationModule] = List(
-    new StructuredControlFlow,
-    new Variables,
-    new Functions,
-    new Bindings,
-    new Constants,
-//    new Algebra
-  )
+  private val modules: List[StandardCompilationModule] =
+    List(new StructuredControlFlow, new Variables, new Functions, new Bindings, new Constants, new Algebra)
   private val emitter = new Emitter()
 
   def compile(bindings: Seq[GBinding[?]], body: ExpressionBlock[Unit]): Unit =
