@@ -13,9 +13,9 @@ import izumi.reflect.macrortti.LightTypeTag
 import scala.collection.mutable
 
 case class ConstantsManager(block: List[IR[?]] = Nil, cache: Map[(Any, Tag[?]), RefIR[?]] = Map.empty):
-  def get(value: Any, tag: LightTypeTag): (RefIR[?], ConstantsManager) =
-    val next = ConstantsManager.withConstant(this, value, tag)
-    (next.cache((value, tag)), next)
+  def get(types: TypeManager, const: Any, value: Value[?]): (RefIR[?], ConstantsManager) =
+    val next = ConstantsManager.withConstant(this, types, const, value)
+    (next.cache((const, value.tag)), next)
 
   def output: List[IR[?]] = block.reverse
 
@@ -32,26 +32,38 @@ object ConstantsManager:
     else throw CompilationException(s"Cannot create constant of type: ${value.tag}")
 
   def getMatrix(manager: ConstantsManager, types: TypeManager, const: Any, value: Value[?]): (RefIR[?], ConstantsManager) =
-    val t = tag.withoutArgs
-    val tArgs = tag.typeArgs
-
-    ???
-
-  def getVector(manager: ConstantsManager, types: TypeManager, const: Any, value: Value[?]): (RefIR[?], ConstantsManager) =
-    manager.cache.get((value, tag)) match
+    manager.cache.get((const, value.tag)) match
       case Some(ir) => return (ir, manager)
       case None     => ()
 
-    val t = tag.withoutArgs
-    val ta = tag.typeArgs.head
-    val l = value.asInstanceOf[Seq[Any]]
+    val va = value.composite.get
+    val seq = const.asInstanceOf[Seq[Any]].grouped(columns(value.tag.tag.withoutArgs)).toSeq
 
-    val (scalars, m1) = l.accumulate(manager): (acc, v) =>
-      val (nIr, m) = ConstantsManager.getScalar(acc, v, ta)
-      scalars.addOne(nIr)
-      (m, nIr)
+    val (scalars, m1) = seq.accumulate(manager): (acc, v) =>
+      ConstantsManager.getVector(acc, types, v, va).swap
 
-    val tpe = types.cache(tag)
+    val tpe = types.cache(value.tag.tag)
+    val ir = IR.SvRef(Op.OpConstantComposite, tpe :: scalars.toList)(using value)
+
+    val nextManger = m1.copy(block = ir :: m1.block, cache = m1.cache.updated((const, value.tag), ir))
+    (ir, nextManger)
+
+  def getVector(manager: ConstantsManager, types: TypeManager, const: Any, value: Value[?]): (RefIR[?], ConstantsManager) =
+    manager.cache.get((const, value.tag)) match
+      case Some(ir) => return (ir, manager)
+      case None     => ()
+
+    val va = value.composite.get
+    val seq = const.asInstanceOf[Seq[Any]]
+
+    val (scalars, m1) = seq.accumulate(manager): (acc, v) =>
+      ConstantsManager.getScalar(acc, types, v, va).swap
+
+    val tpe = types.cache(value.tag.tag)
+    val ir = IR.SvRef(Op.OpConstantComposite, tpe :: scalars.toList)(using value)
+
+    val nextManger = m1.copy(block = ir :: m1.block, cache = m1.cache.updated((const, value.tag), ir))
+    (ir, nextManger)
 
   def getScalar(manager: ConstantsManager, types: TypeManager, const: Any, value: Value[?]): (RefIR[?], ConstantsManager) =
     manager.cache.get((const, value.tag)) match
@@ -60,21 +72,18 @@ object ConstantsManager:
 
     val tpe = types.cache(value.tag.tag)
 
-    val ir = value.tag.tag match
-      case UnitTag => throw CompilationException("Cannot create constant of type Unit")
-      case BoolTag =>
-        val cond = value.asInstanceOf[Boolean]
+    val ir = value.tag match
+      case x if x =:= Tag[Unit] => throw CompilationException("Cannot create constant of type Unit")
+      case x if x =:= Tag[Bool] =>
+        val cond = const.asInstanceOf[Boolean]
         IR.SvRef[Bool](if cond then Op.OpConstantTrue else Op.OpConstantFalse, tpe :: Nil)
-      case Float16Tag =>
-        val bits = java.lang.Float.floatToRawIntBits(value.asInstanceOf[Float])
-        IR.SvRef[Float16](Op.OpConstant, tpe :: IntWord(bits) :: Nil)
-      case Float32Tag =>
-        val bits = java.lang.Float.floatToRawIntBits(value.asInstanceOf[Float])
-        IR.SvRef[Float32](Op.OpConstant, tpe :: IntWord(bits) :: Nil)
-      case Int16Tag  => IR.SvRef[Int16](Op.OpConstant, tpe :: IntWord(value.asInstanceOf[Int]) :: Nil)
-      case Int32Tag  => IR.SvRef[Int32](Op.OpConstant, tpe :: IntWord(value.asInstanceOf[Int]) :: Nil)
-      case UInt16Tag => IR.SvRef[UInt16](Op.OpConstant, tpe :: IntWord(value.asInstanceOf[Int]) :: Nil)
-      case UInt32Tag => IR.SvRef[UInt32](Op.OpConstant, tpe :: IntWord(value.asInstanceOf[Int]) :: Nil)
+      case x if x <:< Tag[FloatType] =>
+        IR.SvRef(Op.OpConstant, tpe :: floatToIntWord(const.asInstanceOf[Float]) :: Nil)(using value)
+      case x if x <:< Tag[IntegerType] => IR.SvRef(Op.OpConstant, tpe :: IntWord(const.asInstanceOf[Int]) :: Nil)(using value)
 
-    val nextManger = manager.copy(block = ir :: manager.block, cache = manager.cache.updated((value, tag), ir))
+    val nextManger = manager.copy(block = ir :: manager.block, cache = manager.cache.updated((const, value.tag), ir))
     (ir, nextManger)
+
+  def floatToIntWord(f: Float): IntWord =
+    val bits = java.lang.Float.floatToRawIntBits(f)
+    IntWord(bits)

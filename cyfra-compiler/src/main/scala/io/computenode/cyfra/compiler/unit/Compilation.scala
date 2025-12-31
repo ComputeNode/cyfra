@@ -19,7 +19,7 @@ case class Compilation(context: Context, bindings: Seq[GBinding[?]], functions: 
 object Compilation:
   def apply(functions: List[(FunctionIR[?], IRs[?])]): Compilation =
     val (f, fir) = functions.unzip
-    val context = Context(Nil, DebugManager(), Nil, TypeManager(), ConstantsManager(), Nil)
+    val context = Context(Nil, Nil, TypeManager(), ConstantsManager(), Nil)
     Compilation(context, Nil, f, fir)
 
   def debugPrint(compilation: Compilation): Unit =
@@ -63,19 +63,13 @@ object Compilation:
             case w          => w.toString
           .mkString(" ")
 
-    val Context(prefix, debug, decorations, types, constants, suffix) = compilation.context
-    val data = Seq(
-      (prefix, "Prefix"),
-      (debug.output, "Debug Symbols"),
-      (decorations, "Decorations"),
-      (types.output, "Type Info"),
-      (constants.output, "Constants"),
-      (suffix, "Suffix"),
-    ) ++
-      compilation.functions
-        .zip(compilation.functionBodies)
-        .map: (func, body) =>
-          (body.body, func.name)
+    val Context(prefix, decorations, types, constants, suffix) = compilation.context
+    val data =
+      Seq((prefix, "Prefix"), (decorations, "Decorations"), (types.output, "Type Info"), (constants.output, "Constants"), (suffix, "Suffix")) ++
+        compilation.functions
+          .zip(compilation.functionBodies)
+          .map: (func, body) =>
+            (body.body, func.name)
 
     data
       .flatMap: (body, title) =>

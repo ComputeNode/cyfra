@@ -14,6 +14,7 @@ class Compiler(verbose: Boolean = false):
     new Variables,
     new Functions,
     new Bindings,
+    new Constants,
 //    new Algebra
   )
   private val emitter = new Emitter()
