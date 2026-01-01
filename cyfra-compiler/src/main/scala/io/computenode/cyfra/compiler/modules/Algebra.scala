@@ -27,7 +27,7 @@ class Algebra extends FunctionCompilationModule:
       case t if t =:= Tag[Unit]            => return IRs(operation) // skip invocation id
 
     val tpe = Ctx.getType(Value[A])
-    IRs(IR.SvRef[A](opCode, tpe :: args))
+    IRs(IR.SvRef[A](opCode, tpe , args))
 
   private def findFloat(func: BuildInFunction[?]): Code =
     func match

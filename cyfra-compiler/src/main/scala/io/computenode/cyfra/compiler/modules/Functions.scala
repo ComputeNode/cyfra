@@ -28,17 +28,21 @@ class Functions extends StandardCompilationModule:
 
   private def compileFunction(input: IRs[?], func: FunctionIR[?], funcMap: Map[String, RefIR[Unit]])(using Ctx): (IRs[?], RefIR[Unit]) =
     val definition =
-      IR.SvRef[Unit](Op.OpFunction, List(Ctx.getType(input.result.v), FunctionControlMask.MaskNone, Ctx.getTypeFunction(func.v, func.parameters.headOption.map(_.v))))
+      IR.SvRef[Unit](
+        Op.OpFunction,
+        Ctx.getType(input.result.v),
+        List(FunctionControlMask.MaskNone, Ctx.getTypeFunction(func.v, func.parameters.headOption.map(_.v))),
+      )
     var functionArgs: List[RefIR[Unit]] = Nil
     val IRs(result, body) = input.flatMapReplace:
-      case IR.SvRef(Op.OpVariable, args) if functionArgs.size < func.parameters.size =>
-        val arg = IR.SvRef[Unit](Op.OpFunctionParameter, List(args.head))
+      case IR.SvRef(Op.OpVariable, tpe, _) if functionArgs.size < func.parameters.size =>
+        val arg = IR.SvRef[Unit](Op.OpFunctionParameter, tpe, Nil)
         functionArgs = functionArgs :+ arg
         IRs.proxy(arg)
       case x: IR.CallWithIR[a] =>
         given Value[a] = x.v
         val IR.CallWithIR(f, args) = x
-        val inst = IR.SvRef[a](Op.OpFunctionCall, List(Ctx.getType(x.v), funcMap(f.name)) ++ args)
+        val inst = IR.SvRef[a](Op.OpFunctionCall, Ctx.getType(x.v), funcMap(f.name) :: args)
         IRs(inst)
       case other => IRs(other)(using other.v)
 

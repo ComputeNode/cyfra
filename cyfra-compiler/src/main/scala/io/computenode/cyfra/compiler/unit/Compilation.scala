@@ -5,7 +5,7 @@ import io.computenode.cyfra.compiler.unit.Context
 
 import scala.collection.mutable
 import io.computenode.cyfra.compiler.{CompilationException, id}
-import io.computenode.cyfra.compiler.spirv.Opcodes.IntWord
+import io.computenode.cyfra.compiler.spirv.Opcodes.*
 import io.computenode.cyfra.compiler.ir.IR.RefIR
 import io.computenode.cyfra.core.binding.GBinding
 import io.computenode.cyfra.utility.Utility.*
@@ -30,7 +30,7 @@ object Compilation:
       .collect:
         case ref: RefIR[?] => ref
       .zipWithIndex
-      .map(x => (x._1.id, s"%${x._2}".yellow))
+      .map(x => (x._1.id, s"%${x._2 + 1}".yellow))
       .toMap
 
     def irInternal(ir: IR[?]): String = ir match
@@ -58,8 +58,9 @@ object Compilation:
             case w: RefIR[?] if map.contains(w.id) => map(w.id)
             case w: RefIR[?]                       =>
               printingError = true
-              s"(${w.id} NOT FOUND)".red
-            case w: IntWord => w.toString.blue
+              s"(${w.id} NOT FOUND)".redb
+            case w: IntWord => w.toString.red
+            case w: Text => s"\"${w.text.green}\""
             case w          => w.toString
           .mkString(" ")
 
@@ -78,8 +79,10 @@ object Compilation:
             val row = ir.name + " " + irInternal(ir)
             ir match
               case r: RefIR[?] =>
-                val id = map(r.id)
-                s"${" ".repeat(14 - id.length)}$id = $row"
+                val id =
+                  val i = map(r.id)
+                  i.substring(5, i.length - 4)
+                s"${" ".repeat(5 - id.length)}$id = $row"
               case _ => " ".repeat(8) + row
         s"// $title" :: res
       .foreach(println)

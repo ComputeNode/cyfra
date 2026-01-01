@@ -15,7 +15,7 @@ class Variables extends FunctionCompilationModule:
     val varDeclarations = mutable.Map.empty[Int, RefIR[Unit]]
     input.flatMapReplace:
       case IR.VarDeclare(variable) =>
-        val inst = IR.SvRef[Unit](Op.OpVariable, List(Ctx.getTypePointer(variable.v, StorageClass.Function), StorageClass.Function))
+        val inst = IR.SvRef[Unit](Op.OpVariable, Ctx.getTypePointer(variable.v, StorageClass.Function), List(StorageClass.Function))
         varDeclarations(variable.id) = inst
         IRs(inst)
       case IR.VarWrite(variable, value) =>
@@ -24,7 +24,7 @@ class Variables extends FunctionCompilationModule:
       case x: IR.VarRead[a] =>
         given Value[a] = x.v
         val IR.VarRead(variable) = x
-        val inst = IR.SvRef[a](Op.OpLoad, List(Ctx.getType(variable.v), varDeclarations(variable.id)))
+        val inst = IR.SvRef[a](Op.OpLoad, Ctx.getType(variable.v), List(varDeclarations(variable.id)))
         IRs(inst)
       case x: IR.CallWithVar[a] =>
         given v: Value[a] = x.v

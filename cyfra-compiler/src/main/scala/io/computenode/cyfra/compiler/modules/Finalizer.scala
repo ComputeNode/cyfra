@@ -17,7 +17,7 @@ class Finalizer extends StandardCompilationModule:
 
     val ((invocationVar, workgroupConst), c1) = Ctx.withCapability(input.context):
       val tpe = Ctx.getTypePointer(Value[Vec3[UInt32]], StorageClass.Input)
-      val irv = IR.SvRef[Unit](Op.OpVariable, tpe :: StorageClass.Input :: Nil)
+      val irv = IR.SvRef[Unit](Op.OpVariable, tpe , StorageClass.Input :: Nil)
       val wgs = Ctx.getConstant[Vec3[UInt32]](256, 1, 1)
       (irv, wgs)
 
@@ -44,8 +44,8 @@ class Finalizer extends StandardCompilationModule:
             val ptrX = Ctx.getTypePointer(Value[UInt32], StorageClass.Input)
             val zeroU = Ctx.getConstant[UInt32](0)
             val tpe = Ctx.getType(Value[UInt32])
-            val accessChain = IR.SvRef[Unit](Op.OpAccessChain, ptrX :: invocationVar :: zeroU :: Nil)
-            val ir = IR.SvRef[UInt32](Op.OpLoad, tpe :: accessChain :: Nil)
+            val accessChain = IR.SvRef[Unit](Op.OpAccessChain, ptrX , invocationVar :: zeroU :: Nil)
+            val ir = IR.SvRef[UInt32](Op.OpLoad, tpe , accessChain :: Nil)
             IRs(ir, List(accessChain, ir))
           case other => IRs(other)(using other.v)
 

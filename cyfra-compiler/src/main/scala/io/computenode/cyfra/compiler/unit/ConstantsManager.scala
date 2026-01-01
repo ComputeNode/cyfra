@@ -47,7 +47,7 @@ object ConstantsManager:
       ConstantsManager.getVector(acc, types, v, va).swap
 
     val tpe = types.getType(value)._1
-    val ir = IR.SvRef(Op.OpConstantComposite, tpe :: scalars.toList)(using value)
+    val ir = IR.SvRef(Op.OpConstantComposite, tpe, scalars.toList)(using value)
 
     (ir, m1.withIr(key, ir))
 
@@ -62,7 +62,7 @@ object ConstantsManager:
       ConstantsManager.getScalar(acc, types, v, va).swap
 
     val tpe = types.getType(value)._1
-    val ir = IR.SvRef(Op.OpConstantComposite, tpe :: scalars.toList)(using value)
+    val ir = IR.SvRef(Op.OpConstantComposite, tpe, scalars.toList)(using value)
 
     (ir, m1.withIr(key, ir))
 
@@ -76,10 +76,10 @@ object ConstantsManager:
       case x if x =:= Tag[Unit] => throw CompilationException("Cannot create constant of type Unit")
       case x if x =:= Tag[Bool] =>
         val cond = const.asInstanceOf[Boolean]
-        IR.SvRef[Bool](if cond then Op.OpConstantTrue else Op.OpConstantFalse, tpe :: Nil)
+        IR.SvRef[Bool](if cond then Op.OpConstantTrue else Op.OpConstantFalse, tpe, Nil)
       case x if x <:< Tag[FloatType] =>
-        IR.SvRef(Op.OpConstant, tpe :: floatToIntWord(const.asInstanceOf[Float]) :: Nil)(using value)
-      case x if x <:< Tag[IntegerType] => IR.SvRef(Op.OpConstant, tpe :: IntWord(const.asInstanceOf[Int]) :: Nil)(using value)
+        IR.SvRef(Op.OpConstant, tpe, List(floatToIntWord(const.asInstanceOf[Float])))(using value)
+      case x if x <:< Tag[IntegerType] => IR.SvRef(Op.OpConstant, tpe, List(IntWord(const.asInstanceOf[Int])))(using value)
 
     (ir, manager.withIr(key, ir))
 

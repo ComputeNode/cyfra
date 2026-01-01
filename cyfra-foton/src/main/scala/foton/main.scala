@@ -13,6 +13,9 @@ import io.computenode.cyfra.core.expression.JumpTarget.ContinueTarget
 import io.computenode.cyfra.core.layout.{Layout, LayoutBinding, LayoutStruct}
 import izumi.reflect.Tag
 
+import java.nio.channels.FileChannel
+import java.nio.file.{Paths, StandardOpenOption}
+
 case class SimpleLayout(in: GBuffer[Int32]) extends Layout
 
 val funcFlow = CustomFunction[Int32, Unit]: iv =>
@@ -73,7 +76,13 @@ def main(): Unit =
   val rf = ls.layoutRef
   val lb = summon[LayoutBinding[SimpleLayout]].toBindings(rf)
   val body = p1(rf)
-  compiler.compile(lb, body)
+  val spirv = compiler.compile(lb, body)
+
+  val outputPath = Paths.get("output.spv")
+  val channel = FileChannel.open(outputPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)
+  channel.write(spirv)
+  channel.close()
+  println(s"SPIR-V bytecode written to $outputPath")
 
 def const[A: Value](a: Any): A =
   summon[Value[A]].extract(ExpressionBlock(Expression.Constant(a)))

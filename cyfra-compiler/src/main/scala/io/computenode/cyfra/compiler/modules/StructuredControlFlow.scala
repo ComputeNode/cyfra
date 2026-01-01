@@ -61,7 +61,7 @@ class StructuredControlFlow extends FunctionCompilationModule:
         if v.tag =:= Tag[Unit] then IRs[Unit](mergeLabel, ifBlock)
         else
           val phiJumps: List[RefIR[?]] = phiMap(break).toList.flatMap(x => List(x._1, x._2))
-          val phi = SvRef[a](Op.OpPhi, Ctx.getType(v) :: phiJumps)
+          val phi = SvRef[a](Op.OpPhi, Ctx.getType(v) , phiJumps)
           IRs[a](phi, ifBlock.appended(phi))
 
       case Loop(mainBody, continueBody, break, continue) =>

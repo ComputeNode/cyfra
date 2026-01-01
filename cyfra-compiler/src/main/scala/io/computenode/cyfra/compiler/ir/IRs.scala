@@ -52,7 +52,7 @@ case class IRs[A: Value](result: IR[A], body: List[IR[?]]):
     val codesWithLabels = Set(Op.OpLoopMerge, Op.OpSelectionMerge, Op.OpBranch, Op.OpBranchConditional, Op.OpSwitch)
     val nextBody = nBody.map:
       case x @ IR.SvInst(code, _) if codesWithLabels(code) => x.substitute(replacements) // all ops that point to labels
-      case x @ IR.SvRef(Op.OpPhi, args)                    =>
+      case x @ IR.SvRef(Op.OpPhi, _, args)                 =>
         // this can contain a cyclical forward reference, let's crash if we may have to handle it
         val safe = args.forall:
           case ref: RefIR[?] => replacements.get(ref.id).forall(_.id == ref.id)
