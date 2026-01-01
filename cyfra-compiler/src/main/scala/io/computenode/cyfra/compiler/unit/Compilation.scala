@@ -52,7 +52,7 @@ object Compilation:
       case sv: (IR.SvInst | IR.SvRef[?])                    =>
         val operands = sv match
           case x: IR.SvInst   => x.operands
-          case x: IR.SvRef[?] => x.operands
+          case x: IR.SvRef[?] => x.tpe.toList ++ x.operands
         operands
           .map:
             case w: RefIR[?] if map.contains(w.id) => map(w.id)
@@ -60,7 +60,7 @@ object Compilation:
               printingError = true
               s"(${w.id} NOT FOUND)".redb
             case w: IntWord => w.toString.red
-            case w: Text => s"\"${w.text.green}\""
+            case w: Text    => s"\"${w.text.green}\""
             case w          => w.toString
           .mkString(" ")
 

@@ -12,7 +12,7 @@ import scala.collection.mutable
 
 class Transformer extends CompilationModule[ExpressionBlock[Unit], Compilation]:
   def compile(body: ExpressionBlock[Unit]): Compilation =
-    val main = CustomFunction("main", List(), body)
+    val main = new CustomFunction("main", List(), body)
     val functions = extractCustomFunctions(main).reverse
     val functionMap = mutable.Map.empty[CustomFunction[?], FunctionIR[?]]
     val nextFunctions = functions.map: f =>

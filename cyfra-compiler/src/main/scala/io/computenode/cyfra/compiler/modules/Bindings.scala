@@ -23,8 +23,8 @@ class Bindings extends StandardCompilationModule:
       val mapped = input.bindings.zipWithIndex.map: (binding, idx) =>
         val baseType = Ctx.getType(binding.v)
         val array = binding match
-          case buffer: GBuffer[?]   => None
-          case uniform: GUniform[?] => Some(IR.SvRef[Unit](Op.OpTypeRuntimeArray, List(baseType)))
+          case buffer: GBuffer[?]   => Some(IR.SvRef[Unit](Op.OpTypeRuntimeArray, List(baseType)))
+          case uniform: GUniform[?] => None
         val struct = IR.SvRef[Unit](Op.OpTypeStruct, List(array.getOrElse(baseType)))
         val pointer = IR.SvRef[Unit](Op.OpTypePointer, List(StorageClass.StorageBuffer, struct))
 

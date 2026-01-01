@@ -16,11 +16,12 @@ import izumi.reflect.Tag
 import java.nio.channels.FileChannel
 import java.nio.file.{Paths, StandardOpenOption}
 
+def invocationX: UInt32 = Value.map(BuildInFunction.GlobalInvocationId)
+
 case class SimpleLayout(in: GBuffer[Int32]) extends Layout
 
 val funcFlow = CustomFunction[Int32, Unit]: iv =>
   reify:
-
     val body: (BreakTarget, ContinueTarget, GIO) ?=> Unit =
       val i = read(iv)
       conditionalBreak(i >= const[Int32](10))
@@ -43,6 +44,7 @@ val funcFlow = CustomFunction[Int32, Unit]: iv =>
 
     val ifFalse: (JumpTarget[Int32], GIO) ?=> Int32 =
       jump(const[Int32](4))
+      jump(const[Int32](8))
       const[Int32](8)
 
     branch[Int32](ci, ifTrue, ifFalse)
@@ -52,23 +54,25 @@ val funcFlow = CustomFunction[Int32, Unit]: iv =>
 def readFunc(buffer: GBuffer[Int32]) = CustomFunction[UInt32, Int32]: in =>
   reify:
     val i = read(in)
-    val a = read(buffer, i)
-    val b = read(buffer, i + const(1))
+    val a = read(buffer, invocationX)
+    val b = read(buffer, invocationX + const(1))
     val c = a + b
-    write(buffer, i + const(2), c)
+    write(buffer, invocationX + i, c)
     c
 
 def program(buffer: GBuffer[Int32])(using GIO): Unit =
   val vA = declare[UInt32]()
+  val vB = declare[Int32]()
   write(vA, const(0))
+  write(vB, const(1))
   call(readFunc(buffer), vA)
-  call(funcFlow, vA)
+  call(funcFlow, vB)
   ()
 
 @main
 def main(): Unit =
   println("Foton Animation Module Loaded")
-  val compiler = io.computenode.cyfra.compiler.Compiler(verbose = true)
+  val compiler = io.computenode.cyfra.compiler.Compiler(verbose = "last")
   val p1 = (l: SimpleLayout) =>
     reify:
       program(l.in)

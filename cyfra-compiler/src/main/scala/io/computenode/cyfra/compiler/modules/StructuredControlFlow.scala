@@ -27,8 +27,10 @@ class StructuredControlFlow extends FunctionCompilationModule:
     phiMap: mutable.Map[JumpTarget[?], mutable.Buffer[(RefIR[?], RefIR[?])]],
   )(using Ctx): (IRs[?], RefIR[Unit]) =
     var currentLabel = startingLabel
+    var deadCode = false
     val res = irs.flatMapReplace(enterControlFlow = false):
-      case x: Branch[a] =>
+      case x if deadCode => IRs.proxy(x)(using x.v)
+      case x: Branch[a]  =>
         given v: Value[a] = x.v
         val Branch(cond, ifTrue, ifFalse, break) = x
         val trueLabel = SvRef[Unit](Op.OpLabel, Nil)
@@ -41,28 +43,34 @@ class StructuredControlFlow extends FunctionCompilationModule:
         val (IRs(trueRes, trueBody), afterTrueLabel) = compileRec(ifTrue, trueLabel, targets, phiMap)
         val (IRs(falseRes, falseBody), afterFalseLabel) = compileRec(ifFalse, falseLabel, targets, phiMap)
 
-        phiMap(break).append((trueRes.asInstanceOf[RefIR[?]], afterTrueLabel))
-        phiMap(break).append((falseRes.asInstanceOf[RefIR[?]], afterFalseLabel))
+        val trueSkipped = phiMap(break).exists(_._2.id == afterTrueLabel.id)
+        val falseSkipped = phiMap(break).exists(_._2.id == afterFalseLabel.id)
+
+        if !trueSkipped then phiMap(break).append((trueRes.asInstanceOf[RefIR[?]], afterTrueLabel))
+        if !falseSkipped then phiMap(break).append((falseRes.asInstanceOf[RefIR[?]], afterFalseLabel))
 
         val ifBlock: List[IR[?]] = FlatList(
           SvInst(Op.OpSelectionMerge, List(mergeLabel, SelectionControlMask.MaskNone)),
           SvInst(Op.OpBranchConditional, List(cond, trueLabel, falseLabel)),
           trueLabel,
           trueBody,
-          SvInst(Op.OpBranch, List(mergeLabel)),
+          if !trueSkipped then List(SvInst(Op.OpBranch, List(mergeLabel))) else Nil,
           falseLabel,
           falseBody,
-          SvInst(Op.OpBranch, List(mergeLabel)),
+          if !falseSkipped then List(SvInst(Op.OpBranch, List(mergeLabel))) else Nil,
           mergeLabel,
         )
 
         currentLabel = mergeLabel
 
-        if v.tag =:= Tag[Unit] then IRs[Unit](mergeLabel, ifBlock)
-        else
-          val phiJumps: List[RefIR[?]] = phiMap(break).toList.flatMap(x => List(x._1, x._2))
-          val phi = SvRef[a](Op.OpPhi, Ctx.getType(v) , phiJumps)
-          IRs[a](phi, ifBlock.appended(phi))
+        val res =
+          if v.tag =:= Tag[Unit] then IRs[Unit](mergeLabel, ifBlock)
+          else
+            val phiJumps: List[RefIR[?]] = phiMap(break).toList.flatMap(x => List(x._1, x._2))
+            val phi = SvRef[a](Op.OpPhi, Ctx.getType(v), phiJumps)
+            IRs[a](phi, ifBlock.appended(phi))
+        phiMap.remove(break)
+        res
 
       case Loop(mainBody, continueBody, break, continue) =>
         val loopLabel = SvRef[Unit](Op.OpLabel, Nil)
@@ -77,6 +85,7 @@ class StructuredControlFlow extends FunctionCompilationModule:
 
         val body: List[IR[?]] =
           FlatList(
+            SvInst(Op.OpBranch, List(loopLabel)),
             loopLabel,
             SvInst(Op.OpLoopMerge, List(mergeLabel, continueLabel, LoopControlMask.MaskNone)),
             SvInst(Op.OpBranch, List(bodyLabel)),
@@ -89,10 +98,13 @@ class StructuredControlFlow extends FunctionCompilationModule:
             mergeLabel,
           )
         currentLabel = mergeLabel
+        phiMap.remove(break)
+        phiMap.remove(continue)
         IRs[Unit](loopLabel, body)
 
       case Jump(target, value) =>
         phiMap(target).append((value, currentLabel))
+        deadCode = true
         IRs[Unit](SvInst(Op.OpBranch, targets(target) :: Nil))
       case ConditionalJump(cond, target, value) =>
         phiMap(target).append((value, currentLabel))
@@ -102,7 +114,6 @@ class StructuredControlFlow extends FunctionCompilationModule:
           SvInst(Op.OpBranchConditional, List(cond, targets(target), followingLabel)) :: followingLabel :: Nil
         currentLabel = followingLabel
         IRs[Unit](followingLabel, body)
-      case other =>
-        IRs(other)(using other.v)
+      case other => IRs(other)(using other.v)
 
     (res, currentLabel)

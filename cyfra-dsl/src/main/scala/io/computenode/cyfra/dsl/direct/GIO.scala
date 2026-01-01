@@ -13,6 +13,7 @@ import io.computenode.cyfra.core.expression.{
   Var,
   given,
 }
+import io.computenode.cyfra.core.expression.CustomFunction.CustomFunction1
 import io.computenode.cyfra.core.binding.GBuffer
 import io.computenode.cyfra.core.expression.JumpTarget.{BreakTarget, ContinueTarget}
 import io.computenode.cyfra.core.expression.Value.irs
@@ -61,25 +62,25 @@ object GIO:
     val write = Expression.VarWrite(variable, v.result)
     gio.extend(write :: v.body)
 
-  def call[Res: Value](func: BuildInFunction.BuildInFunction0[Res])(using gio: GIO): Res =
+  def op[Res: Value](func: BuildInFunction.BuildInFunction0[Res])(using gio: GIO): Res =
     val next = Expression.BuildInOperation(func, List())
     gio.add(next)
     summon[Value[Res]].indirect(next)
 
-  def call[A: Value, Res: Value](func: BuildInFunction.BuildInFunction1[A, Res], arg: A)(using gio: GIO): Res =
+  def op[A: Value, Res: Value](func: BuildInFunction.BuildInFunction1[A, Res], arg: A)(using gio: GIO): Res =
     val a = arg.irs
     val next = Expression.BuildInOperation(func, List(a.result))
     gio.extend(next :: a.body)
     summon[Value[Res]].indirect(next)
 
-  def call[A1: Value, A2: Value, Res: Value](func: BuildInFunction.BuildInFunction2[A1, A2, Res], arg1: A1, arg2: A2)(using gio: GIO): Res =
+  def op[A1: Value, A2: Value, Res: Value](func: BuildInFunction.BuildInFunction2[A1, A2, Res], arg1: A1, arg2: A2)(using gio: GIO): Res =
     val a1 = arg1.irs
     val a2 = arg2.irs
     val next = Expression.BuildInOperation(func, List(a1.result, a2.result))
     gio.extend(next :: a1.body ++ a2.body)
     summon[Value[Res]].indirect(next)
 
-  def call[A1: Value, A2: Value, A3: Value, Res: Value](func: BuildInFunction.BuildInFunction3[A1, A2, A3, Res], arg1: A1, arg2: A2, arg3: A3)(using
+  def op[A1: Value, A2: Value, A3: Value, Res: Value](func: BuildInFunction.BuildInFunction3[A1, A2, A3, Res], arg1: A1, arg2: A2, arg3: A3)(using
     gio: GIO,
   ): Res =
     val a1 = arg1.irs
@@ -89,7 +90,7 @@ object GIO:
     gio.extend(next :: a1.body ++ a2.body ++ a3.body)
     summon[Value[Res]].indirect(next)
 
-  def call[A1: Value, A2: Value, A3: Value, A4: Value, Res: Value](
+  def op[A1: Value, A2: Value, A3: Value, A4: Value, Res: Value](
     func: BuildInFunction.BuildInFunction4[A1, A2, A3, A4, Res],
     arg1: A1,
     arg2: A2,
@@ -104,7 +105,7 @@ object GIO:
     gio.extend(next :: a1.body ++ a2.body ++ a3.body ++ a4.body)
     summon[Value[Res]].indirect(next)
 
-  def call[A: Value, Res: Value](func: CustomFunction[Res], arg: Var[A])(using gio: GIO): Res =
+  def call[A: Value, Res: Value](func: CustomFunction1[Res, A], arg: Var[A])(using gio: GIO): Res =
     val next = Expression.CustomCall(func, List(arg))
     gio.add(next)
     summon[Value[Res]].indirect(next)
