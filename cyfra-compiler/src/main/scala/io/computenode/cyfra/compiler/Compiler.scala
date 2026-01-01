@@ -7,13 +7,15 @@ import io.computenode.cyfra.compiler.modules.*
 import io.computenode.cyfra.compiler.modules.CompilationModule.StandardCompilationModule
 import io.computenode.cyfra.compiler.unit.Compilation
 
+import java.nio.ByteBuffer
+
 class Compiler(verbose: Boolean = false):
   private val transformer = new Transformer()
   private val modules: List[StandardCompilationModule] =
     List(new StructuredControlFlow, new Variables, new Functions, new Bindings, new Constants, new Algebra, new Finalizer)
   private val emitter = new Emitter()
 
-  def compile(bindings: Seq[GBinding[?]], body: ExpressionBlock[Unit]): Unit =
+  def compile(bindings: Seq[GBinding[?]], body: ExpressionBlock[Unit]): ByteBuffer =
     val parsedUnit = transformer.compile(body).copy(bindings = bindings)
     if verbose then
       println(s"=== ${transformer.name} ===")

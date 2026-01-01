@@ -12,12 +12,17 @@ private[cyfra] object Opcodes:
 
     def length: Int
 
-  private[cyfra] case class Word(bytes: Array[Byte]) extends Words:
+  private[cyfra] case class Word private (bytes: (Byte, Byte, Byte, Byte)) extends Words:
     def toWords: List[Byte] = bytes.toList
 
     def length = 1
 
-    override def toString = s"Word(${bytes.mkString(", ")}${if bytes.length == 4 then s" [i = ${BigInt(bytes).toInt}])" else ""}"
+    override def toString = s"Word(${bytes._4}, ${bytes._3}, ${bytes._2}, ${bytes._1})"
+
+  object Word:
+    def apply(value: Int): Word =
+      val bytes = intToBytes(value).reverse
+      Word(bytes(0), bytes(1), bytes(2), bytes(3))
 
   private[cyfra] case class WordVariable(name: String) extends Words:
     def toWords: List[Byte] =
@@ -59,7 +64,7 @@ private[cyfra] object Opcodes:
     override def toWords: List[Byte] = intToBytes(i).reverse
 
     override def length: Int = 1
-    
+
     override def toString: String = i.toString
 
   private[cyfra] case class ResultRef(result: Int) extends Words:
