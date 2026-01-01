@@ -20,10 +20,8 @@ object Ctx:
     ctx.context = ctx.context.copy(constants = next)
     res.asInstanceOf[RefIR[A]]
 
-  def getType(value: Value[?])(using ctx: Ctx): RefIR[Unit] = getType(value.tag.tag)
-
-  def getType(tag: LightTypeTag)(using ctx: Ctx): RefIR[Unit] =
-    val (res, next) = ctx.context.types.getType(tag)
+  def getType(value: Value[?])(using ctx: Ctx): RefIR[Unit] =
+    val (res, next) = ctx.context.types.getType(value)
     ctx.context = ctx.context.copy(types = next)
     res
 
@@ -34,10 +32,5 @@ object Ctx:
 
   def getTypePointer(value: Value[?], storageClass: Code)(using ctx: Ctx): RefIR[Unit] =
     val (res, next) = ctx.context.types.getPointer(value, storageClass)
-    ctx.context = ctx.context.copy(types = next)
-    res
-
-  def getTypePointer(tag: LightTypeTag, storageClass: Code)(using ctx: Ctx): RefIR[Unit] =
-    val (res, next) = ctx.context.types.getPointer(tag, storageClass)
     ctx.context = ctx.context.copy(types = next)
     res

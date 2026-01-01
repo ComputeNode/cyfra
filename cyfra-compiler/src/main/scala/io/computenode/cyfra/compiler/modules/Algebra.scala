@@ -26,7 +26,8 @@ class Algebra extends FunctionCompilationModule:
       case t if t <:< Tag[FloatType]       => findFloat(func)
       case t if t <:< Tag[SignedIntType]   => findInteger(func, true)
       case t if t <:< Tag[UnsignedIntType] => findInteger(func, false)
-      case t if t <:< Tag[Bool]            => findBoolean(func)
+      case t if t =:= Tag[Bool]            => findBoolean(func)
+      case t if t =:= Tag[Unit]            => return IRs(operation) // skip invocation id
 
     val tpe = Ctx.getType(Value[A])
     IRs(IR.SvRef[A](opCode, tpe :: args))

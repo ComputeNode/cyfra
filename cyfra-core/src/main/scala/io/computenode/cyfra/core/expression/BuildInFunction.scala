@@ -72,3 +72,5 @@ object BuildInFunction:
 
   // Select
   case object Select extends BuildInFunction3[Any, Any, Any, Any](true)
+
+  case object GlobalInvocationId extends BuildInFunction0[UInt32](true)

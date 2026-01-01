@@ -3,17 +3,19 @@ package io.computenode.cyfra.core.expression
 import io.computenode.cyfra.core.expression.{Expression, ExpressionBlock}
 import io.computenode.cyfra.core.expression.BuildInFunction.{BuildInFunction0, BuildInFunction1, BuildInFunction2, BuildInFunction3, BuildInFunction4}
 import io.computenode.cyfra.utility.cats.Monad
-import izumi.reflect.Tag
+import izumi.reflect.{Tag, TagK}
 
 trait Value[A]:
   def indirect(ir: Expression[A]): A = extract(ExpressionBlock(ir, List()))
   def extract(block: ExpressionBlock[A]): A =
     if !block.isPure then throw RuntimeException("Cannot embed impure expression")
     extractUnsafe(block)
-  def composite: Option[Value[?]] = None
     
   protected def extractUnsafe(ir: ExpressionBlock[A]): A
   def tag: Tag[A]
+  
+  def baseTag: Option[TagK[?]] = None
+  def composite: Option[Value[?]] = None
 
   def peel(x: A): ExpressionBlock[A] =
     summon[Monad[ExpressionBlock]].pure(x)
