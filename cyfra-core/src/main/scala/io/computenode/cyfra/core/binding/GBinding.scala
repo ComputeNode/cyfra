@@ -3,7 +3,7 @@ package io.computenode.cyfra.core.binding
 import io.computenode.cyfra.core.expression.Value
 
 sealed trait GBinding[T: Value]:
-  def v: Value[T] = summon[Value[T]]
+  def v: Value[T] = Value[T]
 
 object GBinding
 

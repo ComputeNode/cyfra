@@ -18,10 +18,7 @@ class Algebra extends FunctionCompilationModule:
 
   private def handleOperation[A: Value](operation: IR.Operation[A])(using Ctx): IRs[A] =
     val IR.Operation(func, args) = operation
-    val argBaseValue =
-      var curr: Value[?] = args.head.v
-      while curr.composite.isDefined do curr = curr.composite.get
-      curr
+    val argBaseValue = args.head.v.bottomComposite
     val opCode = argBaseValue.tag match
       case t if t <:< Tag[FloatType]       => findFloat(func)
       case t if t <:< Tag[SignedIntType]   => findInteger(func, true)

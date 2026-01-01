@@ -68,7 +68,7 @@ class VkAllocation(commandPool: CommandPool, executionHandler: ExecutionHandler)
       VkBuffer[T](length).tap(bindings += _)
 
     def apply[T: Value](buff: ByteBuffer): GBuffer[T] =
-      val sizeOfT = typeStride(summon[Value[T]])
+      val sizeOfT = typeStride(Value[T])
       val length = buff.capacity() / sizeOfT
       if buff.capacity() % sizeOfT != 0 then
         throw new IllegalArgumentException(s"ByteBuffer size ${buff.capacity()} is not a multiple of element size $sizeOfT")
@@ -90,7 +90,7 @@ class VkAllocation(commandPool: CommandPool, executionHandler: ExecutionHandler)
     new GProgram.InitProgramLayout:
       extension (uniforms: GUniform.type)
         def apply[T: Value](value: T): GUniform[T] = pushStack: stack =>
-          val exp = summon[Value[T]].peel(value)
+          val exp = Value[T].peel(value)
           val bb = exp.result match
             case x: Expression.Constant[Int32] => MemoryUtil.memByteBuffer(stack.ints(x.value.asInstanceOf[Int]))
             case _                             => ???

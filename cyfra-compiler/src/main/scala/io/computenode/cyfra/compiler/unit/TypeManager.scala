@@ -65,8 +65,8 @@ object TypeManager:
     val (ir, m1) = manager.getType(composite)
 
     val cIR = value.baseTag.get match
-      case t if t <:< TagK[Vec] => SvRef[Unit](Op.OpTypeVector, List(ir, IntWord(rows(t.tag))))
-      case t if t <:< TagK[Mat] => SvRef[Unit](Op.OpTypeMatrix, List(ir, IntWord(columns(t.tag))))
+      case t if t <:< TagK[Vec] => SvRef[Unit](Op.OpTypeVector, List(ir, IntWord(rows(t))))
+      case t if t <:< TagK[Mat] => SvRef[Unit](Op.OpTypeMatrix, List(ir, IntWord(columns(t))))
       case _                    => throw new Exception(s"Unsupported type: ${value.tag}")
     m1.withIr(key, cIR)
 

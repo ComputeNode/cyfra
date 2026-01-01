@@ -38,7 +38,7 @@ object GIO:
     val idx = index.irs
     val read = Expression.ReadBuffer(buffer, idx.result)
     gio.extend(read :: idx.body)
-    summon[Value[T]].indirect(read)
+    Value[T].indirect(read)
 
   def write[T: Value](buffer: GBuffer[T], index: UInt32, value: T)(using gio: GIO): Unit =
     val idx = index.irs
@@ -54,7 +54,7 @@ object GIO:
   def read[T: Value](variable: Var[T])(using gio: GIO): T =
     val read = Expression.VarRead(variable)
     gio.add(read)
-    summon[Value[T]].indirect(read)
+    Value[T].indirect(read)
 
   def write[T: Value](variable: Var[T], value: T)(using gio: GIO): Unit =
     val v = value.irs
@@ -116,7 +116,7 @@ object GIO:
     val f = GIO.reify(ifFalse(using jt))
     val branch = Expression.Branch(c.result, t, f, jt)
     gio.extend(branch :: c.body)
-    summon[Value[T]].indirect(branch)
+    Value[T].indirect(branch)
 
   def loop(mainBody: (BreakTarget, ContinueTarget, GIO) ?=> Unit, continueBody: GIO ?=> Unit)(using gio: GIO): Unit =
     val jb = BreakTarget()

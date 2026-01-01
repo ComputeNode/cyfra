@@ -41,7 +41,7 @@ object ConstantsManager:
     if manager.cache.contains(key) then return (manager.cache(key), manager)
 
     val va = value.composite.get
-    val seq = const.asInstanceOf[Product].productIterator.grouped(columns(value.tag.tag.withoutArgs)).toSeq
+    val seq = const.asInstanceOf[Product].productIterator.grouped(columns(value.baseTag.get)).toSeq
 
     val (scalars, m1) = seq.accumulate(manager): (acc, v) =>
       ConstantsManager.getVector(acc, types, v, va).swap

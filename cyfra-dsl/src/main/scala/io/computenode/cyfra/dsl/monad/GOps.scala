@@ -6,17 +6,17 @@ import io.computenode.cyfra.core.expression.JumpTarget.{BreakTarget, ContinueTar
 import io.computenode.cyfra.utility.cats.Free
 
 sealed trait GOps[T: Value]:
-  def v: Value[T] = summon[Value[T]]
+  def v: Value[T] = Value[T]
 
 object GOps:
   case class ReadBuffer[T: Value](buffer: GBuffer[T], index: UInt32) extends GOps[T]
   case class WriteBuffer[T: Value](buffer: GBuffer[T], index: UInt32, value: T) extends GOps[Unit]:
-    def tv: Value[T] = summon[Value[T]]
+    def tv: Value[T] = Value[T]
   case class DeclareVariable[T: Value](variable: Var[T]) extends GOps[Unit]:
-    def tv: Value[T] = summon[Value[T]]
+    def tv: Value[T] = Value[T]
   case class ReadVariable[T: Value](variable: Var[T]) extends GOps[T]
   case class WriteVariable[T: Value](variable: Var[T], value: T) extends GOps[Unit]:
-    def tv: Value[T] = summon[Value[T]]
+    def tv: Value[T] = Value[T]
   case class CallBuildIn0[Res: Value](func: BuildInFunction.BuildInFunction0[Res]) extends GOps[Res]
   case class CallBuildIn1[A: Value, Res: Value](func: BuildInFunction.BuildInFunction1[A, Res], arg: A) extends GOps[Res]:
     def tv: Value[A] = summon[Value[A]]
@@ -49,9 +49,9 @@ object GOps:
   case class Branch[T: Value](cond: Bool, ifTrue: GIO[T], ifFalse: GIO[T], break: JumpTarget[T]) extends GOps[T]
   case class Loop(mainBody: GIO[Unit], continueBody: GIO[Unit], break: BreakTarget, continue: ContinueTarget) extends GOps[Unit]
   case class ConditionalJump[T: Value](cond: Bool, target: JumpTarget[T], value: T) extends GOps[Unit]:
-    def tv: Value[T] = summon[Value[T]]
+    def tv: Value[T] = Value[T]
   case class Jump[T: Value](target: JumpTarget[T], value: T) extends GOps[Unit]:
-    def tv: Value[T] = summon[Value[T]]
+    def tv: Value[T] = Value[T]
 
   def read[T: Value](buffer: GBuffer[T], index: UInt32): GIO[T] =
     Free.liftF[GOps, T](ReadBuffer(buffer, index))

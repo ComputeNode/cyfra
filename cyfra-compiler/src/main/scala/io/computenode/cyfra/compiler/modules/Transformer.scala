@@ -10,7 +10,7 @@ import io.computenode.cyfra.core.expression.{BuildInFunction, CustomFunction, Ex
 
 import scala.collection.mutable
 
-class Parser extends CompilationModule[ExpressionBlock[Unit], Compilation]:
+class Transformer extends CompilationModule[ExpressionBlock[Unit], Compilation]:
   def compile(body: ExpressionBlock[Unit]): Compilation =
     val main = CustomFunction("main", List(), body)
     val functions = extractCustomFunctions(main).reverse

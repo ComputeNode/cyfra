@@ -3,87 +3,63 @@ package io.computenode.cyfra.core.expression
 import izumi.reflect.{Tag, TagK}
 import izumi.reflect.macrortti.LightTypeTag
 
-val UnitTag = Tag[Unit].tag
-val BoolTag = Tag[Bool].tag
+def typeStride(value: Value[?]): Int =
+  val elementSize = value.bottomComposite.tag match
+    case t if t =:= Tag[Bool]    => throw new IllegalArgumentException("Boolean type has no size")
+    case t if t =:= Tag[Float16] => 2
+    case t if t =:= Tag[Float32] => 4
+    case t if t =:= Tag[Int16]   => 2
+    case t if t =:= Tag[Int32]   => 4
+    case t if t =:= Tag[UInt16]  => 2
+    case t if t =:= Tag[UInt32]  => 4
+    case _                       => ???
 
-val Float16Tag = Tag[Float16].tag
-val Float32Tag = Tag[Float32].tag
-val Int16Tag = Tag[Int16].tag
-val Int32Tag = Tag[Int32].tag
-val UInt16Tag = Tag[UInt16].tag
-val UInt32Tag = Tag[UInt32].tag
+  val numberOfElements = value.baseTag match
+    case None                         => 1
+    case Some(t) if t =:= Tag[Vec2]   => 2
+    case Some(t) if t =:= Tag[Vec3]   => 3
+    case Some(t) if t =:= Tag[Vec4]   => 4
+    case Some(t) if t =:= Tag[Mat2x2] => 4
+    case Some(t) if t =:= Tag[Mat2x3] => 6
+    case Some(t) if t =:= Tag[Mat2x4] => 8
+    case Some(t) if t =:= Tag[Mat3x2] => 6
+    case Some(t) if t =:= Tag[Mat3x3] => 9
+    case Some(t) if t =:= Tag[Mat3x4] => 12
+    case Some(t) if t =:= Tag[Mat4x2] => 8
+    case Some(t) if t =:= Tag[Mat4x3] => 12
+    case Some(t) if t =:= Tag[Mat4x4] => 16
+    case _                            => ???
 
-val Vec2Tag = TagK[Vec2].tag
-val Vec3Tag = TagK[Vec3].tag
-val Vec4Tag = TagK[Vec4].tag
+  numberOfElements * elementSize
 
-val Mat2x2Tag = TagK[Mat2x2].tag
-val Mat2x3Tag = TagK[Mat2x3].tag
-val Mat2x4Tag = TagK[Mat2x4].tag
-val Mat3x2Tag = TagK[Mat3x2].tag
-val Mat3x3Tag = TagK[Mat3x3].tag
-val Mat3x4Tag = TagK[Mat3x4].tag
-val Mat4x2Tag = TagK[Mat4x2].tag
-val Mat4x3Tag = TagK[Mat4x3].tag
-val Mat4x4Tag = TagK[Mat4x4].tag
-
-def typeStride(value: Value[?]): Int = typeStride(value.tag)
-def typeStride(tag: Tag[?]): Int = typeStride(tag.tag)
-
-private def typeStride(tag: LightTypeTag): Int =
-  val elementSize = tag.typeArgs.headOption.map(typeStride).getOrElse(1)
-  val base = tag match
-    case BoolTag    => ???
-    case Float16Tag => 2
-    case Float32Tag => 4
-    case Int16Tag   => 2
-    case Int32Tag   => 4
-    case UInt16Tag  => 2
-    case UInt32Tag  => 4
-    case Vec2Tag    => 2
-    case Vec3Tag    => 3
-    case Vec4Tag    => 4
-    case Mat2x2Tag  => 4
-    case Mat2x3Tag  => 6
-    case Mat2x4Tag  => 8
-    case Mat3x2Tag  => 6
-    case Mat3x3Tag  => 9
-    case Mat3x4Tag  => 12
-    case Mat4x2Tag  => 8
-    case Mat4x3Tag  => 12
-    case Mat4x4Tag  => 16
-    case _          => ???
-
-  base * elementSize
-
-def rows(tag: LightTypeTag): Int =
+def rows(tag: Tag[?]): Int =
   tag match
-    case Vec2Tag   => 2
-    case Vec3Tag   => 3
-    case Vec4Tag   => 4
-    case Mat2x2Tag => 2
-    case Mat2x3Tag => 2
-    case Mat2x4Tag => 2
-    case Mat3x2Tag => 3
-    case Mat3x3Tag => 3
-    case Mat3x4Tag => 3
-    case Mat4x2Tag => 4
-    case Mat4x3Tag => 4
-    case Mat4x4Tag => 4
-    case _         => ???
+    case t if t =:= TagK[Vec2]   => 2
+    case t if t =:= TagK[Vec3]   => 3
+    case t if t =:= TagK[Vec4]   => 4
+    case t if t =:= TagK[Mat2x2] => 2
+    case t if t =:= TagK[Mat2x3] => 2
+    case t if t =:= TagK[Mat2x4] => 2
+    case t if t =:= TagK[Mat3x2] => 3
+    case t if t =:= TagK[Mat3x3] => 3
+    case t if t =:= TagK[Mat3x4] => 3
+    case t if t =:= TagK[Mat4x2] => 4
+    case t if t =:= TagK[Mat4x3] => 4
+    case t if t =:= TagK[Mat4x4] => 4
+    case _                       => ???
 
-def columns(tag: LightTypeTag): Int =
+def columns(tag: Tag[?]): Int =
   tag match
-    case Vec2Tag   => 1
-    case Vec3Tag   => 1
-    case Vec4Tag   => 1
-    case Mat2x2Tag => 2
-    case Mat2x3Tag => 3
-    case Mat2x4Tag => 4
-    case Mat3x2Tag => 2
-    case Mat3x3Tag => 3
-    case Mat3x4Tag => 4
-    case Mat4x2Tag => 2
-    case Mat4x3Tag => 3
-    case Mat4x4Tag => 4
-    case _         => ???
+    case t if t =:= TagK[Vec2]   => 1
+    case t if t =:= TagK[Vec3]   => 1
+    case t if t =:= TagK[Vec4]   => 1
+    case t if t =:= TagK[Mat2x2] => 2
+    case t if t =:= TagK[Mat2x3] => 3
+    case t if t =:= TagK[Mat2x4] => 4
+    case t if t =:= TagK[Mat3x2] => 2
+    case t if t =:= TagK[Mat3x3] => 3
+    case t if t =:= TagK[Mat3x4] => 4
+    case t if t =:= TagK[Mat4x2] => 2
+    case t if t =:= TagK[Mat4x3] => 3
+    case t if t =:= TagK[Mat4x4] => 4
+    case _                       => ???

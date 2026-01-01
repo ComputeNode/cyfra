@@ -8,15 +8,15 @@ import io.computenode.cyfra.compiler.modules.CompilationModule.StandardCompilati
 import io.computenode.cyfra.compiler.unit.Compilation
 
 class Compiler(verbose: Boolean = false):
-  private val parser = new Parser()
+  private val transformer = new Transformer()
   private val modules: List[StandardCompilationModule] =
     List(new StructuredControlFlow, new Variables, new Functions, new Bindings, new Constants, new Algebra, new Finalizer)
   private val emitter = new Emitter()
 
   def compile(bindings: Seq[GBinding[?]], body: ExpressionBlock[Unit]): Unit =
-    val parsedUnit = parser.compile(body).copy(bindings = bindings)
+    val parsedUnit = transformer.compile(body).copy(bindings = bindings)
     if verbose then
-      println(s"=== ${parser.name} ===")
+      println(s"=== ${transformer.name} ===")
       Compilation.debugPrint(parsedUnit)
 
     val compiledUnit = modules.foldLeft(parsedUnit): (unit, module) =>

@@ -5,24 +5,33 @@ import io.computenode.cyfra.core.expression.BuildInFunction.{BuildInFunction0, B
 import io.computenode.cyfra.utility.cats.Monad
 import izumi.reflect.{Tag, TagK}
 
+import scala.annotation.tailrec
+
 trait Value[A]:
-  def indirect(ir: Expression[A]): A = extract(ExpressionBlock(ir, List()))
-  def extract(block: ExpressionBlock[A]): A =
-    if !block.isPure then throw RuntimeException("Cannot embed impure expression")
-    extractUnsafe(block)
-    
   protected def extractUnsafe(ir: ExpressionBlock[A]): A
   def tag: Tag[A]
-  
-  def baseTag: Option[TagK[?]] = None
-  def composite: Option[Value[?]] = None
+  def baseTag: Option[TagK[?]]
+  def composite: Option[Value[?]]
 
-  def peel(x: A): ExpressionBlock[A] =
+  final def indirect(ir: Expression[A]): A = extract(ExpressionBlock(ir, List()))
+  final def extract(block: ExpressionBlock[A]): A =
+    if !block.isPure then throw RuntimeException("Cannot embed impure expression")
+    extractUnsafe(block)
+  final def peel(x: A): ExpressionBlock[A] =
     summon[Monad[ExpressionBlock]].pure(x)
+  @tailrec
+  final def bottomComposite: Value[?] =
+    composite match
+      case Some(c) => c.bottomComposite
+      case None    => this
 
 object Value:
   def apply[A](using v: Value[A]): Value[A] = v
-  
+
+  trait Scalar[A] extends Value[A]:
+    def baseTag: Option[TagK[?]] = None
+    def composite: Option[Value[?]] = None
+
   def map[Res: Value as vr](f: BuildInFunction0[Res]): Res =
     val next = Expression.BuildInOperation(f, Nil)
     vr.extract(ExpressionBlock(next, List(next)))

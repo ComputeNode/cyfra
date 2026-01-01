@@ -12,7 +12,7 @@ import org.lwjgl.vulkan.VK10.*
 import scala.collection.mutable
 
 sealed abstract class VkBinding[T : Value](val buffer: Buffer):
-  val sizeOfT: Int = typeStride(summon[Value[T]])
+  val sizeOfT: Int = typeStride(Value[T])
 
   /** Holds either:
     *   1. a single execution that writes to this buffer
@@ -42,7 +42,7 @@ object VkBuffer:
   private final val UsageFlags = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT
 
   def apply[T : Value](length: Int)(using Allocator): VkBuffer[T] =
-    val sizeOfT = typeStride(summon[Value[T]])
+    val sizeOfT = typeStride(Value[T])
     val size = (length * sizeOfT + Padding - 1) / Padding * Padding
     val buffer = new Buffer.DeviceBuffer(size, UsageFlags)
     new VkBuffer[T](length, buffer)
@@ -54,6 +54,6 @@ object VkUniform:
     VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT
 
   def apply[T : Value]()(using Allocator): VkUniform[T] =
-    val sizeOfT = typeStride(summon[Value[T]])
+    val sizeOfT = typeStride(Value[T])
     val buffer = new Buffer.DeviceBuffer(sizeOfT, UsageFlags)
     new VkUniform[T](buffer)
