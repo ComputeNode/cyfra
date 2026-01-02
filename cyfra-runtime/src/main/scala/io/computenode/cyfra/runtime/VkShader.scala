@@ -1,12 +1,12 @@
 package io.computenode.cyfra.runtime
 
-import io.computenode.cyfra.core.{GProgram, ExpressionProgram, SpirvProgram}
-import io.computenode.cyfra.core.SpirvProgram.*
+import io.computenode.cyfra.core.{GProgram, ExpressionProgram}
 import io.computenode.cyfra.core.GProgram.InitProgramLayout
 import io.computenode.cyfra.core.layout.{Layout, LayoutBinding, LayoutStruct}
 import io.computenode.cyfra.core.binding.{GBuffer, GUniform}
 import io.computenode.cyfra.spirv.compilers.DSLCompiler
 import io.computenode.cyfra.vulkan.compute.ComputePipeline
+import io.computenode.cyfra.runtime.SpirvProgram.*
 import io.computenode.cyfra.vulkan.compute.ComputePipeline.*
 import io.computenode.cyfra.vulkan.core.Device
 import izumi.reflect.Tag

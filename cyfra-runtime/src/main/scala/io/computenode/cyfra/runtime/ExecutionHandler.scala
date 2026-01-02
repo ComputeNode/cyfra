@@ -1,23 +1,15 @@
 package io.computenode.cyfra.runtime
 
 import io.computenode.cyfra.core.GProgram.InitProgramLayout
-import io.computenode.cyfra.core.SpirvProgram.*
 import io.computenode.cyfra.core.binding.{BufferRef, UniformRef}
 import io.computenode.cyfra.core.{GExecution, GProgram}
 import io.computenode.cyfra.core.layout.{Layout, LayoutBinding, LayoutStruct}
 import io.computenode.cyfra.core.expression.Value
 import io.computenode.cyfra.core.binding.{GBinding, GBuffer, GUniform}
-import io.computenode.cyfra.runtime.ExecutionHandler.{
-  BindingLogicError,
-  Dispatch,
-  DispatchType,
-  ExecutionBinding,
-  ExecutionStep,
-  PipelineBarrier,
-  ShaderCall,
-}
+import io.computenode.cyfra.runtime.ExecutionHandler.{BindingLogicError, Dispatch, DispatchType, ExecutionBinding, ExecutionStep, PipelineBarrier, ShaderCall}
 import io.computenode.cyfra.runtime.ExecutionHandler.DispatchType.*
 import io.computenode.cyfra.runtime.ExecutionHandler.ExecutionBinding.{BufferBinding, UniformBinding}
+import io.computenode.cyfra.runtime.SpirvProgram.*
 import io.computenode.cyfra.utility.Utility.timed
 import io.computenode.cyfra.vulkan.{VulkanContext, VulkanThreadContext}
 import io.computenode.cyfra.vulkan.command.{CommandPool, Fence}

@@ -12,7 +12,7 @@ import java.nio.ByteBuffer
 class Compiler(verbose: "none" | "last" | "all" = "none"):
   private val transformer = new Transformer()
   private val modules: List[StandardCompilationModule] =
-    List(new StructuredControlFlow, new Variables, new Functions, new Bindings, new Constants, new Algebra, new Finalizer)
+    List(new Reordering, new StructuredControlFlow, new Variables, new Functions, new Bindings, new Constants, new Algebra, new Finalizer)
   private val emitter = new Emitter()
 
   def compile(bindings: Seq[GBinding[?]], body: ExpressionBlock[Unit]): ByteBuffer =
@@ -27,7 +27,7 @@ class Compiler(verbose: "none" | "last" | "all" = "none"):
         println(s"\n=== ${module.name} ===")
         Compilation.debugPrint(res)
       res
-      
+
     if verbose == "last" then
       println(s"\n=== Final Output ===")
       Compilation.debugPrint(compiledUnit)

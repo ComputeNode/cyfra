@@ -3,11 +3,13 @@ package io.computenode.cyfra.runtime
 import io.computenode.cyfra.compiler.Compiler
 import io.computenode.cyfra.core.GProgram.InitProgramLayout
 import io.computenode.cyfra.core.layout.{Layout, LayoutBinding, LayoutStruct}
-import io.computenode.cyfra.core.{Allocation, CyfraRuntime, ExpressionProgram, GExecution, GProgram, SpirvProgram}
+import io.computenode.cyfra.core.{Allocation, CyfraRuntime, ExpressionProgram, GExecution, GProgram}
 import io.computenode.cyfra.spirvtools.SpirvToolsRunner
 import io.computenode.cyfra.vulkan.VulkanContext
 import io.computenode.cyfra.vulkan.compute.ComputePipeline
 
+import java.nio.channels.FileChannel
+import java.nio.file.{Paths, StandardOpenOption}
 import java.security.MessageDigest
 import scala.collection.mutable
 
@@ -17,7 +19,7 @@ class VkCyfraRuntime(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()) ex
 
   private val gProgramCache = mutable.Map[GProgram[?, ?], SpirvProgram[?, ?]]()
   private val shaderCache = mutable.Map[(Long, Long), VkShader[?]]()
-  private val compiler = new Compiler(verbose = "last")
+  private val compiler = new Compiler(verbose = "all")
 
   private[cyfra] def getOrLoadProgram[Params, L <: Layout: {LayoutBinding, LayoutStruct}](program: GProgram[Params, L]): VkShader[L] = synchronized:
 
@@ -37,6 +39,13 @@ class VkCyfraRuntime(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()) ex
     val ExpressionProgram(body, layout, dispatch, workgroupSize) = program
     val bindings = lbinding.toBindings(lstruct.layoutRef).toList
     val compiled = compiler.compile(bindings, body(lstruct.layoutRef))
+
+    val outputPath = Paths.get("out.spv")
+    val channel = FileChannel.open(outputPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)
+    channel.write(compiled)
+    channel.close()
+    println(s"SPIR-V bytecode written to $outputPath")
+
     val optimizedShaderCode = spirvToolsRunner.processShaderCodeWithSpirvTools(compiled)
     SpirvProgram((il: InitProgramLayout) ?=> layout(il), dispatch, optimizedShaderCode)
 

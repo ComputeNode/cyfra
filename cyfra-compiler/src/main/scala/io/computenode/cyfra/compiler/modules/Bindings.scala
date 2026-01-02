@@ -22,20 +22,20 @@ class Bindings extends StandardCompilationModule:
     val (res, context) = Ctx.withCapability(input.context):
       val mapped = input.bindings.zipWithIndex.map: (binding, idx) =>
         val baseType = Ctx.getType(binding.v)
-        val array = binding match
-          case buffer: GBuffer[?]   => Some(IR.SvRef[Unit](Op.OpTypeRuntimeArray, List(baseType)))
-          case uniform: GUniform[?] => None
+        val (storageClass, array) = binding match
+          case buffer: GBuffer[?]   => (StorageClass.StorageBuffer, Some(IR.SvRef[Unit](Op.OpTypeRuntimeArray, List(baseType))))
+          case uniform: GUniform[?] => (StorageClass.Uniform, None)
         val struct = IR.SvRef[Unit](Op.OpTypeStruct, List(array.getOrElse(baseType)))
-        val pointer = IR.SvRef[Unit](Op.OpTypePointer, List(StorageClass.StorageBuffer, struct))
+        val pointer = IR.SvRef[Unit](Op.OpTypePointer, List(storageClass, struct))
 
         val types: List[RefIR[Unit]] = FlatList(array, struct, pointer)
 
-        val variable: RefIR[Unit] = IR.SvRef[Unit](Op.OpVariable, pointer, List(StorageClass.StorageBuffer))
+        val variable: RefIR[Unit] = IR.SvRef[Unit](Op.OpVariable, pointer, List(storageClass))
 
         val decorations: List[IR[?]] =
           FlatList(
-            IR.SvInst(Op.OpDecorate, List(variable, Decoration.Binding, IntWord(0))),
-            IR.SvInst(Op.OpDecorate, List(variable, Decoration.DescriptorSet, IntWord(idx))),
+            IR.SvInst(Op.OpDecorate, List(variable, Decoration.Binding, IntWord(idx))),
+            IR.SvInst(Op.OpDecorate, List(variable, Decoration.DescriptorSet, IntWord(0))),
             IR.SvInst(Op.OpDecorate, List(struct, Decoration.Block)),
             IR.SvInst(Op.OpMemberDecorate, List(struct, IntWord(0), Decoration.Offset, IntWord(0))),
             array.map(i => IR.SvInst(Op.OpDecorate, List(i, Decoration.ArrayStride, IntWord(typeStride(binding.v))))),
@@ -56,7 +56,7 @@ class Bindings extends StandardCompilationModule:
         given Value[a] = x.v
         val IR.ReadUniform(uniform) = x
         val value = Ctx.getType(uniform.v)
-        val ptrValue = Ctx.getTypePointer(uniform.v, StorageClass.StorageBuffer)
+        val ptrValue = Ctx.getTypePointer(uniform.v, StorageClass.Uniform)
         val accessChain = IR.SvRef[Unit](Op.OpAccessChain, ptrValue, List(variables(uniform.layoutOffset), Ctx.getConstant[Int32](0)))
         val loadInst = IR.SvRef[a](Op.OpLoad, value, List(accessChain))
         IRs(loadInst, List(accessChain, loadInst))
@@ -70,7 +70,7 @@ class Bindings extends StandardCompilationModule:
         IRs(loadInst, List(accessChain, loadInst))
       case IR.WriteUniform(uniform, value) =>
         val value = Ctx.getType(uniform.v)
-        val ptrValue = Ctx.getTypePointer(uniform.v, StorageClass.StorageBuffer)
+        val ptrValue = Ctx.getTypePointer(uniform.v, StorageClass.Uniform)
         val accessChain = IR.SvRef[Unit](Op.OpAccessChain, ptrValue, List(variables(uniform.layoutOffset), Ctx.getConstant[Int32](0)))
         val storeInst = IR.SvInst(Op.OpStore, List(accessChain, value))
         IRs(storeInst, List(accessChain, storeInst))

@@ -2,7 +2,6 @@ package io.computenode.cyfra.runtime
 
 import io.computenode.cyfra.core.layout.{Layout, LayoutBinding}
 import io.computenode.cyfra.core.{Allocation, GExecution, GProgram}
-import io.computenode.cyfra.core.SpirvProgram
 import io.computenode.cyfra.core.expression.{Expression, Int32, Value, typeStride}
 import io.computenode.cyfra.core.binding.{GBinding, GBuffer, GUniform}
 import io.computenode.cyfra.runtime.VkAllocation.getUnderlying

@@ -49,6 +49,7 @@ object Compilation:
       case IR.Loop(mainBody, continueBody, break, continue) => "???"
       case IR.Jump(target, value)                           => s"${target.id} ${map(value.id)}"
       case IR.ConditionalJump(cond, target, value)          => s"${map(cond.id)} ${target.id} ${map(value.id)}"
+      case IR.Interface(ref)                                => s"${map(ref.id)}"
       case sv: (IR.SvInst | IR.SvRef[?])                    =>
         val operands = sv match
           case x: IR.SvInst   => x.operands

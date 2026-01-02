@@ -27,19 +27,6 @@ object GProgram:
   case class DynamicDispatch[L <: Layout](buffer: GBinding[?], offset: Int) extends ProgramDispatch
   case class StaticDispatch(size: WorkDimensions) extends ProgramDispatch
 
-  def fromSpirvFile[Params, L <: Layout: {LayoutBinding, LayoutStruct}](
-    layout: InitProgramLayout ?=> Params => L,
-    dispatch: (L, Params) => ProgramDispatch,
-    path: Path,
-  ): SpirvProgram[Params, L] =
-    Using.resource(new FileInputStream(path.toFile)): fis =>
-      val fc = fis.getChannel
-      val size = fc.size().toInt
-      val bb = ByteBuffer.allocateDirect(size)
-      fc.read(bb)
-      bb.flip()
-      SpirvProgram(layout, dispatch, bb)
-
   private[cyfra] class BufferLengthSpec[T: Value](val length: Int) extends GBuffer[T]:
     private[cyfra] def materialise()(using Allocation): GBuffer[T] = GBuffer.apply[T](length)
   private[cyfra] class DynamicUniform[T: Value]() extends GUniform[T]

@@ -8,7 +8,7 @@ import io.computenode.cyfra.dsl.gio.GIO
 import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.dsl.struct.GStruct.Empty
 import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.runtime.VkCyfraRuntime
+import io.computenode.cyfra.runtime.{SpirvProgram, VkCyfraRuntime}
 import io.computenode.cyfra.spirvtools.{SpirvCross, SpirvDisassembler, SpirvToolsRunner}
 import io.computenode.cyfra.spirvtools.SpirvTool.ToFile
 import io.computenode.cyfra.utility.Logger.logger
@@ -37,7 +37,7 @@ class SpirvRuntimeEnduranceTest extends munit.FunSuite:
     args: GUniform[EmitProgramUniform] = GUniform.fromParams, // todo will be different in the future
   ) extends Layout
 
-  val emitProgram = GProgram.fromSpirvFile[EmitProgramParams, EmitProgramLayout](
+  val emitProgram = SpirvProgram.fromFile[EmitProgramParams, EmitProgramLayout](
     layout = params =>
       EmitProgramLayout(
         in = GBuffer[Int32](params.inSize),
@@ -57,7 +57,7 @@ class SpirvRuntimeEnduranceTest extends munit.FunSuite:
   case class FilterProgramLayout(in: GBuffer[Int32], out: GBuffer[GBoolean], params: GUniform[FilterProgramUniform] = GUniform.fromParams)
       extends Layout
 
-  val filterProgram = GProgram.fromSpirvFile[FilterProgramParams, FilterProgramLayout](
+  val filterProgram = SpirvProgram.fromFile[FilterProgramParams, FilterProgramLayout](
     layout = params =>
       FilterProgramLayout(
         in = GBuffer[Int32](params.inSize),
