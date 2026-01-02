@@ -45,7 +45,9 @@ class Bindings extends StandardCompilationModule:
       val (decorations, types, variables) = mapped.unzip3
       (decorations.flatten, types.flatten, variables)
 
-    val nContext = context.copy(decorations = context.decorations ++ res._1, suffix = context.suffix ++ res._2 ++ res._3)
+    val prefix = res._3.map(IR.Interface.apply).toList
+    val nContext =
+      context.copy(prefix = prefix ++ context.prefix, decorations = context.decorations ++ res._1, suffix = context.suffix ++ res._2 ++ res._3)
     (input.copy(context = nContext), res._3.toList)
 
   private def compileFunction(input: IRs[?], variables: Map[Int, RefIR[Unit]])(using Ctx): IRs[?] =

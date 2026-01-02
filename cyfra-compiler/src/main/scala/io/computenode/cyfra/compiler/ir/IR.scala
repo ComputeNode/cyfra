@@ -63,6 +63,8 @@ object IR:
     override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[Unit] = this.copy(value = value.replaced)
   case class ConditionalJump[A: Value](cond: RefIR[Bool], target: JumpTarget[A], value: RefIR[A]) extends IR[Unit]:
     override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[Unit] = this.copy(cond = cond.replaced, value = value.replaced)
+  case class Interface(ref: RefIR[?]) extends RefIR[Unit]:
+    override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[Unit] = this.copy(ref = ref.replaced)
   case class SvInst(op: Code, operands: List[Words | RefIR[?]]) extends IR[Unit]:
     override def name: String = op.mnemo
     override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[Unit] = this.copy(operands = operands.map:
