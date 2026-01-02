@@ -8,30 +8,31 @@ import io.computenode.cyfra.core.binding.{GBinding, GBuffer, GUniform}
 import io.computenode.cyfra.runtime.VkAllocation.getUnderlying
 import io.computenode.cyfra.vulkan.command.CommandPool
 import io.computenode.cyfra.vulkan.memory.{Allocator, Buffer}
-import io.computenode.cyfra.vulkan.util.Util.pushStack
+import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import io.computenode.cyfra.vulkan.core.Device
 import izumi.reflect.Tag
 import org.lwjgl.BufferUtils
 import org.lwjgl.system.MemoryUtil
-import org.lwjgl.vulkan.VK10
-import org.lwjgl.vulkan.VK13.VK_PIPELINE_STAGE_2_COPY_BIT
-import org.lwjgl.vulkan.VK10.{VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_BUFFER_USAGE_TRANSFER_SRC_BIT}
+import org.lwjgl.vulkan.{VK10, VkCommandBuffer, VkCommandBufferBeginInfo, VkDependencyInfo, VkMemoryBarrier2}
+import org.lwjgl.vulkan.VK13.*
+import org.lwjgl.vulkan.VK10.*
 
 import java.nio.ByteBuffer
 import scala.collection.mutable
+import scala.util.Try
 import scala.util.chaining.*
 
-class VkAllocation(commandPool: CommandPool, executionHandler: ExecutionHandler)(using Allocator, Device) extends Allocation:
+class VkAllocation(val commandPool: CommandPool, executionHandler: ExecutionHandler)(using Allocator, Device) extends Allocation:
   given VkAllocation = this
 
   override def submitLayout[L <: Layout: LayoutBinding](layout: L): Unit =
     val executions = summon[LayoutBinding[L]]
       .toBindings(layout)
-      .map(getUnderlying)
+      .flatMap(x => Try(getUnderlying(x)).toOption)
       .flatMap(_.execution.fold(Seq(_), _.toSeq))
       .filter(_.isPending)
 
-    PendingExecution.executeAll(executions, commandPool.queue)
+    if executions.nonEmpty then PendingExecution.executeAll(executions, this)
 
   extension (buffer: GBinding[?])
     def read(bb: ByteBuffer, offset: Int = 0): Unit =
@@ -39,26 +40,26 @@ class VkAllocation(commandPool: CommandPool, executionHandler: ExecutionHandler)
       buffer match
         case VkBinding(buffer: Buffer.HostBuffer) => buffer.copyTo(bb, offset)
         case binding: VkBinding[?]                =>
-          binding.materialise(commandPool.queue)
+          binding.materialise(this)
           val stagingBuffer = getStagingBuffer(size)
           Buffer.copyBuffer(binding.buffer, stagingBuffer, offset, 0, size, commandPool)
           stagingBuffer.copyTo(bb, 0)
           stagingBuffer.destroy()
         case _ => throw new IllegalArgumentException(s"Tried to read from non-VkBinding $buffer")
 
-    def write(bb: ByteBuffer, offset: Int = 0): Unit =
+    def write(bb: ByteBuffer, offset: Int = 0)(using name: sourcecode.FileName, line: sourcecode.Line): Unit =
       val size = bb.remaining()
       buffer match
         case VkBinding(buffer: Buffer.HostBuffer) => buffer.copyFrom(bb, offset)
         case binding: VkBinding[?]                =>
-          binding.materialise(commandPool.queue)
+          binding.materialise(this)
           val stagingBuffer = getStagingBuffer(size)
           stagingBuffer.copyFrom(bb, 0)
           val cb = Buffer.copyBufferCommandBuffer(stagingBuffer, binding.buffer, 0, offset, size, commandPool)
           val cleanup = () =>
             commandPool.freeCommandBuffer(cb)
             stagingBuffer.destroy()
-          val pe = new PendingExecution(cb, binding.execution.fold(Seq(_), _.toSeq), cleanup)
+          val pe = new PendingExecution(cb, binding.execution.fold(Seq(_), _.toSeq), cleanup, s"Writing at ${name.value}:${line.value}")
           addExecution(pe)
           binding.execution = Left(pe)
         case _ => throw new IllegalArgumentException(s"Tried to write to non-VkBinding $buffer")
@@ -67,22 +68,24 @@ class VkAllocation(commandPool: CommandPool, executionHandler: ExecutionHandler)
     def apply[T: Value](length: Int): GBuffer[T] =
       VkBuffer[T](length).tap(bindings += _)
 
-    def apply[T: Value](buff: ByteBuffer): GBuffer[T] =
+    def apply[T: Value](buff: ByteBuffer)(using name: sourcecode.FileName, line: sourcecode.Line): GBuffer[T] =
       val sizeOfT = typeStride(Value[T])
       val length = buff.capacity() / sizeOfT
       if buff.capacity() % sizeOfT != 0 then
         throw new IllegalArgumentException(s"ByteBuffer size ${buff.capacity()} is not a multiple of element size $sizeOfT")
-      GBuffer[T](length).tap(_.write(buff))
+      GBuffer[T](length).tap(_.write(buff)(using name, line))
 
   extension (uniforms: GUniform.type)
-    def apply[T: Value](buff: ByteBuffer): GUniform[T] =
-      GUniform[T]().tap(_.write(buff))
+    def apply[T: Value](buff: ByteBuffer)(using name: sourcecode.FileName, line: sourcecode.Line): GUniform[T] =
+      GUniform[T]().tap(_.write(buff)(using name, line))
 
     def apply[T: Value](): GUniform[T] =
       VkUniform[T]().tap(bindings += _)
 
   extension [Params, EL <: Layout: LayoutBinding, RL <: Layout: LayoutBinding](execution: GExecution[Params, EL, RL])
-    def execute(params: Params, layout: EL): RL = executionHandler.handle(execution, params, layout)
+    def execute(params: Params, layout: EL)(using name: sourcecode.FileName, line: sourcecode.Line): RL =
+      val message = s"Executing at ${name.value}:${line.value}"
+      executionHandler.handle(execution, params, layout, message)
 
   private def direct[T: Value](buff: ByteBuffer): GUniform[T] =
     GUniform[T](buff)
@@ -108,6 +111,38 @@ class VkAllocation(commandPool: CommandPool, executionHandler: ExecutionHandler)
 
   private def getStagingBuffer(size: Int): Buffer.HostBuffer =
     Buffer.HostBuffer(size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
+
+  lazy val synchroniseCommand: VkCommandBuffer = pushStack: stack =>
+    val commandBuffer = commandPool.createCommandBuffer()
+    val commandBufferBeginInfo = VkCommandBufferBeginInfo
+      .calloc(stack)
+      .sType$Default()
+      .flags(VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT)
+
+    check(vkBeginCommandBuffer(commandBuffer, commandBufferBeginInfo), "Failed to begin recording command buffer")
+    val memoryBarrier = VkMemoryBarrier2
+      .calloc(1, stack)
+      .sType$Default()
+      .srcStageMask(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT)
+      .srcAccessMask(
+        VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT |
+          VK_ACCESS_2_UNIFORM_READ_BIT,
+      )
+      .dstStageMask(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT)
+      .dstAccessMask(
+        VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT |
+          VK_ACCESS_2_UNIFORM_READ_BIT,
+      )
+
+    val dependencyInfo = VkDependencyInfo
+      .calloc(stack)
+      .sType$Default()
+      .pMemoryBarriers(memoryBarrier)
+
+    vkCmdPipelineBarrier2(commandBuffer, dependencyInfo)
+    check(vkEndCommandBuffer(commandBuffer), "Failed to finish recording command buffer")
+
+    commandBuffer
 
 object VkAllocation:
   private[runtime] def getUnderlying(buffer: GBinding[?]): VkBinding[?] =

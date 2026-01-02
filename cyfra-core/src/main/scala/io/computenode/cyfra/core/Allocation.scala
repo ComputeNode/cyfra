@@ -13,17 +13,17 @@ trait Allocation:
   extension (buffer: GBinding[?])
     def read(bb: ByteBuffer, offset: Int = 0): Unit
 
-    def write(bb: ByteBuffer, offset: Int = 0): Unit
+    def write(bb: ByteBuffer, offset: Int = 0)(using name: sourcecode.FileName, line: sourcecode.Line): Unit
 
   extension [Params, EL <: Layout: LayoutBinding, RL <: Layout: LayoutBinding](execution: GExecution[Params, EL, RL])
-    def execute(params: Params, layout: EL): RL
+    def execute(params: Params, layout: EL)(using name: sourcecode.FileName, line: sourcecode.Line): RL
 
   extension (buffers: GBuffer.type)
     def apply[T: Value](length: Int): GBuffer[T]
 
-    def apply[T: Value](buff: ByteBuffer): GBuffer[T]
+    def apply[T: Value](buff: ByteBuffer)(using name: sourcecode.FileName, line: sourcecode.Line): GBuffer[T]
 
   extension (buffers: GUniform.type)
-    def apply[T: Value](buff: ByteBuffer): GUniform[T]
+    def apply[T: Value](buff: ByteBuffer)(using name: sourcecode.FileName, line: sourcecode.Line): GUniform[T]
 
     def apply[T: Value](): GUniform[T]
