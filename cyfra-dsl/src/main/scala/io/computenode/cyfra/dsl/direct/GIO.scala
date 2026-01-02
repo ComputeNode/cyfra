@@ -1,22 +1,13 @@
 package io.computenode.cyfra.dsl.direct
 
-import io.computenode.cyfra.core.expression.{
-  Bool,
-  unitZero,
-  BuildInFunction,
-  CustomFunction,
-  Expression,
-  ExpressionBlock,
-  JumpTarget,
-  UInt32,
-  Value,
-  Var,
-  given,
-}
+import io.computenode.cyfra.core.{ExpressionProgram, GProgram}
+import io.computenode.cyfra.core.GProgram.{InitProgramLayout, ProgramDispatch, WorkDimensions}
+import io.computenode.cyfra.core.expression.{Bool, BuildInFunction, CustomFunction, Expression, ExpressionBlock, JumpTarget, UInt32, Value, Var, unitZero, given}
 import io.computenode.cyfra.core.expression.CustomFunction.CustomFunction1
-import io.computenode.cyfra.core.binding.GBuffer
+import io.computenode.cyfra.core.binding.{GBuffer, GUniform}
 import io.computenode.cyfra.core.expression.JumpTarget.{BreakTarget, ContinueTarget}
 import io.computenode.cyfra.core.expression.Value.irs
+import io.computenode.cyfra.core.layout.{Layout, LayoutBinding, LayoutStruct}
 
 class GIO:
   private var result: List[Expression[?]] = Nil
@@ -46,6 +37,16 @@ object GIO:
     val v = value.irs
     val write = Expression.WriteBuffer(buffer, idx.result, v.result)
     gio.extend(write :: idx.body ++ v.body)
+
+  def read[T: Value](uniform: GUniform[T])(using gio: GIO): T =
+    val read = Expression.ReadUniform(uniform)
+    gio.add(read)
+    Value[T].indirect(read)
+    
+  def write[T: Value](uniform: GUniform[T], value: T)(using gio: GIO): Unit =
+    val v = value.irs
+    val write = Expression.WriteUniform(uniform, v.result)
+    gio.extend(write :: v.body)
 
   def declare[T: Value]()(using gio: GIO): Var[T] =
     val variable = Var[T]()

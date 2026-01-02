@@ -63,8 +63,8 @@ def readFunc(buffer: GBuffer[Int32]) = CustomFunction[UInt32, Int32]: in =>
 def program(buffer: GBuffer[Int32])(using GIO): Unit =
   val vA = declare[UInt32]()
   val vB = declare[Int32]()
-  write(vA, const(0))
-  write(vB, const(1))
+  write(vA, const[UInt32](0))
+  write(vB, const[Int32](1))
   call(readFunc(buffer), vA)
   call(funcFlow, vB)
   ()
@@ -76,7 +76,7 @@ def main(): Unit =
   val p1 = (l: SimpleLayout) =>
     reify:
       program(l.in)
-  val ls = LayoutStruct[SimpleLayout](SimpleLayout(BufferRef(0, summon[Tag[Int32]])), Nil)
+  val ls = LayoutStruct[SimpleLayout](SimpleLayout(BufferRef(0)))
   val rf = ls.layoutRef
   val lb = summon[LayoutBinding[SimpleLayout]].toBindings(rf)
   val body = p1(rf)

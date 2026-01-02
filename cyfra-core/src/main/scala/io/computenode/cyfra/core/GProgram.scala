@@ -27,13 +27,6 @@ object GProgram:
   case class DynamicDispatch[L <: Layout](buffer: GBinding[?], offset: Int) extends ProgramDispatch
   case class StaticDispatch(size: WorkDimensions) extends ProgramDispatch
 
-  def apply[Params, L <: Layout: {LayoutBinding, LayoutStruct}](
-    layout: InitProgramLayout ?=> Params => L,
-    dispatch: (L, Params) => ProgramDispatch,
-    workgroupSize: WorkDimensions = (128, 1, 1),
-  )(body: L => ExpressionBlock[Unit]): GProgram[Params, L] =
-    new ExpressionProgram[Params, L](body, s => layout(using s), dispatch, workgroupSize)
-
   def fromSpirvFile[Params, L <: Layout: {LayoutBinding, LayoutStruct}](
     layout: InitProgramLayout ?=> Params => L,
     dispatch: (L, Params) => ProgramDispatch,
