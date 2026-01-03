@@ -5,8 +5,8 @@ import io.computenode.cyfra.core.expression.{Value, given}
 import io.computenode.cyfra.compiler.ir.{FunctionIR, IR, IRs}
 import io.computenode.cyfra.compiler.modules.CompilationModule.FunctionCompilationModule
 import io.computenode.cyfra.compiler.unit.{Context, Ctx}
-import io.computenode.cyfra.compiler.spirv.Opcodes.Op
-import io.computenode.cyfra.compiler.spirv.Opcodes.StorageClass
+import io.computenode.cyfra.compiler.Spriv.Op
+import io.computenode.cyfra.compiler.Spriv.StorageClass
 
 import scala.collection.mutable
 

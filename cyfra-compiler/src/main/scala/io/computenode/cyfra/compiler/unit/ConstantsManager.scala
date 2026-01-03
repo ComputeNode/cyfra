@@ -2,7 +2,7 @@ package io.computenode.cyfra.compiler.unit
 
 import io.computenode.cyfra.compiler.ir.IR
 import io.computenode.cyfra.compiler.ir.IR.RefIR
-import io.computenode.cyfra.compiler.spirv.Opcodes.*
+import io.computenode.cyfra.compiler.Spriv.*
 import io.computenode.cyfra.compiler.CompilationException
 import io.computenode.cyfra.compiler.unit.ConstantsManager.*
 import io.computenode.cyfra.core.expression.*

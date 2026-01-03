@@ -6,7 +6,7 @@ import io.computenode.cyfra.compiler.unit.Ctx
 import io.computenode.cyfra.compiler.ir.IR
 import io.computenode.cyfra.compiler.ir.IR.RefIR
 import io.computenode.cyfra.compiler.ir.IRs
-import io.computenode.cyfra.compiler.spirv.Opcodes.*
+import io.computenode.cyfra.compiler.Spriv.*
 import io.computenode.cyfra.core.expression.{UInt32, Value, Vec3, given}
 import io.computenode.cyfra.core.expression.BuildInFunction.GlobalInvocationId
 

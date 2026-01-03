@@ -2,7 +2,7 @@ package io.computenode.cyfra.compiler.modules
 
 import io.computenode.cyfra.compiler.ir.IR.RefIR
 import io.computenode.cyfra.compiler.ir.{FunctionIR, IR, IRs}
-import io.computenode.cyfra.compiler.spirv.Opcodes.{Decoration, IntWord, Op, StorageClass}
+import io.computenode.cyfra.compiler.Spriv.{Decoration, IntWord, Op, StorageClass}
 import io.computenode.cyfra.compiler.modules.CompilationModule.{FunctionCompilationModule, StandardCompilationModule}
 import io.computenode.cyfra.compiler.unit.{Compilation, Context, Ctx}
 import io.computenode.cyfra.core.binding.{GBinding, GBuffer, GUniform}

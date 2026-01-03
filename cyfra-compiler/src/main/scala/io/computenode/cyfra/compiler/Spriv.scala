@@ -1,22 +1,19 @@
-package io.computenode.cyfra.compiler.spirv
+package io.computenode.cyfra.compiler
 
 import java.nio.charset.StandardCharsets
 
-private[cyfra] object Opcodes:
+private[cyfra] object Spriv:
 
-  def intToBytes(i: Int): List[Byte] =
+  private def intToBytes(i: Int): List[Byte] =
     List[Byte]((i >>> 24).asInstanceOf[Byte], (i >>> 16).asInstanceOf[Byte], (i >>> 8).asInstanceOf[Byte], (i >>> 0).asInstanceOf[Byte])
 
   private[cyfra] trait Words:
-    def toWords: List[Byte]
-
+    def toBytes: List[Byte]
     def length: Int
 
   private[cyfra] case class Word private (bytes: (Byte, Byte, Byte, Byte)) extends Words:
-    def toWords: List[Byte] = bytes.toList
-
-    def length = 1
-
+    def toBytes: List[Byte] = bytes.toList
+    def length: Int = 1
     override def toString = s"Word(${bytes._4}, ${bytes._3}, ${bytes._2}, ${bytes._1})"
 
   object Word:
@@ -24,54 +21,35 @@ private[cyfra] object Opcodes:
       val bytes = intToBytes(value).reverse
       Word(bytes(0), bytes(1), bytes(2), bytes(3))
 
-  private[cyfra] case class WordVariable(name: String) extends Words:
-    def toWords: List[Byte] =
-      List(-1, -1, -1, -1)
-
-    def length = 1
-
   private[cyfra] case class Instruction(code: Code, operands: List[Words]) extends Words:
-    override def toWords: List[Byte] =
-      code.toWords.take(2) ::: intToBytes(length).reverse.take(2) ::: operands.flatMap(_.toWords)
-
-    def length = 1 + operands.map(_.length).sum
-
-    def replaceVar(name: String, value: Int): Instruction =
-      this.copy(operands = operands.map {
-        case WordVariable(varName) if name == varName => IntWord(value)
-        case any                                      => any
-      })
-
+    def toBytes: List[Byte] =
+      code.toBytes.take(2) ::: intToBytes(length).reverse.take(2) ::: operands.flatMap(_.toBytes)
+    def length: Int = 1 + operands.map(_.length).sum
     override def toString: String = s"${code.mnemo} ${operands.mkString(", ")}"
 
   private[cyfra] case class Code(mnemo: String, opcode: Int) extends Words:
-    override def toWords: List[Byte] = intToBytes(opcode).reverse
-
+    def toBytes: List[Byte] = intToBytes(opcode).reverse
+    def length: Int = 1
     override def toString: String = mnemo
 
-    override def length: Int = 1
 
   private[cyfra] case class Text(text: String) extends Words:
-    override def toWords: List[Byte] =
+    def toBytes: List[Byte] =
       val textBytes = text.getBytes(StandardCharsets.UTF_8).toList
       val complBytesLength = 4 - (textBytes.length % 4)
       val complBytes = List.fill[Byte](complBytesLength)(0)
       textBytes ::: complBytes
 
-    override def length: Int = toWords.length / 4
+    def length: Int = toBytes.length / 4
 
   private[cyfra] case class IntWord(i: Int) extends Words:
-    override def toWords: List[Byte] = intToBytes(i).reverse
-
-    override def length: Int = 1
-
+    def toBytes: List[Byte] = intToBytes(i).reverse
+    def length: Int = 1
     override def toString: String = i.toString
 
   private[cyfra] case class ResultRef(result: Int) extends Words:
-    override def toWords: List[Byte] = intToBytes(result).reverse
-
-    override def length: Int = 1
-
+    def toBytes: List[Byte] = intToBytes(result).reverse
+    def length: Int = 1
     override def toString: String = s"%$result"
 
   val MagicNumber = Code("MagicNumber", 0x07230203)

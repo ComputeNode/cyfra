@@ -4,8 +4,8 @@ import io.computenode.cyfra.compiler.ir.{FunctionIR, IR, IRs}
 import io.computenode.cyfra.compiler.unit.Context
 
 import scala.collection.mutable
-import io.computenode.cyfra.compiler.{CompilationException, id}
-import io.computenode.cyfra.compiler.spirv.Opcodes.*
+import io.computenode.cyfra.compiler.CompilationException
+import io.computenode.cyfra.compiler.Spriv.*
 import io.computenode.cyfra.compiler.ir.IR.RefIR
 import io.computenode.cyfra.core.binding.GBinding
 import io.computenode.cyfra.utility.Utility.*
@@ -39,10 +39,10 @@ object Compilation:
       case IR.VarDeclare(variable)                          => s"#${variable.id}"
       case IR.VarRead(variable)                             => s"#${variable.id}"
       case IR.VarWrite(variable, value)                     => s"#${variable.id} ${map(value.id)}"
-      case IR.ReadBuffer(buffer, index)                     => s"@${buffer.id} ${map(index.id)}"
-      case IR.WriteBuffer(buffer, index, value)             => s"@${buffer.id} ${map(index.id)} ${map(value.id)}"
-      case IR.ReadUniform(uniform)                          => s"@${uniform.id}"
-      case IR.WriteUniform(uniform, value)                  => s"@${uniform.id} ${map(value.id)}"
+      case IR.ReadBuffer(buffer, index)                     => s"@${buffer.layoutOffset} ${map(index.id)}"
+      case IR.WriteBuffer(buffer, index, value)             => s"@${buffer.layoutOffset} ${map(index.id)} ${map(value.id)}"
+      case IR.ReadUniform(uniform)                          => s"@${uniform.layoutOffset}"
+      case IR.WriteUniform(uniform, value)                  => s"@${uniform.layoutOffset} ${map(value.id)}"
       case IR.Operation(func, args)                         => s"${func.name} ${args.map(_.id).map(map).mkString(" ")}"
       case IR.CallWithVar(func, args)                       => s"${func.name} ${args.map(x => s"#${x.id}").mkString(" ")}"
       case IR.CallWithIR(func, args)                        => s"${func.name} ${args.map(x => map(x.id)).mkString(" ")}"

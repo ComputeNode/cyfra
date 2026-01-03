@@ -4,7 +4,7 @@ import io.computenode.cyfra.compiler.CompilationException
 import io.computenode.cyfra.compiler.ir.IR.*
 import io.computenode.cyfra.compiler.ir.IR
 import io.computenode.cyfra.compiler.unit.Compilation
-import io.computenode.cyfra.compiler.spirv.Opcodes.*
+import io.computenode.cyfra.compiler.Spriv.*
 import io.computenode.cyfra.utility.FlatList
 import org.lwjgl.BufferUtils
 
@@ -35,6 +35,6 @@ class Emitter extends CompilationModule[Compilation, ByteBuffer]:
       case x @ IR.SvRef(op, tpe, operands) => Instruction(op, FlatList(tpe.map(_.id).map(ids), ids(x.id), mapOperands(operands)))
       case other                           => throw new CompilationException("Cannot emit non-SPIR-V IR: " + other)
 
-    val bytes = (headers ++ code).flatMap(_.toWords).toArray
+    val bytes = (headers ++ code).flatMap(_.toBytes).toArray
 
     BufferUtils.createByteBuffer(bytes.length).put(bytes).rewind()

@@ -4,7 +4,7 @@ import IR.*
 import io.computenode.cyfra.compiler.CompilationException
 import io.computenode.cyfra.compiler.ir.IRs.*
 import io.computenode.cyfra.core.expression.Value
-import io.computenode.cyfra.compiler.spirv.Opcodes.Op
+import io.computenode.cyfra.compiler.Spriv.Op
 import io.computenode.cyfra.utility.cats.{FunctionK, ~>}
 
 import scala.collection.mutable
