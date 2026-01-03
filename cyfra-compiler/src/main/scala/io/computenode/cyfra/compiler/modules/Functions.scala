@@ -18,7 +18,7 @@ class Functions extends StandardCompilationModule:
     val (newFunctions, context) = Ctx.withCapability(input.context):
       val mapRes = mutable.Buffer.empty[IRs[?]]
       input.functionBodies
-        .zip(input.functions)
+        .zip(input.metadata.functions)
         .foldLeft(Map.empty[String, RefIR[Unit]]): (acc, f) =>
           val (body, pointer) = compileFunction(f._1, f._2, acc)
           mapRes.append(body)

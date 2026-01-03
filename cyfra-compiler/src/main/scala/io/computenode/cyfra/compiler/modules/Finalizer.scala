@@ -30,7 +30,7 @@ class Finalizer extends StandardCompilationModule:
       IR.SvInst(Op.OpCapability, Capability.Shader :: Nil),
       IR.SvInst(Op.OpMemoryModel, AddressingModel.Logical :: MemoryModel.GLSL450 :: Nil),
       IR.SvInst(Op.OpEntryPoint, ExecutionModel.GLCompute :: main :: Text("main") :: invocationVar :: inputs),
-      IR.SvInst(Op.OpExecutionMode, main :: ExecutionMode.LocalSize :: IntWord(128) :: IntWord(1) :: IntWord(1) :: Nil),
+      IR.SvInst(Op.OpExecutionMode, main :: ExecutionMode.LocalSize :: input.metadata.workgroupSize.toList.map(IntWord.apply)),
       IR.SvInst(Op.OpSource, SourceLanguage.Unknown :: IntWord(364) :: Nil),
       IR.SvInst(Op.OpSourceExtension, Text("Scala 3") :: Nil),
     )

@@ -20,7 +20,7 @@ class Bindings extends StandardCompilationModule:
 
   private def prepareHeader(input: Compilation): (Compilation, List[RefIR[Unit]]) =
     val (res, context) = Ctx.withCapability(input.context):
-      val mapped = input.bindings.zipWithIndex.map: (binding, idx) =>
+      val mapped = input.metadata.bindings.zipWithIndex.map: (binding, idx) =>
         val baseType = Ctx.getType(binding.v)
         val (storageClass, array) = binding match
           case buffer: GBuffer[?]   => (StorageClass.StorageBuffer, Some(IR.SvRef[Unit](Op.OpTypeRuntimeArray, List(baseType))))

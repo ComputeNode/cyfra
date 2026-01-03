@@ -12,7 +12,7 @@ import io.computenode.cyfra.utility.Utility.*
 
 import scala.collection.immutable.{AbstractMap, SeqMap, SortedMap}
 
-case class Compilation(context: Context, bindings: Seq[GBinding[?]], functions: List[FunctionIR[?]], functionBodies: List[IRs[?]]):
+case class Compilation(metadata: Metadata, context: Context, functionBodies: List[IRs[?]]):
   def output: List[IR[?]] =
     context.output ++ functionBodies.flatMap(_.body)
 
@@ -20,7 +20,8 @@ object Compilation:
   def apply(functions: List[(FunctionIR[?], IRs[?])]): Compilation =
     val (f, fir) = functions.unzip
     val context = Context(Nil, Nil, TypeManager(), ConstantsManager(), Nil)
-    Compilation(context, Nil, f, fir)
+    val meta = Metadata(Nil, f, (0, 0, 0))
+    Compilation(meta, context, fir)
 
   def debugPrint(compilation: Compilation): Unit =
     var printingError = false
@@ -68,7 +69,7 @@ object Compilation:
     val Context(prefix, decorations, types, constants, suffix) = compilation.context
     val data =
       Seq((prefix, "Prefix"), (decorations, "Decorations"), (types.output, "Type Info"), (constants.output, "Constants"), (suffix, "Suffix")) ++
-        compilation.functions
+        compilation.metadata.functions
           .zip(compilation.functionBodies)
           .map: (func, body) =>
             (body.body, func.name)

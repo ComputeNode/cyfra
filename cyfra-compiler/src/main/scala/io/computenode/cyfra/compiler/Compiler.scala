@@ -6,6 +6,7 @@ import io.computenode.cyfra.core.layout.LayoutStruct
 import io.computenode.cyfra.compiler.modules.*
 import io.computenode.cyfra.compiler.modules.CompilationModule.StandardCompilationModule
 import io.computenode.cyfra.compiler.unit.Compilation
+import io.computenode.cyfra.core.GProgram.WorkDimensions
 
 import java.nio.ByteBuffer
 
@@ -15,8 +16,11 @@ class Compiler(verbose: "none" | "last" | "all" = "none"):
     List(new Reordering, new StructuredControlFlow, new Variables, new Functions, new Bindings, new Constants, new Algebra, new Finalizer)
   private val emitter = new Emitter()
 
-  def compile(bindings: Seq[GBinding[?]], body: ExpressionBlock[Unit]): ByteBuffer =
-    val parsedUnit = transformer.compile(body).copy(bindings = bindings)
+  def compile(bindings: Seq[GBinding[?]], body: ExpressionBlock[Unit], workgroupSize: WorkDimensions): ByteBuffer =
+    val parsedUnit =
+      val tmp = transformer.compile(body)
+      val meta = tmp.metadata.copy(bindings = bindings, workgroupSize = workgroupSize)
+      tmp.copy(metadata = meta)
     if verbose == "all" then
       println(s"=== ${transformer.name} ===")
       Compilation.debugPrint(parsedUnit)
