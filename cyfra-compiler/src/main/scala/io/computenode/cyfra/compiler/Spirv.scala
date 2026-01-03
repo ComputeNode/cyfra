@@ -2,7 +2,7 @@ package io.computenode.cyfra.compiler
 
 import java.nio.charset.StandardCharsets
 
-private[cyfra] object Spriv:
+private[cyfra] object Spirv:
 
   private def intToBytes(i: Int): List[Byte] =
     List[Byte]((i >>> 24).asInstanceOf[Byte], (i >>> 16).asInstanceOf[Byte], (i >>> 8).asInstanceOf[Byte], (i >>> 0).asInstanceOf[Byte])

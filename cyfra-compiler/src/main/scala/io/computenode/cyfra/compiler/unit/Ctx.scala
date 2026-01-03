@@ -2,7 +2,7 @@ package io.computenode.cyfra.compiler.unit
 
 import io.computenode.cyfra.compiler.ir.{IR, IRs}
 import io.computenode.cyfra.compiler.ir.IR.RefIR
-import io.computenode.cyfra.compiler.Spriv.Code
+import io.computenode.cyfra.compiler.Spirv.Code
 import io.computenode.cyfra.core.expression.Value
 import izumi.reflect.macrortti.LightTypeTag
 

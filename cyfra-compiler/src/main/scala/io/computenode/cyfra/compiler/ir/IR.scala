@@ -3,8 +3,8 @@ package io.computenode.cyfra.compiler.ir
 import io.computenode.cyfra.compiler.ir.IR
 import io.computenode.cyfra.compiler.ir.IR.RefIR
 import io.computenode.cyfra.compiler.ir.IRs
-import io.computenode.cyfra.compiler.Spriv.Code
-import io.computenode.cyfra.compiler.Spriv.Words
+import io.computenode.cyfra.compiler.Spirv.Code
+import io.computenode.cyfra.compiler.Spirv.Words
 import io.computenode.cyfra.core.binding.{BufferRef, GBuffer, GUniform, UniformRef}
 import io.computenode.cyfra.core.expression.*
 import io.computenode.cyfra.core.expression.given

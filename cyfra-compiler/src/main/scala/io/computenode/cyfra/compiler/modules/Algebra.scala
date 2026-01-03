@@ -4,8 +4,8 @@ import io.computenode.cyfra.compiler.CompilationException
 import io.computenode.cyfra.compiler.ir.{FunctionIR, IR, IRs}
 import io.computenode.cyfra.compiler.modules.CompilationModule.FunctionCompilationModule
 import io.computenode.cyfra.compiler.unit.{Context, Ctx}
-import io.computenode.cyfra.compiler.Spriv.Op
-import io.computenode.cyfra.compiler.Spriv.Code
+import io.computenode.cyfra.compiler.Spirv.Op
+import io.computenode.cyfra.compiler.Spirv.Code
 import io.computenode.cyfra.core.expression.*
 import io.computenode.cyfra.core.expression.BuildInFunction.*
 import izumi.reflect.Tag

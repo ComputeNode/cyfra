@@ -4,7 +4,7 @@ import io.computenode.cyfra.compiler.CompilationException
 import io.computenode.cyfra.compiler.ir.IR.*
 import io.computenode.cyfra.compiler.ir.IR
 import io.computenode.cyfra.compiler.unit.Compilation
-import io.computenode.cyfra.compiler.Spriv.*
+import io.computenode.cyfra.compiler.Spirv.*
 import io.computenode.cyfra.utility.FlatList
 import org.lwjgl.BufferUtils
 

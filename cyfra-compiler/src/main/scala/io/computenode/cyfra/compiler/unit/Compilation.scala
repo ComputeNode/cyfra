@@ -5,7 +5,7 @@ import io.computenode.cyfra.compiler.unit.Context
 
 import scala.collection.mutable
 import io.computenode.cyfra.compiler.CompilationException
-import io.computenode.cyfra.compiler.Spriv.*
+import io.computenode.cyfra.compiler.Spirv.*
 import io.computenode.cyfra.compiler.ir.IR.RefIR
 import io.computenode.cyfra.core.binding.GBinding
 import io.computenode.cyfra.utility.Utility.*
