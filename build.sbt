@@ -87,18 +87,13 @@ lazy val runtime = (project in file("cyfra-runtime"))
   .settings(commonSettings)
   .dependsOn(core, vulkan, spirvTools, compiler)
 
-lazy val foton = (project in file("cyfra-foton"))
-  .settings(commonSettings)
-  .dependsOn(compiler, dsl, core, runtime, utility)
-
 lazy val examples = (project in file("cyfra-examples"))
   .settings(commonSettings, runnerSettings)
   .settings(libraryDependencies += "org.scala-lang.modules" % "scala-parallel-collections_3" % "1.2.0")
-  .dependsOn(foton)
+  .dependsOn(vscode, runtime, dsl)
 
 lazy val vscode = (project in file("cyfra-vscode"))
   .settings(commonSettings)
-  .dependsOn(foton)
 
 lazy val fs2interop = (project in file("cyfra-fs2"))
   .settings(commonSettings, fs2Settings)
@@ -110,7 +105,7 @@ lazy val e2eTest = (project in file("cyfra-e2e-test"))
 
 lazy val root = (project in file("."))
   .settings(name := "Cyfra")
-  .aggregate(compiler, dsl, foton, core, runtime, vulkan, examples, fs2interop)
+  .aggregate(compiler, dsl, core, runtime, vulkan, examples, fs2interop)
 
 e2eTest / Test / javaOptions ++= Seq("-Dorg.lwjgl.system.stackSize=1024", "-DuniqueLibraryNames=true")
 

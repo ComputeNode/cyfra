@@ -1,15 +1,13 @@
-package io.computenode.cyfra.samples
+package io.computenode.examples
 
-import io.computenode.cyfra.core.layout.*
-import io.computenode.cyfra.core.{GBufferRegion, GExecution, GProgram}
-import io.computenode.cyfra.core.expression.*
-import io.computenode.cyfra.core.expression.ops.*
-import io.computenode.cyfra.core.expression.ops.given
-import io.computenode.cyfra.core.expression.given
 import io.computenode.cyfra.core.binding.{BufferRef, GBuffer, GUniform, UniformRef}
 import io.computenode.cyfra.core.expression.JumpTarget.BreakTarget
-import io.computenode.cyfra.dsl.direct.*
+import io.computenode.cyfra.core.expression.{*, given}
+import io.computenode.cyfra.core.expression.ops.{*, given}
+import io.computenode.cyfra.core.layout.*
+import io.computenode.cyfra.core.{GBufferRegion, GExecution, GProgram}
 import io.computenode.cyfra.dsl.Library.*
+import io.computenode.cyfra.dsl.direct.*
 import io.computenode.cyfra.runtime.VkCyfraRuntime
 import io.computenode.cyfra.spirvtools.SpirvTool.ToFile
 import io.computenode.cyfra.spirvtools.{SpirvCross, SpirvToolsRunner, SpirvValidator}
@@ -28,10 +26,12 @@ object TestingStuff:
 
   case class EmitProgramParams(inSize: Int, emitN: Int)
 
+  type EmitProgramUniform = UInt32
+
   case class EmitProgramLayout(
     in: GBuffer[Int32],
     out: GBuffer[Int32],
-    args: GUniform[UInt32] = GUniform.fromParams, // todo will be different in the future
+    args: GUniform[EmitProgramUniform] = GUniform.fromParams, // todo will be different in the future
   ) extends Layout
 
   val emitProgram = GioProgram[EmitProgramParams, EmitProgramLayout](
@@ -62,7 +62,10 @@ object TestingStuff:
 
   case class FilterProgramParams(inSize: Int, filterValue: Int)
 
-  case class FilterProgramLayout(in: GBuffer[Int32], out: GBuffer[Int32], params: GUniform[Int32] = GUniform.fromParams) extends Layout
+  type FilterProgramUniform = Int32
+  
+  case class FilterProgramLayout(in: GBuffer[Int32], out: GBuffer[Int32], params: GUniform[FilterProgramUniform] = GUniform.fromParams) extends Layout
+
 
   val filterProgram = GioProgram[FilterProgramParams, FilterProgramLayout](
     layout =

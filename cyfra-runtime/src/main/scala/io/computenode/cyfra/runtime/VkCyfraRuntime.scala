@@ -19,7 +19,7 @@ class VkCyfraRuntime(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()) ex
 
   private val gProgramCache = mutable.Map[GProgram[?, ?], SpirvProgram[?, ?]]()
   private val shaderCache = mutable.Map[(Long, Long), VkShader[?]]()
-  private val compiler = new Compiler(verbose = "all")
+  private val compiler = new Compiler()
 
   private[cyfra] def getOrLoadProgram[Params, L <: Layout: {LayoutBinding, LayoutStruct}](program: GProgram[Params, L]): VkShader[L] = synchronized:
 
@@ -40,11 +40,11 @@ class VkCyfraRuntime(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()) ex
     val bindings = lbinding.toBindings(lstruct.layoutRef).toList
     val compiled = compiler.compile(bindings, body(lstruct.layoutRef), workgroupSize)
 
-    val outputPath = Paths.get("out.spv")
-    val channel = FileChannel.open(outputPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)
-    channel.write(compiled)
-    channel.close()
-    println(s"SPIR-V bytecode written to $outputPath")
+//    val outputPath = Paths.get("out.spv")
+//    val channel = FileChannel.open(outputPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)
+//    channel.write(compiled)
+//    channel.close()
+//    println(s"SPIR-V bytecode written to $outputPath")
 
     val optimizedShaderCode = spirvToolsRunner.processShaderCodeWithSpirvTools(compiled)
     SpirvProgram((il: InitProgramLayout) ?=> layout(il), dispatch, optimizedShaderCode)
