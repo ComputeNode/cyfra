@@ -56,7 +56,7 @@ object IR:
   case class CallWithVar[A: Value](func: FunctionIR[A], args: List[Var[?]]) extends RefIR[A]
   case class CallWithIR[A: Value](func: FunctionIR[A], args: List[RefIR[?]]) extends RefIR[A]:
     override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[A] = this.copy(args = args.map(_.replaced))
-  case class Branch[T: Value](cond: RefIR[Bool], ifTrue: IRs[T], ifFalse: IRs[T], break: JumpTarget[T]) extends IR[T]:
+  case class Branch[T: Value](cond: RefIR[Bool], ifTrue: IRs[T], ifFalse: IRs[T], break: JumpTarget[T]) extends RefIR[T]:
     override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[T] = this.copy(cond = cond.replaced)
   case class Loop(mainBody: IRs[Unit], continueBody: IRs[Unit], break: JumpTarget[Unit], continue: JumpTarget[Unit]) extends IR[Unit]
   case class Jump[A: Value](target: JumpTarget[A], value: RefIR[A]) extends IR[Unit]:

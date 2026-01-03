@@ -8,8 +8,8 @@ import io.computenode.cyfra.core.expression.ops.given
 import io.computenode.cyfra.core.expression.given
 import io.computenode.cyfra.core.binding.{BufferRef, GBuffer, GUniform, UniformRef}
 import io.computenode.cyfra.core.expression.JumpTarget.BreakTarget
-import io.computenode.cyfra.dsl.direct.GIO
-import io.computenode.cyfra.dsl.direct.GioProgram
+import io.computenode.cyfra.dsl.direct.*
+import io.computenode.cyfra.dsl.Library.*
 import io.computenode.cyfra.runtime.VkCyfraRuntime
 import io.computenode.cyfra.spirvtools.SpirvTool.ToFile
 import io.computenode.cyfra.spirvtools.{SpirvCross, SpirvToolsRunner, SpirvValidator}
@@ -21,18 +21,6 @@ import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.parallel.CollectionConverters.given
 
 object TestingStuff:
-
-  def invocationId: UInt32 = Value.map(BuildInFunction.GlobalInvocationId)
-
-  def when[A: Value](cond: Bool)(ifTrue: => A)(ifFalse: => A): A =
-    val exp = GIO.reify:
-      val tBlock: GIO ?=> A =
-        ifTrue
-      val fBlock: GIO ?=> A =
-        ifFalse
-      GIO.branch[A](cond, tBlock, fBlock)
-    Value[A].extract(exp)
-
   given LayoutStruct[EmitProgramLayout] = LayoutStruct(EmitProgramLayout(BufferRef(0), BufferRef(1), UniformRef(2)))
   given LayoutStruct[FilterProgramLayout] = LayoutStruct(FilterProgramLayout(BufferRef(0), BufferRef(1), UniformRef(2)))
 
