@@ -8,6 +8,7 @@ import org.lwjgl.vulkan.KHRPortabilitySubset.VK_KHR_PORTABILITY_SUBSET_EXTENSION
 import org.lwjgl.vulkan.KHRSynchronization2.VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME
 import org.lwjgl.vulkan.VK10.*
 import org.lwjgl.vulkan.VK11.*
+import org.lwjgl.vulkan.VK12.*
 
 import java.nio.ByteBuffer
 import scala.jdk.CollectionConverters.given
@@ -36,15 +37,21 @@ private[cyfra] class Device(instance: Instance, physicalDevice: PhysicalDevice) 
     extensions.foreach(extension => ppExtensionNames.put(stack.ASCII(extension)))
     ppExtensionNames.flip()
 
+    val timelineSemaphore = VkPhysicalDeviceTimelineSemaphoreFeatures
+      .calloc(stack)
+      .sType$Default()
+      .timelineSemaphore(true)
+
     val sync2 = VkPhysicalDeviceSynchronization2Features
       .calloc(stack)
       .sType$Default()
+      .pNext(timelineSemaphore.address())
       .synchronization2(true)
 
     val pCreateInfo = VkDeviceCreateInfo
-      .create()
+      .calloc(stack)
       .sType$Default()
-      .pNext(sync2)
+      .pNext(sync2.address())
       .pQueueCreateInfos(pQueueCreateInfo)
       .ppEnabledExtensionNames(ppExtensionNames)
 

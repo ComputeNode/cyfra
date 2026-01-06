@@ -48,6 +48,7 @@ private[cyfra] class Semaphore()(using device: Device) extends VulkanObjectHandl
     val waitI = VkSemaphoreWaitInfo
       .calloc(stack)
       .sType$Default()
+      .semaphoreCount(1)
       .pSemaphores(stack.longs(handle))
       .pValues(stack.longs(value))
 

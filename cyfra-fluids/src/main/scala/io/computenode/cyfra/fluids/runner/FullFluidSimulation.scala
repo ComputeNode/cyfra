@@ -209,10 +209,10 @@ object FullFluidSimulation:
       logger.info("=== Full Fluid Simulation (All Solver Steps) ===")
       
       // Parameters
-      val gridSize = 64
+      val gridSize = 128
       val totalCells = gridSize * gridSize * gridSize
       val imageSize = (512, 512)
-      val numFrames = 2000
+      val numFrames = 1000
       
       logger.info(s"Grid: ${gridSize}³ = $totalCells cells")
       logger.info(s"Image: ${imageSize._1}×${imageSize._2}")
@@ -322,10 +322,12 @@ object FullFluidSimulation:
 
               logger.info(s"Frame $frameIdx / $numFrames")
 
-              layout.velocityCurrent.read(velocityCurrent)
-              layout.dyeCurrent.read(dyeCurrent)
+              // Read from PREVIOUS buffers - these are what the simulation reads from
+              // Forces/Advection read from Previous, write to Current
+              layout.velocityPrevious.read(velocityPrevious)
+              layout.dyePrevious.read(dyePrevious)
 
-              addCollidingDiscCurrents(velocityCurrent, dyeCurrent, gridSize)
+              addCollidingDiscCurrents(velocityPrevious, dyePrevious, gridSize)
       
               // Prepare output buffer for reading back
               val outputData = Array.ofDim[Float](imageSize._1 * imageSize._2 * 4)
@@ -353,23 +355,28 @@ object FullFluidSimulation:
               val renderParams = RenderParams(gridSize = gridSize)
               summon[GCodec[RenderParams, RenderParams]].toByteBuffer(renderParamsBuffer, Array(renderParams))
 
-              // Write back prepared data
-              layout.velocityCurrent.write(velocityCurrent)
-              layout.dyeCurrent.write(dyeCurrent)
-              layout.renderParams.write(renderParams)
-              layout.camera.write(camera)
+              // Write back prepared data to PREVIOUS buffers (simulation reads from Previous)
+              layout.velocityPrevious.write(velocityPrevious)
+              layout.dyePrevious.write(dyePrevious)
+              // NOTE: write() with ByteBuffer does CPU->GPU transfer
+              // write() with case class is a shader op (GIO) - wrong!
+              layout.renderParams.write(renderParamsBuffer)
+              layout.camera.write(cameraBuffer)
 
 
               // Run complete simulation pipeline
               logger.debug("Running simulation pipeline...")
               simPipeline.execute(totalCells, layout)
+              
+              // Read GPU-rendered image back to CPU
+              layout.imageOutput.read(outputBB)
       
-              velocityCurrent.rewind()
-              densityCurrent.rewind()
-              temperatureCurrent.rewind()
-              dyeCurrent.rewind()
-              pressureCurrent.rewind()
+              velocityPrevious.rewind()
+              dyePrevious.rewind()
       
+              // Rewind the output buffer before reading
+              outputBuffer.rewind()
+              
               val outputPixels = ByteBuffer.allocateDirect(imageSize._1 * imageSize._2 * 4)
               while outputBuffer.hasRemaining do
                 val pixel = (Math.clamp(outputBuffer.get(), 0.0f, 1.0f) * 255).toByte
@@ -380,6 +387,7 @@ object FullFluidSimulation:
               logger.debug(s"Saved full_fluid_$frameIdx.png")
       
               layout
+          .take(numFrames)
           .last
           
       val resultLayout = region.runUnsafe(
@@ -759,5 +767,7 @@ object FullFluidSimulation:
       // Flip Y coordinate: image Y=0 is top, but 3D Y=0 should be at bottom of image
       image.setRGB(x, height - 1 - y, rgb)
     
-    ImageIO.write(image, "png", Paths.get(filename).toFile)
+    val file = Paths.get(filename).toFile
+    Option(file.getParentFile).foreach(_.mkdirs())
+    ImageIO.write(image, "png", file)
 
