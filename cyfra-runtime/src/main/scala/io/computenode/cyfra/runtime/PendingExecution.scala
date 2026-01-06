@@ -94,7 +94,7 @@ object PendingExecution:
 
   def cleanupAll(executions: Seq[PendingExecution]): Unit =
     def cleanupRec(ex: PendingExecution): Unit =
-      if !ex.isClosed then return
+      if ex.isClosed then return
       ex.close()
       ex.dependencies.foreach(cleanupRec)
     executions.foreach(cleanupRec)
