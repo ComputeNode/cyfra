@@ -45,13 +45,13 @@ private[cyfra] class Device(instance: Instance, physicalDevice: PhysicalDevice) 
     val sync2 = VkPhysicalDeviceSynchronization2Features
       .calloc(stack)
       .sType$Default()
-      .pNext(timelineSemaphore.address())
       .synchronization2(true)
 
     val pCreateInfo = VkDeviceCreateInfo
       .calloc(stack)
       .sType$Default()
-      .pNext(sync2.address())
+      .pNext(sync2)
+      .pNext(timelineSemaphore)
       .pQueueCreateInfos(pQueueCreateInfo)
       .ppEnabledExtensionNames(ppExtensionNames)
 
