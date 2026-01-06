@@ -5,16 +5,8 @@ import io.computenode.cyfra.vulkan.core.{Device, Queue}
 import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import io.computenode.cyfra.vulkan.util.VulkanObject
 import org.lwjgl.vulkan.VK10.{VK_TRUE, vkQueueSubmit}
-import org.lwjgl.vulkan.VK13.{VK_PIPELINE_STAGE_2_COPY_BIT, vkQueueSubmit2}
-import org.lwjgl.vulkan.{
-  VK13,
-  VkCommandBuffer,
-  VkCommandBufferSubmitInfo,
-  VkSemaphoreSubmitInfo,
-  VkSubmitInfo,
-  VkSubmitInfo2,
-  VkTimelineSemaphoreSubmitInfo,
-}
+import org.lwjgl.vulkan.VK13.*
+import org.lwjgl.vulkan.{VkCommandBuffer, VkCommandBufferSubmitInfo, VkSemaphoreSubmitInfo, VkSubmitInfo, VkSubmitInfo2, VkTimelineSemaphoreSubmitInfo}
 
 import scala.util.boundary
 
@@ -77,7 +69,8 @@ object PendingExecution:
     val submitInfos = VkSubmitInfo.calloc(gathered.size, stack)
     gathered.foreach: (commandBuffer, semaphore, dependencies) =>
       val deps = dependencies.toList
-      val (semaphores, waitValue, signalValue) = ((semaphore.get, 0L, 1L) +: deps.map(x => (x.get, 1L, 0L))).unzip3
+      val (semaphores, waitValue, signalValue) = ((semaphore.get, 0L, 1L) :: deps.map(x => (x.get, 1L, 0L))).unzip3
+      val waitMasks = semaphores.indices.map(_ => VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT).map(_.toInt)
 
       val timelineSI = VkTimelineSemaphoreSubmitInfo
         .calloc(stack)
@@ -91,7 +84,9 @@ object PendingExecution:
         .pNext(timelineSI)
         .pCommandBuffers(stack.pointers(commandBuffer, allocation.synchroniseCommand))
         .pSignalSemaphores(stack.longs(semaphores*))
+        .waitSemaphoreCount(semaphores.size)
         .pWaitSemaphores(stack.longs(semaphores*))
+        .pWaitDstStageMask(stack.ints(waitMasks*))
 
     submitInfos.flip()
 
@@ -99,7 +94,7 @@ object PendingExecution:
 
   def cleanupAll(executions: Seq[PendingExecution]): Unit =
     def cleanupRec(ex: PendingExecution): Unit =
-      if !ex.isClosed then return
+      if ex.isClosed then return
       ex.close()
       ex.dependencies.foreach(cleanupRec)
     executions.foreach(cleanupRec)

@@ -312,83 +312,80 @@ object FullFluidSimulation:
         value = 1.0f
       )
 
-      logger.info("Allocating GPU memory...")
-      val region = GBufferRegion
-        .allocate[SimulationLayout]
-        .map: layout =>
-          LazyList.iterate(layout)(_.swap)
-            .zipWithIndex
-            .map: (layout, frameIdx) =>
+      val region = 
+        (0 until numFrames).foldLeft(
+          GBufferRegion
+            .allocate[SimulationLayout]
+        ): (regionAcc, frameIdx) =>
+          regionAcc.map: layout =>
 
-              logger.info(s"Frame $frameIdx / $numFrames")
+            logger.info(s"Frame $frameIdx / $numFrames")
 
-              // Read from PREVIOUS buffers - these are what the simulation reads from
-              // Forces/Advection read from Previous, write to Current
-              layout.velocityPrevious.read(velocityPrevious)
-              layout.dyePrevious.read(dyePrevious)
+            // Read from PREVIOUS buffers - these are what the simulation reads from
+            // Forces/Advection read from Previous, write to Current
+            layout.velocityPrevious.read(velocityPrevious)
+            layout.dyePrevious.read(dyePrevious)
 
-              addCollidingDiscCurrents(velocityPrevious, dyePrevious, gridSize)
-      
-              // Prepare output buffer for reading back
-              val outputData = Array.ofDim[Float](imageSize._1 * imageSize._2 * 4)
-              val outputBuffer = BufferUtils.createFloatBuffer(imageSize._1 * imageSize._2 * 4)
-              val outputBB = org.lwjgl.system.MemoryUtil.memByteBuffer(outputBuffer)
-              
-              val angle = 90
-              val angleRad = angle * Math.PI.toFloat / 180.0f
-              val radius = gridSize * 1.4f
-      
-              // Prepare camera buffer
-              val camera = Camera3D.orbit(
-                centerX = lookAtCenter._1,
-                centerY = lookAtCenter._2,
-                centerZ = lookAtCenter._3,
-                radius = radius,
-                angle = angleRad,
-                height = cameraHeight,
-                aspectRatio = imageSize._1.toFloat / imageSize._2.toFloat
-              )
+            addCollidingDiscCurrents(velocityPrevious, dyePrevious, gridSize)
+    
+            // Prepare output buffer for reading back
+            val outputData = Array.ofDim[Float](imageSize._1 * imageSize._2 * 4)
+            val outputBuffer = BufferUtils.createFloatBuffer(imageSize._1 * imageSize._2 * 4)
+            val outputBB = org.lwjgl.system.MemoryUtil.memByteBuffer(outputBuffer)
+            
+            val angle = 90
+            val angleRad = angle * Math.PI.toFloat / 180.0f
+            val radius = gridSize * 1.4f
+    
+            // Prepare camera buffer
+            val camera = Camera3D.orbit(
+              centerX = lookAtCenter._1,
+              centerY = lookAtCenter._2,
+              centerZ = lookAtCenter._3,
+              radius = radius,
+              angle = angleRad,
+              height = cameraHeight,
+              aspectRatio = imageSize._1.toFloat / imageSize._2.toFloat
+            )
 
-              summon[GCodec[Camera3D, Camera3D]].toByteBuffer(cameraBuffer, Array(camera))
-      
-              // Prepare params buffer
-              val renderParams = RenderParams(gridSize = gridSize)
-              summon[GCodec[RenderParams, RenderParams]].toByteBuffer(renderParamsBuffer, Array(renderParams))
+            summon[GCodec[Camera3D, Camera3D]].toByteBuffer(cameraBuffer, Array(camera))
+    
+            // Prepare params buffer
+            val renderParams = RenderParams(gridSize = gridSize)
+            summon[GCodec[RenderParams, RenderParams]].toByteBuffer(renderParamsBuffer, Array(renderParams))
 
-              // Write back prepared data to PREVIOUS buffers (simulation reads from Previous)
-              layout.velocityPrevious.write(velocityPrevious)
-              layout.dyePrevious.write(dyePrevious)
-              // NOTE: write() with ByteBuffer does CPU->GPU transfer
-              // write() with case class is a shader op (GIO) - wrong!
-              layout.renderParams.write(renderParamsBuffer)
-              layout.camera.write(cameraBuffer)
+            // Write back prepared data to PREVIOUS buffers (simulation reads from Previous)
+            layout.velocityPrevious.write(velocityPrevious)
+            layout.dyePrevious.write(dyePrevious)
+            // NOTE: write() with ByteBuffer does CPU->GPU transfer
+            // write() with case class is a shader op (GIO) - wrong!
+            layout.renderParams.write(renderParamsBuffer)
+            layout.camera.write(cameraBuffer)
 
-
-              // Run complete simulation pipeline
-              logger.debug("Running simulation pipeline...")
-              simPipeline.execute(totalCells, layout)
-              
-              // Read GPU-rendered image back to CPU
-              layout.imageOutput.read(outputBB)
-      
-              velocityPrevious.rewind()
-              dyePrevious.rewind()
-      
-              // Rewind the output buffer before reading
-              outputBuffer.rewind()
-              
-              val outputPixels = ByteBuffer.allocateDirect(imageSize._1 * imageSize._2 * 4)
-              while outputBuffer.hasRemaining do
-                val pixel = (Math.clamp(outputBuffer.get(), 0.0f, 1.0f) * 255).toByte
-                outputPixels.put(pixel)
-      
-              saveFrame(outputPixels, (imageSize._1, imageSize._2), s"smoke/full_fluid_$frameIdx.png")
-      
-              logger.debug(s"Saved full_fluid_$frameIdx.png")
-      
-              layout
-          .take(numFrames)
-          .last
+            // Run complete simulation pipeline
+            logger.debug("Running simulation pipeline...")
+            simPipeline.execute(totalCells, layout)
+            
+            // Read GPU-rendered image back to CPU
+            layout.imageOutput.read(outputBB)
+    
+            velocityPrevious.rewind()
+            dyePrevious.rewind()
+    
+            // Rewind the output buffer before reading
+            outputBuffer.rewind()
+            
+            val outputPixels = ByteBuffer.allocateDirect(imageSize._1 * imageSize._2 * 4)
+            while outputBuffer.hasRemaining do
+              val pixel = (Math.clamp(outputBuffer.get(), 0.0f, 1.0f) * 255).toByte
+              outputPixels.put(pixel)
+    
+            saveFrame(outputPixels, (imageSize._1, imageSize._2), s"smoke/full_fluid_$frameIdx.png")
+    
+            logger.debug(s"Saved full_fluid_$frameIdx.png")
+    
+            // Return layout for next iteration (.map will keep chaining)
+            layout 
           
       val resultLayout = region.runUnsafe(
             init = SimulationLayout(
