@@ -51,7 +51,10 @@ private[cyfra] class DescriptorPool(sets: Int)(using device: Device) extends Vul
     freeUniformDescriptors -= neededUniformDescriptors
     DescriptorSet(layout, this)
 
-  def reset(): Unit = check(vkResetDescriptorPool(device.get, handle, 0), "Failed to reset descriptor pool")
+  def reset(): Unit =
+    check(vkResetDescriptorPool(device.get, handle, 0), "Failed to reset descriptor pool")
+    freeBufferDescriptors = bufferDescriptors
+    freeUniformDescriptors = uniformDescriptors
 
   override protected def close(): Unit =
     vkDestroyDescriptorPool(device.get, handle, null)
