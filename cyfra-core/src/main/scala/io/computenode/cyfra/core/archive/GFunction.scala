@@ -29,6 +29,12 @@ case class GFunction[G <: GStruct[G]: {GStructSchema, Tag}, H <: Value: {Tag, Fr
     hCodec: GCodec[H, HS],
     rCodec: GCodec[R, RS],
     runtime: CyfraRuntime,
+    gSchema: GStructSchema[G],
+    gTag: Tag[G],
+    hTag: Tag[H],
+    hFromExpr: FromExpr[H],
+    rTag: Tag[R],
+    rFromExpr: FromExpr[R],
   ): Array[RS] =
 
     val inTypeSize = typeStride(Tag.apply[H])

@@ -30,32 +30,30 @@ object Layout:
 
     val layoutType: TypeRepr = TypeRepr.of[T]
     val layoutSymbol: Symbol = layoutType.typeSymbol
-
+    
     if !layoutSymbol.flags.is(Flags.Case) then
       report.errorAndAbort(s"Can only derive Layout for case classes, tuples and singular GBindings. Found: ${layoutType.show}")
 
     def generateBindingRef(bindingType: TypeRepr, idx: Int): Expr[GBinding[?]] = bindingType.asType match
       case '[type t <: Value; GBuffer[t]] =>
-        val typeStr = TypeRepr.of[t].show
-        val fromExpr = Expr.summon[FromExpr[t]] match
-          case Some(value) => value
-          case None        => report.errorAndAbort(s"Could not find given FromExpr for type $typeStr")
-        val tag = Expr.summon[Tag[t]] match
-          case Some(value) => value
-          case None        => report.errorAndAbort(s"Could not find given Tag for type $typeStr")
-        '{ BufferRef[t](${ Expr(idx) })(using ${ tag }, ${ fromExpr }) }
+        val tag = Implicits.search(TypeRepr.of[Tag[t]]) match
+          case iss: ImplicitSearchSuccess => iss.tree.asExprOf[Tag[t]]
+          case isf: ImplicitSearchFailure => report.errorAndAbort(s"Could not find Tag[${TypeRepr.of[t].show}]: ${isf.explanation}")
+        val fromExpr = Implicits.search(TypeRepr.of[FromExpr[t]]) match
+          case iss: ImplicitSearchSuccess => iss.tree.asExprOf[FromExpr[t]]
+          case isf: ImplicitSearchFailure => report.errorAndAbort(s"Could not find FromExpr[${TypeRepr.of[t].show}]: ${isf.explanation}")
+        '{ BufferRef[t](${ Expr(idx) })(using $tag, $fromExpr) }
       case '[type t <: GStruct[?]; GUniform[t]] =>
-        val typeStr = TypeRepr.of[t].show
-        val fromExpr = Expr.summon[FromExpr[t]] match
-          case Some(value) => value
-          case None        => report.errorAndAbort(s"Could not find given FromExpr for type $typeStr")
-        val tag = Expr.summon[Tag[t]] match
-          case Some(value) => value
-          case None        => report.errorAndAbort(s"Could not find given Tag for type $typeStr")
-        val structSchema = Expr.summon[GStructSchema[t]] match
-          case Some(value) => value
-          case None        => report.errorAndAbort(s"Could not find given GStructSchema for type $typeStr")
-        '{ UniformRef[t](${ Expr(idx) })(using ${ tag }, ${ fromExpr }, ${ structSchema }) }
+        val tag = Implicits.search(TypeRepr.of[Tag[t]]) match
+          case iss: ImplicitSearchSuccess => iss.tree.asExprOf[Tag[t]]
+          case isf: ImplicitSearchFailure => report.errorAndAbort(s"Could not find Tag[${TypeRepr.of[t].show}]: ${isf.explanation}")
+        val fromExpr = Implicits.search(TypeRepr.of[FromExpr[t]]) match
+          case iss: ImplicitSearchSuccess => iss.tree.asExprOf[FromExpr[t]]
+          case isf: ImplicitSearchFailure => report.errorAndAbort(s"Could not find FromExpr[${TypeRepr.of[t].show}]: ${isf.explanation}")
+        val structSchema = Implicits.search(TypeRepr.of[GStructSchema[t]]) match
+          case iss: ImplicitSearchSuccess => iss.tree.asExprOf[GStructSchema[t]]
+          case isf: ImplicitSearchFailure => report.errorAndAbort(s"Could not find GStructSchema[${TypeRepr.of[t].show}]: ${isf.explanation}")
+        '{ UniformRef[t](${ Expr(idx) })(using $tag, $fromExpr, $structSchema) }
       case _ => report.errorAndAbort(s"All fields of a Layout must be of type GBuffer or GUniform, found: ${bindingType.show}")
 
     def constructLayout(args: List[Term]): Expr[T] =
@@ -63,7 +61,27 @@ object Layout:
       val readyConstructor = layoutType.typeArgs match
         case Nil => constructor
         case x   => TypeApply(constructor, x.map(x => TypeTree.of(using x.asType)))
-      Apply(readyConstructor, args).asExprOf[T]
+      
+      val paramSymss = layoutSymbol.primaryConstructor.paramSymss
+      
+      val hasImplicits = paramSymss.size > 2
+      
+      if hasImplicits then
+        val regularParams = paramSymss(1)
+        val implicitParams = paramSymss(2)
+        
+        val implicitArgs = implicitParams.map: param =>
+          val paramType = param.tree match
+            case ValDef(_, tpt, _) => tpt.tpe
+          
+          Implicits.search(paramType) match
+            case iss: ImplicitSearchSuccess => iss.tree
+            case isf: ImplicitSearchFailure => 
+              report.errorAndAbort(s"Could not find implicit ${param.name} of type ${paramType.show}: ${isf.explanation}")
+        
+        Apply(Apply(readyConstructor, args), implicitArgs).asExprOf[T]
+      else
+        Apply(readyConstructor, args).asExprOf[T]
 
 //    val s = layoutSymbol.primaryConstructor.paramSymss
 //    report.warning(s"Layout: ${layoutSymbol.fullName}, constructor params: ${s.map(_.map(_.tree.show))}")
@@ -76,16 +94,26 @@ object Layout:
       .map(_.tree)
       .map:
         case ValDef(name, tpe, _) => (name, tpe.tpe)
+      .zipWithIndex
       .map:
-        case (name, AppliedType(t, List(arg))) =>
-          val resolvedArg =
-            if arg.typeSymbol.isTypeParam then
-              layoutType.typeArgs
-                .find(_.typeSymbol.name == arg.typeSymbol.name)
-                .getOrElse(throw new Exception(s"Could not resolve type parameter: ${arg.typeSymbol.name}"))
-            else arg
-          (name, AppliedType(t, List(arg)))
-        case (name, _) => report.errorAndAbort(s"All fields of a Layout must be of type GBuffer or GUniform, found: ${layoutType.show}.$name")
+        case ((name, tpe), idx) =>
+          val resolvedType = if tpe.typeSymbol.isTypeParam then
+            layoutType.typeArgs
+              .find(_.typeSymbol.name == tpe.typeSymbol.name)
+              .orElse(if idx < layoutType.typeArgs.size then Some(layoutType.typeArgs(idx)) else None)
+              .getOrElse(tpe)
+          else tpe
+          
+          resolvedType match
+            case AppliedType(t, List(arg)) =>
+              val resolvedArg =
+                if arg.typeSymbol.isTypeParam then
+                  layoutType.typeArgs
+                    .find(_.typeSymbol.name == arg.typeSymbol.name)
+                    .getOrElse(arg)
+                else arg
+              (name, AppliedType(t, List(resolvedArg)))
+            case _ => report.errorAndAbort(s"All fields of a Layout must be of type GBuffer or GUniform, found: ${layoutType.show}.$name (resolved to: ${resolvedType.show})")
 
     '{
       new Layout[T] {
