@@ -4,7 +4,6 @@ import io.computenode.cyfra.vulkan.compute.ComputePipeline.BindingType
 import io.computenode.cyfra.vulkan.compute.ComputePipeline.BindingType.StorageBuffer
 import io.computenode.cyfra.vulkan.compute.ComputePipeline.DescriptorSetLayout
 import io.computenode.cyfra.vulkan.core.Device
-import io.computenode.cyfra.vulkan.memory.DescriptorPool.MAX_SETS
 import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import io.computenode.cyfra.vulkan.util.VulkanObjectHandle
 import org.lwjgl.vulkan.VK10.*
@@ -13,11 +12,9 @@ import org.lwjgl.vulkan.{VkDescriptorPoolCreateInfo, VkDescriptorPoolSize}
 /** @author
   *   MarconZet Created 14.04.2019
   */
-object DescriptorPool:
-  val MAX_SETS = 100
-private[cyfra] class DescriptorPool(using device: Device) extends VulkanObjectHandle:
-  private val bufferDescriptors = MAX_SETS * 10
-  private val uniformDescriptors = MAX_SETS * 2
+private[cyfra] class DescriptorPool(sets: Int)(using device: Device) extends VulkanObjectHandle:
+  private val bufferDescriptors = sets * 10
+  private val uniformDescriptors = sets * 2
 
   private var freeBufferDescriptors: Int = bufferDescriptors
   private var freeUniformDescriptors: Int = uniformDescriptors
@@ -38,7 +35,7 @@ private[cyfra] class DescriptorPool(using device: Device) extends VulkanObjectHa
     val descriptorPoolCreateInfo = VkDescriptorPoolCreateInfo
       .calloc(stack)
       .sType$Default()
-      .maxSets(MAX_SETS)
+      .maxSets(sets)
       .pPoolSizes(descriptorPoolSize)
 
     val pDescriptorPool = stack.callocLong(1)
