@@ -138,10 +138,6 @@ object FullFluidSimulation:
         totalCells => totalCells,
         _.toFluidStatePrevious
       )
-      .addProgram(OutflowBoundaryProgram.create)(
-        totalCells => totalCells,
-        _.toFluidStateCurrent
-      )
       // 2. Advection - Reads velocityPrevious WITH forces, writes velocityCurrent
       .addProgram(AdvectionProgram.create)(
         totalCells => totalCells,
@@ -174,11 +170,11 @@ object FullFluidSimulation:
         totalCells => totalCells,
         _.toFluidStateCurrent
       )
-      // 5. Boundary conditions
-//      .addProgram(DissipativeBoundaryProgram.create)(
-//        totalCells => totalCells,
-//        _.toFluidStateCurrent
-//      )
+      // 5. Boundary conditions - apply AFTER all simulation steps
+      .addProgram(OutflowBoundaryProgram.create)(
+        totalCells => totalCells,
+        _.toFluidStateCurrent
+      )
       // 6. Render
       .addProgram(RayMarchRenderer(RendererConfig(
         width = renderDim._1,
@@ -321,12 +317,10 @@ object FullFluidSimulation:
 
             logger.info(s"Frame $frameIdx / $numFrames")
 
-            // Read from PREVIOUS buffers - these are what the simulation reads from
-            // Forces/Advection read from Previous, write to Current
             layout.velocityPrevious.read(velocityPrevious)
             layout.dyePrevious.read(dyePrevious)
 
-            addCollidingDiscCurrents(velocityPrevious, dyePrevious, gridSize)
+            addCollidingDiscCurrents(velocityPrevious, dyePrevious, gridSize, frameIdx)
     
             // Prepare output buffer for reading back
             val outputData = Array.ofDim[Float](imageSize._1 * imageSize._2 * 4)
@@ -384,8 +378,9 @@ object FullFluidSimulation:
     
             logger.debug(s"Saved full_fluid_$frameIdx.png")
     
-            // Return layout for next iteration (.map will keep chaining)
-            layout 
+            // CRITICAL: Swap buffers so Current becomes Previous for next frame
+            // Without this, results don't propagate between frames!
+            layout.swap 
           
       val resultLayout = region.runUnsafe(
             init = SimulationLayout(
@@ -680,7 +675,8 @@ object FullFluidSimulation:
   def addCollidingDiscCurrents(
     velocityBuffer: ByteBuffer,
     dyeBuffer: ByteBuffer,
-    gridSize: Int
+    gridSize: Int,
+    frameIdx: Int
   ): Unit =
     val center = gridSize / 2.0f
     val currentRadius = gridSize * 0.15f
@@ -705,16 +701,17 @@ object FullFluidSimulation:
       velocityZ = 0.0f
     )
 
-    addDiscPerpToX(
-      dyeBuffer,
-      gridSize,
-      centerX = leftDiscX,
-      centerY = center,
-      centerZ = center,
-      radius = currentRadius,
-      thickness = discThickness,
-      value = 0.5f
-    )
+    if frameIdx < 20 then
+      addDiscPerpToX(
+        dyeBuffer,
+        gridSize,
+        centerX = leftDiscX,
+        centerY = center,
+        centerZ = center,
+        radius = currentRadius,
+        thickness = discThickness,
+        value = 0.5f
+      )
 
 
 
