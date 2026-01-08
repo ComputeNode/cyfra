@@ -63,7 +63,9 @@ class VkAllocation(val commandPool: CommandPool, executionHandler: ExecutionHand
           stagingBuffer.copyFrom(bb, 0)
           val cb = Buffer.copyBufferCommandBuffer(stagingBuffer, binding.buffer, 0, offset, size, commandPool)
           val cleanup = () =>
-            commandPool.freeCommandBuffer(cb)
+            // Don't free command buffer immediately - defer to allocation close
+            // This avoids issues with GPU-AV tracking command buffers
+            deferredCommandBuffers += cb
             stagingBuffer.destroy()
           val pe = new PendingExecution(cb, binding.execution.fold(Seq(_), _.toSeq), cleanup, s"Writing at ${name.value}:${line.value}")
           addExecution(pe)
@@ -107,6 +109,7 @@ class VkAllocation(val commandPool: CommandPool, executionHandler: ExecutionHand
           direct(bb)
 
   private val executions = mutable.Buffer[PendingExecution]()
+  private val deferredCommandBuffers = mutable.Buffer[org.lwjgl.vulkan.VkCommandBuffer]()
 
   def addExecution(pe: PendingExecution): Unit =
     executions += pe
@@ -114,6 +117,9 @@ class VkAllocation(val commandPool: CommandPool, executionHandler: ExecutionHand
   private val bindings = mutable.Buffer[VkUniform[?] | VkBuffer[?]]()
   private[cyfra] def close(): Unit =
     executions.foreach(_.destroy())
+    // Free deferred command buffers all at once at the end
+    if deferredCommandBuffers.nonEmpty then
+      commandPool.freeCommandBuffer(deferredCommandBuffers.toSeq*)
     bindings.map(getUnderlying).foreach(_.buffer.destroy())
 
   private def getStagingBuffer(size: Int): Buffer.HostBuffer =
