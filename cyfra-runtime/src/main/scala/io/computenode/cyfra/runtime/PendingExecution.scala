@@ -93,17 +93,8 @@ object PendingExecution:
     check(vkQueueSubmit(allocation.commandPool.queue.get, submitInfos, 0), "Failed to submit command buffer to queue")
 
   def cleanupAll(executions: Seq[PendingExecution]): Unit =
-    // First, collect all executions in the dependency tree that need cleanup
-    def collectAll(ex: PendingExecution): Seq[PendingExecution] =
-      if ex.isClosed then Seq.empty
-      else ex +: ex.dependencies.flatMap(collectAll)
-    
-    val allExecs = executions.flatMap(collectAll).distinct
-    
-    // Block on all gathered-but-not-finished executions first
-    // This ensures all GPU work is complete before any cleanup
-    allExecs.filter(ex => !ex.isPending && !ex.isFinished).foreach(_.block())
-    
-    // Now close all executions (they're all either pending or finished)
-    allExecs.foreach: ex =>
-      if !ex.isClosed then ex.close()
+    def cleanupRec(ex: PendingExecution): Unit =
+      if ex.isClosed then return
+      ex.close()
+      ex.dependencies.foreach(cleanupRec)
+    executions.foreach(cleanupRec)

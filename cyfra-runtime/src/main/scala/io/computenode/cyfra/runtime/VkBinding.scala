@@ -42,9 +42,8 @@ sealed abstract class VkBinding[T <: Value: {Tag, FromExpr}](val buffer: Buffer)
       pendingExecs.foreach(_.block())
       PendingExecution.cleanupAll(pendingExecs)
 
-    if runningExecs.nonEmpty then
-      runningExecs.foreach(_.block())
-      PendingExecution.cleanupAll(runningExecs)
+    runningExecs.foreach(_.block())
+    PendingExecution.cleanupAll(runningExecs)
 
 object VkBinding:
   def unapply(binding: GBinding[?]): Option[Buffer] = binding match
