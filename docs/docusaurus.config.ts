@@ -11,8 +11,11 @@ const config: Config = {
     v4: true,
   },
 
-  url: 'https://cyfra.io',
-  baseUrl: '/',
+  url: 'https://computenode.github.io', 
+  baseUrl: '/cyfra/',                   
+  
+  trailingSlash: false,
+  
 
   organizationName: 'computenode',
   projectName: 'cyfra',
