@@ -29,3 +29,4 @@ metals.sbt
 **/output
 .scala-build
 smoke
+julia

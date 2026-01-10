@@ -1,24 +1,8 @@
 /**
- * Cyfra Documentation Theme
+ * Cyfra Documentation Theme - Dark Only
  */
 
 :root {
-  --ifm-color-primary: #ea580c;
-  --ifm-color-primary-dark: #c2410c;
-  --ifm-color-primary-darker: #9a3412;
-  --ifm-color-primary-darkest: #7c2d12;
-  --ifm-color-primary-light: #f97316;
-  --ifm-color-primary-lighter: #fb923c;
-  --ifm-color-primary-lightest: #fdba74;
-  --ifm-code-font-size: 95%;
-  --docusaurus-highlighted-code-line-bg: rgba(234, 88, 12, 0.15);
-  --ifm-footer-background-color: #0c0a09;
-  --ifm-footer-color: #a8a29e;
-  --ifm-footer-link-color: #d6d3d1;
-  --ifm-footer-title-color: #fafaf9;
-}
-
-[data-theme='dark'] {
   --ifm-color-primary: #f97316;
   --ifm-color-primary-dark: #ea580c;
   --ifm-color-primary-darker: #c2410c;
@@ -28,6 +12,7 @@
   --ifm-color-primary-lightest: #fed7aa;
   --ifm-background-color: #0c0a09;
   --ifm-background-surface-color: #1c1917;
+  --ifm-code-font-size: 95%;
   --docusaurus-highlighted-code-line-bg: rgba(234, 88, 12, 0.2);
   --ifm-footer-background-color: #0c0a09;
   --ifm-footer-color: #a8a29e;

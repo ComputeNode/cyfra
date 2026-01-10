@@ -44,7 +44,9 @@ const config: Config = {
 
   themeConfig: {
     colorMode: {
-      respectPrefersColorScheme: true,
+      defaultMode: 'dark',
+      disableSwitch: true,
+      respectPrefersColorScheme: false,
     },
     navbar: {
       title: 'Cyfra',
@@ -78,7 +80,7 @@ const config: Config = {
       copyright: `Copyright © ${new Date().getFullYear()} Cyfra. Built with Docusaurus.`,
     },
     prism: {
-      theme: prismThemes.github,
+      theme: prismThemes.dracula,
       darkTheme: prismThemes.dracula,
       additionalLanguages: ['java', 'scala', 'bash'],
     },

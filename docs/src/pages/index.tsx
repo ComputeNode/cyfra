@@ -18,10 +18,11 @@ const syn = {
 const styles = {
   heroSection: {
     position: 'relative' as const,
-    minHeight: '85vh',
+    minHeight: '75vh',
     display: 'flex',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'center',
+    paddingTop: '12vh',
     overflow: 'hidden',
     background: '#0c0a09',
   },
@@ -373,7 +374,7 @@ function HeroSection() {
         </Heading>
         <p style={styles.heroTagline}>
           GPU compute pipelines in pure Scala 3.<br />
-          Compiles to SPIR-V. Runs on Vulkan.
+          Run anywhere.
         </p>
         <div style={styles.betaBadge}>
           ⚠️ Beta release - not production ready. For experimentation and feedback.
@@ -409,7 +410,7 @@ function FeaturesSection() {
     {
       icon: '🧩',
       title: 'Composable Pipelines',
-      description: 'Chain GPU programs together. Intermediate data stays on the GPU—no round-trips to CPU.',
+      description: 'Chain GPU programs together. Intermediate data stays on the GPU. No round-trips to CPU.',
     },
     {
       icon: '🔧',
@@ -521,10 +522,10 @@ function CodeSnippetsSection() {
             </div>
             <pre style={styles.snippetCode}>
 <K>for</K>{'\n'}
-{'  '}<P>a</P> &lt;- <P>layout</P>.<P>bufferA</P>.<F>write</F>(<P>idx</P>, <P>value</P> * <N>2f</N>){'\n'}
-{'  '}<P>b</P> &lt;- <P>layout</P>.<P>bufferB</P>.<F>write</F>(<P>idx</P>, <P>value</P> + <N>1f</N>){'\n'}
-{'  '}<P>sum</P> &lt;- <P>layout</P>.<P>input</P>.<F>read</F>(<P>idx</P> + <N>1</N>){'\n'}
-<K>yield</K> <P>sum</P> + <P>a</P> + <P>b</P>
+{'  '}<P>value</P> = <P>layout</P>.<P>input</P>.<F>read</F>(<P>idx</P>){'\n'}
+{'  '}<P>_</P> &lt;- <P>layout</P>.<P>bufferA</P>.<F>write</F>(<P>idx</P>, <P>value</P> + <N>1f</N>){'\n'}
+{'  '}<P>_</P> &lt;- <P>layout</P>.<P>bufferB</P>.<F>write</F>(<P>idx</P>, <P>value</P> * <N>2f</N>){'\n'}
+<K>yield</K> <P>value</P>
             </pre>
             <div style={styles.snippetDesc}>
               Composable GIO monad for effectful computation.
@@ -698,7 +699,7 @@ export default function Home(): ReactNode {
   return (
     <Layout
       title="Home"
-      description="Cyfra - GPU programming in Scala. Write compute shaders in pure Scala 3, compile to SPIR-V, and run on Vulkan.">
+      description="Cyfra - GPU programming in Scala.">
       <style>{`
         @media (max-width: 800px) {
           .snippets-grid { grid-template-columns: 1fr !important; }
