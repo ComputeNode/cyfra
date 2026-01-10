@@ -18,11 +18,10 @@ const syn = {
 const styles = {
   heroSection: {
     position: 'relative' as const,
-    minHeight: '75vh',
     display: 'flex',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: '12vh',
+    padding: '6rem 2rem 5rem',
     overflow: 'hidden',
     background: '#0c0a09',
   },

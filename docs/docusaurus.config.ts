@@ -12,8 +12,8 @@ const config: Config = {
   },
 
   url: 'https://cyfra.computenode.io', 
-  baseUrl: '/',                   
-  
+  baseUrl: '/',
+
   trailingSlash: false,
   
 
