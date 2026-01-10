@@ -12,7 +12,7 @@ const config: Config = {
   },
 
   url: 'https://computenode.github.io', 
-  baseUrl: '/cyfra/',                   
+  baseUrl: '/',                   
   
   trailingSlash: false,
   
