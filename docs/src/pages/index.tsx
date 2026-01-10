@@ -4,61 +4,76 @@ import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import Layout from '@theme/Layout';
 import Heading from '@theme/Heading';
 
+// Syntax highlighting colors
+const syn = {
+  keyword: '#f97316',
+  type: '#fbbf24',
+  string: '#a3e635',
+  number: '#60a5fa',
+  comment: '#6b7280',
+  func: '#c4b5fd',
+  plain: '#e7e5e4',
+};
+
 const styles = {
-  // Hero Section
   heroSection: {
     position: 'relative' as const,
-    minHeight: '90vh',
+    minHeight: '85vh',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
-    background: 'linear-gradient(180deg, #0a0a0f 0%, #0f1018 50%, #0a0a0f 100%)',
+    background: '#0c0a09',
   },
   heroBackground: {
     position: 'absolute' as const,
     inset: 0,
     background: `
-      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0, 212, 170, 0.15), transparent),
-      radial-gradient(ellipse 60% 40% at 80% 60%, rgba(123, 97, 255, 0.1), transparent),
-      radial-gradient(ellipse 50% 30% at 20% 80%, rgba(0, 168, 204, 0.1), transparent)
+      radial-gradient(ellipse 60% 40% at 50% 0%, rgba(234, 88, 12, 0.12), transparent),
+      radial-gradient(ellipse 40% 30% at 80% 70%, rgba(220, 38, 38, 0.08), transparent)
     `,
   },
   gridPattern: {
     position: 'absolute' as const,
     inset: 0,
     backgroundImage: `
-      linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px)
+      linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px)
     `,
-    backgroundSize: '60px 60px',
-    maskImage: 'radial-gradient(ellipse 100% 100% at 50% 0%, black, transparent 70%)',
+    backgroundSize: '80px 80px',
+    maskImage: 'radial-gradient(ellipse 80% 60% at 50% 0%, black, transparent 70%)',
   },
   heroContent: {
     position: 'relative' as const,
     zIndex: 10,
     textAlign: 'center' as const,
     padding: '2rem',
-    maxWidth: '900px',
+    maxWidth: '800px',
   },
   heroTitle: {
-    fontSize: 'clamp(3.5rem, 10vw, 7rem)',
-    fontWeight: 800,
-    letterSpacing: '-0.04em',
-    marginBottom: '0.5rem',
-    background: 'linear-gradient(135deg, #fff 0%, #00d4aa 50%, #7b61ff 100%)',
-    backgroundClip: 'text',
-    WebkitBackgroundClip: 'text',
-    WebkitTextFillColor: 'transparent',
-    backgroundSize: '200% 200%',
-    animation: 'gradient-shift 8s ease infinite',
+    fontSize: 'clamp(3rem, 8vw, 5.5rem)',
+    fontWeight: 700,
+    letterSpacing: '-0.03em',
+    marginBottom: '0.75rem',
+    color: '#fafaf9',
   },
   heroTagline: {
-    fontSize: 'clamp(1.25rem, 3vw, 1.75rem)',
-    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 'clamp(1.1rem, 2.5vw, 1.4rem)',
+    color: '#a8a29e',
     fontWeight: 400,
-    marginBottom: '2.5rem',
-    letterSpacing: '-0.01em',
+    marginBottom: '2rem',
+    lineHeight: 1.6,
+  },
+  betaBadge: {
+    display: 'inline-block',
+    background: 'rgba(234, 88, 12, 0.15)',
+    color: '#fb923c',
+    padding: '0.5rem 1rem',
+    borderRadius: '6px',
+    fontSize: '0.85rem',
+    fontWeight: 500,
+    marginBottom: '2rem',
+    border: '1px solid rgba(234, 88, 12, 0.3)',
   },
   heroButtons: {
     display: 'flex',
@@ -67,238 +82,284 @@ const styles = {
     flexWrap: 'wrap' as const,
   },
   primaryButton: {
-    background: 'linear-gradient(135deg, #00d4aa 0%, #00a8cc 100%)',
-    color: '#000',
-    padding: '1rem 2.5rem',
-    borderRadius: '12px',
-    fontSize: '1.1rem',
+    background: '#ea580c',
+    color: '#fff',
+    padding: '0.875rem 2rem',
+    borderRadius: '8px',
+    fontSize: '1rem',
     fontWeight: 600,
     textDecoration: 'none',
     display: 'inline-flex',
     alignItems: 'center',
     gap: '0.5rem',
-    transition: 'all 0.3s ease',
-    boxShadow: '0 4px 20px rgba(0, 212, 170, 0.3)',
+    transition: 'background 0.2s ease',
     border: 'none',
   },
   secondaryButton: {
-    background: 'rgba(255, 255, 255, 0.05)',
-    color: '#fff',
-    padding: '1rem 2.5rem',
-    borderRadius: '12px',
-    fontSize: '1.1rem',
+    background: 'transparent',
+    color: '#fafaf9',
+    padding: '0.875rem 2rem',
+    borderRadius: '8px',
+    fontSize: '1rem',
     fontWeight: 500,
     textDecoration: 'none',
     display: 'inline-flex',
     alignItems: 'center',
     gap: '0.5rem',
-    transition: 'all 0.3s ease',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
+    transition: 'all 0.2s ease',
+    border: '1px solid #44403c',
   },
 
-  // Section styles
   section: {
-    padding: '6rem 2rem',
-    background: '#0a0a0f',
+    padding: '5rem 2rem',
+    background: '#0c0a09',
   },
   sectionAlt: {
-    padding: '6rem 2rem',
-    background: 'linear-gradient(180deg, #0f1018 0%, #0a0a0f 100%)',
+    padding: '5rem 2rem',
+    background: '#0a0908',
   },
   container: {
-    maxWidth: '1200px',
+    maxWidth: '1100px',
     margin: '0 auto',
   },
   sectionTitle: {
-    fontSize: 'clamp(2rem, 5vw, 3rem)',
-    fontWeight: 700,
+    fontSize: 'clamp(1.75rem, 4vw, 2.5rem)',
+    fontWeight: 600,
     textAlign: 'center' as const,
-    marginBottom: '1rem',
-    color: '#fff',
-    letterSpacing: '-0.03em',
+    marginBottom: '0.75rem',
+    color: '#fafaf9',
+    letterSpacing: '-0.02em',
   },
   sectionSubtitle: {
-    fontSize: '1.25rem',
-    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: '1.1rem',
+    color: '#a8a29e',
     textAlign: 'center' as const,
-    marginBottom: '4rem',
-    maxWidth: '700px',
-    margin: '0 auto 4rem',
+    marginBottom: '3rem',
+    maxWidth: '600px',
+    margin: '0 auto 3rem',
   },
 
-  // Feature cards
   featuresGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-    gap: '1.5rem',
-    marginTop: '3rem',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+    gap: '1.25rem',
+    marginTop: '2.5rem',
   },
   featureCard: {
-    background: 'rgba(255, 255, 255, 0.02)',
-    border: '1px solid rgba(255, 255, 255, 0.06)',
-    borderRadius: '16px',
-    padding: '2rem',
-    transition: 'all 0.3s ease',
+    background: '#1c1917',
+    border: '1px solid #292524',
+    borderRadius: '12px',
+    padding: '1.5rem',
   },
   featureIcon: {
-    fontSize: '2.5rem',
-    marginBottom: '1rem',
-  },
-  featureTitle: {
-    fontSize: '1.25rem',
-    fontWeight: 600,
-    color: '#fff',
+    fontSize: '1.5rem',
     marginBottom: '0.75rem',
   },
+  featureTitle: {
+    fontSize: '1.1rem',
+    fontWeight: 600,
+    color: '#fafaf9',
+    marginBottom: '0.5rem',
+  },
   featureDesc: {
-    color: 'rgba(255, 255, 255, 0.6)',
-    lineHeight: 1.7,
-    fontSize: '0.95rem',
+    color: '#a8a29e',
+    lineHeight: 1.6,
+    fontSize: '0.9rem',
   },
 
-  // Showcase gallery
+  // Code snippets section - 2 columns, 3 rows
+  snippetsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, 1fr)',
+    gap: '1.25rem',
+    marginTop: '2.5rem',
+  },
+  snippetCard: {
+    background: '#1c1917',
+    border: '1px solid #292524',
+    borderRadius: '12px',
+    overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'column' as const,
+  },
+  snippetHeader: {
+    padding: '0.75rem 1rem',
+    borderBottom: '1px solid #292524',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+  },
+  snippetDot: {
+    width: '8px',
+    height: '8px',
+    borderRadius: '50%',
+    background: '#ea580c',
+  },
+  snippetTitle: {
+    fontSize: '0.85rem',
+    fontWeight: 500,
+    color: '#fafaf9',
+  },
+  snippetCode: {
+    padding: '1.25rem',
+    margin: 0,
+    background: '#0f0e0d',
+    fontSize: '0.8rem',
+    lineHeight: 1.75,
+    fontFamily: '"JetBrains Mono", "Fira Code", "Consolas", monospace',
+    overflowX: 'auto' as const,
+    flex: 1,
+  },
+  snippetDesc: {
+    padding: '0.875rem 1rem',
+    borderTop: '1px solid #292524',
+    color: '#a8a29e',
+    fontSize: '0.85rem',
+    lineHeight: 1.5,
+  },
+
+  // Showcase with fixed aspect ratio
   showcaseGrid: {
     display: 'grid',
-    gap: '3rem',
+    gridTemplateColumns: 'repeat(2, 1fr)',
+    gap: '1.5rem',
   },
   showcaseItem: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-    gap: '3rem',
-    alignItems: 'center',
-    padding: '2rem',
-    background: 'rgba(255, 255, 255, 0.02)',
-    border: '1px solid rgba(255, 255, 255, 0.06)',
-    borderRadius: '24px',
-  },
-  showcaseItemReverse: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-    gap: '3rem',
-    alignItems: 'center',
-    padding: '2rem',
-    background: 'rgba(255, 255, 255, 0.02)',
-    border: '1px solid rgba(255, 255, 255, 0.06)',
-    borderRadius: '24px',
-  },
-  showcaseMedia: {
+    background: '#1c1917',
+    border: '1px solid #292524',
     borderRadius: '16px',
     overflow: 'hidden',
-    boxShadow: '0 20px 60px rgba(0, 0, 0, 0.4)',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
+    display: 'flex',
+    flexDirection: 'column' as const,
+  },
+  showcaseMedia: {
+    width: '100%',
+    height: '280px',
+    overflow: 'hidden',
+    borderBottom: '1px solid #292524',
   },
   showcaseGif: {
     width: '100%',
-    height: 'auto',
+    height: '100%',
+    objectFit: 'cover' as const,
     display: 'block',
   },
   showcaseContent: {
-    padding: '1rem',
+    padding: '1.25rem',
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column' as const,
   },
   showcaseLabel: {
     display: 'inline-block',
-    background: 'linear-gradient(135deg, rgba(0, 212, 170, 0.2), rgba(123, 97, 255, 0.2))',
-    color: '#00d4aa',
-    padding: '0.5rem 1rem',
-    borderRadius: '8px',
-    fontSize: '0.85rem',
-    fontWeight: 600,
-    marginBottom: '1rem',
-    border: '1px solid rgba(0, 212, 170, 0.3)',
+    background: 'rgba(234, 88, 12, 0.15)',
+    color: '#fb923c',
+    padding: '0.35rem 0.6rem',
+    borderRadius: '5px',
+    fontSize: '0.75rem',
+    fontWeight: 500,
+    marginBottom: '0.6rem',
+    border: '1px solid rgba(234, 88, 12, 0.25)',
+    alignSelf: 'flex-start',
   },
   showcaseTitle: {
-    fontSize: '1.75rem',
-    fontWeight: 700,
-    color: '#fff',
-    marginBottom: '1rem',
-    letterSpacing: '-0.02em',
+    fontSize: '1.2rem',
+    fontWeight: 600,
+    color: '#fafaf9',
+    marginBottom: '0.5rem',
+    letterSpacing: '-0.01em',
   },
   showcaseDesc: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    lineHeight: 1.8,
-    fontSize: '1.05rem',
-    marginBottom: '1.5rem',
+    color: '#a8a29e',
+    lineHeight: 1.6,
+    fontSize: '0.9rem',
+    marginBottom: '1rem',
+    flex: 1,
   },
   showcaseButtons: {
     display: 'flex',
-    gap: '0.75rem',
+    gap: '0.6rem',
     flexWrap: 'wrap' as const,
   },
   showcaseButton: {
-    background: 'rgba(255, 255, 255, 0.05)',
-    color: '#fff',
-    padding: '0.75rem 1.25rem',
-    borderRadius: '10px',
-    fontSize: '0.9rem',
+    background: 'transparent',
+    color: '#fafaf9',
+    padding: '0.5rem 0.875rem',
+    borderRadius: '6px',
+    fontSize: '0.8rem',
     fontWeight: 500,
     textDecoration: 'none',
     display: 'inline-flex',
     alignItems: 'center',
-    gap: '0.5rem',
-    transition: 'all 0.3s ease',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
+    gap: '0.4rem',
+    transition: 'all 0.2s ease',
+    border: '1px solid #44403c',
   },
   showcaseButtonPrimary: {
-    background: 'linear-gradient(135deg, #00d4aa 0%, #00a8cc 100%)',
-    color: '#000',
-    padding: '0.75rem 1.25rem',
-    borderRadius: '10px',
-    fontSize: '0.9rem',
+    background: '#ea580c',
+    color: '#fff',
+    padding: '0.5rem 0.875rem',
+    borderRadius: '6px',
+    fontSize: '0.8rem',
     fontWeight: 600,
     textDecoration: 'none',
     display: 'inline-flex',
     alignItems: 'center',
-    gap: '0.5rem',
-    transition: 'all 0.3s ease',
+    gap: '0.4rem',
+    transition: 'background 0.2s ease',
     border: 'none',
-    boxShadow: '0 4px 15px rgba(0, 212, 170, 0.25)',
   },
 
-  // Platform badges
   platformSection: {
     display: 'flex',
     justifyContent: 'center',
-    gap: '1rem',
+    gap: '0.75rem',
     flexWrap: 'wrap' as const,
-    marginTop: '4rem',
+    marginTop: '3rem',
   },
   platformBadge: {
-    background: 'rgba(255, 255, 255, 0.03)',
-    border: '1px solid rgba(255, 255, 255, 0.08)',
-    borderRadius: '12px',
-    padding: '1rem 1.5rem',
+    background: '#1c1917',
+    border: '1px solid #292524',
+    borderRadius: '8px',
+    padding: '0.75rem 1.25rem',
     display: 'flex',
     alignItems: 'center',
-    gap: '0.75rem',
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontSize: '0.95rem',
+    gap: '0.5rem',
+    color: '#d6d3d1',
+    fontSize: '0.9rem',
     fontWeight: 500,
   },
 
-  // CTA Section
   ctaSection: {
-    padding: '8rem 2rem',
-    background: `
-      radial-gradient(ellipse 100% 100% at 50% 100%, rgba(0, 212, 170, 0.08), transparent),
-      #0a0a0f
-    `,
+    padding: '6rem 2rem',
+    background: '#0c0a09',
     textAlign: 'center' as const,
+    borderTop: '1px solid #1c1917',
   },
   ctaTitle: {
-    fontSize: 'clamp(2rem, 5vw, 3.5rem)',
-    fontWeight: 700,
-    color: '#fff',
-    marginBottom: '1.5rem',
-    letterSpacing: '-0.03em',
+    fontSize: 'clamp(1.5rem, 4vw, 2.25rem)',
+    fontWeight: 600,
+    color: '#fafaf9',
+    marginBottom: '1rem',
+    letterSpacing: '-0.02em',
   },
   ctaDesc: {
-    fontSize: '1.25rem',
-    color: 'rgba(255, 255, 255, 0.6)',
-    marginBottom: '2.5rem',
-    maxWidth: '600px',
-    margin: '0 auto 2.5rem',
+    fontSize: '1.05rem',
+    color: '#a8a29e',
+    marginBottom: '2rem',
+    maxWidth: '500px',
+    margin: '0 auto 2rem',
   },
 };
+
+// Helper components for syntax highlighting
+const K = ({ children }: { children: ReactNode }) => <span style={{ color: syn.keyword }}>{children}</span>;
+const T = ({ children }: { children: ReactNode }) => <span style={{ color: syn.type }}>{children}</span>;
+const S = ({ children }: { children: ReactNode }) => <span style={{ color: syn.string }}>{children}</span>;
+const N = ({ children }: { children: ReactNode }) => <span style={{ color: syn.number }}>{children}</span>;
+const C = ({ children }: { children: ReactNode }) => <span style={{ color: syn.comment }}>{children}</span>;
+const F = ({ children }: { children: ReactNode }) => <span style={{ color: syn.func }}>{children}</span>;
+const P = ({ children }: { children: ReactNode }) => <span style={{ color: syn.plain }}>{children}</span>;
 
 function HeroSection() {
   const { siteConfig } = useDocusaurusContext();
@@ -311,15 +372,18 @@ function HeroSection() {
           {siteConfig.title}
         </Heading>
         <p style={styles.heroTagline}>
-          Write GPU compute pipelines in pure Scala 3.<br />
-          Run anywhere.
+          GPU compute pipelines in pure Scala 3.<br />
+          Compiles to SPIR-V. Runs on Vulkan.
         </p>
+        <div style={styles.betaBadge}>
+          ⚠️ Beta release - not production ready. For experimentation and feedback.
+        </div>
         <div style={styles.heroButtons}>
           <Link to="/docs/getting-started" style={styles.primaryButton}>
-            Get Started →
+            Get Started
           </Link>
           <Link to="https://github.com/computenode/cyfra" style={styles.secondaryButton}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
             </svg>
             GitHub
@@ -335,32 +399,32 @@ function FeaturesSection() {
     {
       icon: '⚡',
       title: 'Pure Scala 3 DSL',
-      description: 'Write GPU code using familiar Scala syntax. Case classes become GPU structs, functions compile to GPU programs.',
+      description: 'Write GPU code using familiar Scala syntax. Case classes become GPU structs, functions compile to shaders.',
     },
     {
       icon: '🎯',
-      title: 'Vulkan Runtime',
-      description: 'Execute on any Vulkan-compatible GPU. Works with NVIDIA, AMD, Intel, and Apple (via MoltenVK) graphics hardware.',
+      title: 'Vulkan Backend',
+      description: 'Direct execution on Vulkan-compatible GPUs. NVIDIA, AMD, Intel, and Apple via MoltenVK.',
+    },
+    {
+      icon: '🧩',
+      title: 'Composable Pipelines',
+      description: 'Chain GPU programs together. Intermediate data stays on the GPU—no round-trips to CPU.',
+    },
+    {
+      icon: '🔧',
+      title: 'Type-Safe',
+      description: 'Scala\'s type system catches GPU programming errors at compile time.',
     },
     {
       icon: '🌍',
       title: 'Cross-Platform',
-      description: 'Runs on Linux, Windows, and macOS. No platform-specific code required.',
-    },
-    {
-      icon: '🧩',
-      title: 'Powerful Pipeline DSL',
-      description: 'Build expressive, type-safe GPU pipelines with safety and minimal boilerplate.',
-    },
-    {
-      icon: '🔧',
-      title: 'Type-Safe Coding',
-      description: 'Leverage Scala\'s type system for safer GPU programming. Catch errors at compile time, not runtime.',
+      description: 'Linux, Windows, macOS. Write once, run on any Vulkan-capable hardware.',
     },
     {
       icon: '🚀',
-      title: 'High Performance',
-      description: 'Direct compilation to SPIR-V means your Scala code runs at native GPU speeds with zero overhead.',
+      title: 'Zero Overhead',
+      description: 'Direct compilation to SPIR-V. Your Scala code runs at native GPU speeds.',
     },
   ];
 
@@ -369,7 +433,7 @@ function FeaturesSection() {
       <div style={styles.container}>
         <h2 style={styles.sectionTitle}>Why Cyfra?</h2>
         <p style={styles.sectionSubtitle}>
-          A powerful toolkit for GPU programming that brings the elegance of Scala to compute shaders
+          GPU programming with the expressiveness of Scala
         </p>
         <div style={styles.featuresGrid}>
           {features.map((feature, idx) => (
@@ -385,17 +449,142 @@ function FeaturesSection() {
   );
 }
 
-function ShowcaseSection() {
+function CodeSnippetsSection() {
   return (
     <section style={styles.sectionAlt}>
       <div style={styles.container}>
+        <h2 style={styles.sectionTitle}>Code That Runs on GPU</h2>
+        <p style={styles.sectionSubtitle}>
+          Write Scala. Execute on thousands of GPU cores.
+        </p>
+        <div className="snippets-grid" style={styles.snippetsGrid}>
+          {/* Row 1: Vector Operations | Sequence Comprehensions */}
+          <div style={styles.snippetCard}>
+            <div style={styles.snippetHeader}>
+              <div style={styles.snippetDot} />
+              <span style={styles.snippetTitle}>Vector Operations</span>
+            </div>
+            <pre style={styles.snippetCode}>
+<K>val</K> <P>normalize</P> = <T>GFunction</T>[<T>Vec4</T>[<T>Float32</T>], <T>Vec4</T>[<T>Float32</T>]]:{'\n'}
+{'  '}<P>v</P> =&gt; <P>v</P> / <F>length</F>(<P>v</P>){'\n'}
+{'\n'}
+<K>val</K> <P>dot</P> = <T>GFunction</T>[<T>Vec4</T>[<T>Float32</T>], <T>Float32</T>]:{'\n'}
+{'  '}<P>v</P> =&gt; <P>v</P>.<F>dot</F>(<F>vec4</F>(<N>1f</N>, <N>0f</N>, <N>0f</N>, <N>0f</N>))
+            </pre>
+            <div style={styles.snippetDesc}>
+              Built-in vector types map to GPU hardware.
+            </div>
+          </div>
+
+          <div style={styles.snippetCard}>
+            <div style={styles.snippetHeader}>
+              <div style={styles.snippetDot} />
+              <span style={styles.snippetTitle}>Sequence Comprehensions</span>
+            </div>
+            <pre style={styles.snippetCode}>
+<K>val</K> <P>iterations</P> = <T>GSeq</T>{'\n'}
+{'  '}.<F>gen</F>(<F>vec2</F>(<N>0f</N>, <N>0f</N>), <P>z</P> =&gt;{'\n'}
+{'    '}<F>vec2</F>(<P>z</P>.<P>x</P>*<P>z</P>.<P>x</P> - <P>z</P>.<P>y</P>*<P>z</P>.<P>y</P> + <P>cx</P>, <N>2f</N>*<P>z</P>.<P>x</P>*<P>z</P>.<P>y</P> + <P>cy</P>)){'\n'}
+{'  '}.<F>limit</F>(<N>256</N>){'\n'}
+{'  '}.<F>takeWhile</F>(<P>z</P> =&gt; <P>z</P>.<P>x</P>*<P>z</P>.<P>x</P> + <P>z</P>.<P>y</P>*<P>z</P>.<P>y</P> &lt; <N>4f</N>){'\n'}
+{'  '}.<F>count</F>
+            </pre>
+            <div style={styles.snippetDesc}>
+              Lazy sequences with map, filter, fold.
+            </div>
+          </div>
+
+          {/* Row 2: Custom GPU Structs | Monadic GPU Effects */}
+          <div style={styles.snippetCard}>
+            <div style={styles.snippetHeader}>
+              <div style={styles.snippetDot} />
+              <span style={styles.snippetTitle}>Custom GPU Structs</span>
+            </div>
+            <pre style={styles.snippetCode}>
+<K>case class</K> <T>Physics</T>(<P>gravity</P>: <T>Float32</T>, <P>dt</P>: <T>Float32</T>){'\n'}
+{'  '}<K>extends</K> <T>GStruct</T>[<T>Physics</T>]{'\n'}
+{'\n'}
+<K>val</K> <P>step</P> = <T>GFunction</T>.<F>forEachIndex</F>[<T>Physics</T>, <T>Vec4</T>, <T>Vec4</T>]:{'\n'}
+{'  '}(<P>cfg</P>, <P>i</P>, <P>buf</P>) =&gt;{'\n'}
+{'    '}<K>val</K> <P>p</P> = <P>buf</P>.<F>read</F>(<P>i</P>){'\n'}
+{'    '}<F>vec4</F>(<P>p</P>.<P>x</P>, <P>p</P>.<P>y</P> + <P>cfg</P>.<P>gravity</P> * <P>cfg</P>.<P>dt</P>, <P>p</P>.<P>z</P>, <P>p</P>.<P>w</P>)
+            </pre>
+            <div style={styles.snippetDesc}>
+              Case classes become GPU structs.
+            </div>
+          </div>
+
+          <div style={styles.snippetCard}>
+            <div style={styles.snippetHeader}>
+              <div style={styles.snippetDot} />
+              <span style={styles.snippetTitle}>Monadic GPU Effects</span>
+            </div>
+            <pre style={styles.snippetCode}>
+<K>for</K>{'\n'}
+{'  '}<P>a</P> &lt;- <P>layout</P>.<P>bufferA</P>.<F>write</F>(<P>idx</P>, <P>value</P> * <N>2f</N>){'\n'}
+{'  '}<P>b</P> &lt;- <P>layout</P>.<P>bufferB</P>.<F>write</F>(<P>idx</P>, <P>value</P> + <N>1f</N>){'\n'}
+{'  '}<P>sum</P> &lt;- <P>layout</P>.<P>input</P>.<F>read</F>(<P>idx</P> + <N>1</N>){'\n'}
+<K>yield</K> <P>sum</P> + <P>a</P> + <P>b</P>
+            </pre>
+            <div style={styles.snippetDesc}>
+              Composable GIO monad for effectful computation.
+            </div>
+          </div>
+
+          {/* Row 3: GPU Pipelines | GPU Memory Management */}
+          <div style={styles.snippetCard}>
+            <div style={styles.snippetHeader}>
+              <div style={styles.snippetDot} />
+              <span style={styles.snippetTitle}>GPU Pipelines</span>
+            </div>
+            <pre style={styles.snippetCode}>
+<K>val</K> <P>pipeline</P> = <T>GExecution</T>[<T>Int</T>, <T>Layout</T>](){'\n'}
+{'  '}.<F>addProgram</F>(<P>multiply</P>):{'\n'}
+{'    '}<P>size</P> =&gt; <P>size</P>{'\n'}
+{'    '}<P>l</P> =&gt; <T>MulLayout</T>(<P>l</P>.<P>input</P>, <P>l</P>.<P>temp</P>, <P>l</P>.<P>mulParams</P>){'\n'}
+{'  '}.<F>addProgram</F>(<P>add</P>):{'\n'}
+{'    '}<P>size</P> =&gt; <P>size</P>{'\n'}
+{'    '}<P>l</P> =&gt; <T>AddLayout</T>(<P>l</P>.<P>temp</P>, <P>l</P>.<P>output</P>, <P>l</P>.<P>addParams</P>)
+            </pre>
+            <div style={styles.snippetDesc}>
+              Chain programs. Data stays on GPU.
+            </div>
+          </div>
+
+          <div style={styles.snippetCard}>
+            <div style={styles.snippetHeader}>
+              <div style={styles.snippetDot} />
+              <span style={styles.snippetTitle}>GPU Memory Management</span>
+            </div>
+            <pre style={styles.snippetCode}>
+<T>GBufferRegion</T>{'\n'}
+{'  '}.<F>allocate</F>[<T>MyLayout</T>]{'\n'}
+{'  '}.<F>map</F>: <P>layout</P> =&gt;{'\n'}
+{'    '}<P>pipeline</P>.<F>execute</F>(<P>params</P>, <P>layout</P>){'\n'}
+{'  '}.<F>runUnsafe</F>({'\n'}
+{'    '}<P>init</P> = <T>MyLayout</T>(<T>GBuffer</T>(<P>data</P>), ...),{'\n'}
+{'    '}<P>onDone</P> = <P>l</P> =&gt; <P>l</P>.<P>output</P>.<F>readArray</F>(<P>results</P>))
+            </pre>
+            <div style={styles.snippetDesc}>
+              Allocate, execute, and read back GPU buffers.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ShowcaseSection() {
+  return (
+    <section style={styles.section}>
+      <div style={styles.container}>
         <h2 style={styles.sectionTitle}>See It In Action</h2>
         <p style={styles.sectionSubtitle}>
-          Real examples of what you can create with Cyfra
+          Real projects built with Cyfra
         </p>
         
-        <div style={styles.showcaseGrid}>
-          {/* GPU Programming - Ray Tracing */}
+        <div className="showcase-grid" style={styles.showcaseGrid}>
           <div style={styles.showcaseItem}>
             <div style={styles.showcaseMedia}>
               <img 
@@ -405,64 +594,52 @@ function ShowcaseSection() {
               />
             </div>
             <div style={styles.showcaseContent}>
-              <span style={styles.showcaseLabel}>GPU Programming</span>
+              <span style={styles.showcaseLabel}>GPU programming</span>
               <h3 style={styles.showcaseTitle}>GPU Ray Traced Scenes</h3>
               <p style={styles.showcaseDesc}>
-                Create stunning ray-traced animations with realistic reflections, shadows, and lighting. 
-                The Foton library provides a clean API for defining scenes, materials, and camera paths—all 
-                executed at GPU speed.
+                Ray-traced animations with reflections and shadows. The Foton library provides 
+                a clean API for scenes, materials, and camera paths.
               </p>
               <div style={styles.showcaseButtons}>
                 <Link 
-                  to="https://github.com/ComputeNode/cyfra/blob/main/cyfra-examples/src/main/scala/io/computenode/samples/cyfra/foton/AnimatedRaytrace.scala" 
+                  to="https://github.com/ComputeNode/cyfra/blob/8ef5d789db33ace6e6bdf2d0d3063fc28d78fd41/cyfra-examples/src/main/scala/io/computenode/cyfra/samples/foton/AnimatedRaytrace.scala" 
                   style={styles.showcaseButtonPrimary}
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
-                  </svg>
                   View Code
                 </Link>
                 <Link 
                   to="https://www.youtube.com/watch?v=Prkp2VUVrYo" 
                   style={styles.showcaseButton}
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M10 16.5l6-4.5-6-4.5v9zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
-                  </svg>
                   Watch Talk
                 </Link>
               </div>
             </div>
           </div>
 
-          {/* Complex GPU Pipelines - Navier-Stokes */}
-          <div style={styles.showcaseItemReverse}>
-            <div style={styles.showcaseContent}>
-              <span style={styles.showcaseLabel}>Complex GPU Pipelines</span>
-              <h3 style={styles.showcaseTitle}>Navier-Stokes Fluid Simulation</h3>
-              <p style={styles.showcaseDesc}>
-                Build sophisticated multi-stage GPU pipelines with Cyfra's expressive DSL. 
-                This real-time fluid dynamics simulation solves the Navier-Stokes equations 
-                entirely on the GPU, demonstrating complex data flow and iterative compute patterns.
-              </p>
-              <div style={styles.showcaseButtons}>
-                <Link 
-                  to="https://github.com/ComputeNode/cyfra/tree/fluids/cyfra-fluids" 
-                  style={styles.showcaseButtonPrimary}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
-                  </svg>
-                  View Code
-                </Link>
-              </div>
-            </div>
+          <div style={styles.showcaseItem}>
             <div style={styles.showcaseMedia}>
               <img 
                 src="/img/full_fluid_8s.gif"
                 alt="Navier-Stokes fluid simulation"
                 style={styles.showcaseGif}
               />
+            </div>
+            <div style={styles.showcaseContent}>
+              <span style={styles.showcaseLabel}>Complex GPU pipelines</span>
+              <h3 style={styles.showcaseTitle}>Navier-Stokes Solver</h3>
+              <p style={styles.showcaseDesc}>
+                Real-time fluid dynamics on the GPU. Multi-stage pipeline solving 
+                Navier-Stokes equations with pressure projection.
+              </p>
+              <div style={styles.showcaseButtons}>
+                <Link 
+                  to="https://github.com/ComputeNode/cyfra/tree/8ef5d789db33ace6e6bdf2d0d3063fc28d78fd41/cyfra-fluids" 
+                  style={styles.showcaseButtonPrimary}
+                >
+                  View Code
+                </Link>
+              </div>
             </div>
           </div>
         </div>
@@ -482,11 +659,11 @@ function PlatformSection() {
   ];
 
   return (
-    <section style={styles.section}>
+    <section style={styles.sectionAlt}>
       <div style={styles.container}>
         <h2 style={styles.sectionTitle}>Runs Everywhere</h2>
         <p style={styles.sectionSubtitle}>
-          Works on any platform with Vulkan support—from gaming PCs to integrated graphics
+          Any platform with Vulkan support
         </p>
         <div style={styles.platformSection}>
           {platforms.map((platform, idx) => (
@@ -505,12 +682,12 @@ function CTASection() {
   return (
     <section style={styles.ctaSection}>
       <div style={styles.container}>
-        <h2 style={styles.ctaTitle}>Ready to Write GPU Code in Scala?</h2>
+        <h2 style={styles.ctaTitle}>Try Cyfra Today</h2>
         <p style={styles.ctaDesc}>
-          Get started with Cyfra today and unlock the power of GPU programming with the elegance of Scala.
+          Clone the repo, run the examples, and see what GPU programming in Scala feels like.
         </p>
         <Link to="/docs/getting-started" style={styles.primaryButton}>
-          Read the Docs →
+          Read the Docs
         </Link>
       </div>
     </section>
@@ -522,10 +699,17 @@ export default function Home(): ReactNode {
     <Layout
       title="Home"
       description="Cyfra - GPU programming in Scala. Write compute shaders in pure Scala 3, compile to SPIR-V, and run on Vulkan.">
+      <style>{`
+        @media (max-width: 800px) {
+          .snippets-grid { grid-template-columns: 1fr !important; }
+          .showcase-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
       <main>
         <HeroSection />
         <FeaturesSection />
         <ShowcaseSection />
+        <CodeSnippetsSection />
         <PlatformSection />
         <CTASection />
       </main>

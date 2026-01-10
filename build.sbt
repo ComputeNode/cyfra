@@ -113,7 +113,7 @@ lazy val fs2interop = (project in file("cyfra-fs2"))
 
 lazy val e2eTest = (project in file("cyfra-e2e-test"))
   .settings(commonSettings, runnerSettings)
-  .dependsOn(runtime, fs2interop)
+  .dependsOn(runtime, fs2interop, foton)
 
 lazy val root = (project in file("."))
   .settings(name := "Cyfra")
