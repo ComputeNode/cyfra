@@ -470,7 +470,7 @@ function CodeSnippetsSection() {
 {'  '}<P>v</P> =&gt; <P>v</P> / <F>length</F>(<P>v</P>){'\n'}
 {'\n'}
 <K>val</K> <P>dot</P> = <T>GFunction</T>[<T>Vec4</T>[<T>Float32</T>], <T>Float32</T>]:{'\n'}
-{'  '}<P>v</P> =&gt; <P>v</P>.<F>dot</F>(<F>vec4</F>(<N>1f</N>, <N>0f</N>, <N>0f</N>, <N>0f</N>))
+{'  '}<P>v</P> =&gt; <P>v</P> <F>dot</F> (<N>1f</N>, <N>0f</N>, <N>0f</N>, <N>0f</N>)
             </pre>
             <div style={styles.snippetDesc}>
               Built-in vector types map to GPU hardware.
@@ -508,7 +508,7 @@ function CodeSnippetsSection() {
 <K>val</K> <P>step</P> = <T>GFunction</T>.<F>forEachIndex</F>[<T>Physics</T>, <T>Vec4</T>, <T>Vec4</T>]:{'\n'}
 {'  '}(<P>cfg</P>, <P>i</P>, <P>buf</P>) =&gt;{'\n'}
 {'    '}<K>val</K> <P>p</P> = <P>buf</P>.<F>read</F>(<P>i</P>){'\n'}
-{'    '}<F>vec4</F>(<P>p</P>.<P>x</P>, <P>p</P>.<P>y</P> + <P>cfg</P>.<P>gravity</P> * <P>cfg</P>.<P>dt</P>, <P>p</P>.<P>z</P>, <P>p</P>.<P>w</P>)
+{'    '}(<P>p</P>.<P>x</P>, <P>p</P>.<P>y</P> + <P>cfg</P>.<P>gravity</P> * <P>cfg</P>.<P>dt</P>, <P>p</P>.<P>z</P>, <P>p</P>.<P>w</P>)
             </pre>
             <div style={styles.snippetDesc}>
               Case classes become GPU structs.
