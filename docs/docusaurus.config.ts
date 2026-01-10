@@ -11,7 +11,7 @@ const config: Config = {
     v4: true,
   },
 
-  url: 'https://computenode.github.io', 
+  url: 'https://cyfra.computenode.io', 
   baseUrl: '/',                   
   
   trailingSlash: false,
