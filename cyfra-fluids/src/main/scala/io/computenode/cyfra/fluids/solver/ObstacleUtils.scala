@@ -1,7 +1,6 @@
 package io.computenode.cyfra.fluids.solver
 
 import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.dsl.binding.GBuffer
 import org.lwjgl.BufferUtils
 
 import java.nio.ByteBuffer
@@ -17,7 +16,6 @@ object ObstacleUtils:
   
   /** Check if a cell is a solid obstacle with bounds checking (returns false if out of bounds) */
   inline def isSolid(obstacles: GBuffer[Float32], idx: Int32, totalCells: Int32)(using io.computenode.cyfra.dsl.macros.Source): GBoolean =
-    import io.computenode.cyfra.dsl.control.When.when
     when(idx >= 0):
       when(idx < totalCells):
         obstacles.read(idx) > 0.0f
@@ -30,7 +28,6 @@ object ObstacleUtils:
     * Returns false if coordinates are out of bounds.
     */
   inline def isSolidAt(obstacles: GBuffer[Float32], x: Int32, y: Int32, z: Int32, n: Int32)(using io.computenode.cyfra.dsl.macros.Source): GBoolean =
-    import io.computenode.cyfra.dsl.control.When.when
     when(GridUtils.inBounds(x, y, z, n)):
       isSolid(obstacles, GridUtils.coord3dToIdx(x, y, z, n), n * n * n)
     .otherwise:
@@ -40,13 +37,10 @@ object ObstacleUtils:
     * Note: Does not perform bounds checking.
     */
   inline def getObstacleValue(obstacles: GBuffer[Float32], idx: Int32)(using io.computenode.cyfra.dsl.macros.Source): Float32 =
-    import io.computenode.cyfra.dsl.library.Functions.max
     max(0.0f, obstacles.read(idx))
   
   /** Get obstacle color value with bounds checking (returns 0 if out of bounds or not solid) */
   inline def getObstacleValueSafe(obstacles: GBuffer[Float32], idx: Int32, totalCells: Int32)(using io.computenode.cyfra.dsl.macros.Source): Float32 =
-    import io.computenode.cyfra.dsl.library.Functions.max
-    import io.computenode.cyfra.dsl.control.When.when
     when((idx >= 0) && (idx < totalCells)):
       max(0.0f, obstacles.read(idx))
     .otherwise:
@@ -64,8 +58,6 @@ object ObstacleUtils:
     z: Int32,
     n: Int32
   )(using io.computenode.cyfra.dsl.macros.Source): Vec3[Float32] =
-    import io.computenode.cyfra.dsl.library.Math3D.*
-    import io.computenode.cyfra.dsl.control.When.when
     
     // Sample neighboring cells using when/otherwise for GPU compatibility
     val xp = when(isSolidAt(obstacles, x + 1, y, z, n))(1.0f).otherwise(0.0f)

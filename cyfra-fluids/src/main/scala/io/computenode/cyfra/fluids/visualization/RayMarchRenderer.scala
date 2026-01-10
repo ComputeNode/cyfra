@@ -6,15 +6,6 @@ import io.computenode.cyfra.core.GCodec.{*, given}
 import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.runtime.VkCyfraRuntime
 import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
-import io.computenode.cyfra.dsl.macros.Source
-import io.computenode.cyfra.dsl.gio.GIO
-import io.computenode.cyfra.dsl.struct.{GStruct, GStructSchema}
-import io.computenode.cyfra.dsl.struct.GStruct.Empty
-import io.computenode.cyfra.dsl.control.When.when
-import io.computenode.cyfra.dsl.library.Functions.{abs, clamp, max, min, mix, tan}
-import io.computenode.cyfra.dsl.library.Math3D.*
-import io.computenode.cyfra.dsl.collections.GSeq
 import io.computenode.cyfra.fluids.solver.GridUtils
 import org.lwjgl.BufferUtils
 
@@ -250,7 +241,6 @@ class RayMarchRenderer(rendererConfig: RendererConfig):
   /** Rendering program */
   val renderProgram = GProgram[Int, RenderLayout](
     layout = totalCells => {
-      import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
       RenderLayout(
         output = GBuffer[Vec4[Float32]](width * height),
         velocity = GBuffer[Vec4[Float32]](totalCells),
@@ -293,7 +283,7 @@ class RayMarchRenderer(rendererConfig: RendererConfig):
       val finalColor = marchRay(camPos, rayDirection, layout.velocity, layout.pressure, layout.density, layout.temperature, layout.dye, layout.obstacles, params.gridSize)
 
       for _ <- GIO.write(layout.output, idx, finalColor)
-      yield Empty()
+      yield GStruct.Empty()
 
   /** Helper to clamp float values (CPU version) */
   private def clampFloat(value: Float, min: Float, max: Float): Float =

@@ -3,15 +3,12 @@ package io.computenode.cyfra.fluids.solver
 import io.computenode.cyfra.core.GProgram
 import io.computenode.cyfra.core.GProgram.StaticDispatch
 import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.dsl.gio.GIO
-import io.computenode.cyfra.dsl.struct.GStruct.Empty
 
 object ForcesProgram:
 
   def create: GProgram[Int, FluidState] =
     GProgram[Int, FluidState](
       layout = totalCells => {
-        import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
         FluidState(
           velocity = GBuffer[Vec4[Float32]](totalCells),
           pressure = GBuffer[Float32](totalCells),

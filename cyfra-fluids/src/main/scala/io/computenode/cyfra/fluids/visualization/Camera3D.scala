@@ -1,7 +1,6 @@
 package io.computenode.cyfra.fluids.visualization
 
 import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.dsl.struct.GStruct
 
 /** Camera parameters for 3D rendering.
   *

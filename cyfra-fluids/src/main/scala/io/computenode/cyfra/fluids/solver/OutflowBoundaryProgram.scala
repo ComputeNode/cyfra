@@ -3,8 +3,6 @@ package io.computenode.cyfra.fluids.solver
 import io.computenode.cyfra.core.GProgram
 import io.computenode.cyfra.core.GProgram.StaticDispatch
 import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.dsl.gio.GIO
-import io.computenode.cyfra.dsl.struct.GStruct.Empty
 import io.computenode.cyfra.fluids.solver.GridUtils.{idxTo3D, coord3dToIdx}
 
 /** Boundary conditions with outflow at top and proper free-slip at other boundaries.
@@ -18,7 +16,6 @@ object OutflowBoundaryProgram:
   def create: GProgram[Int, FluidState] =
     GProgram[Int, FluidState](
       layout = totalCells => {
-        import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
         FluidState(
           velocity = GBuffer[Vec4[Float32]](totalCells),
           pressure = GBuffer[Float32](totalCells),
@@ -73,7 +70,7 @@ object OutflowBoundaryProgram:
               _ <- GIO.write(state.velocity, idx, outflowVel)
               _ <- GIO.write(state.density, idx, belowDensity * 0.9f)  // Dissipate at exit
               _ <- GIO.write(state.temperature, idx, belowTemp * 0.9f)
-            yield Empty()
+            yield GStruct.Empty()
           
           // 2. Obstacles - zero out everything inside
           _ <- GIO.when(isSolid):
@@ -81,7 +78,7 @@ object OutflowBoundaryProgram:
               _ <- GIO.write(state.velocity, idx, vec4(0.0f, 0.0f, 0.0f, 0.0f))
               _ <- GIO.write(state.density, idx, 0.0f)
               _ <- GIO.write(state.temperature, idx, 0.0f)
-            yield Empty()
+            yield GStruct.Empty()
           
           // 3. Free-slip at obstacle surfaces (fluid cells adjacent to obstacles)
           _ <- GIO.when(adjacentToObstacle && !onDomainBoundary):
@@ -126,4 +123,4 @@ object OutflowBoundaryProgram:
             val newVel = vec4(tangentialVel.x, tangentialVel.y, tangentialVel.z, 0.0f)
             
             GIO.write(state.velocity, idx, newVel)
-        yield Empty()
+        yield GStruct.Empty()

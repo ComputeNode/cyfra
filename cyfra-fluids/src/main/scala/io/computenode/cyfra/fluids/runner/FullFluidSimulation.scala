@@ -4,8 +4,6 @@ import io.computenode.cyfra.core.{GBufferRegion, GCodec, GExecution}
 import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.runtime.VkCyfraRuntime
 import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
-import io.computenode.cyfra.dsl.struct.GStructSchema
 import io.computenode.cyfra.fluids.solver.*
 import io.computenode.cyfra.fluids.visualization.RayMarchRenderer.Field.{Density, Dye, Pressure, Temperature, Velocity}
 import io.computenode.cyfra.fluids.visualization.{Camera3D, RayMarchRenderer}
@@ -323,7 +321,6 @@ object FullFluidSimulation:
             addCollidingDiscCurrents(velocityPrevious, dyePrevious, gridSize, frameIdx)
     
             // Prepare output buffer for reading back
-            val outputData = Array.ofDim[Float](imageSize._1 * imageSize._2 * 4)
             val outputBuffer = BufferUtils.createFloatBuffer(imageSize._1 * imageSize._2 * 4)
             val outputBB = org.lwjgl.system.MemoryUtil.memByteBuffer(outputBuffer)
             

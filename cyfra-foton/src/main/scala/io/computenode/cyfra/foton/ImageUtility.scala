@@ -1,4 +1,4 @@
-package io.computenode.cyfra.utility
+package io.computenode.cyfra.foton
 
 import java.awt.image.BufferedImage
 import java.io.File

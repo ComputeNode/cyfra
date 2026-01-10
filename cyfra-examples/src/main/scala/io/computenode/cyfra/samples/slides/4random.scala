@@ -1,13 +1,10 @@
 package io.computenode.cyfra.samples.slides
 
 import io.computenode.cyfra.core.CyfraRuntime
-import io.computenode.cyfra.dsl.collections.GSeq
 import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.dsl.struct.GStruct
-import io.computenode.cyfra.dsl.struct.GStruct.Empty
-import io.computenode.cyfra.core.archive.*
+import io.computenode.cyfra.foton.GFunction
 import io.computenode.cyfra.runtime.VkCyfraRuntime
-import io.computenode.cyfra.utility.ImageUtility
+import io.computenode.cyfra.foton.ImageUtility
 
 import java.nio.file.Paths
 
@@ -183,7 +180,7 @@ def randomRays() =
 
   case class RenderIteration(color: Vec3[Float32], rngState: UInt32) extends GStruct[RenderIteration]
 
-  val raytracing: GFunction[Empty, Vec4[Float32], Vec4[Float32]] = GFunction.from2D(dim):
+  val raytracing: GFunction[GStruct.Empty, Vec4[Float32], Vec4[Float32]] = GFunction.from2D(dim):
     case (_, (xi: Int32, yi: Int32), _) =>
       val rngState = xi * 1973 + yi * 9277 + 2137 * 26699 | 1
       val color = GSeq

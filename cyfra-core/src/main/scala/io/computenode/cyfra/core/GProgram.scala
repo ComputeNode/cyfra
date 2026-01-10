@@ -36,6 +36,12 @@ object GProgram:
   )(body: L => GIO[?]): GProgram[Params, L] =
     new GioProgram[Params, L](body, s => layout(using s), dispatch, workgroupSize)
 
+  def static[Params, L <: Layout: {LayoutBinding, LayoutStruct}](
+    layout: InitProgramLayout ?=> Params => L,
+    dispatchSize: Params => Int
+  )(body: L => GIO[?]): GProgram[Params, L] =
+    GioProgram.apply(body, s => layout(using s), (l, p) => StaticDispatch((dispatchSize(p) + 127) / 128, 1, 1), (128, 1, 1))
+
   def fromSpirvFile[Params, L <: Layout: {LayoutBinding, LayoutStruct}](
     layout: InitProgramLayout ?=> Params => L,
     dispatch: (L, Params) => ProgramDispatch,

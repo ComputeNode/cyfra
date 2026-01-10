@@ -1,6 +1,5 @@
 package io.computenode.cyfra.fluids.solver
 
-import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.dsl.{*, given}
 
 /** Simulation parameters for 3D fluid dynamics.
@@ -11,7 +10,6 @@ import io.computenode.cyfra.dsl.{*, given}
   * @param buoyancy Buoyancy force strength (how much hot fluid rises)
   * @param ambient Ambient temperature reference
   * @param gridSize Grid resolution (gridSize³ voxels)
-  * @param iterationCount Number of Jacobi iterations for solvers
   */
 case class FluidParams(
   dt: Float32,

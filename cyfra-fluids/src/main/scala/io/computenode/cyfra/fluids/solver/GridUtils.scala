@@ -1,9 +1,5 @@
 package io.computenode.cyfra.fluids.solver
 
-import io.computenode.cyfra.dsl.binding.GBuffer
-import io.computenode.cyfra.dsl.control.When.when
-import io.computenode.cyfra.dsl.library.Functions.{clamp, max, min, mix}
-import io.computenode.cyfra.dsl.macros.Source
 import io.computenode.cyfra.dsl.{*, given}
 
 /** Utility functions for 3D grid operations */

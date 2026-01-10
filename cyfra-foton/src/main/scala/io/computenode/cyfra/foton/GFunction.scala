@@ -1,10 +1,10 @@
-package io.computenode.cyfra.core.archive
+package io.computenode.cyfra.foton
 
 import io.computenode.cyfra.core.{CyfraRuntime, GBufferRegion, GCodec, GProgram}
 import io.computenode.cyfra.core.GBufferRegion.*
 import io.computenode.cyfra.core.GProgram.StaticDispatch
-import io.computenode.cyfra.core.archive.GFunction
-import io.computenode.cyfra.core.archive.GFunction.{GFunctionLayout, GFunctionParams}
+import io.computenode.cyfra.foton.GFunction
+import io.computenode.cyfra.foton.GFunction.{GFunctionLayout, GFunctionParams}
 import io.computenode.cyfra.core.layout.{Layout, LayoutBinding, LayoutStruct}
 import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
@@ -94,3 +94,5 @@ object GFunction:
   extension [H <: Value: {Tag, FromExpr}, R <: Value: {Tag, FromExpr}](gf: GFunction[GStruct.Empty, H, R])
     def run[HS, RS: ClassTag](input: Array[HS])(using hCodec: GCodec[H, HS], rCodec: GCodec[R, RS], runtime: CyfraRuntime): Array[RS] =
       gf.run(input, GStruct.Empty())
+
+

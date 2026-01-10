@@ -27,6 +27,9 @@ import scala.collection.mutable
 import scala.util.Try
 import scala.util.chaining.*
 import scala.util.Try
+import scala.reflect.ClassTag
+import io.computenode.cyfra.core.GCodec
+import io.computenode.cyfra.core.GCodec.totalStride
 
 class VkAllocation(val commandPool: CommandPool.Reset, executionHandler: ExecutionHandler)(using Allocator, Device) extends Allocation:
   given VkAllocation = this
@@ -63,16 +66,33 @@ class VkAllocation(val commandPool: CommandPool.Reset, executionHandler: Executi
           stagingBuffer.copyFrom(bb, 0)
           val cb = Buffer.copyBufferCommandBuffer(stagingBuffer, binding.buffer, 0, offset, size, commandPool)
           val cleanup = () =>
-            commandPool.freeCommandBuffer(cb)
+            //commandPool.freeCommandBuffer(cb)
             stagingBuffer.destroy()
           val pe = new PendingExecution(cb, binding.execution.fold(Seq(_), _.toSeq), cleanup, s"Writing at ${name.value}:${line.value}")
           addExecution(pe)
           binding.execution = Left(pe)
         case _ => throw new IllegalArgumentException(s"Tried to write to non-VkBinding $buffer")
 
+  extension [T <: Value: {Tag, FromExpr}] (buffer: GBinding[T])
+    
+    def writeArray[ST : ClassTag](arr: Array[ST], offset: Int = 0)(using GCodec[T, ST]): Unit =
+      val bb = BufferUtils.createByteBuffer(arr.size * typeStride(summon[Tag[T]]))
+      buffer.write(bb, 0)
+      GCodec.toByteBuffer[T, ST](bb, arr)
+
+    def readArray[ST : ClassTag](arr: Array[ST], offset: Int = 0)(using GCodec[T, ST]): Array[ST] =
+      val bb = BufferUtils.createByteBuffer(arr.size * typeStride(summon[Tag[T]]))
+      buffer.read(bb, 0)
+      GCodec.fromByteBuffer[T, ST](bb, arr)
+
   extension (buffers: GBuffer.type)
     def apply[T <: Value: {Tag, FromExpr}](length: Int): GBuffer[T] =
       VkBuffer[T](length).tap(bindings += _)
+
+    def apply[ST : ClassTag, T <: Value: {Tag, FromExpr}](scalaArray: Array[ST])(using GCodec[T, ST]): GBuffer[T] =
+      val bb = BufferUtils.createByteBuffer(scalaArray.size * typeStride(summon[Tag[T]]))
+      GCodec.toByteBuffer[T, ST](bb, scalaArray)
+      GBuffer[T](bb)
 
     def apply[T <: Value: {Tag, FromExpr}](buff: ByteBuffer)(using name: sourcecode.FileName, line: sourcecode.Line): GBuffer[T] =
       val sizeOfT = typeStride(summon[Tag[T]])
@@ -86,6 +106,11 @@ class VkAllocation(val commandPool: CommandPool.Reset, executionHandler: Executi
       buff: ByteBuffer,
     )(using name: sourcecode.FileName, line: sourcecode.Line): GUniform[T] =
       GUniform[T]().tap(_.write(buff)(using name, line))
+
+    def apply[ST : ClassTag, T <: GStruct[?]: {Tag, FromExpr, GStructSchema}](value: ST)(using GCodec[T, ST]): GUniform[T] =
+      val bb = BufferUtils.createByteBuffer(totalStride(summon[GStructSchema[T]]))
+      GCodec.toByteBuffer[T, ST](bb, Array(value))
+      GUniform[T](bb)
 
     def apply[T <: GStruct[?]: {Tag, FromExpr, GStructSchema}](): GUniform[T] =
       VkUniform[T]().tap(bindings += _)

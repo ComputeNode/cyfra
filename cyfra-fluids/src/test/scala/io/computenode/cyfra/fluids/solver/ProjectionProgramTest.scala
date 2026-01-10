@@ -1,10 +1,9 @@
 package io.computenode.cyfra.fluids.solver
 
-import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.runtime.VkCyfraRuntime
-import io.computenode.cyfra.fluids.solver.ProjectionProgram
 import io.computenode.cyfra.core.GBufferRegion
-import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
+import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.fluids.solver.ProjectionProgram
+import io.computenode.cyfra.runtime.VkCyfraRuntime
 import java.nio.{ByteBuffer, ByteOrder}
 
 class ProjectionProgramTest extends munit.FunSuite:
@@ -28,7 +27,6 @@ class ProjectionProgramTest extends munit.FunSuite:
       buoyancy = 8.0f,
       ambient = 0.0f,
       gridSize = gridSize,
-      iterationCount = 20,
       windX = 0.0f,
       windY = 0f,
       windZ = 0.0f
@@ -107,7 +105,6 @@ class ProjectionProgramTest extends munit.FunSuite:
       buoyancy = 8.0f,
       ambient = 0.0f,
       gridSize = gridSize,
-      iterationCount = 20,
       windX = 0.0f,
       windZ = 0.0f
     )

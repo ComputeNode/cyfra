@@ -1,0 +1,158 @@
+/**
+ * Cyfra - GPU programming in Scala
+ * Custom styles with a distinctive, modern aesthetic
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+  /* Vibrant cyan/teal gradient palette */
+  --ifm-color-primary: #00d4aa;
+  --ifm-color-primary-dark: #00bf99;
+  --ifm-color-primary-darker: #00b590;
+  --ifm-color-primary-darkest: #009577;
+  --ifm-color-primary-light: #00e9bb;
+  --ifm-color-primary-lighter: #00f3c4;
+  --ifm-color-primary-lightest: #1affd4;
+  
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 212, 170, 0.15);
+  
+  --ifm-font-family-base: 'Outfit', system-ui, sans-serif;
+  --ifm-font-family-monospace: 'JetBrains Mono', monospace;
+  --ifm-heading-font-family: 'Outfit', system-ui, sans-serif;
+  
+  /* Custom tokens */
+  --cyfra-gradient-start: #00d4aa;
+  --cyfra-gradient-mid: #00a8cc;
+  --cyfra-gradient-end: #7b61ff;
+  --cyfra-bg-dark: #0a0a0f;
+  --cyfra-bg-card: rgba(255, 255, 255, 0.03);
+  --cyfra-border: rgba(255, 255, 255, 0.08);
+  --cyfra-glow: rgba(0, 212, 170, 0.4);
+}
+
+[data-theme='dark'] {
+  --ifm-color-primary: #00d4aa;
+  --ifm-color-primary-dark: #00bf99;
+  --ifm-color-primary-darker: #00b590;
+  --ifm-color-primary-darkest: #009577;
+  --ifm-color-primary-light: #00e9bb;
+  --ifm-color-primary-lighter: #00f3c4;
+  --ifm-color-primary-lightest: #1affd4;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 212, 170, 0.2);
+  
+  --ifm-background-color: #0a0a0f;
+  --ifm-background-surface-color: #12121a;
+  --ifm-navbar-background-color: rgba(10, 10, 15, 0.85);
+  --ifm-footer-background-color: #06060a;
+}
+
+[data-theme='light'] {
+  --cyfra-bg-dark: #fafafa;
+  --cyfra-bg-card: rgba(0, 0, 0, 0.02);
+  --cyfra-border: rgba(0, 0, 0, 0.08);
+  --cyfra-glow: rgba(0, 212, 170, 0.2);
+}
+
+/* Global styles */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--ifm-font-family-base);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--ifm-heading-font-family);
+  font-weight: 700;
+}
+
+/* Navbar enhancement */
+.navbar {
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--cyfra-border);
+}
+
+.navbar__title {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* Footer enhancement */
+.footer {
+  border-top: 1px solid var(--cyfra-border);
+}
+
+/* Code blocks */
+pre {
+  border: 1px solid var(--cyfra-border);
+  border-radius: 12px !important;
+}
+
+code {
+  font-family: var(--ifm-font-family-monospace);
+  border-radius: 6px;
+}
+
+/* Button styles */
+.button--primary {
+  background: linear-gradient(135deg, var(--cyfra-gradient-start), var(--cyfra-gradient-mid));
+  border: none;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px var(--cyfra-glow);
+}
+
+.button--primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px var(--cyfra-glow);
+}
+
+/* Hero customizations */
+.hero--primary {
+  --ifm-hero-background-color: transparent;
+  --ifm-hero-text-color: var(--ifm-font-color-base);
+}
+
+/* Scrollbar styling for dark mode */
+[data-theme='dark'] ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+[data-theme='dark'] ::-webkit-scrollbar-track {
+  background: var(--cyfra-bg-dark);
+}
+
+[data-theme='dark'] ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+[data-theme='dark'] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Selection color */
+::selection {
+  background: rgba(0, 212, 170, 0.3);
+}
+
+/* Animations */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px var(--cyfra-glow); }
+  50% { box-shadow: 0 0 40px var(--cyfra-glow), 0 0 60px rgba(123, 97, 255, 0.2); }
+}
+
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}

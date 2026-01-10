@@ -19,6 +19,12 @@ trait GCodec[CyfraType <: Value: {FromExpr, Tag}, ScalaType: ClassTag]:
 
 object GCodec:
 
+  def toByteBuffer[CyfraType <: Value: {FromExpr, Tag}, ScalaType: ClassTag](inBuf: ByteBuffer, arr: Array[ScalaType])(using gc: GCodec[CyfraType, ScalaType]): ByteBuffer =
+    gc.toByteBuffer(inBuf, arr)
+
+  def fromByteBuffer[CyfraType <: Value: {FromExpr, Tag}, ScalaType: ClassTag](outBuf: ByteBuffer, arr: Array[ScalaType])(using gc: GCodec[CyfraType, ScalaType]): Array[ScalaType] =
+    gc.fromByteBuffer(outBuf, arr)
+
   def totalStride(gs: GStructSchema[?]): Int = gs.fields
     .map:
       case (_, fromExpr, t) if t <:< gs.gStructTag =>

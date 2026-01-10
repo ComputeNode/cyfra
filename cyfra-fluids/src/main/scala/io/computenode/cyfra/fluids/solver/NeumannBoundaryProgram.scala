@@ -3,8 +3,6 @@ package io.computenode.cyfra.fluids.solver
 import io.computenode.cyfra.core.GProgram
 import io.computenode.cyfra.core.GProgram.StaticDispatch
 import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.dsl.gio.GIO
-import io.computenode.cyfra.dsl.struct.GStruct.Empty
 import io.computenode.cyfra.fluids.solver.GridUtils.{idxTo3D, coord3dToIdx}
 
 /** Pure Neumann boundary conditions matching GPU Gems Chapter 38.
@@ -19,7 +17,6 @@ object NeumannBoundaryProgram:
   def create: GProgram[Int, FluidState] =
     GProgram[Int, FluidState](
       layout = totalCells => {
-        import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
         FluidState(
           velocity = GBuffer[Vec4[Float32]](totalCells),
           pressure = GBuffer[Float32](totalCells),
@@ -75,7 +72,7 @@ object NeumannBoundaryProgram:
             _ <- GIO.write(state.density, idx, interiorDensity)
             _ <- GIO.write(state.temperature, idx, interiorTemp)
             _ <- GIO.write(state.pressure, idx, interiorPressure)
-          yield Empty()
+          yield GStruct.Empty()
 
 
 

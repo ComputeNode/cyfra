@@ -3,8 +3,6 @@ package io.computenode.cyfra.fluids.solver
 import io.computenode.cyfra.core.GProgram
 import io.computenode.cyfra.core.GProgram.StaticDispatch
 import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.dsl.gio.GIO
-import io.computenode.cyfra.dsl.struct.GStruct.Empty
 import GridUtils.*
 
 /** Pressure projection programs for enforcing incompressibility */
@@ -14,7 +12,6 @@ object ProjectionProgram:
   def divergence: GProgram[Int, FluidState] =
     GProgram[Int, FluidState](
       layout = totalCells => {
-        import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
         FluidState(
           velocity = GBuffer[Vec4[Float32]](totalCells),
           pressure = GBuffer[Float32](totalCells),
@@ -107,7 +104,6 @@ object ProjectionProgram:
   def pressureSolve: GProgram[Int, FluidStateDouble] =
     GProgram[Int, FluidStateDouble](
       layout = totalCells => {
-        import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
         FluidStateDouble(
           velocityCurrent = GBuffer[Vec4[Float32]](totalCells),
           pressureCurrent = GBuffer[Float32](totalCells),
@@ -178,7 +174,6 @@ object ProjectionProgram:
   def subtractGradient: GProgram[Int, FluidState] =
     GProgram[Int, FluidState](
       layout = totalCells => {
-        import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
         FluidState(
           velocity = GBuffer[Vec4[Float32]](totalCells),
           pressure = GBuffer[Float32](totalCells),

@@ -1,18 +1,15 @@
 package io.computenode.cyfra.e2e.juliaset
 
-import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.*
-import io.computenode.cyfra.core.GCodec.{*, given}
 import io.computenode.cyfra.core.CyfraRuntime
-import io.computenode.cyfra.dsl.collections.GSeq
-import io.computenode.cyfra.dsl.control.Pure.pure
-import io.computenode.cyfra.dsl.struct.GStruct.Empty
+import io.computenode.cyfra.core.GCodec.{*, given}
+import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.e2e.ImageTests
-import io.computenode.cyfra.core.archive.GFunction
+import io.computenode.cyfra.foton.GFunction
 import io.computenode.cyfra.runtime.VkCyfraRuntime
 import io.computenode.cyfra.spirvtools.*
 import io.computenode.cyfra.spirvtools.SpirvTool.{Param, ToFile}
-import io.computenode.cyfra.utility.ImageUtility
+import io.computenode.cyfra.foton.ImageUtility
 import munit.FunSuite
 
 import java.io.File
@@ -29,7 +26,7 @@ class JuliaSet extends FunSuite:
     val RECURSION_LIMIT = 1000
     val const = (0.355f, 0.355f)
 
-    val function = GFunction.from2D[Empty, Vec4[Float32], Vec4[Float32]](dim):
+    val function = GFunction.from2D[GStruct.Empty, Vec4[Float32], Vec4[Float32]](dim):
       case (_, (xi: Int32, yi: Int32), _) =>
         val x = 3.0f * (xi - (dim / 2)).asFloat / dim.toFloat
         val y = 3.0f * (yi - (dim / 2)).asFloat / dim.toFloat
@@ -68,7 +65,7 @@ class JuliaSet extends FunSuite:
           (8f / 255f, 22f / 255f, 104f / 255f, 1.0f)
 
     val vec4arr = Array.ofDim[fRGBA](dim * dim)
-    val r: Array[fRGBA] = function.run(vec4arr, Empty())
+    val r: Array[fRGBA] = function.run(vec4arr, GStruct.Empty())
     val outputTemp = File.createTempFile("julia", ".png")
     ImageUtility.renderToImage(r, dim, outputTemp.toPath)
     val referenceImage = getClass.getResource(referenceImgName)

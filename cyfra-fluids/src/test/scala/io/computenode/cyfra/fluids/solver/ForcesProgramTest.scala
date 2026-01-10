@@ -1,7 +1,6 @@
 package io.computenode.cyfra.fluids.solver
 
 import io.computenode.cyfra.core.GBufferRegion
-import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.fluids.solver.{FluidParams, FluidState, ForcesProgram}
 import io.computenode.cyfra.runtime.VkCyfraRuntime
@@ -30,7 +29,6 @@ class ForcesProgramTest extends munit.FunSuite:
       buoyancy = 8.0f,
       ambient = 0.0f,
       gridSize = gridSize,
-      iterationCount = 20,
       windX = 0.0f,
       windY = 0f,
       windZ = 0.0f

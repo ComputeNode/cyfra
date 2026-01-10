@@ -1,9 +1,6 @@
 package io.computenode.cyfra.fluids.visualization
 
 import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.dsl.macros.Source
-import io.computenode.cyfra.dsl.library.Functions.{clamp, pow, sqrt}
-import io.computenode.cyfra.dsl.control.When.when
 
 /** Utility functions for mapping fluid properties to colors. */
 object FluidColorMap:

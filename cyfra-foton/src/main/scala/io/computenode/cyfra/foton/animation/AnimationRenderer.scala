@@ -3,8 +3,8 @@ package io.computenode.cyfra.foton.animation
 import io.computenode.cyfra
 import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.core.archive.GFunction
-import io.computenode.cyfra.utility.ImageUtility
+import io.computenode.cyfra.foton.GFunction
+import io.computenode.cyfra.foton.ImageUtility
 import io.computenode.cyfra.utility.Units.Milliseconds
 import io.computenode.cyfra.utility.Utility.timed
 
@@ -16,14 +16,22 @@ trait AnimationRenderer[S <: AnimationRenderer.Scene, F <: GFunction[?, Vec4[Flo
 
   def renderFramesToDir(scene: S, destinationPath: Path): Unit =
     destinationPath.toFile.mkdirs()
-    val images = renderFrames(scene)
+    val function = renderFunction(scene)
     val totalFrames = Math.ceil(scene.duration / msPerFrame).toInt
-    val requiredDigits = Math.ceil(Math.log10(totalFrames)).toInt
-    images.zipWithIndex.foreach:
-      case (image, i) =>
-        val frameFormatted = i.toString.reverse.padTo(requiredDigits, '0').reverse.mkString
-        val destionationFile = destinationPath.resolve(s"frame$frameFormatted.png")
-        ImageUtility.renderToImage(image, params.width, params.height, destionationFile)
+    val requiredDigits = Math.max(1, Math.ceil(Math.log10(totalFrames)).toInt)
+    try
+      for frame <- 0 until totalFrames do
+        val time = frame * msPerFrame
+        val image = timed(s"Animated frame $frame/$totalFrames"):
+          renderFrame(scene, time, function)
+        val frameFormatted = frame.toString.reverse.padTo(requiredDigits, '0').reverse.mkString
+        val destinationFile = destinationPath.resolve(s"frame$frameFormatted.png")
+        ImageUtility.renderToImage(image, params.width, params.height, destinationFile)
+    finally
+      close()
+  
+  /** Override to clean up resources after rendering */
+  def close(): Unit = ()
 
   def renderFrames(scene: S): LazyList[Array[fRGBA]] =
     val function = renderFunction(scene)

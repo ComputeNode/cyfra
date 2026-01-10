@@ -7,7 +7,7 @@ import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.foton.animation.AnimatedFunctionRenderer.{AnimationIteration, RenderFn}
 import io.computenode.cyfra.foton.animation.AnimationFunctions.AnimationInstant
-import io.computenode.cyfra.core.archive.GFunction
+import io.computenode.cyfra.foton.GFunction
 import io.computenode.cyfra.runtime.VkCyfraRuntime
 
 import scala.concurrent.ExecutionContext
@@ -16,13 +16,14 @@ import scala.concurrent.ExecutionContext.Implicits
 class AnimatedFunctionRenderer(params: AnimatedFunctionRenderer.Parameters)
     extends AnimationRenderer[AnimatedFunction, AnimatedFunctionRenderer.RenderFn](params):
 
-  given CyfraRuntime = new VkCyfraRuntime()
+  private val runtime = new VkCyfraRuntime()
+  given CyfraRuntime = runtime
 
   given ExecutionContext = Implicits.global
-
   override protected def renderFrame(scene: AnimatedFunction, time: Float32, fn: RenderFn): Array[fRGBA] =
-    val mem = Array.fill(params.width * params.height)((0.5f, 0.5f, 0.5f, 0.5f))
-    fn.run(mem, AnimationIteration(time))
+    val inputBuffer: Array[fRGBA] = Array.fill(params.width * params.height)((0.5f, 0.5f, 0.5f, 0.5f))
+    java.util.Arrays.fill(inputBuffer.asInstanceOf[Array[Object]], (0.5f, 0.5f, 0.5f, 0.5f))
+    fn.run(inputBuffer, AnimationIteration(time))
 
   override protected def renderFunction(scene: AnimatedFunction): RenderFn =
     GFunction.from2D(params.width):
@@ -32,6 +33,9 @@ class AnimatedFunctionRenderer(params: AnimatedFunctionRenderer.Parameters)
         val y = (yi - (params.height / 2)).asFloat / params.height.toFloat
         val uv = (x, y)
         scene.fn(AnimatedFunction.FunctionArguments(lastFrame, lastColor, uv))(using AnimationInstant(time))
+  
+  /** Close the runtime to release GPU resources */
+  override def close(): Unit = runtime.close()
 
 object AnimatedFunctionRenderer:
   type RenderFn = GFunction[AnimationIteration, Vec4[Float32], Vec4[Float32]]

@@ -1,10 +1,9 @@
 package io.computenode.cyfra.e2e.fs2interop
 
-import io.computenode.cyfra.core.archive.*
-import io.computenode.cyfra.dsl.{*, given}
-import algebra.VectorAlgebra
-import io.computenode.cyfra.fs2interop.*
 import io.computenode.cyfra.core.CyfraRuntime
+import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.foton.GFunction
+import io.computenode.cyfra.fs2interop.*
 import io.computenode.cyfra.runtime.VkCyfraRuntime
 import io.computenode.cyfra.spirvtools.{SpirvCross, SpirvDisassembler, SpirvToolsRunner}
 import io.computenode.cyfra.spirvtools.SpirvTool.ToFile
