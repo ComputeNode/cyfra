@@ -43,8 +43,8 @@ class VkCyfraRuntime(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()) ex
     context.withThreadContext: threadContext =>
       val executionHandler = new ExecutionHandler(this, threadContext, context)
       val allocation = new VkAllocation(threadContext.commandPool, executionHandler)
-      f(allocation)
-      allocation.close()
+      try f(allocation)
+      finally allocation.close()
 
   def close(): Unit =
     shaderCache.values.foreach(_.underlying.destroy())

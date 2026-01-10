@@ -38,7 +38,7 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
   import context.given
 
   private val dsManager: DescriptorSetManager = threadContext.descriptorSetManager
-  private val commandPool: CommandPool = threadContext.commandPool
+  private val commandPool: CommandPool.Reset = threadContext.commandPool
 
   def handle[Params, EL <: Layout: LayoutBinding, RL <: Layout: LayoutBinding](
     execution: GExecution[Params, EL, RL],

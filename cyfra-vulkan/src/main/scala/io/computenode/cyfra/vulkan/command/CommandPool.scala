@@ -22,8 +22,6 @@ private[cyfra] abstract class CommandPool private (flags: Int, val queue: Queue)
     check(vkCreateCommandPool(device.get, createInfo, null, pCommandPoll), "Failed to create command pool")
     pCommandPoll.get()
 
-  private val commandPool = handle
-
   def createCommandBuffer(): VkCommandBuffer =
     createCommandBuffers(1).head
 
@@ -31,7 +29,7 @@ private[cyfra] abstract class CommandPool private (flags: Int, val queue: Queue)
     val allocateInfo = VkCommandBufferAllocateInfo
       .calloc(stack)
       .sType$Default()
-      .commandPool(commandPool)
+      .commandPool(handle)
       .level(VK_COMMAND_BUFFER_LEVEL_PRIMARY)
       .commandBufferCount(n)
 
@@ -52,18 +50,23 @@ private[cyfra] abstract class CommandPool private (flags: Int, val queue: Queue)
     check(vkEndCommandBuffer(commandBuffer), "Failed to end single time command buffer")
     commandBuffer
 
-  def freeCommandBuffer(commandBuffer: VkCommandBuffer*): Unit =
-    pushStack: stack =>
-      val pointerBuffer = stack.callocPointer(commandBuffer.length)
-      commandBuffer.foreach(pointerBuffer.put)
-      pointerBuffer.flip()
-      vkFreeCommandBuffers(device.get, commandPool, pointerBuffer)
+  def reset(): Unit =
+    check(vkResetCommandPool(device.get, handle, 0), "Failed to reset command pool")
 
   protected def close(): Unit =
-    vkDestroyCommandPool(device.get, commandPool, null)
+    vkDestroyCommandPool(device.get, handle, null)
 
 object CommandPool:
-  private[cyfra] class Transient(queue: Queue)(using device: Device)
-      extends CommandPool(VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, queue)(using device: Device) // TODO check if flags should be used differently
+  private[cyfra] class Reset(queue: Queue, transient: Boolean = true)(using device: Device)
+      extends CommandPool((if transient then VK_COMMAND_POOL_CREATE_TRANSIENT_BIT else 0) | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, queue)(
+        using device: Device,
+      ):
+    def freeCommandBuffer(commandBuffer: VkCommandBuffer*): Unit =
+      pushStack: stack =>
+        val pointerBuffer = stack.callocPointer(commandBuffer.length)
+        commandBuffer.foreach(pointerBuffer.put)
+        pointerBuffer.flip()
+        vkFreeCommandBuffers(device.get, handle, pointerBuffer)
 
-  private[cyfra] class Standard(queue: Queue)(using device: Device) extends CommandPool(0, queue)(using device: Device)
+  private[cyfra] class Standard(queue: Queue, transient: Boolean = false)(using device: Device)
+      extends CommandPool(if transient then VK_COMMAND_POOL_CREATE_TRANSIENT_BIT else 0, queue)(using device: Device)

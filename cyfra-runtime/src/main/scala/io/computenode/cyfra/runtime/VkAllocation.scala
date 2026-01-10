@@ -28,7 +28,7 @@ import scala.util.Try
 import scala.util.chaining.*
 import scala.util.Try
 
-class VkAllocation(val commandPool: CommandPool, executionHandler: ExecutionHandler)(using Allocator, Device) extends Allocation:
+class VkAllocation(val commandPool: CommandPool.Reset, executionHandler: ExecutionHandler)(using Allocator, Device) extends Allocation:
   given VkAllocation = this
 
   override def submitLayout[L <: Layout: LayoutBinding](layout: L): Unit =
@@ -63,9 +63,7 @@ class VkAllocation(val commandPool: CommandPool, executionHandler: ExecutionHand
           stagingBuffer.copyFrom(bb, 0)
           val cb = Buffer.copyBufferCommandBuffer(stagingBuffer, binding.buffer, 0, offset, size, commandPool)
           val cleanup = () =>
-            // Don't free command buffer immediately - defer to allocation close
-            // This avoids issues with GPU-AV tracking command buffers
-            deferredCommandBuffers += cb
+            commandPool.freeCommandBuffer(cb)
             stagingBuffer.destroy()
           val pe = new PendingExecution(cb, binding.execution.fold(Seq(_), _.toSeq), cleanup, s"Writing at ${name.value}:${line.value}")
           addExecution(pe)
@@ -109,17 +107,14 @@ class VkAllocation(val commandPool: CommandPool, executionHandler: ExecutionHand
           direct(bb)
 
   private val executions = mutable.Buffer[PendingExecution]()
-  private val deferredCommandBuffers = mutable.Buffer[org.lwjgl.vulkan.VkCommandBuffer]()
 
   def addExecution(pe: PendingExecution): Unit =
     executions += pe
 
   private val bindings = mutable.Buffer[VkUniform[?] | VkBuffer[?]]()
   private[cyfra] def close(): Unit =
+    executions.foreach(_.block())
     executions.foreach(_.destroy())
-    // Free deferred command buffers all at once at the end
-    if deferredCommandBuffers.nonEmpty then
-      commandPool.freeCommandBuffer(deferredCommandBuffers.toSeq*)
     bindings.map(getUnderlying).foreach(_.buffer.destroy())
 
   private def getStagingBuffer(size: Int): Buffer.HostBuffer =
