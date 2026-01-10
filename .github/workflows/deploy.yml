@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - application-experiments
     paths:
       - 'docs/**'
   workflow_dispatch:
