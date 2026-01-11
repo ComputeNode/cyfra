@@ -151,10 +151,6 @@ const styles = {
     borderRadius: '12px',
     padding: '1.5rem',
   },
-  featureIcon: {
-    fontSize: '1.5rem',
-    marginBottom: '0.75rem',
-  },
   featureTitle: {
     fontSize: '1.1rem',
     fontWeight: 600,
@@ -397,32 +393,26 @@ function HeroSection() {
 function FeaturesSection() {
   const features = [
     {
-      icon: '⚡',
       title: 'Pure Scala 3 DSL',
       description: 'Write GPU code using familiar Scala syntax. Case classes become GPU structs, functions compile to shaders.',
     },
     {
-      icon: '🎯',
       title: 'Vulkan Backend',
       description: 'Direct execution on Vulkan-compatible GPUs. NVIDIA, AMD, Intel, and Apple via MoltenVK.',
     },
     {
-      icon: '🧩',
       title: 'Composable Pipelines',
       description: 'Chain GPU programs together. Intermediate data stays on the GPU. No round-trips to CPU.',
     },
     {
-      icon: '🔧',
       title: 'Type-Safe',
       description: 'Scala\'s type system catches GPU programming errors at compile time.',
     },
     {
-      icon: '🌍',
       title: 'Cross-Platform',
       description: 'Linux, Windows, macOS. Write once, run on any Vulkan-capable hardware.',
     },
     {
-      icon: '🚀',
       title: 'Zero Overhead',
       description: 'Direct compilation to SPIR-V. Your Scala code runs at native GPU speeds.',
     },
@@ -438,7 +428,6 @@ function FeaturesSection() {
         <div style={styles.featuresGrid}>
           {features.map((feature, idx) => (
             <div key={idx} style={styles.featureCard}>
-              <div style={styles.featureIcon}>{feature.icon}</div>
               <h3 style={styles.featureTitle}>{feature.title}</h3>
               <p style={styles.featureDesc}>{feature.description}</p>
             </div>
