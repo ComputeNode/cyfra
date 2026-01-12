@@ -98,6 +98,10 @@ lazy val fluids = (project in file("cyfra-fluids"))
   .settings(commonSettings, runnerSettings)
   .dependsOn(foton, runtime, dsl, utility)
 
+lazy val analytics = (project in file("cyfra-analytics"))
+  .settings(commonSettings, runnerSettings, fs2Settings)
+  .dependsOn(foton, runtime, dsl, utility, fs2interop)
+
 lazy val examples = (project in file("cyfra-examples"))
   .settings(commonSettings, runnerSettings)
   .settings(libraryDependencies += "org.scala-lang.modules" % "scala-parallel-collections_3" % "1.2.0")
@@ -117,7 +121,7 @@ lazy val e2eTest = (project in file("cyfra-e2e-test"))
 
 lazy val root = (project in file("."))
   .settings(name := "Cyfra")
-  .aggregate(compiler, dsl, foton, core, runtime, vulkan, examples, fs2interop, fluids)
+  .aggregate(compiler, dsl, foton, core, runtime, vulkan, examples, fs2interop, fluids, analytics)
 
 e2eTest / Test / javaOptions ++= Seq("-Dorg.lwjgl.system.stackSize=1024", "-DuniqueLibraryNames=true")
 

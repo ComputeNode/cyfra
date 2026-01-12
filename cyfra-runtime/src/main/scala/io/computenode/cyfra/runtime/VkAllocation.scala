@@ -66,7 +66,7 @@ class VkAllocation(val commandPool: CommandPool.Reset, executionHandler: Executi
           stagingBuffer.copyFrom(bb, 0)
           val cb = Buffer.copyBufferCommandBuffer(stagingBuffer, binding.buffer, 0, offset, size, commandPool)
           val cleanup = () =>
-            //commandPool.freeCommandBuffer(cb)
+            //commandPool.freeCommandBuffer(cb) TODO fix free command buffer issue
             stagingBuffer.destroy()
           val pe = new PendingExecution(cb, binding.execution.fold(Seq(_), _.toSeq), cleanup, s"Writing at ${name.value}:${line.value}")
           addExecution(pe)
