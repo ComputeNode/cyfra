@@ -6,7 +6,7 @@ import io.computenode.cyfra.dsl.Value.GBoolean
 import io.computenode.cyfra.dsl.gio.GIO
 import izumi.reflect.Tag
 
-case class GioProgram[Params, L <: Layout: {LayoutBinding, LayoutStruct}](
+case class GioProgram[Params, L: Layout](
   body: L => GIO[?],
   layout: InitProgramLayout => Params => L,
   dispatch: (L, Params) => ProgramDispatch,

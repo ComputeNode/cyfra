@@ -1,6 +1,6 @@
 package io.computenode.cyfra.runtime
 
-import io.computenode.cyfra.core.layout.{Layout, LayoutBinding}
+import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.core.{Allocation, GExecution, GProgram}
 import io.computenode.cyfra.core.SpirvProgram
 import io.computenode.cyfra.dsl.Expression.ConstInt32
@@ -29,8 +29,8 @@ import scala.util.chaining.*
 class VkAllocation(commandPool: CommandPool, executionHandler: ExecutionHandler)(using Allocator, Device) extends Allocation:
   given VkAllocation = this
 
-  override def submitLayout[L <: Layout: LayoutBinding](layout: L): Unit =
-    val executions = summon[LayoutBinding[L]]
+  override def submitLayout[L: Layout](layout: L): Unit =
+    val executions = Layout[L]
       .toBindings(layout)
       .map(getUnderlying)
       .flatMap(_.execution.fold(Seq(_), _.toSeq))
@@ -86,7 +86,7 @@ class VkAllocation(commandPool: CommandPool, executionHandler: ExecutionHandler)
     def apply[T <: GStruct[?]: {Tag, FromExpr, GStructSchema}](): GUniform[T] =
       VkUniform[T]().tap(bindings += _)
 
-  extension [Params, EL <: Layout: LayoutBinding, RL <: Layout: LayoutBinding](execution: GExecution[Params, EL, RL])
+  extension [Params, EL: Layout, RL: Layout](execution: GExecution[Params, EL, RL])
     def execute(params: Params, layout: EL): RL = executionHandler.handle(execution, params, layout)
 
   private def direct[T <: GStruct[?]: {Tag, FromExpr, GStructSchema}](buff: ByteBuffer): GUniform[T] =
