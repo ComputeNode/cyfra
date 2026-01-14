@@ -10,8 +10,8 @@ import GExecution.*
 
 trait GExecution[-Params, ExecLayout: Layout, ResLayout: Layout]:
 
-  def execLayout: Layout[ExecLayout] = summon[Layout[ExecLayout]]
-  def resLayout: Layout[ResLayout] = summon[Layout[ResLayout]]
+  def execLayout: Layout[ExecLayout] = Layout[ExecLayout]
+  def resLayout: Layout[ResLayout] = Layout[ResLayout]
 
   def flatMap[NRL: Layout, NP <: Params](f: ResLayout => GExecution[NP, ExecLayout, NRL]): GExecution[NP, ExecLayout, NRL] =
     FlatMap(this, (p, r) => f(r))

@@ -119,8 +119,6 @@ object TestingStuff:
       .zipWithIndex
       .foreach:
         case ((e, a), i) => assert(e == a, s"Mismatch at index $i: expected $e, got $a")
-  
-  val s = summon[Layout[(GBuffer[Int32], GBuffer[Int32], GUniform[EmitProgramUniform])]]
 
   @main
   def test =

@@ -20,17 +20,16 @@ trait Layout[T]:
   def layoutRef: T
 
 object Layout:
+  def apply[T](using layout: Layout[T]): Layout[T] = layout
+
   inline given derived[T]: Layout[T] = ${ derivedMacro[T] }
 
   private def derivedMacro[T: Type](using quotes: Quotes): Expr[Layout[T]] =
     import quotes.reflect.*
-//    given Printer[Tree] = Printer.TreeShortCode
-//    given Printer[Tree] = Printer.TreeCode
-    given Printer[Tree] = Printer.TreeStructure
 
     val layoutType: TypeRepr = TypeRepr.of[T]
     val layoutSymbol: Symbol = layoutType.typeSymbol
-    
+
     if !layoutSymbol.flags.is(Flags.Case) then
       report.errorAndAbort(s"Can only derive Layout for case classes, tuples and singular GBindings. Found: ${layoutType.show}")
 
@@ -61,34 +60,26 @@ object Layout:
       val readyConstructor = layoutType.typeArgs match
         case Nil => constructor
         case x   => TypeApply(constructor, x.map(x => TypeTree.of(using x.asType)))
-      
+
       val paramSymss = layoutSymbol.primaryConstructor.paramSymss
-      
+
       val hasImplicits = paramSymss.size > 2
-      
+
       if hasImplicits then
         val regularParams = paramSymss(1)
         val implicitParams = paramSymss(2)
-        
+
         val implicitArgs = implicitParams.map: param =>
           val paramType = param.tree match
             case ValDef(_, tpt, _) => tpt.tpe
-          
+
           Implicits.search(paramType) match
             case iss: ImplicitSearchSuccess => iss.tree
-            case isf: ImplicitSearchFailure => 
+            case isf: ImplicitSearchFailure =>
               report.errorAndAbort(s"Could not find implicit ${param.name} of type ${paramType.show}: ${isf.explanation}")
-        
-        Apply(Apply(readyConstructor, args), implicitArgs).asExprOf[T]
-      else
-        Apply(readyConstructor, args).asExprOf[T]
 
-//    val s = layoutSymbol.primaryConstructor.paramSymss
-//    report.warning(s"Layout: ${layoutSymbol.fullName}, constructor params: ${s.map(_.map(_.tree.show))}")
-//
-//    val z = '{
-//      (BufferRef[Int32](2), UniformRef[GStruct.Empty](3))
-//    }
+        Apply(Apply(readyConstructor, args), implicitArgs).asExprOf[T]
+      else Apply(readyConstructor, args).asExprOf[T]
 
     val fields: List[(String, TypeRepr)] = layoutSymbol.caseFields
       .map(_.tree)
@@ -97,13 +88,14 @@ object Layout:
       .zipWithIndex
       .map:
         case ((name, tpe), idx) =>
-          val resolvedType = if tpe.typeSymbol.isTypeParam then
-            layoutType.typeArgs
-              .find(_.typeSymbol.name == tpe.typeSymbol.name)
-              .orElse(if idx < layoutType.typeArgs.size then Some(layoutType.typeArgs(idx)) else None)
-              .getOrElse(tpe)
-          else tpe
-          
+          val resolvedType =
+            if tpe.typeSymbol.isTypeParam then
+              layoutType.typeArgs
+                .find(_.typeSymbol.name == tpe.typeSymbol.name)
+                .orElse(if idx < layoutType.typeArgs.size then Some(layoutType.typeArgs(idx)) else None)
+                .getOrElse(tpe)
+            else tpe
+
           resolvedType match
             case AppliedType(t, List(arg)) =>
               val resolvedArg =
@@ -113,7 +105,10 @@ object Layout:
                     .getOrElse(arg)
                 else arg
               (name, AppliedType(t, List(resolvedArg)))
-            case _ => report.errorAndAbort(s"All fields of a Layout must be of type GBuffer or GUniform, found: ${layoutType.show}.$name (resolved to: ${resolvedType.show})")
+            case _ =>
+              report.errorAndAbort(
+                s"All fields of a Layout must be of type GBuffer or GUniform, found: ${layoutType.show}.$name (resolved to: ${resolvedType.show})",
+              )
 
     '{
       new Layout[T] {

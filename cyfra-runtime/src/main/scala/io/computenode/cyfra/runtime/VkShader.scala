@@ -19,7 +19,7 @@ object VkShader:
   def apply[P, L: Layout](program: SpirvProgram[P, L])(using Device): VkShader[L] =
     val SpirvProgram(layout, dispatch, _workgroupSize, code, entryPoint, shaderBindings) = program
 
-    val shaderLayout = shaderBindings(summon[Layout[L]].layoutRef)
+    val shaderLayout = shaderBindings(Layout[L].layoutRef)
     val sets = shaderLayout.map: set =>
       val descriptors = set.map:
         case Binding(binding, op) =>

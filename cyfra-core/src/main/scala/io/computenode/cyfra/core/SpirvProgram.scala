@@ -42,7 +42,7 @@ case class SpirvProgram[Params, L: Layout] private (
         .flatMap(BigInt(_).toByteArray)
         .toArray,
     )
-    val layout = shaderBindings(summon[Layout[L]].layoutRef)
+    val layout = shaderBindings(Layout[L].layoutRef)
     layout.flatten.foreach: binding =>
       md.update(binding.binding.tag.toString.getBytes)
       md.update(binding.operation.toString.getBytes)

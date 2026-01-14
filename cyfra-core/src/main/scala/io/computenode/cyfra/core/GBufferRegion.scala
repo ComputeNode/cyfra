@@ -13,8 +13,8 @@ import scala.util.chaining.given
 import java.nio.ByteBuffer
 
 sealed trait GBufferRegion[ReqAlloc: Layout, ResAlloc: Layout]:
-  def reqAllocLayout: Layout[ReqAlloc] = summon[Layout[ReqAlloc]]
-  def resAllocLayout: Layout[ResAlloc] = summon[Layout[ResAlloc]]
+  def reqAllocLayout: Layout[ReqAlloc] = Layout[ReqAlloc]
+  def resAllocLayout: Layout[ResAlloc] = Layout[ResAlloc]
 
   def map[NewAlloc: Layout](f: Allocation ?=> ResAlloc => NewAlloc): GBufferRegion[ReqAlloc, NewAlloc] =
     MapRegion(this, (alloc: Allocation) => (resAlloc: ResAlloc) => f(using alloc)(resAlloc))

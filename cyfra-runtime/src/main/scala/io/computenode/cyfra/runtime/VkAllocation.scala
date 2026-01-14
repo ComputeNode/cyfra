@@ -30,7 +30,7 @@ class VkAllocation(commandPool: CommandPool, executionHandler: ExecutionHandler)
   given VkAllocation = this
 
   override def submitLayout[L: Layout](layout: L): Unit =
-    val executions = summon[Layout[L]]
+    val executions = Layout[L]
       .toBindings(layout)
       .map(getUnderlying)
       .flatMap(_.execution.fold(Seq(_), _.toSeq))

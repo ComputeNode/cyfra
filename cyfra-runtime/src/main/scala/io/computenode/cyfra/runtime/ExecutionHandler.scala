@@ -83,7 +83,7 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
     val bindingsAcc: mutable.Map[GBinding[?], mutable.Buffer[GBinding[?]]] = mutable.Map.empty
 
     def mockBindings[L: Layout](layout: L): L =
-      val mapper = summon[Layout[L]]
+      val mapper = Layout[L]
       val res = mapper
         .toBindings(layout)
         .map:
@@ -144,7 +144,7 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
           case Indirect(buffer, offset) => Indirect(bingingToVk(buffer), offset)
         ShaderCall(pipeline, nextLayout, nextDispatch)
 
-    val mapper = summon[Layout[RL]]
+    val mapper = Layout[RL]
     val res = mapper.fromBindings(mapper.toBindings(rl).map(bingingToVk.apply))
     (res, nextSteps)
 
