@@ -29,7 +29,7 @@ private[cyfra] class Fence(flags: Int = 0)(using device: Device) extends VulkanO
     val result = vkGetFenceStatus(device.get, handle)
     if !(result == VK_SUCCESS || result == VK_NOT_READY) then throw new VulkanAssertionError("Failed to get fence status", result)
     result == VK_SUCCESS
-
+  
   def reset(): Fence =
     vkResetFences(device.get, handle)
     this

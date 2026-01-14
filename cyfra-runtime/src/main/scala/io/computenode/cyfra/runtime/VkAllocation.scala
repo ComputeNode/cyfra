@@ -27,7 +27,7 @@ import scala.collection.mutable
 import scala.util.Try
 import scala.util.chaining.*
 
-class VkAllocation(val commandPool: CommandPool, executionHandler: ExecutionHandler)(using Allocator, Device) extends Allocation:
+class VkAllocation(val commandPool: CommandPool.Reset, executionHandler: ExecutionHandler)(using Allocator, Device) extends Allocation:
   given VkAllocation = this
 
   override def submitLayout[L: Layout](layout: L): Unit =
@@ -37,7 +37,7 @@ class VkAllocation(val commandPool: CommandPool, executionHandler: ExecutionHand
       .flatMap(_.execution.fold(Seq(_), _.toSeq))
       .filter(_.isPending)
 
-    if executions.nonEmpty then PendingExecution.executeAll(executions, this)
+    PendingExecution.executeAll(executions, this)
 
   extension (buffer: GBinding[?])
     def read(bb: ByteBuffer, offset: Int = 0): Unit =
@@ -112,6 +112,7 @@ class VkAllocation(val commandPool: CommandPool, executionHandler: ExecutionHand
 
   private val bindings = mutable.Buffer[VkUniform[?] | VkBuffer[?]]()
   private[cyfra] def close(): Unit =
+    executions.filter(_.isRunning).foreach(_.block())
     executions.foreach(_.destroy())
     bindings.map(getUnderlying).foreach(_.buffer.destroy())
 
