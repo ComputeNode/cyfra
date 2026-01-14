@@ -1,7 +1,7 @@
 package io.computenode.cyfra.runtime
 
 import io.computenode.cyfra.core.GProgram.InitProgramLayout
-import io.computenode.cyfra.core.layout.{Layout, LayoutBinding, LayoutStruct}
+import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.core.{Allocation, CyfraRuntime, GExecution, GProgram, GioProgram, SpirvProgram}
 import io.computenode.cyfra.spirv.compilers.DSLCompiler
 import io.computenode.cyfra.spirvtools.SpirvToolsRunner
@@ -18,7 +18,7 @@ class VkCyfraRuntime(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()) ex
   private val gProgramCache = mutable.Map[GProgram[?, ?], SpirvProgram[?, ?]]()
   private val shaderCache = mutable.Map[(Long, Long), VkShader[?]]()
 
-  private[cyfra] def getOrLoadProgram[Params, L <: Layout: {LayoutBinding, LayoutStruct}](program: GProgram[Params, L]): VkShader[L] = synchronized:
+  private[cyfra] def getOrLoadProgram[Params, L: Layout](program: GProgram[Params, L]): VkShader[L] = synchronized:
 
     val spirvProgram: SpirvProgram[Params, L] = program match
       case p: GioProgram[Params, L] if gProgramCache.contains(p) =>
@@ -30,12 +30,10 @@ class VkCyfraRuntime(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()) ex
     gProgramCache.update(program, spirvProgram)
     shaderCache.getOrElseUpdate(spirvProgram.shaderHash, VkShader(spirvProgram)).asInstanceOf[VkShader[L]]
 
-  private def compile[Params, L <: Layout: {LayoutBinding as lbinding, LayoutStruct as lstruct}](
-    program: GioProgram[Params, L],
-  ): SpirvProgram[Params, L] =
+  private def compile[Params, L: Layout as l](program: GioProgram[Params, L]): SpirvProgram[Params, L] =
     val GioProgram(_, layout, dispatch, _) = program
-    val bindings = lbinding.toBindings(lstruct.layoutRef).toList
-    val compiled = DSLCompiler.compile(program.body(summon[LayoutStruct[L]].layoutRef), bindings)
+    val bindings = l.toBindings(l.layoutRef).toList
+    val compiled = DSLCompiler.compile(program.body(l.layoutRef), bindings)
     val optimizedShaderCode = spirvToolsRunner.processShaderCodeWithSpirvTools(compiled)
     SpirvProgram((il: InitProgramLayout) ?=> layout(il), dispatch, optimizedShaderCode)
 

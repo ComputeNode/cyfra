@@ -5,7 +5,7 @@ import io.computenode.cyfra.core.GBufferRegion.*
 import io.computenode.cyfra.core.GProgram.StaticDispatch
 import io.computenode.cyfra.core.archive.GFunction
 import io.computenode.cyfra.core.archive.GFunction.{GFunctionLayout, GFunctionParams}
-import io.computenode.cyfra.core.layout.{Layout, LayoutBinding, LayoutStruct}
+import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
 import io.computenode.cyfra.dsl.collections.{GArray, GArray2D}
@@ -29,6 +29,12 @@ case class GFunction[G <: GStruct[G]: {GStructSchema, Tag}, H <: Value: {Tag, Fr
     hCodec: GCodec[H, HS],
     rCodec: GCodec[R, RS],
     runtime: CyfraRuntime,
+    gSchema: GStructSchema[G],
+    gTag: Tag[G],
+    hTag: Tag[H],
+    hFromExpr: FromExpr[H],
+    rTag: Tag[R],
+    rFromExpr: FromExpr[R],
   ): Array[RS] =
 
     val inTypeSize = typeStride(Tag.apply[H])
@@ -41,6 +47,7 @@ case class GFunction[G <: GStruct[G]: {GStructSchema, Tag}, H <: Value: {Tag, Fr
     val out = BufferUtils.createByteBuffer(outTypeSize * input.size)
     val uniform = BufferUtils.createByteBuffer(uniformStride)
     gCodec.toByteBuffer(uniform, Array(g))
+    ???
 
     GBufferRegion
       .allocate[GFunctionLayout[G, H, R]]
@@ -56,7 +63,7 @@ case class GFunction[G <: GStruct[G]: {GStructSchema, Tag}, H <: Value: {Tag, Fr
 object GFunction:
   case class GFunctionParams(size: Int)
 
-  case class GFunctionLayout[G <: GStruct[G], H <: Value, R <: Value](in: GBuffer[H], out: GBuffer[R], uniform: GUniform[G]) extends Layout
+  case class GFunctionLayout[G <: GStruct[G], H <: Value, R <: Value](in: GBuffer[H], out: GBuffer[R], uniform: GUniform[G])
 
   def forEachIndex[G <: GStruct[G]: {GStructSchema, Tag}, H <: Value: {Tag, FromExpr}, R <: Value: {Tag, FromExpr}](
     fn: (G, Int32, GBuffer[H]) => R,
@@ -69,14 +76,15 @@ object GFunction:
 
     val inTypeSize = typeStride(Tag.apply[H])
     val outTypeSize = typeStride(Tag.apply[R])
+    ???
 
-    GFunction(underlying =
-      GProgram.apply[GFunctionParams, GFunctionLayout[G, H, R]](
-        layout = (p: GFunctionParams) => GFunctionLayout[G, H, R](in = GBuffer[H](p.size), out = GBuffer[R](p.size), uniform = GUniform[G]()),
-        dispatch = (l, p) => StaticDispatch((p.size + 255) / 256, 1, 1),
-        workgroupSize = (256, 1, 1),
-      )(body),
-    )
+//    GFunction(underlying =
+//      GProgram.apply[GFunctionParams, GFunctionLayout[G, H, R]](
+//        layout = (p: GFunctionParams) => GFunctionLayout[G, H, R](in = GBuffer[H](p.size), out = GBuffer[R](p.size), uniform = GUniform[G]()),
+//        dispatch = (l, p) => StaticDispatch((p.size + 255) / 256, 1, 1),
+//        workgroupSize = (256, 1, 1),
+//      )(body),
+//    )
 
   def apply[H <: Value: {Tag, FromExpr}, R <: Value: {Tag, FromExpr}](fn: H => R): GFunction[GStruct.Empty, H, R] =
     GFunction.forEachIndex[GStruct.Empty, H, R]((g: GStruct.Empty, index: Int32, a: GBuffer[H]) => fn(a.read(index)))

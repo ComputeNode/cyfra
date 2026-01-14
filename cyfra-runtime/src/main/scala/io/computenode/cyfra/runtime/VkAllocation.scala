@@ -1,6 +1,6 @@
 package io.computenode.cyfra.runtime
 
-import io.computenode.cyfra.core.layout.{Layout, LayoutBinding}
+import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.core.{Allocation, GExecution, GProgram}
 import io.computenode.cyfra.core.SpirvProgram
 import io.computenode.cyfra.dsl.Expression.ConstInt32
@@ -30,8 +30,8 @@ import scala.util.chaining.*
 class VkAllocation(val commandPool: CommandPool, executionHandler: ExecutionHandler)(using Allocator, Device) extends Allocation:
   given VkAllocation = this
 
-  override def submitLayout[L <: Layout: LayoutBinding](layout: L): Unit =
-    val executions = summon[LayoutBinding[L]]
+  override def submitLayout[L: Layout](layout: L): Unit =
+    val executions = Layout[L]
       .toBindings(layout)
       .flatMap(x => Try(getUnderlying(x)).toOption)
       .flatMap(_.execution.fold(Seq(_), _.toSeq))
@@ -89,7 +89,7 @@ class VkAllocation(val commandPool: CommandPool, executionHandler: ExecutionHand
     def apply[T <: GStruct[?]: {Tag, FromExpr, GStructSchema}](): GUniform[T] =
       VkUniform[T]().tap(bindings += _)
 
-  extension [Params, EL <: Layout: LayoutBinding, RL <: Layout: LayoutBinding](execution: GExecution[Params, EL, RL])
+  extension [Params, EL: Layout, RL: Layout](execution: GExecution[Params, EL, RL])
     def execute(params: Params, layout: EL)(using name: sourcecode.FileName, line: sourcecode.Line): RL =
       val message = s"Executing at ${name.value}:${line.value}"
       executionHandler.handle(execution, params, layout, message)

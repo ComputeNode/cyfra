@@ -1,6 +1,6 @@
 package io.computenode.cyfra.core
 
-import io.computenode.cyfra.core.layout.{Layout, LayoutBinding, LayoutStruct}
+import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.dsl.gio.GIO
 
 import java.nio.ByteBuffer
@@ -16,27 +16,27 @@ import java.io.FileInputStream
 import java.nio.file.Path
 import scala.util.Using
 
-trait GProgram[Params, L <: Layout: {LayoutBinding, LayoutStruct}] extends GExecution[Params, L, L]:
+trait GProgram[Params, L: Layout] extends GExecution[Params, L, L]:
   val layout: InitProgramLayout => Params => L
   val dispatch: (L, Params) => ProgramDispatch
   val workgroupSize: WorkDimensions
-  def layoutStruct: LayoutStruct[L] = summon[LayoutStruct[L]]
+  def summonLayout: Layout[L] = Layout[L]
 
 object GProgram:
   type WorkDimensions = (Int, Int, Int)
 
   sealed trait ProgramDispatch
-  case class DynamicDispatch[L <: Layout](buffer: GBinding[?], offset: Int) extends ProgramDispatch
+  case class DynamicDispatch[L: Layout](buffer: GBinding[?], offset: Int) extends ProgramDispatch
   case class StaticDispatch(size: WorkDimensions) extends ProgramDispatch
 
-  def apply[Params, L <: Layout: {LayoutBinding, LayoutStruct}](
+  def apply[Params, L: Layout](
     layout: InitProgramLayout ?=> Params => L,
     dispatch: (L, Params) => ProgramDispatch,
     workgroupSize: WorkDimensions = (128, 1, 1),
   )(body: L => GIO[?]): GProgram[Params, L] =
     new GioProgram[Params, L](body, s => layout(using s), dispatch, workgroupSize)
 
-  def fromSpirvFile[Params, L <: Layout: {LayoutBinding, LayoutStruct}](
+  def fromSpirvFile[Params, L: Layout](
     layout: InitProgramLayout ?=> Params => L,
     dispatch: (L, Params) => ProgramDispatch,
     path: Path,

@@ -26,4 +26,5 @@ out
 hs_err_pid*.log
 .bsp
 metals.sbt
+.scala-build
 **/output
