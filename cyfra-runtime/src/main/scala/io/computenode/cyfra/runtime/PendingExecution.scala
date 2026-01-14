@@ -30,9 +30,8 @@ class PendingExecution(protected val handle: VkCommandBuffer, val dependencies: 
   private var fence: Option[Fence] = None
   def isPending: Boolean = fence.isEmpty
   def isRunning: Boolean = fence.exists(f => f.isAlive && !f.isSignaled)
-  def isFinished: Boolean = fence.exists(f => f.isAlive && f.isSignaled)
-
-  def block(): Unit = fence.get.block()
+  def isFinished: Boolean = fence.exists(f => !f.isAlive || f.isSignaled)
+  def block(): Unit = fence.foreach(f => if f.isAlive then f.block())
 
   private var closed = false
   def isClosed: Boolean = closed
@@ -46,6 +45,7 @@ class PendingExecution(protected val handle: VkCommandBuffer, val dependencies: 
   def destroy(): Unit =
     if destroyed then return
     close()
+    fence.foreach(x => if x.isAlive then x.destroy())
     destroyed = true
 
   override def toString: String =
@@ -65,14 +65,12 @@ class PendingExecution(protected val handle: VkCommandBuffer, val dependencies: 
     dependencies.flatMap(_.gatherForSubmission(f)).appended(handle)
 
 object PendingExecution:
-  def executeAll(executions: Seq[PendingExecution], allocation: VkAllocation)(using Device): Fence = pushStack: stack =>
+  def executeAll(executions: Seq[PendingExecution], allocation: VkAllocation)(using Device): Unit = pushStack: stack =>
     assert(executions.forall(_.isPending), "All executions must be pending")
-    val fence = Fence(VK_FENCE_CREATE_SIGNALED_BIT)
-    if executions.isEmpty then break(fence)
+    if executions.isEmpty then break()
 
+    val fence = Fence()
     val gathered = executions.flatMap(_.gatherForSubmission(fence))
-    if gathered.isEmpty then break(fence)
-    fence.reset()
 
     val submitInfos = VkSubmitInfo.calloc(gathered.size, stack)
     gathered.foreach: commandBuffer =>
@@ -83,7 +81,6 @@ object PendingExecution:
     submitInfos.flip()
 
     check(vkQueueSubmit(allocation.commandPool.queue.get, submitInfos, fence.get), "Failed to submit command buffer to queue")
-    fence
 
   def cleanupAll(executions: Seq[PendingExecution]): Unit =
     def cleanupRec(ex: PendingExecution): Unit =

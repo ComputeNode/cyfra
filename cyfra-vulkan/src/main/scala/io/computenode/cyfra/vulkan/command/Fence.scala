@@ -38,7 +38,7 @@ private[cyfra] class Fence(flags: Int = 0)(using device: Device) extends VulkanO
     block(Long.MaxValue)
     this
 
-  def block(timeout: Long): Boolean =
+  private def block(timeout: Long): Boolean =
     val err = vkWaitForFences(device.get, handle, true, timeout)
     if err != VK_SUCCESS && err != VK_TIMEOUT then throw new VulkanAssertionError("Failed to wait for fences", err)
     err == VK_SUCCESS;
