@@ -220,3 +220,44 @@ object GPipe:
           val filteredN = filteredCount.getInt(0)
           val arr = bridge.fromByteBuffer(compactBuf, new Array[S](filteredN))
           Stream.emits(arr)
+
+  /** Execute GPU kernel on batch of float arrays, returns batch of float arrays.
+    *
+    * @param program GPU kernel to execute
+    * @param batchSize Maximum batch size (for buffer allocation)
+    * @param inputStride Elements per input array
+    * @param outputStride Elements per output array
+    * @param buildLayout Create layout from (flattened input, count) - receives Allocation context
+    * @param outputBuffer Accessor for output buffer in layout
+    * @param input Batch of input arrays
+    */
+  def batch[L <: Layout: LayoutBinding](
+    program: GProgram[Int, L],
+    batchSize: Int,
+    inputStride: Int,
+    outputStride: Int
+  )(
+    buildLayout: (Array[Float], Int) => Allocation ?=> L,
+    outputBuffer: L => GBuffer[Float32]
+  )(
+    input: Array[Array[Float]]
+  )(using CyfraRuntime): Array[Array[Float]] =
+    val n = input.length
+    val flatInput = flatten(input, inputStride, batchSize)
+    val flatOutput = new Array[Float](n * outputStride)
+
+    GBufferRegion.allocate[L]
+      .map { layout => program.execute(n, layout); layout }
+      .runUnsafe(
+        init = buildLayout(flatInput, n),
+        onDone = layout => outputBuffer(layout).readArray(flatOutput)
+      )
+
+    Array.tabulate(n)(i => java.util.Arrays.copyOfRange(flatOutput, i * outputStride, (i + 1) * outputStride))
+
+  private def flatten(input: Array[Array[Float]], stride: Int, batchSize: Int): Array[Float] =
+    val flat = new Array[Float](batchSize * stride)
+    input.zipWithIndex.foreach { case (arr, i) =>
+      System.arraycopy(arr, 0, flat, i * stride, Math.min(arr.length, stride))
+    }
+    flat
