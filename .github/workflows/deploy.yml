@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - application-experiments
+      - application-experiments-b
     paths:
       - 'docs/**'
   workflow_dispatch:
