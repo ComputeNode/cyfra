@@ -305,6 +305,32 @@ const styles = {
     transition: 'background 0.2s ease',
     border: 'none',
   },
+  showcaseButtonDisabled: {
+    background: 'transparent',
+    color: '#57534e',
+    padding: '0.5rem 0.875rem',
+    borderRadius: '6px',
+    fontSize: '0.8rem',
+    fontWeight: 500,
+    textDecoration: 'none',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.4rem',
+    border: '1px solid #292524',
+    cursor: 'default',
+  },
+  showcaseLabelWip: {
+    display: 'inline-block',
+    background: 'rgba(113, 113, 122, 0.15)',
+    color: '#a1a1aa',
+    padding: '0.35rem 0.6rem',
+    borderRadius: '5px',
+    fontSize: '0.75rem',
+    fontWeight: 500,
+    marginBottom: '0.6rem',
+    border: '1px solid rgba(113, 113, 122, 0.25)',
+    alignSelf: 'flex-start',
+  },
 
   platformSection: {
     display: 'flex',
@@ -628,6 +654,53 @@ function ShowcaseSection() {
                 >
                   View Code
                 </Link>
+              </div>
+            </div>
+          </div>
+
+          <div style={styles.showcaseItem}>
+            <div style={styles.showcaseMedia}>
+              <img 
+                src="/img/clustering.gif"
+                alt="GPU customer segmentation animation"
+                style={styles.showcaseGif}
+              />
+            </div>
+            <div style={styles.showcaseContent}>
+              <span style={styles.showcaseLabel}>fs2 + GPU streaming</span>
+              <h3 style={styles.showcaseTitle}>Real-time Customer Segmentation</h3>
+              <p style={styles.showcaseDesc}>
+                GPU-accelerated Fuzzy C-Means clustering integrated with fs2 streams. 
+                Process 50k+ transactions/sec with live segment assignment.
+              </p>
+              <div style={styles.showcaseButtons}>
+                <Link 
+                  to="https://github.com/ComputeNode/cyfra/tree/main/cyfra-analytics" 
+                  style={styles.showcaseButtonPrimary}
+                >
+                  View Code
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          <div style={styles.showcaseItem}>
+            <div style={{...styles.showcaseMedia, background: 'linear-gradient(135deg, #1c1917 0%, #292524 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+              <div style={{textAlign: 'center', color: '#57534e', fontSize: '1rem', fontWeight: 500}}>
+                Coming Soon
+              </div>
+            </div>
+            <div style={styles.showcaseContent}>
+              <span style={styles.showcaseLabel}>Machine learning</span>
+              <h3 style={styles.showcaseTitle}>Machine Learning Library</h3>
+              <p style={styles.showcaseDesc}>
+                Neural network primitives on GPU. Matrix operations, activations, 
+                and automatic differentiation in pure Scala.
+              </p>
+              <div style={styles.showcaseButtons}>
+                <span style={styles.showcaseButtonDisabled}>
+                  View Code
+                </span>
               </div>
             </div>
           </div>
