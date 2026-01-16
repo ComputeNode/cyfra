@@ -671,7 +671,7 @@ function ShowcaseSection() {
               <h3 style={styles.showcaseTitle}>Real-time Customer Segmentation</h3>
               <p style={styles.showcaseDesc}>
                 GPU-accelerated Fuzzy C-Means clustering integrated with fs2 streams. 
-                Process 50k+ transactions/sec with live segment assignment.
+                Process 100k+ transactions/sec with live segment assignment.
               </p>
               <div style={styles.showcaseButtons}>
                 <Link 
