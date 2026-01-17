@@ -1,4 +1,4 @@
-import io.computenode.cyfra.dsl.archive.Value
+import io.computenode.cyfra.dsl.Value
 import izumi.reflect.Tag
 
 

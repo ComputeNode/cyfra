@@ -122,10 +122,11 @@ lazy val analytics = (project in file("cyfra-analytics"))
 lazy val examples = (project in file("cyfra-examples"))
   .settings(commonSettings, runnerSettings)
   .settings(libraryDependencies += "org.scala-lang.modules" % "scala-parallel-collections_3" % "1.2.0")
-  .dependsOn(vscode, runtime, dsl)
+  .dependsOn(foton)
 
 lazy val vscode = (project in file("cyfra-vscode"))
   .settings(commonSettings)
+  .dependsOn(foton)
 
 lazy val fs2interop = (project in file("cyfra-fs2"))
   .settings(commonSettings, fs2Settings)
