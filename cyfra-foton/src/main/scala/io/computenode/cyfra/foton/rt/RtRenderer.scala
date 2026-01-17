@@ -1,14 +1,8 @@
 package io.computenode.cyfra.foton.rt
 
 import io.computenode.cyfra
-import io.computenode.cyfra.dsl.Value.*
-import io.computenode.cyfra.dsl.collections.{GArray2D, GSeq}
-import io.computenode.cyfra.dsl.control.Pure.pure
-import io.computenode.cyfra.dsl.library.Color.*
-import io.computenode.cyfra.dsl.library.Math3D.*
-import io.computenode.cyfra.dsl.library.Random
-import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.dsl.library.Random
 import io.computenode.cyfra.foton.rt.RtRenderer.RayHitInfo
 
 import scala.concurrent.ExecutionContext
