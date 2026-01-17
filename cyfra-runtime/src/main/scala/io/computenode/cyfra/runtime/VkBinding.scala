@@ -1,12 +1,7 @@
 package io.computenode.cyfra.runtime
 
-import io.computenode.cyfra.dsl.Value
-import io.computenode.cyfra.dsl.Value.FromExpr
-import io.computenode.cyfra.spirv.SpirvTypes.typeStride
+import io.computenode.cyfra.dsl.*
 import izumi.reflect.Tag
-import io.computenode.cyfra.dsl.Value
-import io.computenode.cyfra.dsl.Value.FromExpr
-import io.computenode.cyfra.dsl.binding.{GBinding, GBuffer}
 import io.computenode.cyfra.vulkan.memory.{Allocator, Buffer}
 import io.computenode.cyfra.vulkan.core.Queue
 import io.computenode.cyfra.vulkan.core.Device
@@ -14,15 +9,12 @@ import izumi.reflect.Tag
 import io.computenode.cyfra.spirv.SpirvTypes.typeStride
 import org.lwjgl.vulkan.VK10
 import org.lwjgl.vulkan.VK10.{VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_BUFFER_USAGE_TRANSFER_SRC_BIT}
-import io.computenode.cyfra.dsl.Value
-import io.computenode.cyfra.dsl.Value.FromExpr
-import io.computenode.cyfra.dsl.binding.GUniform
-import io.computenode.cyfra.dsl.struct.{GStruct, GStructSchema}
+import io.computenode.cyfra.spirv.compilers.SpirvProgramCompiler.totalStride
 import io.computenode.cyfra.vulkan.memory.{Allocator, Buffer}
 import izumi.reflect.Tag
 import org.lwjgl.vulkan.VK10
 import org.lwjgl.vulkan.VK10.*
-
+import io.computenode.cyfra.dsl.binding.{GBinding, GBuffer, GUniform}
 import scala.collection.mutable
 import scala.util.chaining.given
 
@@ -65,6 +57,7 @@ object VkUniform:
     VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT
 
   def apply[T <: GStruct[_]: {Tag, FromExpr, GStructSchema}]()(using Allocator): VkUniform[T] =
-    val sizeOfT = typeStride(summon[Tag[T]])
+    val schema = summon[GStructSchema[T]]
+    val sizeOfT = totalStride(schema)
     val buffer = new Buffer.DeviceBuffer(sizeOfT, UsageFlags)
     new VkUniform[T](buffer)

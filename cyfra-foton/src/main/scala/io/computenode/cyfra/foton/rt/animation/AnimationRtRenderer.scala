@@ -8,7 +8,7 @@ import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.foton.animation.AnimationRenderer
 import io.computenode.cyfra.foton.rt.RtRenderer
 import io.computenode.cyfra.foton.rt.animation.AnimationRtRenderer.RaytracingIteration
-import io.computenode.cyfra.core.archive.GFunction
+import io.computenode.cyfra.foton.GFunction
 import io.computenode.cyfra.runtime.VkCyfraRuntime
 
 class AnimationRtRenderer(params: AnimationRtRenderer.Parameters)

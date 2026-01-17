@@ -3,11 +3,7 @@ package io.computenode.cyfra.runtime
 import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.core.{Allocation, GExecution, GProgram}
 import io.computenode.cyfra.core.SpirvProgram
-import io.computenode.cyfra.dsl.Expression.ConstInt32
-import io.computenode.cyfra.dsl.Value
-import io.computenode.cyfra.dsl.Value.FromExpr
-import io.computenode.cyfra.dsl.binding.{GBinding, GBuffer, GUniform}
-import io.computenode.cyfra.dsl.struct.{GStruct, GStructSchema}
+import io.computenode.cyfra.dsl.*
 import io.computenode.cyfra.runtime.VkAllocation.getUnderlying
 import io.computenode.cyfra.spirv.SpirvTypes.typeStride
 import io.computenode.cyfra.vulkan.command.CommandPool
@@ -21,11 +17,14 @@ import org.lwjgl.system.MemoryUtil
 import org.lwjgl.vulkan.{VK10, VkCommandBuffer, VkCommandBufferBeginInfo, VkDependencyInfo, VkMemoryBarrier2}
 import org.lwjgl.vulkan.VK13.*
 import org.lwjgl.vulkan.VK10.*
-
 import java.nio.ByteBuffer
 import scala.collection.mutable
 import scala.util.Try
 import scala.util.chaining.*
+import io.computenode.cyfra.dsl.binding.{GBinding, GBuffer, GUniform}
+import io.computenode.cyfra.spirv.compilers.SpirvProgramCompiler.totalStride
+import scala.reflect.ClassTag
+import io.computenode.cyfra.core.GCodec
 
 class VkAllocation(val commandPool: CommandPool.Reset, executionHandler: ExecutionHandler)(using Allocator, Device) extends Allocation:
   given VkAllocation = this
@@ -69,9 +68,26 @@ class VkAllocation(val commandPool: CommandPool.Reset, executionHandler: Executi
           binding.execution = Left(pe)
         case _ => throw new IllegalArgumentException(s"Tried to write to non-VkBinding $buffer")
 
+  extension [T <: Value: {Tag, FromExpr}](buffer: GBinding[T])
+
+    def writeArray[ST: ClassTag](arr: Array[ST], offset: Int = 0)(using GCodec[T, ST]): Unit =
+      val bb = BufferUtils.createByteBuffer(arr.size * typeStride(summon[Tag[T]]))
+      buffer.write(bb, 0)
+      GCodec.toByteBuffer[T, ST](bb, arr)
+
+    def readArray[ST: ClassTag](arr: Array[ST], offset: Int = 0)(using GCodec[T, ST]): Array[ST] =
+      val bb = BufferUtils.createByteBuffer(arr.size * typeStride(summon[Tag[T]]))
+      buffer.read(bb, 0)
+      GCodec.fromByteBuffer[T, ST](bb, arr)
+
   extension (buffers: GBuffer.type)
     def apply[T <: Value: {Tag, FromExpr}](length: Int): GBuffer[T] =
       VkBuffer[T](length).tap(bindings += _)
+
+    def apply[ST: ClassTag, T <: Value: {Tag, FromExpr}](scalaArray: Array[ST])(using GCodec[T, ST]): GBuffer[T] =
+      val bb = BufferUtils.createByteBuffer(scalaArray.size * typeStride(summon[Tag[T]]))
+      GCodec.toByteBuffer[T, ST](bb, scalaArray)
+      GBuffer[T](bb)
 
     def apply[T <: Value: {Tag, FromExpr}](buff: ByteBuffer): GBuffer[T] =
       val sizeOfT = typeStride(summon[Tag[T]])
@@ -83,6 +99,11 @@ class VkAllocation(val commandPool: CommandPool.Reset, executionHandler: Executi
   extension (uniforms: GUniform.type)
     def apply[T <: GStruct[?]: {Tag, FromExpr, GStructSchema}](buff: ByteBuffer): GUniform[T] =
       GUniform[T]().tap(_.write(buff))
+
+    def apply[ST: ClassTag, T <: GStruct[?]: {Tag, FromExpr, GStructSchema}](value: ST)(using GCodec[T, ST]): GUniform[T] =
+      val bb = BufferUtils.createByteBuffer(totalStride(summon[GStructSchema[T]]))
+      GCodec.toByteBuffer[T, ST](bb, Array(value))
+      GUniform[T](bb)
 
     def apply[T <: GStruct[?]: {Tag, FromExpr, GStructSchema}](): GUniform[T] =
       VkUniform[T]().tap(bindings += _)

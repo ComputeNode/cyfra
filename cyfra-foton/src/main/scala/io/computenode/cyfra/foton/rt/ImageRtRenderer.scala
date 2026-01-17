@@ -7,9 +7,9 @@ import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.foton.rt.ImageRtRenderer.RaytracingIteration
-import io.computenode.cyfra.core.archive.GFunction
+import io.computenode.cyfra.foton.GFunction
 import io.computenode.cyfra.runtime.VkCyfraRuntime
-import io.computenode.cyfra.utility.ImageUtility
+import io.computenode.cyfra.foton.ImageUtility
 import io.computenode.cyfra.utility.Utility.timed
 
 import java.nio.file.Path

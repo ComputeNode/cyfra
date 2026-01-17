@@ -41,7 +41,8 @@ object GBufferRegion:
             Some(((f.asInstanceOf[Allocation => Any => Any], req.resAllocLayout.asInstanceOf[Layout[Any]]), req))
 
         val initAlloc = init(using allocation).tap(allocation.submitLayout)
-        val bodyAlloc = steps.foldLeft[Any](initAlloc): (acc, step) =>
+
+        val bodyAlloc = steps.reverse.foldLeft[Any](initAlloc): (acc, step) =>
           step._1(allocation)(acc).tap(allocation.submitLayout(_)(using step._2))
 
         onDone(using allocation)(bodyAlloc.asInstanceOf[ResAlloc])
