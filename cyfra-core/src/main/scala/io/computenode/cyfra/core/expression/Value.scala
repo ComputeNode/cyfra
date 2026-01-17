@@ -11,7 +11,7 @@ trait Value[A]:
   protected def extractUnsafe(ir: ExpressionBlock[A]): A
   def tag: Tag[A]
   def baseTag: Option[TagK[?]]
-  def composite: Option[Value[?]]
+  def composite: List[Value[?]]
 
   final def indirect(ir: Expression[A]): A = extract(ExpressionBlock(ir, List()))
   final def extract(block: ExpressionBlock[A]): A =
@@ -22,15 +22,15 @@ trait Value[A]:
   @tailrec
   final def bottomComposite: Value[?] =
     composite match
-      case Some(c) => c.bottomComposite
-      case None    => this
+      case List(c) => c.bottomComposite
+      case _       => this
 
 object Value:
   def apply[A](using v: Value[A]): Value[A] = v
 
   trait Scalar[A] extends Value[A]:
     def baseTag: Option[TagK[?]] = None
-    def composite: Option[Value[?]] = None
+    def composite: List[Value[?]] = Nil
 
   def map[Res: Value as vr](f: BuildInFunction0[Res]): Res =
     val next = Expression.BuildInOperation(f, Nil)
