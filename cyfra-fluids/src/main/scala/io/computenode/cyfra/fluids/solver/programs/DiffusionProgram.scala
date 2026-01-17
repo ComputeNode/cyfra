@@ -1,9 +1,10 @@
-package io.computenode.cyfra.fluids.solver
+package io.computenode.cyfra.fluids.solver.programs
 
 import io.computenode.cyfra.core.GProgram
 import io.computenode.cyfra.core.GProgram.StaticDispatch
 import io.computenode.cyfra.dsl.{*, given}
-import GridUtils.*
+import io.computenode.cyfra.fluids.solver.*
+import io.computenode.cyfra.fluids.solver.utils.GridUtils.*
 
 /** Implements diffusion via Jacobi iteration.
   * Solves: (I - ν·Δt·∇²)v_new = v_old
@@ -43,17 +44,13 @@ object DiffusionProgram:
       val totalCells = n * n * n
 
       GIO.when(idx < totalCells):
-        // Convert 1D index to 3D coordinates
         val (x, y, z) = idxTo3D(idx, n)
 
-        // Jacobi iteration coefficients
         val alpha = 1.0f / (params.viscosity * params.dt)
         val beta = 1.0f / (6.0f + alpha)
 
-        // Read center value from previous buffer (pure operation)
         val center = GIO.read(state.velocityPrevious, idx)
 
-        // Sample six neighbors from previous buffer (pure operations)
         val xm = readVec4Safe(state.velocityPrevious, x - 1, y, z, n)
         val xp = readVec4Safe(state.velocityPrevious, x + 1, y, z, n)
         val ym = readVec4Safe(state.velocityPrevious, x, y - 1, z, n)
@@ -63,8 +60,6 @@ object DiffusionProgram:
 
         val neighborSum = xm + xp + ym + yp + zm + zp
 
-        // Jacobi update: x = (b + Σneighbors) / (diagonal coeff + 6)
         val newVel = (center * alpha + neighborSum) * beta
 
-        // Write result to current buffer
         GIO.write(state.velocityCurrent, idx, newVel)

@@ -4,6 +4,7 @@ package io.computenode.cyfra.fluids.solver
 import io.computenode.cyfra.core.GBufferRegion
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.fluids.solver.*
+import io.computenode.cyfra.fluids.solver.programs.BoundaryProgram
 import io.computenode.cyfra.runtime.VkCyfraRuntime
 
 import java.nio.{ByteBuffer, ByteOrder}
@@ -72,7 +73,9 @@ class BoundaryProgramTest extends munit.FunSuite:
         pressure = GBuffer(ByteBuffer.allocateDirect(totalCells * 4).order(ByteOrder.nativeOrder())),
         density = GBuffer(ByteBuffer.allocateDirect(totalCells * 4).order(ByteOrder.nativeOrder())),
         temperature = GBuffer(ByteBuffer.allocateDirect(totalCells * 4).order(ByteOrder.nativeOrder())),
+        dye = GBuffer(ByteBuffer.allocateDirect(totalCells * 4).order(ByteOrder.nativeOrder())),
         divergence = GBuffer(ByteBuffer.allocateDirect(totalCells * 4).order(ByteOrder.nativeOrder())),
+        obstacles = GBuffer(ByteBuffer.allocateDirect(totalCells * 4).order(ByteOrder.nativeOrder())),
         params = GUniform(paramsBuffer)
       ),
       onDone = layout =>

@@ -1,9 +1,11 @@
-package io.computenode.cyfra.fluids.solver
+package io.computenode.cyfra.fluids.solver.programs
 
 import io.computenode.cyfra.core.GProgram
 import io.computenode.cyfra.core.GProgram.StaticDispatch
 import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.fluids.solver.GridUtils.idxTo3D
+import io.computenode.cyfra.fluids.solver.*
+import io.computenode.cyfra.fluids.solver.utils.{GridUtils, ObstacleUtils}
+import GridUtils.idxTo3D
 
 /** Applies no-slip boundary conditions at domain walls and obstacles */
 object BoundaryProgram:
@@ -35,19 +37,14 @@ object BoundaryProgram:
       val totalCells = n * n * n
 
       GIO.when(idx < totalCells):
-        // Convert 1D index to 3D coordinates
         val (x, y, z) = idxTo3D(idx, n)
 
-        // Check if on domain boundary
         val onDomainBoundary = (x === 0) || (x === n - 1) ||
                                 (y === 0) || (y === n - 1) ||
                                 (z === 0) || (z === n - 1)
 
-        // Check if inside obstacle
         val isSolid = ObstacleUtils.isSolid(state.obstacles, idx, totalCells)
 
-        // Apply no-slip conditions at walls or obstacles
         GIO.when(onDomainBoundary || isSolid):
-          // No-slip: velocity = 0 at walls/obstacles
           val boundaryVel = vec4(0.0f, 0.0f, 0.0f, 0.0f)
           GIO.write(state.velocity, idx, boundaryVel)

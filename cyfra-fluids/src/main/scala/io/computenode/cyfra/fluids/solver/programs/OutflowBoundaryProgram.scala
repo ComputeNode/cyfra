@@ -1,16 +1,19 @@
-package io.computenode.cyfra.fluids.solver
+package io.computenode.cyfra.fluids.solver.programs
 
 import io.computenode.cyfra.core.GProgram
 import io.computenode.cyfra.core.GProgram.StaticDispatch
 import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.fluids.solver.GridUtils.idxTo3D
+import io.computenode.cyfra.fluids.solver.*
+import io.computenode.cyfra.fluids.solver.utils.{GridUtils, ObstacleUtils}
+import GridUtils.{idxTo3D, coord3dToIdx}
 
-/** Proper free-slip boundary conditions - fluid slides tangentially along surfaces.
+/** Boundary conditions with outflow at top and proper free-slip at other boundaries.
   * 
-  * Removes only the normal component of velocity, preserving tangential flow.
-  * This allows fluid to slide freely along walls and obstacles.
+  * - Top: Smoke escapes freely (outflow condition)
+  * - Sides/Bottom: Proper free-slip (tangential flow preserved)
+  * - Obstacles: Free-slip (fluid slides around)
   */
-object FreeSlipBoundaryProgram:
+object OutflowBoundaryProgram:
 
   def create: GProgram[Int, FluidState] =
     GProgram[Int, FluidState](
@@ -41,12 +44,11 @@ object FreeSlipBoundaryProgram:
       GIO.when(idx < totalCells):
         val (x, y, z) = idxTo3D(idx, n)
         
-        val onDomainBoundary = (x === 0) || (x === n - 1) ||
-                                (y === 0) || (y === n - 1) ||
-                                (z === 0) || (z === n - 1)
+        val isTop = y === (n - 1)
         val isSolid = ObstacleUtils.isSolid(state.obstacles, idx, totalCells)
+        val onDomainBoundary = ((x === 0) || (x === n - 1) || (y === 0) || (z === 0) || (z === n - 1))
+        val onOtherBoundary = onDomainBoundary && !isTop
         
-        // Check if adjacent to an obstacle (for obstacle surface boundary conditions)
         val solidXP = ObstacleUtils.isSolidAt(state.obstacles, x + 1, y, z, n)
         val solidXM = ObstacleUtils.isSolidAt(state.obstacles, x - 1, y, z, n)
         val solidYP = ObstacleUtils.isSolidAt(state.obstacles, x, y + 1, z, n)
@@ -54,10 +56,21 @@ object FreeSlipBoundaryProgram:
         val solidZP = ObstacleUtils.isSolidAt(state.obstacles, x, y, z + 1, n)
         val solidZM = ObstacleUtils.isSolidAt(state.obstacles, x, y, z - 1, n)
         val adjacentToObstacle = (solidXP || solidXM || solidYP || solidYM || solidZP || solidZM) && !isSolid
-
-        // Compose both GIO operations
+        
         for
-          // 1. Handle obstacles - zero out everything inside
+          _ <- GIO.when(isTop && !isSolid):
+            val belowIdx = coord3dToIdx(x, y - 1, z, n)
+            val belowVel = state.velocity.read(belowIdx)
+            val belowDensity = state.density.read(belowIdx)
+            val belowTemp = state.temperature.read(belowIdx)
+            
+            val outflowVel = vec4(belowVel.x * 0.95f, belowVel.y, belowVel.z * 0.95f, 0.0f)
+            for
+              _ <- GIO.write(state.velocity, idx, outflowVel)
+              _ <- GIO.write(state.density, idx, belowDensity * 0.9f)
+              _ <- GIO.write(state.temperature, idx, belowTemp * 0.9f)
+            yield GStruct.Empty()
+          
           _ <- GIO.when(isSolid):
             for
               _ <- GIO.write(state.velocity, idx, vec4(0.0f, 0.0f, 0.0f, 0.0f))
@@ -65,47 +78,39 @@ object FreeSlipBoundaryProgram:
               _ <- GIO.write(state.temperature, idx, 0.0f)
             yield GStruct.Empty()
           
-          // 2. Free-slip at obstacle surfaces (fluid cells adjacent to obstacles)
           _ <- GIO.when(adjacentToObstacle && !onDomainBoundary):
             val vel = state.velocity.read(idx)
             val vel3 = vec3(vel.x, vel.y, vel.z)
             
-            // Compute normal pointing away from obstacle (sum of normals for all adjacent solid faces)
             val nx = when(solidXP)(1.0f).otherwise(0.0f) + when(solidXM)(-1.0f).otherwise(0.0f)
             val ny = when(solidYP)(1.0f).otherwise(0.0f) + when(solidYM)(-1.0f).otherwise(0.0f)
             val nz = when(solidZP)(1.0f).otherwise(0.0f) + when(solidZM)(-1.0f).otherwise(0.0f)
             val obstacleNormal = vec3(nx, ny, nz)
             
-            // Normalize
             val normalLength = sqrt((obstacleNormal dot obstacleNormal) + 1e-8f)
             val normalNorm = obstacleNormal * (1.0f / normalLength)
             
-            // Free-slip: remove normal component, keep tangential
             val normalComponent = vel3 dot normalNorm
             val tangentialVel = vel3 - (normalNorm * normalComponent)
-            
             val newVel = vec4(tangentialVel.x, tangentialVel.y, tangentialVel.z, 0.0f)
+            
             GIO.write(state.velocity, idx, newVel)
           
-          // 3. Free-slip at domain boundaries only
-          _ <- GIO.when(onDomainBoundary && !isSolid && !adjacentToObstacle):
+          _ <- GIO.when(onOtherBoundary && !isSolid && !adjacentToObstacle):
             val vel = state.velocity.read(idx)
             val vel3 = vec3(vel.x, vel.y, vel.z)
             
-            // Domain boundary normals
             val nx = when(x === 0)(1.0f).elseWhen(x === n - 1)(-1.0f).otherwise(0.0f)
-            val ny = when(y === 0)(1.0f).elseWhen(y === n - 1)(-1.0f).otherwise(0.0f)
+            val ny = when(y === 0)(1.0f).otherwise(0.0f)
             val nz = when(z === 0)(1.0f).elseWhen(z === n - 1)(-1.0f).otherwise(0.0f)
             val normal = vec3(nx, ny, nz)
             
-            // Normalize for corners (where multiple components are non-zero)
             val normalLength = sqrt((normal dot normal) + 1e-8f)
             val normalNorm = normal * (1.0f / normalLength)
             
-            // Free-slip: remove normal component, keep tangential
             val normalComponent = vel3 dot normalNorm
             val tangentialVel = vel3 - (normalNorm * normalComponent)
-            
             val newVel = vec4(tangentialVel.x, tangentialVel.y, tangentialVel.z, 0.0f)
+            
             GIO.write(state.velocity, idx, newVel)
         yield GStruct.Empty()

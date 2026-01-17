@@ -1,8 +1,9 @@
-package io.computenode.cyfra.fluids.solver
+package io.computenode.cyfra.fluids.solver.programs
 
 import io.computenode.cyfra.core.GProgram
 import io.computenode.cyfra.core.GProgram.StaticDispatch
 import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.fluids.solver.*
 
 object ForcesProgram:
 
@@ -32,11 +33,9 @@ object ForcesProgram:
       val totalCells = params.gridSize * params.gridSize * params.gridSize
       
       GIO.when(idx < totalCells):
-        // Read values
         val oldVel = GIO.read(state.velocity, idx)
         val temp = GIO.read(state.temperature, idx)
         
-        // Compute buoyancy force + wind (Vec4 with w=0)
         val forces = vec4(
           params.windX,
           params.buoyancy * (temp - params.ambient) + params.windY,
@@ -45,5 +44,4 @@ object ForcesProgram:
         )
         val newVel = oldVel + forces * params.dt
         
-        // Write result
         GIO.write(state.velocity, idx, newVel)

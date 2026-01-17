@@ -1,8 +1,8 @@
-package io.computenode.cyfra.fluids.solver
+package io.computenode.cyfra.fluids.solver.utils
 
 import io.computenode.cyfra.dsl.{*, given}
 
-/** Utility functions for 3D grid operations */
+/** Utility functions for 3D grid operations in GPU shaders. */
 object GridUtils:
   
   /** Convert 3D coordinates to 1D flattened index.
@@ -33,7 +33,6 @@ object GridUtils:
   /** Read Vec4 from buffer with bounds checking, return zero if out of bounds */
   def readVec4Safe(buffer: GBuffer[Vec4[Float32]], x: Int32, y: Int32, z: Int32, n: Int32)
                   (using Source): Vec4[Float32] =
-    // Clamp coordinates to valid range instead of using when/otherwise
     val xClamped = maxInt32(0, minInt32(x, n - 1))
     val yClamped = maxInt32(0, minInt32(y, n - 1))
     val zClamped = maxInt32(0, minInt32(z, n - 1))
@@ -42,7 +41,6 @@ object GridUtils:
   /** Read scalar from buffer with bounds checking */
   def readFloat32Safe(buffer: GBuffer[Float32], x: Int32, y: Int32, z: Int32, n: Int32)
                      (using Source): Float32 =
-    // Clamp coordinates to valid range instead of using when/otherwise
     val xClamped = maxInt32(0, minInt32(x, n - 1))
     val yClamped = maxInt32(0, minInt32(y, n - 1))
     val zClamped = maxInt32(0, minInt32(z, n - 1))
@@ -57,13 +55,11 @@ object GridUtils:
     pos: Vec3[Float32], 
     size: Int32
   )(using Source): Vec4[Float32] =
-    // Clamp position to valid range [0, size-1]
     val maxPos = (size - 1).asFloat
     val x = clamp(pos.x, 0.0f, maxPos)
     val y = clamp(pos.y, 0.0f, maxPos)
     val z = clamp(pos.z, 0.0f, maxPos)
     
-    // Get integer grid coordinates (truncation for positive = floor)
     val x0 = x.asInt
     val y0 = y.asInt
     val z0 = z.asInt
@@ -71,12 +67,10 @@ object GridUtils:
     val y1 = minInt32(y0 + 1, size - 1)
     val z1 = minInt32(z0 + 1, size - 1)
     
-    // Fractional parts for interpolation
     val fx = x - x0.asFloat
     val fy = y - y0.asFloat
     val fz = z - z0.asFloat
     
-    // Sample 8 corner values
     val v000 = readVec4Safe(buffer, x0, y0, z0, size)
     val v100 = readVec4Safe(buffer, x1, y0, z0, size)
     val v010 = readVec4Safe(buffer, x0, y1, z0, size)
@@ -86,9 +80,6 @@ object GridUtils:
     val v011 = readVec4Safe(buffer, x0, y1, z1, size)
     val v111 = readVec4Safe(buffer, x1, y1, z1, size)
     
-    // Trilinear blend
-    // NOTE: Broadcast scalars to Vec4 to avoid SPIR-V FMix type mismatch
-    //       The mix(Vec4, Vec4, Float32) overload generates invalid SPIR-V
     val fxVec = vec4(fx, fx, fx, fx)
     val fyVec = vec4(fy, fy, fy, fy)
     val fzVec = vec4(fz, fz, fz, fz)
@@ -109,13 +100,11 @@ object GridUtils:
     pos: Vec3[Float32], 
     size: Int32
   )(using Source): Float32 =
-    // Clamp position to valid range [0, size-1]
     val maxPos = (size - 1).asFloat
     val x = clamp(pos.x, 0.0f, maxPos)
     val y = clamp(pos.y, 0.0f, maxPos)
     val z = clamp(pos.z, 0.0f, maxPos)
     
-    // Get integer grid coordinates
     val x0 = x.asInt
     val y0 = y.asInt
     val z0 = z.asInt
@@ -123,12 +112,10 @@ object GridUtils:
     val y1 = minInt32(y0 + 1, size - 1)
     val z1 = minInt32(z0 + 1, size - 1)
     
-    // Fractional parts
     val fx = x - x0.asFloat
     val fy = y - y0.asFloat
     val fz = z - z0.asFloat
     
-    // Sample 8 corners
     val v000 = readFloat32Safe(buffer, x0, y0, z0, size)
     val v100 = readFloat32Safe(buffer, x1, y0, z0, size)
     val v010 = readFloat32Safe(buffer, x0, y1, z0, size)
@@ -138,7 +125,6 @@ object GridUtils:
     val v011 = readFloat32Safe(buffer, x0, y1, z1, size)
     val v111 = readFloat32Safe(buffer, x1, y1, z1, size)
     
-    // Trilinear blend
     val v00 = mix(v000, v100, fx)
     val v10 = mix(v010, v110, fx)
     val v01 = mix(v001, v101, fx)

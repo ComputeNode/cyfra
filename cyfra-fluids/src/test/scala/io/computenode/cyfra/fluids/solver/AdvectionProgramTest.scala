@@ -2,7 +2,8 @@ package io.computenode.cyfra.fluids.solver
 
 import io.computenode.cyfra.core.GBufferRegion
 import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.fluids.solver.{AdvectionProgram, FluidParams, FluidStateDouble}
+import io.computenode.cyfra.fluids.solver.{FluidParams, FluidStateDouble}
+import io.computenode.cyfra.fluids.solver.programs.AdvectionProgram
 import io.computenode.cyfra.runtime.VkCyfraRuntime
 
 import java.nio.{ByteBuffer, ByteOrder}
@@ -85,12 +86,15 @@ class AdvectionProgramTest extends munit.FunSuite:
         pressureCurrent = GBuffer(ByteBuffer.allocateDirect(totalCells * 4).order(ByteOrder.nativeOrder())),
         densityCurrent = GBuffer(ByteBuffer.allocateDirect(totalCells * 4).order(ByteOrder.nativeOrder())),
         temperatureCurrent = GBuffer(ByteBuffer.allocateDirect(totalCells * 4).order(ByteOrder.nativeOrder())),
+        dyeCurrent = GBuffer(ByteBuffer.allocateDirect(totalCells * 4).order(ByteOrder.nativeOrder())),
         divergenceCurrent = GBuffer(ByteBuffer.allocateDirect(totalCells * 4).order(ByteOrder.nativeOrder())),
         velocityPrevious = GBuffer(velocityBuffer),
         pressurePrevious = GBuffer(ByteBuffer.allocateDirect(totalCells * 4).order(ByteOrder.nativeOrder())),
         densityPrevious = GBuffer(densityBuffer),
         temperaturePrevious = GBuffer(ByteBuffer.allocateDirect(totalCells * 4).order(ByteOrder.nativeOrder())),
+        dyePrevious = GBuffer(ByteBuffer.allocateDirect(totalCells * 4).order(ByteOrder.nativeOrder())),
         divergencePrevious = GBuffer(ByteBuffer.allocateDirect(totalCells * 4).order(ByteOrder.nativeOrder())),
+        obstacles = GBuffer(ByteBuffer.allocateDirect(totalCells * 4).order(ByteOrder.nativeOrder())),
         params = GUniform(paramsBuffer)
       ),
       onDone = layout =>

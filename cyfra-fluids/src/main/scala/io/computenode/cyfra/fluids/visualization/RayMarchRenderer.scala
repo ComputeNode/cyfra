@@ -6,7 +6,7 @@ import io.computenode.cyfra.core.GCodec.{*, given}
 import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.runtime.VkCyfraRuntime
 import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.fluids.solver.GridUtils
+import io.computenode.cyfra.fluids.solver.utils.{GridUtils, ObstacleUtils}
 import org.lwjgl.BufferUtils
 
 import java.nio.ByteBuffer
@@ -105,7 +105,6 @@ class RayMarchRenderer(rendererConfig: RendererConfig):
         .gen[RayMarchState](
           first = initState,
           next = state =>
-            import io.computenode.cyfra.fluids.solver.ObstacleUtils
 
             val nextPos = state.pos + direction * stepSize
             val nextT = state.t + stepSize

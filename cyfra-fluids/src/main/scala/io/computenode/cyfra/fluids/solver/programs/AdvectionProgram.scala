@@ -1,9 +1,10 @@
-package io.computenode.cyfra.fluids.solver
+package io.computenode.cyfra.fluids.solver.programs
 
 import io.computenode.cyfra.core.GProgram
 import io.computenode.cyfra.core.GProgram.StaticDispatch
 import io.computenode.cyfra.dsl.{*, given}
-import GridUtils.*
+import io.computenode.cyfra.fluids.solver.*
+import io.computenode.cyfra.fluids.solver.utils.GridUtils.*
 
 object AdvectionProgram:
 
@@ -43,14 +44,11 @@ object AdvectionProgram:
         val (x, y, z) = idxTo3D(idx, n)
         val pos = vec3(x.asFloat, y.asFloat, z.asFloat)
         
-        // Read velocity from previous buffer (pure operation)
         val vel = GIO.read(state.velocityPrevious, idx)
         
-        // Backtrace to previous position (use xyz components only)
         val vel3 = vec3(vel.x, vel.y, vel.z)
         val prevPos = pos - vel3 * params.dt
 
-        // Interpolate values at previous position
         val interpolatedVel = trilinearInterpolateVec4(
           state.velocityPrevious,
           prevPos,
@@ -75,7 +73,6 @@ object AdvectionProgram:
           n
         )
 
-        // Write advected values to current buffers
         for
           _ <- GIO.write(state.velocityCurrent, idx, interpolatedVel)
           _ <- GIO.write(state.densityCurrent, idx, interpolatedDensity)

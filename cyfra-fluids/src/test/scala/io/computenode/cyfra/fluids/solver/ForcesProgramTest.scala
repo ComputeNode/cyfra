@@ -2,7 +2,8 @@ package io.computenode.cyfra.fluids.solver
 
 import io.computenode.cyfra.core.GBufferRegion
 import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.fluids.solver.{FluidParams, FluidState, ForcesProgram}
+import io.computenode.cyfra.fluids.solver.{FluidParams, FluidState}
+import io.computenode.cyfra.fluids.solver.programs.ForcesProgram
 import io.computenode.cyfra.runtime.VkCyfraRuntime
 
 import java.nio.{ByteBuffer, ByteOrder}
@@ -80,7 +81,9 @@ class ForcesProgramTest extends munit.FunSuite:
         pressure = GBuffer(ByteBuffer.allocateDirect(totalCells * 4).order(ByteOrder.nativeOrder())),
         density = GBuffer(ByteBuffer.allocateDirect(totalCells * 4).order(ByteOrder.nativeOrder())),
         temperature = GBuffer(temperatureBuffer),
+        dye = GBuffer(ByteBuffer.allocateDirect(totalCells * 4).order(ByteOrder.nativeOrder())),
         divergence = GBuffer(ByteBuffer.allocateDirect(totalCells * 4).order(ByteOrder.nativeOrder())),
+        obstacles = GBuffer(ByteBuffer.allocateDirect(totalCells * 4).order(ByteOrder.nativeOrder())),
         params = GUniform(paramsBuffer)
       ),
       onDone = layout =>

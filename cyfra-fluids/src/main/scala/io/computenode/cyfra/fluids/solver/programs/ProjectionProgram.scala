@@ -1,8 +1,10 @@
-package io.computenode.cyfra.fluids.solver
+package io.computenode.cyfra.fluids.solver.programs
 
 import io.computenode.cyfra.core.GProgram
 import io.computenode.cyfra.core.GProgram.StaticDispatch
 import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.fluids.solver.*
+import io.computenode.cyfra.fluids.solver.utils.{GridUtils, ObstacleUtils}
 import GridUtils.*
 
 /** Pressure projection programs for enforcing incompressibility */
@@ -34,18 +36,15 @@ object ProjectionProgram:
       val params = state.params.read
       val n = params.gridSize
 
-      // Convert 1D index to 3D coordinates
       val z = idx / (n * n)
       val y = (idx / n).mod(n)
       val x = idx.mod(n)
 
-      // Skip solid cells
       val isSolid = ObstacleUtils.isSolid(state.obstacles, idx, n)
       
       GIO.when(!isSolid):
         val velCenter = GIO.read(state.velocity, idx)
         
-        // Check if neighbors are solid
         val solidXP = ObstacleUtils.isSolidAt(state.obstacles, x + 1, y, z, n)
         val solidXM = ObstacleUtils.isSolidAt(state.obstacles, x - 1, y, z, n)
         val solidYP = ObstacleUtils.isSolidAt(state.obstacles, x, y + 1, z, n)
@@ -53,7 +52,6 @@ object ProjectionProgram:
         val solidZP = ObstacleUtils.isSolidAt(state.obstacles, x, y, z + 1, n)
         val solidZM = ObstacleUtils.isSolidAt(state.obstacles, x, y, z - 1, n)
         
-        // Fetch fluid neighbors
         val velXP = readVec4Safe(state.velocity, x + 1, y, z, n)
         val velXM = readVec4Safe(state.velocity, x - 1, y, z, n)
         val velYP = readVec4Safe(state.velocity, x, y + 1, z, n)
@@ -61,18 +59,14 @@ object ProjectionProgram:
         val velZP = readVec4Safe(state.velocity, x, y, z + 1, n)
         val velZM = readVec4Safe(state.velocity, x, y, z - 1, n)
 
-        // Use one-sided differences where there are solid neighbors
-        // At solid interface, normal velocity = 0 (no penetration)
         val dx = when(solidXP && solidXM)(
-          0.0f  // Fully enclosed
+          0.0f
         ).elseWhen(solidXP)(
-          // Solid on +x: interface has u=0, so ∂u/∂x ≈ (0 - u_center) + (u_center - u_xm)/2
-          -velCenter.x  // Simplified: normal component goes to zero
+          -velCenter.x
         ).elseWhen(solidXM)(
-          // Solid on -x: interface has u=0, so ∂u/∂x ≈ (u_xp - u_center)/2 + (u_center - 0)
-          velCenter.x  // Simplified
+          velCenter.x
         ).otherwise(
-          (velXP.x - velXM.x) * 0.5f  // Standard central difference
+          (velXP.x - velXM.x) * 0.5f
         )
         
         val dy = when(solidYP && solidYM)(
@@ -97,7 +91,6 @@ object ProjectionProgram:
 
         val div = dx + dy + dz
 
-        // Write result
         GIO.write(state.divergence, idx, div)
 
   /** Step 2: Solve Poisson equation for pressure via Jacobi iteration */
@@ -134,19 +127,14 @@ object ProjectionProgram:
       val totalCells = n * n * n
 
       GIO.when(idx < totalCells):
-        // Convert 1D index to 3D coordinates
         val (x, y, z) = idxTo3D(idx, n)
 
-        // Check if this cell is solid
         val isSolid = ObstacleUtils.isSolid(state.obstacles, idx, n)
         
-        // Only solve pressure in fluid cells
         GIO.when(!isSolid):
-          // Fetch divergence (right-hand side) - pure operation
           val div = GIO.read(state.divergenceCurrent, idx)
           val pCenter = GIO.read(state.pressurePrevious, idx)
 
-          // Check if neighbors are solid (for Neumann boundary condition)
           val solidXM = ObstacleUtils.isSolidAt(state.obstacles, x - 1, y, z, n)
           val solidXP = ObstacleUtils.isSolidAt(state.obstacles, x + 1, y, z, n)
           val solidYM = ObstacleUtils.isSolidAt(state.obstacles, x, y - 1, z, n)
@@ -154,7 +142,6 @@ object ProjectionProgram:
           val solidZM = ObstacleUtils.isSolidAt(state.obstacles, x, y, z - 1, n)
           val solidZP = ObstacleUtils.isSolidAt(state.obstacles, x, y, z + 1, n)
 
-          // Fetch neighbor pressures, use current pressure for solid neighbors (Neumann BC: ∂p/∂n = 0)
           val pXM = when(solidXM)(pCenter).otherwise(readFloat32Safe(state.pressurePrevious, x - 1, y, z, n))
           val pXP = when(solidXP)(pCenter).otherwise(readFloat32Safe(state.pressurePrevious, x + 1, y, z, n))
           val pYM = when(solidYM)(pCenter).otherwise(readFloat32Safe(state.pressurePrevious, x, y - 1, z, n))
@@ -164,10 +151,8 @@ object ProjectionProgram:
 
           val neighborSum = pXM + pXP + pYM + pYP + pZM + pZP
 
-          // Jacobi update: p = (Σneighbors - divergence) / 6
           val newPressure = (neighborSum - div) / 6.0f
 
-          // Write result to current buffer
           GIO.write(state.pressureCurrent, idx, newPressure)
 
   /** Step 3: Subtract pressure gradient from velocity to make it divergence-free */
@@ -200,15 +185,12 @@ object ProjectionProgram:
       GIO.when(idx < totalCells):
         val (x, y, z) = idxTo3D(idx, n)
 
-        // Skip solid cells
         val isSolid = ObstacleUtils.isSolid(state.obstacles, idx, n)
         
         GIO.when(!isSolid):
-          // Read velocity and pressure (pure operations)
           val vel = GIO.read(state.velocity, idx)
           val pCenter = GIO.read(state.pressure, idx)
 
-          // Check if neighbors are solid (for Neumann boundary condition)
           val solidXM = ObstacleUtils.isSolidAt(state.obstacles, x - 1, y, z, n)
           val solidXP = ObstacleUtils.isSolidAt(state.obstacles, x + 1, y, z, n)
           val solidYM = ObstacleUtils.isSolidAt(state.obstacles, x, y - 1, z, n)
@@ -216,7 +198,6 @@ object ProjectionProgram:
           val solidZM = ObstacleUtils.isSolidAt(state.obstacles, x, y, z - 1, n)
           val solidZP = ObstacleUtils.isSolidAt(state.obstacles, x, y, z + 1, n)
 
-          // Compute pressure gradient, use current pressure for solid neighbors (Neumann BC: ∂p/∂n = 0)
           val pXM = when(solidXM)(pCenter).otherwise(readFloat32Safe(state.pressure, x - 1, y, z, n))
           val pXP = when(solidXP)(pCenter).otherwise(readFloat32Safe(state.pressure, x + 1, y, z, n))
           val pYM = when(solidYM)(pCenter).otherwise(readFloat32Safe(state.pressure, x, y - 1, z, n))
@@ -231,8 +212,6 @@ object ProjectionProgram:
             0.0f
           )
 
-          // Subtract gradient to project onto divergence-free subspace
           val newVel = vel - gradPressure
 
-          // Write result
           GIO.write(state.velocity, idx, newVel)

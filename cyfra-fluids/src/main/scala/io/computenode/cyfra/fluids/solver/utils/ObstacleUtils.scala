@@ -1,4 +1,4 @@
-package io.computenode.cyfra.fluids.solver
+package io.computenode.cyfra.fluids.solver.utils
 
 import io.computenode.cyfra.dsl.{*, given}
 import org.lwjgl.BufferUtils
@@ -59,7 +59,6 @@ object ObstacleUtils:
     n: Int32
   )(using io.computenode.cyfra.dsl.macros.Source): Vec3[Float32] =
     
-    // Sample neighboring cells using when/otherwise for GPU compatibility
     val xp = when(isSolidAt(obstacles, x + 1, y, z, n))(1.0f).otherwise(0.0f)
     val xn = when(isSolidAt(obstacles, x - 1, y, z, n))(1.0f).otherwise(0.0f)
     val yp = when(isSolidAt(obstacles, x, y + 1, z, n))(1.0f).otherwise(0.0f)
@@ -67,9 +66,6 @@ object ObstacleUtils:
     val zp = when(isSolidAt(obstacles, x, y, z + 1, n))(1.0f).otherwise(0.0f)
     val zn = when(isSolidAt(obstacles, x, y, z - 1, n))(1.0f).otherwise(0.0f)
     
-    // Gradient points from low (0) to high (1) density
     val grad = vec3(xp - xn, yp - yn, zp - zn)
     
-    // Normalize (returns zero vector if no gradient)
     normalize(grad)
-

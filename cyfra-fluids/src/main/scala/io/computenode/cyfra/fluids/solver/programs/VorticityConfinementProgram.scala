@@ -1,8 +1,10 @@
-package io.computenode.cyfra.fluids.solver
+package io.computenode.cyfra.fluids.solver.programs
 
 import io.computenode.cyfra.core.GProgram
 import io.computenode.cyfra.core.GProgram.StaticDispatch
 import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.fluids.solver.*
+import io.computenode.cyfra.fluids.solver.utils.GridUtils
 
 /** Vorticity Confinement Program
   * 
@@ -50,13 +52,11 @@ object VorticityConfinementProgram:
       GIO.when(idx < totalCells):
         val (x, y, z) = GridUtils.idxTo3D(idx, n)
         
-        // Skip boundaries (vorticity confinement applied only to interior cells)
         val isInterior = (x > 0) && (x < n - 1) &&
                         (y > 0) && (y < n - 1) &&
                         (z > 0) && (z < n - 1)
         
         GIO.when(isInterior):
-          // Read neighbor velocities (center differences)
           val velXP = GridUtils.readVec4Safe(state.velocity, x + 1, y, z, n)
           val velXM = GridUtils.readVec4Safe(state.velocity, x - 1, y, z, n)
           val velYP = GridUtils.readVec4Safe(state.velocity, x, y + 1, z, n)
@@ -64,18 +64,12 @@ object VorticityConfinementProgram:
           val velZP = GridUtils.readVec4Safe(state.velocity, x, y, z + 1, n)
           val velZM = GridUtils.readVec4Safe(state.velocity, x, y, z - 1, n)
           
-          // Compute vorticity (curl): ω = ∇ × u
-          // ω_x = ∂w/∂y - ∂v/∂z
-          // ω_y = ∂u/∂z - ∂w/∂x
-          // ω_z = ∂v/∂x - ∂u/∂y
-          val dx = 1.0f  // Grid spacing
+          val dx = 1.0f
           val omegaX = (velYP.z - velYM.z) / (2.0f * dx) - (velZP.y - velZM.y) / (2.0f * dx)
           val omegaY = (velZP.x - velZM.x) / (2.0f * dx) - (velXP.z - velXM.z) / (2.0f * dx)
           val omegaZ = (velXP.y - velXM.y) / (2.0f * dx) - (velYP.x - velYM.x) / (2.0f * dx)
           val omega = vec3(omegaX, omegaY, omegaZ)
           
-          // Compute vorticity magnitude at neighboring cells
-          // For (x+1, y, z)
           val velXP_YP = GridUtils.readVec4Safe(state.velocity, x + 1, y + 1, z, n)
           val velXP_YM = GridUtils.readVec4Safe(state.velocity, x + 1, y - 1, z, n)
           val velXP_ZP = GridUtils.readVec4Safe(state.velocity, x + 1, y, z + 1, n)
@@ -85,7 +79,6 @@ object VorticityConfinementProgram:
           val omegaXP_z = (velYP.y - velYM.y) / (2.0f * dx) - (velXP_YP.x - velXP_YM.x) / (2.0f * dx)
           val magXP = sqrt(omegaXP_x * omegaXP_x + omegaXP_y * omegaXP_y + omegaXP_z * omegaXP_z)
           
-          // For (x-1, y, z)
           val velXM_YP = GridUtils.readVec4Safe(state.velocity, x - 1, y + 1, z, n)
           val velXM_YM = GridUtils.readVec4Safe(state.velocity, x - 1, y - 1, z, n)
           val velXM_ZP = GridUtils.readVec4Safe(state.velocity, x - 1, y, z + 1, n)
@@ -95,7 +88,6 @@ object VorticityConfinementProgram:
           val omegaXM_z = (velYM.y - velYP.y) / (2.0f * dx) - (velXM_YP.x - velXM_YM.x) / (2.0f * dx)
           val magXM = sqrt(omegaXM_x * omegaXM_x + omegaXM_y * omegaXM_y + omegaXM_z * omegaXM_z)
           
-          // For (x, y+1, z)
           val velYP_XP = GridUtils.readVec4Safe(state.velocity, x + 1, y + 1, z, n)
           val velYP_XM = GridUtils.readVec4Safe(state.velocity, x - 1, y + 1, z, n)
           val velYP_ZP = GridUtils.readVec4Safe(state.velocity, x, y + 1, z + 1, n)
@@ -105,7 +97,6 @@ object VorticityConfinementProgram:
           val omegaYP_z = (velYP_XP.y - velYP_XM.y) / (2.0f * dx) - (velXP.x - velXM.x) / (2.0f * dx)
           val magYP = sqrt(omegaYP_x * omegaYP_x + omegaYP_y * omegaYP_y + omegaYP_z * omegaYP_z)
           
-          // For (x, y-1, z)
           val velYM_XP = GridUtils.readVec4Safe(state.velocity, x + 1, y - 1, z, n)
           val velYM_XM = GridUtils.readVec4Safe(state.velocity, x - 1, y - 1, z, n)
           val velYM_ZP = GridUtils.readVec4Safe(state.velocity, x, y - 1, z + 1, n)
@@ -115,7 +106,6 @@ object VorticityConfinementProgram:
           val omegaYM_z = (velYM_XP.y - velYM_XM.y) / (2.0f * dx) - (velXM.x - velXP.x) / (2.0f * dx)
           val magYM = sqrt(omegaYM_x * omegaYM_x + omegaYM_y * omegaYM_y + omegaYM_z * omegaYM_z)
           
-          // For (x, y, z+1)
           val velZP_XP = GridUtils.readVec4Safe(state.velocity, x + 1, y, z + 1, n)
           val velZP_XM = GridUtils.readVec4Safe(state.velocity, x - 1, y, z + 1, n)
           val velZP_YP = GridUtils.readVec4Safe(state.velocity, x, y + 1, z + 1, n)
@@ -125,7 +115,6 @@ object VorticityConfinementProgram:
           val omegaZP_z = (velZP_XP.y - velZP_XM.y) / (2.0f * dx) - (velZP_YP.x - velZP_YM.x) / (2.0f * dx)
           val magZP = sqrt(omegaZP_x * omegaZP_x + omegaZP_y * omegaZP_y + omegaZP_z * omegaZP_z)
           
-          // For (x, y, z-1)
           val velZM_XP = GridUtils.readVec4Safe(state.velocity, x + 1, y, z - 1, n)
           val velZM_XM = GridUtils.readVec4Safe(state.velocity, x - 1, y, z - 1, n)
           val velZM_YP = GridUtils.readVec4Safe(state.velocity, x, y + 1, z - 1, n)
@@ -135,15 +124,13 @@ object VorticityConfinementProgram:
           val omegaZM_z = (velZM_XP.y - velZM_XM.y) / (2.0f * dx) - (velZM_YP.x - velZM_YM.x) / (2.0f * dx)
           val magZM = sqrt(omegaZM_x * omegaZM_x + omegaZM_y * omegaZM_y + omegaZM_z * omegaZM_z)
           
-          // Compute gradient of vorticity magnitude: ∇|ω|
           val gradMagX = (magXP - magXM) / (2.0f * dx)
           val gradMagY = (magYP - magYM) / (2.0f * dx)
           val gradMagZ = (magZP - magZM) / (2.0f * dx)
           val gradMag = vec3(gradMagX, gradMagY, gradMagZ)
           
-          // Normalize: N = ∇|ω| / |∇|ω||
           val gradMagLength = sqrt(gradMagX * gradMagX + gradMagY * gradMagY + gradMagZ * gradMagZ)
-          val epsilon = 1e-6f  // Prevent division by zero
+          val epsilon = 1e-6f
           val N = when(gradMagLength > epsilon):
             vec3(
               gradMagX / gradMagLength,
@@ -153,14 +140,10 @@ object VorticityConfinementProgram:
           .otherwise:
             vec3(0.0f, 0.0f, 0.0f)
           
-          // Compute vorticity confinement force: f_conf = ε(N × ω)
-          // Cross product: N × ω
           val forceX = N.y * omega.z - N.z * omega.y
           val forceY = N.z * omega.x - N.x * omega.z
           val forceZ = N.x * omega.y - N.y * omega.x
           
-          // Vorticity confinement coefficient (adjustable parameter)
-          // Typical values: 0.1 to 0.5 for smoke simulation
           val vorticityEpsilon = 0.3f
           
           val confinementForce = vec3(
@@ -169,7 +152,6 @@ object VorticityConfinementProgram:
             forceZ * vorticityEpsilon
           )
           
-          // Apply force to velocity
           val vel = state.velocity.read(idx)
           val newVel = vec4(
             vel.x + confinementForce.x * params.dt,
@@ -179,4 +161,3 @@ object VorticityConfinementProgram:
           )
           
           GIO.write(state.velocity, idx, newVel)
-

@@ -4,6 +4,7 @@ package io.computenode.cyfra.fluids.solver
 import io.computenode.cyfra.core.GBufferRegion
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.fluids.solver.*
+import io.computenode.cyfra.fluids.solver.programs.DiffusionProgram
 import io.computenode.cyfra.runtime.VkCyfraRuntime
 
 import java.nio.{ByteBuffer, ByteOrder}
@@ -31,6 +32,7 @@ class DiffusionProgramTest extends munit.FunSuite:
       ambient = 0.0f,
       gridSize = gridSize,
       windX = 0.0f,
+      windY = 0.0f,
       windZ = 0.0f
     )
     
@@ -76,12 +78,15 @@ class DiffusionProgramTest extends munit.FunSuite:
         pressureCurrent = GBuffer(ByteBuffer.allocateDirect(totalCells * 4).order(ByteOrder.nativeOrder())),
         densityCurrent = GBuffer(ByteBuffer.allocateDirect(totalCells * 4).order(ByteOrder.nativeOrder())),
         temperatureCurrent = GBuffer(ByteBuffer.allocateDirect(totalCells * 4).order(ByteOrder.nativeOrder())),
+        dyeCurrent = GBuffer(ByteBuffer.allocateDirect(totalCells * 4).order(ByteOrder.nativeOrder())),
         divergenceCurrent = GBuffer(ByteBuffer.allocateDirect(totalCells * 4).order(ByteOrder.nativeOrder())),
         velocityPrevious = GBuffer(velocityBuffer),
         pressurePrevious = GBuffer(ByteBuffer.allocateDirect(totalCells * 4).order(ByteOrder.nativeOrder())),
         densityPrevious = GBuffer(ByteBuffer.allocateDirect(totalCells * 4).order(ByteOrder.nativeOrder())),
         temperaturePrevious = GBuffer(ByteBuffer.allocateDirect(totalCells * 4).order(ByteOrder.nativeOrder())),
+        dyePrevious = GBuffer(ByteBuffer.allocateDirect(totalCells * 4).order(ByteOrder.nativeOrder())),
         divergencePrevious = GBuffer(ByteBuffer.allocateDirect(totalCells * 4).order(ByteOrder.nativeOrder())),
+        obstacles = GBuffer(ByteBuffer.allocateDirect(totalCells * 4).order(ByteOrder.nativeOrder())),
         params = GUniform(paramsBuffer)
       ),
       onDone = layout =>
