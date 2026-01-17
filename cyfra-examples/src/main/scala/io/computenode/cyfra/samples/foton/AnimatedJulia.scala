@@ -2,9 +2,6 @@ package io.computenode.cyfra.samples.foton
 
 import io.computenode.cyfra
 import io.computenode.cyfra.*
-import io.computenode.cyfra.dsl.collections.GSeq
-import io.computenode.cyfra.dsl.library.Color.{InterpolationThemes, interpolate}
-import io.computenode.cyfra.dsl.library.Math3D.*
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.foton.animation.AnimatedFunctionRenderer.Parameters
 import io.computenode.cyfra.foton.animation.AnimationFunctions.*

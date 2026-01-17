@@ -7,6 +7,7 @@ import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
 import io.computenode.cyfra.dsl.gio.GIO
 import io.computenode.cyfra.dsl.struct.{GStructConstructor, GStructSchema}
+import io.computenode.cyfra.dsl.struct.GStruct.GetField
 import io.computenode.cyfra.spirv.Context
 import io.computenode.cyfra.spirv.SpirvConstants.*
 import io.computenode.cyfra.spirv.SpirvTypes.*
@@ -240,10 +241,15 @@ private[cyfra] object SpirvProgramCompiler:
 
   val predefinedConsts = List((Int32Tag, 0), (UInt32Tag, 0), (Int32Tag, 1))
   def defineConstants(exprs: List[E[?]], ctx: Context): (List[Words], Context) =
+    // Collect field indices from GetField expressions
+    val fieldIndices = exprs.collect { case gf: GetField[?, ?] =>
+      (Int32Tag, gf.fieldIndex)
+    }.distinct
+
     val consts =
       (exprs.collect { case c @ Const(x) =>
         (c.tag, x)
-      } ::: predefinedConsts).distinct.filterNot(_._1 == GBooleanTag)
+      } ::: predefinedConsts ::: fieldIndices).distinct.filterNot(_._1 == GBooleanTag)
     val (insns, newC) = consts.foldLeft((List[Words](), ctx)) { case ((instructions, context), const) =>
       val insn =
         Instruction(Op.OpConstant, List(ResultRef(context.valueTypeMap(const._1.tag)), ResultRef(context.nextResultId), toWord(const._1, const._2)))

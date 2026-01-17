@@ -2,11 +2,6 @@ package io.computenode.cyfra.e2e
 
 import io.computenode.cyfra.core.layout.*
 import io.computenode.cyfra.core.{GBufferRegion, GExecution, GProgram}
-import io.computenode.cyfra.dsl.Value.{GBoolean, Int32}
-import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
-import io.computenode.cyfra.dsl.gio.GIO
-import io.computenode.cyfra.dsl.struct.GStruct
-import io.computenode.cyfra.dsl.struct.GStruct.Empty
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.runtime.VkCyfraRuntime
 import io.computenode.cyfra.spirvtools.{SpirvCross, SpirvDisassembler, SpirvToolsRunner}
@@ -157,7 +152,7 @@ class RuntimeEnduranceTest extends munit.FunSuite:
         _ <- GIO.write(out3, index, GIO.read(in3, index) + a + b)
         _ <- GIO.write(out4, index, GIO.read(in4, index) + a + b)
         _ <- GIO.write(out5, index, GIO.read(in5, index) + a + b)
-      yield Empty()
+      yield GStruct.Empty()
 
   def swap(l: AddProgramLayout): AddProgramLayout =
     val AddProgramLayout(in1, in2, in3, in4, in5, out1, out2, out3, out4, out5, u1, u2) = l
