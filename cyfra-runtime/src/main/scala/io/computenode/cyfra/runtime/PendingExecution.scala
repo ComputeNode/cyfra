@@ -24,9 +24,7 @@ import scala.util.boundary.break
   *
   * You can call `destroy()` only when all dependants are `isClosed`
   */
-class PendingExecution(protected val handle: VkCommandBuffer, val dependencies: Seq[PendingExecution], cleanup: () => Unit, val message: String)(using
-  Device,
-):
+class PendingExecution(protected val handle: VkCommandBuffer, val dependencies: Seq[PendingExecution], cleanup: () => Unit)(using Device):
   private var fence: Option[Fence] = None
   def isPending: Boolean = fence.isEmpty
   def isRunning: Boolean = fence.exists(f => f.isAlive && !f.isSignaled)
@@ -50,7 +48,7 @@ class PendingExecution(protected val handle: VkCommandBuffer, val dependencies: 
 
   override def toString: String =
     val state = if isPending then "Pending" else if isRunning then "Running" else if isFinished then "Finished" else "Unknown"
-    s"PendingExecution($message, $handle, ${fence.getOrElse("")}, state=$state dependencies=${dependencies.size})"
+    s"PendingExecution($handle, ${fence.getOrElse("")}, state=$state dependencies=${dependencies.size})"
 
   /** Gathers all command buffers and their semaphores for submission to the queue, in the correct order.
     *

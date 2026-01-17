@@ -52,7 +52,7 @@ class VkAllocation(val commandPool: CommandPool.Reset, executionHandler: Executi
           stagingBuffer.destroy()
         case _ => throw new IllegalArgumentException(s"Tried to read from non-VkBinding $buffer")
 
-    def write(bb: ByteBuffer, offset: Int = 0)(using name: sourcecode.FileName, line: sourcecode.Line): Unit =
+    def write(bb: ByteBuffer, offset: Int = 0): Unit =
       val size = bb.remaining()
       buffer match
         case VkBinding(buffer: Buffer.HostBuffer) => buffer.copyFrom(bb, offset)
@@ -64,7 +64,7 @@ class VkAllocation(val commandPool: CommandPool.Reset, executionHandler: Executi
           val cleanup = () =>
             commandPool.freeCommandBuffer(cb)
             stagingBuffer.destroy()
-          val pe = new PendingExecution(cb, binding.execution.fold(Seq(_), _.toSeq), cleanup, s"Writing at ${name.value}:${line.value}")
+          val pe = new PendingExecution(cb, binding.execution.fold(Seq(_), _.toSeq), cleanup)
           addExecution(pe)
           binding.execution = Left(pe)
         case _ => throw new IllegalArgumentException(s"Tried to write to non-VkBinding $buffer")
@@ -73,26 +73,23 @@ class VkAllocation(val commandPool: CommandPool.Reset, executionHandler: Executi
     def apply[T <: Value: {Tag, FromExpr}](length: Int): GBuffer[T] =
       VkBuffer[T](length).tap(bindings += _)
 
-    def apply[T <: Value: {Tag, FromExpr}](buff: ByteBuffer)(using name: sourcecode.FileName, line: sourcecode.Line): GBuffer[T] =
+    def apply[T <: Value: {Tag, FromExpr}](buff: ByteBuffer): GBuffer[T] =
       val sizeOfT = typeStride(summon[Tag[T]])
       val length = buff.capacity() / sizeOfT
       if buff.capacity() % sizeOfT != 0 then
         throw new IllegalArgumentException(s"ByteBuffer size ${buff.capacity()} is not a multiple of element size $sizeOfT")
-      GBuffer[T](length).tap(_.write(buff)(using name, line))
+      GBuffer[T](length).tap(_.write(buff))
 
   extension (uniforms: GUniform.type)
-    def apply[T <: GStruct[?]: {Tag, FromExpr, GStructSchema}](
-      buff: ByteBuffer,
-    )(using name: sourcecode.FileName, line: sourcecode.Line): GUniform[T] =
-      GUniform[T]().tap(_.write(buff)(using name, line))
+    def apply[T <: GStruct[?]: {Tag, FromExpr, GStructSchema}](buff: ByteBuffer): GUniform[T] =
+      GUniform[T]().tap(_.write(buff))
 
     def apply[T <: GStruct[?]: {Tag, FromExpr, GStructSchema}](): GUniform[T] =
       VkUniform[T]().tap(bindings += _)
 
   extension [Params, EL: Layout, RL: Layout](execution: GExecution[Params, EL, RL])
-    def execute(params: Params, layout: EL)(using name: sourcecode.FileName, line: sourcecode.Line): RL =
-      val message = s"Executing at ${name.value}:${line.value}"
-      executionHandler.handle(execution, params, layout, message)
+    def execute(params: Params, layout: EL): RL =
+      executionHandler.handle(execution, params, layout)
 
   private def direct[T <: GStruct[?]: {Tag, FromExpr, GStructSchema}](buff: ByteBuffer): GUniform[T] =
     GUniform[T](buff)

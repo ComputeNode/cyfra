@@ -15,17 +15,16 @@ trait Allocation:
   extension (buffer: GBinding[?])
     def read(bb: ByteBuffer, offset: Int = 0): Unit
 
-    def write(bb: ByteBuffer, offset: Int = 0)(using name: sourcecode.FileName, line: sourcecode.Line): Unit
+    def write(bb: ByteBuffer, offset: Int = 0): Unit
 
-  extension [Params, EL: Layout, RL: Layout](execution: GExecution[Params, EL, RL])
-    def execute(params: Params, layout: EL)(using name: sourcecode.FileName, line: sourcecode.Line): RL
+  extension [Params, EL: Layout, RL: Layout](execution: GExecution[Params, EL, RL]) def execute(params: Params, layout: EL): RL
 
   extension (buffers: GBuffer.type)
     def apply[T <: Value: {Tag, FromExpr}](length: Int): GBuffer[T]
 
-    def apply[T <: Value: {Tag, FromExpr}](buff: ByteBuffer)(using name: sourcecode.FileName, line: sourcecode.Line): GBuffer[T]
+    def apply[T <: Value: {Tag, FromExpr}](buff: ByteBuffer): GBuffer[T]
 
   extension (buffers: GUniform.type)
-    def apply[T <: GStruct[T]: {Tag, FromExpr, GStructSchema}](buff: ByteBuffer)(using name: sourcecode.FileName, line: sourcecode.Line): GUniform[T]
+    def apply[T <: GStruct[T]: {Tag, FromExpr, GStructSchema}](buff: ByteBuffer): GUniform[T]
 
     def apply[T <: GStruct[T]: {Tag, FromExpr, GStructSchema}](): GUniform[T]
