@@ -2,7 +2,7 @@ package io.computenode.cyfra.runtime
 
 import io.computenode.cyfra.core.{GProgram, ExpressionProgram}
 import io.computenode.cyfra.core.GProgram.InitProgramLayout
-import io.computenode.cyfra.core.layout.{Layout, LayoutBinding, LayoutStruct}
+import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.core.binding.{GBuffer, GUniform}
 import io.computenode.cyfra.spirv.compilers.DSLCompiler
 import io.computenode.cyfra.vulkan.compute.ComputePipeline
@@ -16,10 +16,10 @@ import scala.util.{Failure, Success}
 case class VkShader[L](underlying: ComputePipeline, shaderBindings: L => ShaderLayout)
 
 object VkShader:
-  def apply[P, L <: Layout: {LayoutBinding, LayoutStruct}](program: SpirvProgram[P, L])(using Device): VkShader[L] =
+  def apply[P, L: Layout](program: SpirvProgram[P, L])(using Device): VkShader[L] =
     val SpirvProgram(layout, dispatch, _workgroupSize, code, entryPoint, shaderBindings) = program
 
-    val shaderLayout = shaderBindings(summon[LayoutStruct[L]].layoutRef)
+    val shaderLayout = shaderBindings(Layout[L].layoutRef)
     val sets = shaderLayout.map: set =>
       val descriptors = set.map:
         case Binding(binding, op) =>

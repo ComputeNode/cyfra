@@ -21,7 +21,7 @@ class VkCyfraRuntime(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()) ex
   private val shaderCache = mutable.Map[(Long, Long), VkShader[?]]()
   private val compiler = new Compiler()
 
-  private[cyfra] def getOrLoadProgram[Params, L <: Layout: {LayoutBinding, LayoutStruct}](program: GProgram[Params, L]): VkShader[L] = synchronized:
+  private[cyfra] def getOrLoadProgram[Params, L: Layout](program: GProgram[Params, L]): VkShader[L] = synchronized:
 
     val spirvProgram: SpirvProgram[Params, L] = program match
       case p: ExpressionProgram[Params, L] if gProgramCache.contains(p) =>
@@ -33,7 +33,7 @@ class VkCyfraRuntime(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()) ex
     gProgramCache.update(program, spirvProgram)
     shaderCache.getOrElseUpdate(spirvProgram.shaderHash, VkShader(spirvProgram)).asInstanceOf[VkShader[L]]
 
-  private def compile[Params, L <: Layout: {LayoutBinding as lbinding, LayoutStruct as lstruct}](
+  private def compile[Params, L : Layout](
     program: ExpressionProgram[Params, L],
   ): SpirvProgram[Params, L] =
     val ExpressionProgram(body, layout, dispatch, workgroupSize) = program
@@ -53,8 +53,8 @@ class VkCyfraRuntime(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()) ex
     context.withThreadContext: threadContext =>
       val executionHandler = new ExecutionHandler(this, threadContext, context)
       val allocation = new VkAllocation(threadContext.commandPool, executionHandler)
-      f(allocation)
-      allocation.close()
+      try f(allocation)
+      finally allocation.close()
 
   def close(): Unit =
     shaderCache.values.foreach(_.underlying.destroy())

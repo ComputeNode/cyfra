@@ -4,7 +4,7 @@ import io.computenode.cyfra.vulkan.command.{CommandPool, Fence, Semaphore}
 import io.computenode.cyfra.vulkan.core.{Device, Queue}
 import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import io.computenode.cyfra.vulkan.util.VulkanObject
-import org.lwjgl.vulkan.VK10.{VK_TRUE, vkQueueSubmit}
+import org.lwjgl.vulkan.VK10.*
 import org.lwjgl.vulkan.VK13.{VK_PIPELINE_STAGE_2_COPY_BIT, vkQueueSubmit2}
 import org.lwjgl.vulkan.{
   VK13,
@@ -16,7 +16,7 @@ import org.lwjgl.vulkan.{
   VkTimelineSemaphoreSubmitInfo,
 }
 
-import scala.util.boundary
+import scala.util.boundary.break
 
 /** A command buffer that is pending execution, along with its dependencies and cleanup actions.
   *
@@ -24,16 +24,12 @@ import scala.util.boundary
   *
   * You can call `destroy()` only when all dependants are `isClosed`
   */
-class PendingExecution(protected val handle: VkCommandBuffer, val dependencies: Seq[PendingExecution], cleanup: () => Unit, val message: String)(using
-  Device,
-):
-  private var gathered = false
-  def isPending: Boolean = !gathered
-
-  private val semaphore: Semaphore = Semaphore()
-  def isRunning: Boolean = !isPending && semaphore.isAlive && semaphore.getValue == 0
-  def isFinished: Boolean = !semaphore.isAlive || semaphore.getValue > 0
-  def block(): Unit = semaphore.waitValue(1)
+class PendingExecution(protected val handle: VkCommandBuffer, val dependencies: Seq[PendingExecution], cleanup: () => Unit)(using Device):
+  private var fence: Option[Fence] = None
+  def isPending: Boolean = fence.isEmpty
+  def isRunning: Boolean = fence.exists(f => f.isAlive && !f.isSignaled)
+  def isFinished: Boolean = fence.exists(f => !f.isAlive || f.isSignaled)
+  def block(): Unit = fence.foreach(f => if f.isAlive then f.block())
 
   private var closed = false
   def isClosed: Boolean = closed
@@ -47,12 +43,12 @@ class PendingExecution(protected val handle: VkCommandBuffer, val dependencies: 
   def destroy(): Unit =
     if destroyed then return
     close()
-    semaphore.destroy()
+    fence.foreach(x => if x.isAlive then x.destroy())
     destroyed = true
 
   override def toString: String =
     val state = if isPending then "Pending" else if isRunning then "Running" else if isFinished then "Finished" else "Unknown"
-    s"PendingExecution($message, $handle, $semaphore, state=$state dependencies=${dependencies.size})"
+    s"PendingExecution($handle, ${fence.getOrElse("")}, state=$state dependencies=${dependencies.size})"
 
   /** Gathers all command buffers and their semaphores for submission to the queue, in the correct order.
     *
@@ -61,45 +57,32 @@ class PendingExecution(protected val handle: VkCommandBuffer, val dependencies: 
     * @return
     *   A sequence of tuples, each containing a command buffer, semaphore to signal, and a set of semaphores to wait on.
     */
-  private def gatherForSubmission(): Seq[((VkCommandBuffer, Semaphore), Set[Semaphore])] =
+  private def gatherForSubmission(f: Fence): Seq[VkCommandBuffer] =
     if !isPending then return Seq.empty
-    gathered = true
-    val mySubmission = ((handle, semaphore), Set.empty[Semaphore])
-    dependencies.flatMap(_.gatherForSubmission()).appended(mySubmission)
+    fence = Some(f)
+    dependencies.flatMap(_.gatherForSubmission(f)).appended(handle)
 
 object PendingExecution:
   def executeAll(executions: Seq[PendingExecution], allocation: VkAllocation)(using Device): Unit = pushStack: stack =>
     assert(executions.forall(_.isPending), "All executions must be pending")
-    assert(executions.nonEmpty, "At least one execution must be provided")
+    if executions.isEmpty then break()
 
-    val gathered = executions.flatMap(_.gatherForSubmission()).map(x => (x._1._1, x._1._2, x._2))
+    val fence = Fence()
+    val gathered = executions.flatMap(_.gatherForSubmission(fence))
 
     val submitInfos = VkSubmitInfo.calloc(gathered.size, stack)
-    gathered.foreach: (commandBuffer, semaphore, dependencies) =>
-      val deps = dependencies.toList
-      val (semaphores, waitValue, signalValue) = ((semaphore.get, 0L, 1L) +: deps.map(x => (x.get, 1L, 0L))).unzip3
-
-      val timelineSI = VkTimelineSemaphoreSubmitInfo
-        .calloc(stack)
-        .sType$Default()
-        .pWaitSemaphoreValues(stack.longs(waitValue*))
-        .pSignalSemaphoreValues(stack.longs(signalValue*))
-
+    gathered.foreach: commandBuffer =>
       submitInfos
         .get()
         .sType$Default()
-        .pNext(timelineSI)
         .pCommandBuffers(stack.pointers(commandBuffer, allocation.synchroniseCommand))
-        .pSignalSemaphores(stack.longs(semaphores*))
-        .pWaitSemaphores(stack.longs(semaphores*))
-
     submitInfos.flip()
 
-    check(vkQueueSubmit(allocation.commandPool.queue.get, submitInfos, 0), "Failed to submit command buffer to queue")
+    check(vkQueueSubmit(allocation.commandPool.queue.get, submitInfos, fence.get), "Failed to submit command buffer to queue")
 
   def cleanupAll(executions: Seq[PendingExecution]): Unit =
     def cleanupRec(ex: PendingExecution): Unit =
-      if !ex.isClosed then return
+      if ex.isClosed then return
       ex.close()
       ex.dependencies.foreach(cleanupRec)
     executions.foreach(cleanupRec)

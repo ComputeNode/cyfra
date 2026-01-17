@@ -1,0 +1,77 @@
+/**
+ * Cyfra Documentation Theme - Dark Only
+ */
+
+:root {
+  --ifm-color-primary: #f97316;
+  --ifm-color-primary-dark: #ea580c;
+  --ifm-color-primary-darker: #c2410c;
+  --ifm-color-primary-darkest: #9a3412;
+  --ifm-color-primary-light: #fb923c;
+  --ifm-color-primary-lighter: #fdba74;
+  --ifm-color-primary-lightest: #fed7aa;
+  --ifm-background-color: #0c0a09;
+  --ifm-background-surface-color: #1c1917;
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(234, 88, 12, 0.2);
+  --ifm-footer-background-color: #0c0a09;
+  --ifm-footer-color: #a8a29e;
+  --ifm-footer-link-color: #d6d3d1;
+  --ifm-footer-title-color: #fafaf9;
+}
+
+/* Navbar */
+.navbar {
+  background-color: #0c0a09;
+  box-shadow: none;
+  border-bottom: 1px solid #292524;
+}
+
+.navbar__title {
+  color: #fafaf9;
+}
+
+.navbar__link {
+  color: #d6d3d1;
+}
+
+.navbar__link:hover {
+  color: #fafaf9;
+}
+
+/* Footer */
+.footer {
+  background-color: #0c0a09;
+  border-top: 1px solid #292524;
+}
+
+.footer--dark {
+  --ifm-footer-background-color: #0c0a09;
+  background-color: #0c0a09;
+}
+
+.footer__title {
+  color: #fafaf9;
+}
+
+.footer__link-item {
+  color: #a8a29e;
+}
+
+.footer__link-item:hover {
+  color: #fafaf9;
+}
+
+.footer__copyright {
+  color: #78716c;
+}
+
+/* Style links */
+a:hover {
+  text-decoration: none;
+}
+
+/* Code blocks */
+.prism-code {
+  font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+}

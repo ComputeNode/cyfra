@@ -2,11 +2,6 @@ package io.computenode.cyfra.e2e
 
 import io.computenode.cyfra.core.layout.*
 import io.computenode.cyfra.core.{GBufferRegion, GExecution, GProgram}
-import io.computenode.cyfra.dsl.Value.{GBoolean, Int32}
-import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
-import io.computenode.cyfra.dsl.gio.GIO
-import io.computenode.cyfra.dsl.struct.GStruct
-import io.computenode.cyfra.dsl.struct.GStruct.Empty
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.runtime.{SpirvProgram, VkCyfraRuntime}
 import io.computenode.cyfra.spirvtools.{SpirvCross, SpirvDisassembler, SpirvToolsRunner}
@@ -35,7 +30,7 @@ class SpirvRuntimeEnduranceTest extends munit.FunSuite:
     in: GBuffer[Int32],
     out: GBuffer[Int32],
     args: GUniform[EmitProgramUniform] = GUniform.fromParams, // todo will be different in the future
-  ) extends Layout
+  ) derives Layout
 
   val emitProgram = SpirvProgram.fromFile[EmitProgramParams, EmitProgramLayout](
     layout = params =>
@@ -55,7 +50,7 @@ class SpirvRuntimeEnduranceTest extends munit.FunSuite:
   case class FilterProgramUniform(filterValue: Int32) extends GStruct[FilterProgramUniform]
 
   case class FilterProgramLayout(in: GBuffer[Int32], out: GBuffer[GBoolean], params: GUniform[FilterProgramUniform] = GUniform.fromParams)
-      extends Layout
+      derives Layout
 
   val filterProgram = SpirvProgram.fromFile[FilterProgramParams, FilterProgramLayout](
     layout = params =>
@@ -71,9 +66,9 @@ class SpirvRuntimeEnduranceTest extends munit.FunSuite:
 
   case class EmitFilterParams(inSize: Int, emitN: Int, filterValue: Int)
 
-  case class EmitFilterLayout(inBuffer: GBuffer[Int32], emitBuffer: GBuffer[Int32], filterBuffer: GBuffer[GBoolean]) extends Layout
+  case class EmitFilterLayout(inBuffer: GBuffer[Int32], emitBuffer: GBuffer[Int32], filterBuffer: GBuffer[GBoolean]) derives Layout
 
-  case class EmitFilterResult(out: GBuffer[GBoolean]) extends Layout
+  case class EmitFilterResult(out: GBuffer[GBoolean]) derives Layout
 
   val emitFilterExecution = GExecution[EmitFilterParams, EmitFilterLayout]()
     .addProgram(emitProgram)(
@@ -103,7 +98,7 @@ class SpirvRuntimeEnduranceTest extends munit.FunSuite:
     out5: GBuffer[Int32],
     u1: GUniform[AddProgramUniform] = GUniform.fromParams,
     u2: GUniform[AddProgramUniform] = GUniform.fromParams,
-  ) extends Layout
+  ) derives Layout
 
   case class AddProgramExecLayout(
     in1: GBuffer[Int32],
@@ -116,7 +111,7 @@ class SpirvRuntimeEnduranceTest extends munit.FunSuite:
     out3: GBuffer[Int32],
     out4: GBuffer[Int32],
     out5: GBuffer[Int32],
-  ) extends Layout
+  ) derives Layout
 
   val addProgram: GProgram[AddProgramParams, AddProgramLayout] = GProgram.fromSpirvFile[AddProgramParams, AddProgramLayout](
     layout = params =>

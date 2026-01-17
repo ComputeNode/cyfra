@@ -8,8 +8,9 @@ import io.computenode.cyfra.vulkan.core.{Device, Queue}
 import izumi.reflect.Tag
 import org.lwjgl.vulkan.VK10
 import org.lwjgl.vulkan.VK10.*
-
+import io.computenode.cyfra.dsl.binding.{GBinding, GBuffer, GUniform}
 import scala.collection.mutable
+import scala.util.chaining.given
 
 sealed abstract class VkBinding[T : Value](val buffer: Buffer):
   val sizeOfT: Int = typeStride(Value[T])
@@ -21,14 +22,10 @@ sealed abstract class VkBinding[T : Value](val buffer: Buffer):
   var execution: Either[PendingExecution, mutable.Buffer[PendingExecution]] = Right(mutable.Buffer.empty)
 
   def materialise(allocation: VkAllocation)(using Device): Unit =
-    val (pendingExecs, runningExecs) = execution.fold(Seq(_), _.toSeq).partition(_.isPending) // TODO better handle read only executions
-    if pendingExecs.nonEmpty then
-      PendingExecution.executeAll(pendingExecs, allocation)
-      pendingExecs.foreach(_.block())
-      PendingExecution.cleanupAll(pendingExecs)
-
-    runningExecs.foreach(_.block())
-    PendingExecution.cleanupAll(runningExecs)
+    val allExecs = execution.fold(Seq(_), _.toSeq) // TODO better handle read only executions
+    allExecs.filter(_.isPending).pipe(PendingExecution.executeAll(_, allocation))
+    allExecs.foreach(_.block())
+    PendingExecution.cleanupAll(allExecs)
 
 object VkBinding:
   def unapply(binding: GBinding[?]): Option[Buffer] = binding match

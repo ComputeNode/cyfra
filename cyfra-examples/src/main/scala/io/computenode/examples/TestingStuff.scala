@@ -1,13 +1,8 @@
-package io.computenode.examples
+package io.computenode.cyfra.samples
 
-import io.computenode.cyfra.core.binding.{BufferRef, GBuffer, GUniform, UniformRef}
-import io.computenode.cyfra.core.expression.JumpTarget.BreakTarget
-import io.computenode.cyfra.core.expression.{*, given}
-import io.computenode.cyfra.core.expression.ops.{*, given}
 import io.computenode.cyfra.core.layout.*
 import io.computenode.cyfra.core.{GBufferRegion, GExecution, GProgram}
-import io.computenode.cyfra.dsl.Library.*
-import io.computenode.cyfra.dsl.direct.*
+import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.runtime.VkCyfraRuntime
 import io.computenode.cyfra.spirvtools.SpirvTool.ToFile
 import io.computenode.cyfra.spirvtools.{SpirvCross, SpirvToolsRunner, SpirvValidator}
@@ -19,72 +14,65 @@ import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.parallel.CollectionConverters.given
 
 object TestingStuff:
-  given LayoutStruct[EmitProgramLayout] = LayoutStruct(EmitProgramLayout(BufferRef(0), BufferRef(1), UniformRef(2)))
-  given LayoutStruct[FilterProgramLayout] = LayoutStruct(FilterProgramLayout(BufferRef(0), BufferRef(1), UniformRef(2)))
 
   // === Emit program ===
 
   case class EmitProgramParams(inSize: Int, emitN: Int)
 
-  type EmitProgramUniform = UInt32
+  case class EmitProgramUniform(emitN: Int32) extends GStruct[EmitProgramUniform]
 
   case class EmitProgramLayout(
     in: GBuffer[Int32],
     out: GBuffer[Int32],
     args: GUniform[EmitProgramUniform] = GUniform.fromParams, // todo will be different in the future
-  ) extends Layout
+  )
 
-  val emitProgram = GioProgram[EmitProgramParams, EmitProgramLayout](
+  val emitProgram = GProgram[EmitProgramParams, EmitProgramLayout](
     layout = params =>
-      EmitProgramLayout(in = GBuffer[Int32](params.inSize), out = GBuffer[Int32](params.inSize * params.emitN), args = GUniform(UInt32(params.emitN))),
+      EmitProgramLayout(
+        in = GBuffer[Int32](params.inSize),
+        out = GBuffer[Int32](params.inSize * params.emitN),
+        args = GUniform(EmitProgramUniform(params.emitN)),
+      ),
     dispatch = (_, args) => GProgram.StaticDispatch((args.inSize / 128, 1, 1)),
   ): layout =>
-    val emitN = GIO.read(layout.args)
-    val invocId = invocationId
+    val EmitProgramUniform(emitN) = layout.args.read
+    val invocId = GIO.invocationId
     val element = GIO.read(layout.in, invocId)
     val bufferOffset = invocId * emitN
-
-    val iVar = GIO.declare[UInt32]()
-    GIO.write(iVar, UInt32(0))
-
-    val body: (GIO, BreakTarget) ?=> Unit =
-      val i = GIO.read(iVar)
-      GIO.conditionalBreak(i >= emitN)
+    GIO.repeat(emitN): i =>
       GIO.write(layout.out, bufferOffset + i, element)
-
-    val continue: GIO ?=> Unit =
-      val i = GIO.read(iVar)
-      GIO.write(iVar, i + UInt32(1))
-
-    GIO.loop(body, continue)
 
   // === Filter program ===
 
   case class FilterProgramParams(inSize: Int, filterValue: Int)
 
-  type FilterProgramUniform = Int32
-  
-  case class FilterProgramLayout(in: GBuffer[Int32], out: GBuffer[Int32], params: GUniform[FilterProgramUniform] = GUniform.fromParams) extends Layout
+  case class FilterProgramUniform(filterValue: Int32) extends GStruct[FilterProgramUniform]
 
+  case class FilterProgramLayout(in: GBuffer[Int32], out: GBuffer[Int32], params: GUniform[FilterProgramUniform] = GUniform.fromParams)
 
-  val filterProgram = GioProgram[FilterProgramParams, FilterProgramLayout](
-    layout =
-      params => FilterProgramLayout(in = GBuffer[Int32](params.inSize), out = GBuffer[Int32](params.inSize), params = GUniform(params.filterValue)),
+  val filterProgram = GProgram[FilterProgramParams, FilterProgramLayout](
+    layout = params =>
+      FilterProgramLayout(
+        in = GBuffer[Int32](params.inSize),
+        out = GBuffer[Int32](params.inSize),
+        params = GUniform(FilterProgramUniform(params.filterValue)),
+      ),
     dispatch = (_, args) => GProgram.StaticDispatch((args.inSize / 128, 1, 1)),
   ): layout =>
-    val invocId = invocationId
+    val invocId = GIO.invocationId
     val element = GIO.read(layout.in, invocId)
-    val filterValue = GIO.read(layout.params)
-    val a = when[Int32](element === filterValue)(1)(0)
+    val isMatch = element === layout.params.read.filterValue
+    val a: Int32 = when[Int32](isMatch)(1).otherwise(0)
     GIO.write(layout.out, invocId, a)
 
   // === GExecution ===
 
   case class EmitFilterParams(inSize: Int, emitN: Int, filterValue: Int)
 
-  case class EmitFilterLayout(inBuffer: GBuffer[Int32], emitBuffer: GBuffer[Int32], filterBuffer: GBuffer[Int32]) extends Layout
+  case class EmitFilterLayout(inBuffer: GBuffer[Int32], emitBuffer: GBuffer[Int32], filterBuffer: GBuffer[Int32])
 
-  case class EmitFilterResult(out: GBuffer[Int32]) extends Layout
+  case class EmitFilterResult(out: GBuffer[Int32])
 
   val emitFilterExecution = GExecution[EmitFilterParams, EmitFilterLayout]()
     .addProgram(emitProgram)(

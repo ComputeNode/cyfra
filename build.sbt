@@ -38,6 +38,8 @@ lazy val vulkanNatives =
 lazy val commonSettings = Seq(
   scalacOptions ++= Seq("-feature", "-deprecation", "-unchecked", "-language:implicitConversions"),
   resolvers += "maven snapshots" at "https://central.sonatype.com/repository/maven-snapshots/",
+  resolvers += "OSGeo Release Repository" at "https://repo.osgeo.org/repository/release/",
+  resolvers += "OSGeo Snapshot Repository" at "https://repo.osgeo.org/repository/snapshot/",
   libraryDependencies ++= Seq(
     "dev.zio" % "izumi-reflect_3" % "3.0.5",
     "com.lihaoyi" % "pprint_3" % "0.9.0",
@@ -59,6 +61,24 @@ lazy val commonSettings = Seq(
 lazy val runnerSettings = Seq(libraryDependencies += "org.apache.logging.log4j" % "log4j-slf4j2-impl" % "2.24.3")
 
 lazy val fs2Settings = Seq(libraryDependencies ++= Seq("co.fs2" %% "fs2-core" % "3.12.0", "co.fs2" %% "fs2-io" % "3.12.0"))
+
+lazy val tapirVersion = "1.11.10"
+lazy val http4sVersion = "0.23.30"
+lazy val circeVersion = "0.14.10"
+
+lazy val tapirSettings = Seq(
+  libraryDependencies ++= Seq(
+    "com.softwaremill.sttp.tapir" %% "tapir-http4s-server" % tapirVersion,
+    "com.softwaremill.sttp.tapir" %% "tapir-json-circe" % tapirVersion,
+    "com.softwaremill.sttp.tapir" %% "tapir-swagger-ui-bundle" % tapirVersion,
+    "org.http4s" %% "http4s-ember-server" % http4sVersion,
+    "org.http4s" %% "http4s-ember-client" % http4sVersion,
+    "org.http4s" %% "http4s-circe" % http4sVersion,
+    "io.circe" %% "circe-generic" % circeVersion,
+    "io.circe" %% "circe-parser" % circeVersion,
+    "org.typelevel" %% "munit-cats-effect" % "2.0.0" % Test,
+  ),
+)
 
 lazy val utility = (project in file("cyfra-utility"))
   .settings(commonSettings)
@@ -87,6 +107,18 @@ lazy val runtime = (project in file("cyfra-runtime"))
   .settings(commonSettings)
   .dependsOn(core, vulkan, spirvTools, compiler)
 
+lazy val foton = (project in file("cyfra-foton"))
+  .settings(commonSettings)
+  .dependsOn(compiler, dsl, runtime, utility)
+
+lazy val fluids = (project in file("cyfra-fluids"))
+  .settings(commonSettings, runnerSettings)
+  .dependsOn(foton, runtime, dsl, utility)
+
+lazy val analytics = (project in file("cyfra-analytics"))
+  .settings(commonSettings, runnerSettings, fs2Settings, tapirSettings)
+  .dependsOn(foton, runtime, dsl, utility, fs2interop)
+
 lazy val examples = (project in file("cyfra-examples"))
   .settings(commonSettings, runnerSettings)
   .settings(libraryDependencies += "org.scala-lang.modules" % "scala-parallel-collections_3" % "1.2.0")
@@ -101,11 +133,11 @@ lazy val fs2interop = (project in file("cyfra-fs2"))
 
 lazy val e2eTest = (project in file("cyfra-e2e-test"))
   .settings(commonSettings, runnerSettings)
-  .dependsOn(runtime, fs2interop)
+  .dependsOn(runtime, fs2interop, foton)
 
 lazy val root = (project in file("."))
   .settings(name := "Cyfra")
-  .aggregate(compiler, dsl, core, runtime, vulkan, examples, fs2interop)
+  .aggregate(compiler, dsl, foton, core, runtime, vulkan, examples, fs2interop, fluids, analytics)
 
 e2eTest / Test / javaOptions ++= Seq("-Dorg.lwjgl.system.stackSize=1024", "-DuniqueLibraryNames=true")
 

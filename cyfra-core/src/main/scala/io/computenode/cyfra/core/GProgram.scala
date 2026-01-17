@@ -1,6 +1,7 @@
 package io.computenode.cyfra.core
 
-import io.computenode.cyfra.core.layout.{Layout, LayoutBinding, LayoutStruct}
+import io.computenode.cyfra.core.layout.Layout
+import io.computenode.cyfra.dsl.gio.GIO
 
 import java.nio.ByteBuffer
 import GProgram.*
@@ -14,17 +15,17 @@ import java.io.FileInputStream
 import java.nio.file.Path
 import scala.util.Using
 
-trait GProgram[Params, L <: Layout: {LayoutBinding, LayoutStruct}] extends GExecution[Params, L, L]:
+trait GProgram[Params, L: Layout] extends GExecution[Params, L, L]:
   val layout: InitProgramLayout => Params => L
   val dispatch: (L, Params) => ProgramDispatch
   val workgroupSize: WorkDimensions
-  def layoutStruct: LayoutStruct[L] = summon[LayoutStruct[L]]
+  def summonLayout: Layout[L] = Layout[L]
 
 object GProgram:
   type WorkDimensions = (Int, Int, Int)
 
   sealed trait ProgramDispatch
-  case class DynamicDispatch[L <: Layout](buffer: GBinding[?], offset: Int) extends ProgramDispatch
+  case class DynamicDispatch[L: Layout](buffer: GBinding[?], offset: Int) extends ProgramDispatch
   case class StaticDispatch(size: WorkDimensions) extends ProgramDispatch
 
   private[cyfra] class BufferLengthSpec[T: Value](val length: Int) extends GBuffer[T]:

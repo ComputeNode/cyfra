@@ -4,8 +4,6 @@ import io.computenode.cyfra.core.{Allocation, layout, GCodec}
 import layout.Layout
 import io.computenode.cyfra.core.{CyfraRuntime, GBufferRegion, GExecution, GProgram}
 import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.core.layout.LayoutBinding
-import io.computenode.cyfra.core.layout.LayoutStruct
 import gio.GIO
 import binding.{GBinding, GBuffer, GUniform}
 import io.computenode.cyfra.spirv.SpirvTypes.typeStride
@@ -26,7 +24,7 @@ object GPipe:
   )(using cr: CyfraRuntime, bridge1: GCodec[C1, S1], bridge2: GCodec[C2, S2]): Pipe[F, S1, S2] =
     (stream: Stream[F, S1]) =>
       case class Params(inSize: Int)
-      case class PLayout(in: GBuffer[C1], out: GBuffer[C2]) extends Layout
+      case class PLayout(in: GBuffer[C1], out: GBuffer[C2]) derives Layout
 
       val params = Params(inSize = 256)
       val inTypeSize = typeStride(Tag.apply[C1])
@@ -72,7 +70,7 @@ object GPipe:
 
       // Predicate mapping
       case class PredParams(inSize: Int)
-      case class PredLayout(in: GBuffer[C], out: GBuffer[Int32]) extends Layout
+      case class PredLayout(in: GBuffer[C], out: GBuffer[Int32]) derives Layout
 
       val predicateProgram = GProgram[PredParams, PredLayout](
         layout = params => PredLayout(in = GBuffer[C](params.inSize), out = GBuffer[Int32](params.inSize)),
@@ -87,8 +85,8 @@ object GPipe:
       // Prefix sum (inclusive), upsweep/downsweep
       case class ScanParams(inSize: Int, intervalSize: Int)
       case class ScanArgs(intervalSize: Int32) extends GStruct[ScanArgs]
-      case class ScanLayout(ints: GBuffer[Int32]) extends Layout
-      case class ScanProgramLayout(ints: GBuffer[Int32], intervalSize: GUniform[ScanArgs] = GUniform.fromParams) extends Layout
+      case class ScanLayout(ints: GBuffer[Int32]) derives Layout
+      case class ScanProgramLayout(ints: GBuffer[Int32], intervalSize: GUniform[ScanArgs] = GUniform.fromParams) derives Layout
 
       val upsweep = GProgram[ScanParams, ScanProgramLayout](
         layout = params => ScanProgramLayout(ints = GBuffer[Int32](params.inSize), intervalSize = GUniform(ScanArgs(params.intervalSize))),
@@ -150,7 +148,7 @@ object GPipe:
 
       // Stream compaction
       case class CompactParams(inSize: Int)
-      case class CompactLayout(in: GBuffer[C], scan: GBuffer[Int32], out: GBuffer[C]) extends Layout
+      case class CompactLayout(in: GBuffer[C], scan: GBuffer[Int32], out: GBuffer[C]) derives Layout
 
       val compactProgram = GProgram[CompactParams, CompactLayout](
         layout = params => CompactLayout(in = GBuffer[C](params.inSize), scan = GBuffer[Int32](params.inSize), out = GBuffer[C](params.inSize)),
@@ -171,7 +169,7 @@ object GPipe:
 
       // connect all the layouts/executions into one
       case class FilterParams(inSize: Int, intervalSize: Int)
-      case class FilterLayout(in: GBuffer[C], scan: GBuffer[Int32], out: GBuffer[C]) extends Layout
+      case class FilterLayout(in: GBuffer[C], scan: GBuffer[Int32], out: GBuffer[C]) derives Layout
 
       val filterExec = GExecution[FilterParams, FilterLayout]()
         .addProgram(predicateProgram)(
@@ -220,3 +218,44 @@ object GPipe:
           val filteredN = filteredCount.getInt(0)
           val arr = bridge.fromByteBuffer(compactBuf, new Array[S](filteredN))
           Stream.emits(arr)
+
+  /** Execute GPU kernel on batch of float arrays, returns batch of float arrays.
+    *
+    * @param program
+    *   GPU kernel to execute
+    * @param batchSize
+    *   Maximum batch size (for buffer allocation)
+    * @param inputStride
+    *   Elements per input array
+    * @param outputStride
+    *   Elements per output array
+    * @param buildLayout
+    *   Create layout from (flattened input, count) - receives Allocation context
+    * @param outputBuffer
+    *   Accessor for output buffer in layout
+    * @param input
+    *   Batch of input arrays
+    */
+  def batch[L <: Layout: LayoutBinding](program: GProgram[Int, L], batchSize: Int, inputStride: Int, outputStride: Int)(
+    buildLayout: (Array[Float], Int) => Allocation ?=> L,
+    outputBuffer: L => GBuffer[Float32],
+  )(input: Array[Array[Float]])(using CyfraRuntime): Array[Array[Float]] =
+    val n = input.length
+    val flatInput = flatten(input, inputStride, batchSize)
+    val flatOutput = new Array[Float](n * outputStride)
+
+    GBufferRegion
+      .allocate[L]
+      .map { layout =>
+        program.execute(n, layout); layout
+      }
+      .runUnsafe(init = buildLayout(flatInput, n), onDone = layout => outputBuffer(layout).readArray(flatOutput))
+
+    Array.tabulate(n)(i => java.util.Arrays.copyOfRange(flatOutput, i * outputStride, (i + 1) * outputStride))
+
+  private def flatten(input: Array[Array[Float]], stride: Int, batchSize: Int): Array[Float] =
+    val flat = new Array[Float](batchSize * stride)
+    input.zipWithIndex.foreach { case (arr, i) =>
+      System.arraycopy(arr, 0, flat, i * stride, Math.min(arr.length, stride))
+    }
+    flat

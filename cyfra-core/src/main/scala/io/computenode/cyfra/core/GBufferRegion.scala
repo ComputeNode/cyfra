@@ -3,7 +3,7 @@ package io.computenode.cyfra.core
 import io.computenode.cyfra.core.Allocation
 import io.computenode.cyfra.core.GBufferRegion.MapRegion
 import io.computenode.cyfra.core.GProgram.BufferLengthSpec
-import io.computenode.cyfra.core.layout.{Layout, LayoutBinding}
+import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.core.expression.Value
 import io.computenode.cyfra.core.binding.GBuffer
 import izumi.reflect.Tag
@@ -11,36 +11,37 @@ import izumi.reflect.Tag
 import scala.util.chaining.given
 import java.nio.ByteBuffer
 
-sealed trait GBufferRegion[ReqAlloc <: Layout: LayoutBinding, ResAlloc <: Layout: LayoutBinding]:
-  def reqAllocBinding: LayoutBinding[ReqAlloc] = summon[LayoutBinding[ReqAlloc]]
-  def resAllocBinding: LayoutBinding[ResAlloc] = summon[LayoutBinding[ResAlloc]]
+sealed trait GBufferRegion[ReqAlloc: Layout, ResAlloc: Layout]:
+  def reqAllocLayout: Layout[ReqAlloc] = Layout[ReqAlloc]
+  def resAllocLayout: Layout[ResAlloc] = Layout[ResAlloc]
 
-  def map[NewAlloc <: Layout: LayoutBinding](f: Allocation ?=> ResAlloc => NewAlloc): GBufferRegion[ReqAlloc, NewAlloc] =
+  def map[NewAlloc: Layout](f: Allocation ?=> ResAlloc => NewAlloc): GBufferRegion[ReqAlloc, NewAlloc] =
     MapRegion(this, (alloc: Allocation) => (resAlloc: ResAlloc) => f(using alloc)(resAlloc))
 
 object GBufferRegion:
 
-  def allocate[Alloc <: Layout: LayoutBinding]: GBufferRegion[Alloc, Alloc] = AllocRegion()
+  def allocate[Alloc: Layout]: GBufferRegion[Alloc, Alloc] = AllocRegion()
 
-  case class AllocRegion[Alloc <: Layout: LayoutBinding]() extends GBufferRegion[Alloc, Alloc]
+  case class AllocRegion[Alloc: Layout]() extends GBufferRegion[Alloc, Alloc]
 
-  case class MapRegion[ReqAlloc <: Layout: LayoutBinding, BodyAlloc <: Layout: LayoutBinding, ResAlloc <: Layout: LayoutBinding](
+  case class MapRegion[ReqAlloc: Layout, BodyAlloc: Layout, ResAlloc: Layout](
     reqRegion: GBufferRegion[ReqAlloc, BodyAlloc],
     f: Allocation => BodyAlloc => ResAlloc,
   ) extends GBufferRegion[ReqAlloc, ResAlloc]
 
-  extension [ReqAlloc <: Layout: LayoutBinding, ResAlloc <: Layout: LayoutBinding](region: GBufferRegion[ReqAlloc, ResAlloc])
+  extension [ReqAlloc: Layout, ResAlloc: Layout](region: GBufferRegion[ReqAlloc, ResAlloc])
     def runUnsafe(init: Allocation ?=> ReqAlloc, onDone: Allocation ?=> ResAlloc => Unit)(using cyfraRuntime: CyfraRuntime): Unit =
       cyfraRuntime.withAllocation: allocation =>
 
         // noinspection ScalaRedundantCast
-        val steps: Seq[(Allocation => Layout => Layout, LayoutBinding[Layout])] = Seq.unfold(region: GBufferRegion[?, ?]):
+        val steps: Seq[(Allocation => Any => Any, Layout[Any])] = Seq.unfold(region: GBufferRegion[?, ?]):
           case AllocRegion()     => None
           case MapRegion(req, f) =>
-            Some(((f.asInstanceOf[Allocation => Layout => Layout], req.resAllocBinding.asInstanceOf[LayoutBinding[Layout]]), req))
+            Some(((f.asInstanceOf[Allocation => Any => Any], req.resAllocLayout.asInstanceOf[Layout[Any]]), req))
 
         val initAlloc = init(using allocation).tap(allocation.submitLayout)
-        val bodyAlloc = steps.foldLeft[Layout](initAlloc): (acc, step) =>
+
+        val bodyAlloc = steps.reverse.foldLeft[Any](initAlloc): (acc, step) =>
           step._1(allocation)(acc).tap(allocation.submitLayout(_)(using step._2))
 
         onDone(using allocation)(bodyAlloc.asInstanceOf[ResAlloc])

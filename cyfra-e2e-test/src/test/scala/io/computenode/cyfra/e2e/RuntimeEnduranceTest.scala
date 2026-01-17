@@ -2,11 +2,6 @@ package io.computenode.cyfra.e2e
 
 import io.computenode.cyfra.core.layout.*
 import io.computenode.cyfra.core.{GBufferRegion, GExecution, GProgram}
-import io.computenode.cyfra.dsl.Value.{GBoolean, Int32}
-import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
-import io.computenode.cyfra.dsl.gio.GIO
-import io.computenode.cyfra.dsl.struct.GStruct
-import io.computenode.cyfra.dsl.struct.GStruct.Empty
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.runtime.VkCyfraRuntime
 import io.computenode.cyfra.spirvtools.{SpirvCross, SpirvDisassembler, SpirvToolsRunner}
@@ -37,7 +32,7 @@ class RuntimeEnduranceTest extends munit.FunSuite:
     in: GBuffer[Int32],
     out: GBuffer[Int32],
     args: GUniform[EmitProgramUniform] = GUniform.fromParams, // todo will be different in the future
-  ) extends Layout
+  ) derives Layout
 
   val emitProgram = GProgram[EmitProgramParams, EmitProgramLayout](
     layout = params =>
@@ -62,7 +57,7 @@ class RuntimeEnduranceTest extends munit.FunSuite:
   case class FilterProgramUniform(filterValue: Int32) extends GStruct[FilterProgramUniform]
 
   case class FilterProgramLayout(in: GBuffer[Int32], out: GBuffer[GBoolean], params: GUniform[FilterProgramUniform] = GUniform.fromParams)
-      extends Layout
+      derives Layout
 
   val filterProgram = GProgram[FilterProgramParams, FilterProgramLayout](
     layout = params =>
@@ -82,9 +77,9 @@ class RuntimeEnduranceTest extends munit.FunSuite:
 
   case class EmitFilterParams(inSize: Int, emitN: Int, filterValue: Int)
 
-  case class EmitFilterLayout(inBuffer: GBuffer[Int32], emitBuffer: GBuffer[Int32], filterBuffer: GBuffer[GBoolean]) extends Layout
+  case class EmitFilterLayout(inBuffer: GBuffer[Int32], emitBuffer: GBuffer[Int32], filterBuffer: GBuffer[GBoolean]) derives Layout
 
-  case class EmitFilterResult(out: GBuffer[GBoolean]) extends Layout
+  case class EmitFilterResult(out: GBuffer[GBoolean]) derives Layout
 
   val emitFilterExecution = GExecution[EmitFilterParams, EmitFilterLayout]()
     .addProgram(emitProgram)(
@@ -114,7 +109,7 @@ class RuntimeEnduranceTest extends munit.FunSuite:
     out5: GBuffer[Int32],
     u1: GUniform[AddProgramUniform] = GUniform.fromParams,
     u2: GUniform[AddProgramUniform] = GUniform.fromParams,
-  ) extends Layout
+  ) derives Layout
 
   case class AddProgramExecLayout(
     in1: GBuffer[Int32],
@@ -127,7 +122,7 @@ class RuntimeEnduranceTest extends munit.FunSuite:
     out3: GBuffer[Int32],
     out4: GBuffer[Int32],
     out5: GBuffer[Int32],
-  ) extends Layout
+  ) derives Layout
 
   val addProgram: GProgram[AddProgramParams, AddProgramLayout] = GProgram[AddProgramParams, AddProgramLayout](
     layout = params =>
@@ -157,7 +152,7 @@ class RuntimeEnduranceTest extends munit.FunSuite:
         _ <- GIO.write(out3, index, GIO.read(in3, index) + a + b)
         _ <- GIO.write(out4, index, GIO.read(in4, index) + a + b)
         _ <- GIO.write(out5, index, GIO.read(in5, index) + a + b)
-      yield Empty()
+      yield GStruct.Empty()
 
   def swap(l: AddProgramLayout): AddProgramLayout =
     val AddProgramLayout(in1, in2, in3, in4, in5, out1, out2, out3, out4, out5, u1, u2) = l

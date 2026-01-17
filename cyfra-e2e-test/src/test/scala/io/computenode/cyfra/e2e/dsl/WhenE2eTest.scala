@@ -1,11 +1,10 @@
 package io.computenode.cyfra.e2e.dsl
 
 import io.computenode.cyfra.core.CyfraRuntime
-import io.computenode.cyfra.core.archive.GFunction
-import io.computenode.cyfra.dsl.struct.GStruct
-import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.runtime.VkCyfraRuntime
 import io.computenode.cyfra.core.GCodec.{*, given}
+import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.foton.GFunction
+import io.computenode.cyfra.runtime.VkCyfraRuntime
 
 class WhenE2eTest extends munit.FunSuite:
   given CyfraRuntime = VkCyfraRuntime()

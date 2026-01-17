@@ -1,6 +1,6 @@
 package io.computenode.cyfra.runtime
 
-import io.computenode.cyfra.core.layout.{Layout, LayoutBinding}
+import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.core.{Allocation, GExecution, GProgram}
 import io.computenode.cyfra.core.expression.{Expression, Int32, Value, typeStride}
 import io.computenode.cyfra.core.binding.{GBinding, GBuffer, GUniform}
@@ -15,23 +15,22 @@ import org.lwjgl.system.MemoryUtil
 import org.lwjgl.vulkan.{VK10, VkCommandBuffer, VkCommandBufferBeginInfo, VkDependencyInfo, VkMemoryBarrier2}
 import org.lwjgl.vulkan.VK13.*
 import org.lwjgl.vulkan.VK10.*
-
 import java.nio.ByteBuffer
 import scala.collection.mutable
 import scala.util.Try
 import scala.util.chaining.*
 
-class VkAllocation(val commandPool: CommandPool, executionHandler: ExecutionHandler)(using Allocator, Device) extends Allocation:
+class VkAllocation(val commandPool: CommandPool.Reset, executionHandler: ExecutionHandler)(using Allocator, Device) extends Allocation:
   given VkAllocation = this
 
-  override def submitLayout[L <: Layout: LayoutBinding](layout: L): Unit =
-    val executions = summon[LayoutBinding[L]]
+  override def submitLayout[L: Layout](layout: L): Unit =
+    val executions = Layout[L]
       .toBindings(layout)
       .flatMap(x => Try(getUnderlying(x)).toOption)
       .flatMap(_.execution.fold(Seq(_), _.toSeq))
       .filter(_.isPending)
 
-    if executions.nonEmpty then PendingExecution.executeAll(executions, this)
+    PendingExecution.executeAll(executions, this)
 
   extension (buffer: GBinding[?])
     def read(bb: ByteBuffer, offset: Int = 0): Unit =
@@ -46,7 +45,7 @@ class VkAllocation(val commandPool: CommandPool, executionHandler: ExecutionHand
           stagingBuffer.destroy()
         case _ => throw new IllegalArgumentException(s"Tried to read from non-VkBinding $buffer")
 
-    def write(bb: ByteBuffer, offset: Int = 0)(using name: sourcecode.FileName, line: sourcecode.Line): Unit =
+    def write(bb: ByteBuffer, offset: Int = 0): Unit =
       val size = bb.remaining()
       buffer match
         case VkBinding(buffer: Buffer.HostBuffer) => buffer.copyFrom(bb, offset)
@@ -58,33 +57,54 @@ class VkAllocation(val commandPool: CommandPool, executionHandler: ExecutionHand
           val cleanup = () =>
             commandPool.freeCommandBuffer(cb)
             stagingBuffer.destroy()
-          val pe = new PendingExecution(cb, binding.execution.fold(Seq(_), _.toSeq), cleanup, s"Writing at ${name.value}:${line.value}")
+          val pe = new PendingExecution(cb, binding.execution.fold(Seq(_), _.toSeq), cleanup)
           addExecution(pe)
           binding.execution = Left(pe)
         case _ => throw new IllegalArgumentException(s"Tried to write to non-VkBinding $buffer")
+
+  extension [T <: Value: {Tag, FromExpr}](buffer: GBinding[T])
+
+    def writeArray[ST: ClassTag](arr: Array[ST], offset: Int = 0)(using GCodec[T, ST]): Unit =
+      val bb = BufferUtils.createByteBuffer(arr.size * typeStride(summon[Tag[T]]))
+      buffer.write(bb, 0)
+      GCodec.toByteBuffer[T, ST](bb, arr)
+
+    def readArray[ST: ClassTag](arr: Array[ST], offset: Int = 0)(using GCodec[T, ST]): Array[ST] =
+      val bb = BufferUtils.createByteBuffer(arr.size * typeStride(summon[Tag[T]]))
+      buffer.read(bb, 0)
+      GCodec.fromByteBuffer[T, ST](bb, arr)
 
   extension (buffers: GBuffer.type)
     def apply[T: Value](length: Int): GBuffer[T] =
       VkBuffer[T](length).tap(bindings += _)
 
-    def apply[T: Value](buff: ByteBuffer)(using name: sourcecode.FileName, line: sourcecode.Line): GBuffer[T] =
-      val sizeOfT = typeStride(Value[T])
+    def apply[ST: ClassTag, T <: Value: {Tag, FromExpr}](scalaArray: Array[ST])(using GCodec[T, ST]): GBuffer[T] =
+      val bb = BufferUtils.createByteBuffer(scalaArray.size * typeStride(Value[T]]))
+      GCodec.toByteBuffer[T, ST](bb, scalaArray)
+      GBuffer[T](bb)
+
+    def apply[T <: Value: {Tag, FromExpr}](buff: ByteBuffer): GBuffer[T] =
+      val sizeOfT = typeStride(summon[Tag[T]])
       val length = buff.capacity() / sizeOfT
       if buff.capacity() % sizeOfT != 0 then
         throw new IllegalArgumentException(s"ByteBuffer size ${buff.capacity()} is not a multiple of element size $sizeOfT")
-      GBuffer[T](length).tap(_.write(buff)(using name, line))
+      GBuffer[T](length).tap(_.write(buff))
 
   extension (uniforms: GUniform.type)
     def apply[T: Value](buff: ByteBuffer)(using name: sourcecode.FileName, line: sourcecode.Line): GUniform[T] =
       GUniform[T]().tap(_.write(buff)(using name, line))
 
-    def apply[T: Value](): GUniform[T] =
+    def apply[ST: ClassTag, T <: GStruct[?]: {Tag, FromExpr, GStructSchema}](value: ST)(using GCodec[T, ST]): GUniform[T] =
+      val bb = BufferUtils.createByteBuffer(totalStride(summon[GStructSchema[T]]))
+      GCodec.toByteBuffer[T, ST](bb, Array(value))
+      GUniform[T](bb)
+
+    def apply[T <: GStruct[?]: {Tag, FromExpr, GStructSchema}](): GUniform[T] =
       VkUniform[T]().tap(bindings += _)
 
-  extension [Params, EL <: Layout: LayoutBinding, RL <: Layout: LayoutBinding](execution: GExecution[Params, EL, RL])
-    def execute(params: Params, layout: EL)(using name: sourcecode.FileName, line: sourcecode.Line): RL =
-      val message = s"Executing at ${name.value}:${line.value}"
-      executionHandler.handle(execution, params, layout, message)
+  extension [Params, EL: Layout, RL: Layout](execution: GExecution[Params, EL, RL])
+    def execute(params: Params, layout: EL): RL =
+      executionHandler.handle(execution, params, layout)
 
   private def direct[T: Value](buff: ByteBuffer): GUniform[T] =
     GUniform[T](buff)
@@ -105,6 +125,7 @@ class VkAllocation(val commandPool: CommandPool, executionHandler: ExecutionHand
 
   private val bindings = mutable.Buffer[VkUniform[?] | VkBuffer[?]]()
   private[cyfra] def close(): Unit =
+    executions.filter(_.isRunning).foreach(_.block())
     executions.foreach(_.destroy())
     bindings.map(getUnderlying).foreach(_.buffer.destroy())
 
