@@ -8,7 +8,7 @@ class DescriptorPoolManager(using Device):
   def allocate(): DescriptorPool = synchronized:
     freePools.removeHeadOption() match
       case Some(value) => value
-      case None        => new DescriptorPool()
+      case None        => new DescriptorPool(100)
 
   def free(pools: DescriptorPool*): Unit = synchronized:
     pools.foreach(_.reset())

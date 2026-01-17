@@ -29,12 +29,12 @@ private[cyfra] class VulkanContext:
   given allocator: Allocator = new Allocator(instance, physicalDevice, device)
 
   private val descriptorPoolManager = new DescriptorPoolManager()
-  private val commandPools = device.getQueues.map(new CommandPool.Transient(_))
+  private val commandPools = device.getQueues.map(new CommandPool.Reset(_))
 
   logger.debug("Vulkan context created")
   logger.debug("Running on device: " + physicalDevice.name)
 
-  private val blockingQueue: BlockingQueue[CommandPool] = new ArrayBlockingQueue[CommandPool](commandPools.length).tap(_.addAll(commandPools.asJava))
+  private val blockingQueue: BlockingQueue[CommandPool.Reset] = new ArrayBlockingQueue(commandPools.length).tap(_.addAll(commandPools.asJava))
   def withThreadContext[T](f: VulkanThreadContext => T): T =
     assert(
       VulkanThreadContext.guard.get() == 0,
@@ -46,6 +46,7 @@ private[cyfra] class VulkanContext:
     VulkanThreadContext.guard.set(threadContext.hashCode())
     try f(threadContext)
     finally
+      commandPool.reset()
       blockingQueue.put(commandPool)
       descriptorSetManager.destroy()
       VulkanThreadContext.guard.set(0)

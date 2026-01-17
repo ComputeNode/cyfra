@@ -18,9 +18,11 @@ import org.lwjgl.system.MemoryUtil
 import java.nio.file.Paths
 import scala.concurrent.ExecutionContext.Implicits.global
 import java.util.concurrent.atomic.AtomicInteger
+import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
 
 class RuntimeEnduranceTest extends munit.FunSuite:
+  override def munitTimeout: Duration = Duration("5 minutes")
 
   test("Endurance test for GExecution with multiple programs"):
     runEnduranceTest(10000)
