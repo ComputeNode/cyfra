@@ -55,7 +55,7 @@ object SpirvProgram:
     case Write
     case ReadWrite
 
-  def fromFile[Params, L : Layout](
+  def fromFile[Params, L: Layout](
     layout: InitProgramLayout ?=> Params => L,
     dispatch: (L, Params) => ProgramDispatch,
     path: Path,
@@ -68,7 +68,7 @@ object SpirvProgram:
       bb.flip()
       SpirvProgram(layout, dispatch, bb)
 
-  def apply[Params, L : Layout](
+  def apply[Params, L: Layout](
     layout: InitProgramLayout ?=> Params => L,
     dispatch: (L, Params) => ProgramDispatch,
     code: ByteBuffer,

@@ -32,7 +32,6 @@ private[cyfra] object Spirv:
     def length: Int = 1
     override def toString: String = mnemo
 
-
   private[cyfra] case class Text(text: String) extends Words:
     def toBytes: List[Byte] =
       val textBytes = text.getBytes(StandardCharsets.UTF_8).toList

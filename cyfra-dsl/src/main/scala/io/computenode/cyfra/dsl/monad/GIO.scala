@@ -46,7 +46,7 @@ object GIO:
           ExpressionBlock(next, next :: Nil)
         case x: GOps.CallBuildIn1[a, T] =>
           given Value[a] = x.tv
-          
+
           val GOps.CallBuildIn1(func, arg) = x
           val a = arg.irs
           val next = Expression.BuildInOperation(func, List(a.result))
@@ -54,7 +54,7 @@ object GIO:
         case x: GOps.CallBuildIn2[a1, a2, T] =>
           given Value[a1] = x.tv1
           given Value[a2] = x.tv2
-          
+
           val GOps.CallBuildIn2(func, arg1, arg2) = x
           val a1 = arg1.irs
           val a2 = arg2.irs
@@ -64,7 +64,7 @@ object GIO:
           given Value[a1] = x.tv1
           given Value[a2] = x.tv2
           given Value[a3] = x.tv3
-          
+
           val GOps.CallBuildIn3(func, arg1, arg2, arg3) = x
           val a1 = arg1.irs
           val a2 = arg2.irs

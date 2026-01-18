@@ -15,7 +15,7 @@ def typeStride(value: Value[?]): Int =
     case _                       => ???
 
   val numberOfElements = value.baseTag match
-    case None                         => 1
+    case None                          => 1
     case Some(t) if t =:= TagK[Vec2]   => 2
     case Some(t) if t =:= TagK[Vec3]   => 3
     case Some(t) if t =:= TagK[Vec4]   => 4
@@ -28,7 +28,7 @@ def typeStride(value: Value[?]): Int =
     case Some(t) if t =:= TagK[Mat4x2] => 8
     case Some(t) if t =:= TagK[Mat4x3] => 12
     case Some(t) if t =:= TagK[Mat4x4] => 16
-    case _                            => ???
+    case _                             => ???
 
   numberOfElements * elementSize
 

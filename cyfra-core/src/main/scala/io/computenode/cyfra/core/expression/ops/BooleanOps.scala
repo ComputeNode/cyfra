@@ -52,7 +52,7 @@ extension [T: {BooleanOps, Value}](self: T)
 
 extension [V <: Vec[Bool]: Value](self: V)
   def any: Bool = self.map[Bool](BuildInFunction.LogicalAny)
-  
+
   def all: Bool = self.map[Bool](BuildInFunction.LogicalAll)
 
 // Floating-point checks
@@ -65,13 +65,13 @@ trait FloatCheckOps[T]
 
 extension [T: {FloatCheckOps, Value}](self: T)
   def isNan: Bool = self.map[Bool](BuildInFunction.IsNan)
-  
+
   def isInf: Bool = self.map[Bool](BuildInFunction.IsInf)
-  
+
   def isFinite: Bool = self.map[Bool](BuildInFunction.IsFinite)
-  
+
   def isNormal: Bool = self.map[Bool](BuildInFunction.IsNormal)
-  
+
   def signBitSet: Bool = self.map[Bool](BuildInFunction.SignBitSet)
 
 // Unified comparisons (works for floats, signed ints, and unsigned ints)

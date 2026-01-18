@@ -12,7 +12,7 @@ import io.computenode.cyfra.core.binding.{GBinding, GBuffer, GUniform}
 import scala.collection.mutable
 import scala.util.chaining.given
 
-sealed abstract class VkBinding[T : Value](val buffer: Buffer):
+sealed abstract class VkBinding[T: Value](val buffer: Buffer):
   val sizeOfT: Int = typeStride(Value[T])
 
   /** Holds either:
@@ -32,25 +32,25 @@ object VkBinding:
     case b: VkBinding[?] => Some(b.buffer)
     case _               => None
 
-class VkBuffer[T : Value] private (val length: Int, underlying: Buffer) extends VkBinding(underlying) with GBuffer[T]
+class VkBuffer[T: Value] private (val length: Int, underlying: Buffer) extends VkBinding(underlying) with GBuffer[T]
 
 object VkBuffer:
   private final val Padding = 64
   private final val UsageFlags = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT
 
-  def apply[T : Value](length: Int)(using Allocator): VkBuffer[T] =
+  def apply[T: Value](length: Int)(using Allocator): VkBuffer[T] =
     val sizeOfT = typeStride(Value[T])
     val size = (length * sizeOfT + Padding - 1) / Padding * Padding
     val buffer = new Buffer.DeviceBuffer(size, UsageFlags)
     new VkBuffer[T](length, buffer)
 
-class VkUniform[T : Value] private (underlying: Buffer) extends VkBinding[T](underlying) with GUniform[T]
+class VkUniform[T: Value] private (underlying: Buffer) extends VkBinding[T](underlying) with GUniform[T]
 
 object VkUniform:
   private final val UsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
     VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT
 
-  def apply[T : Value]()(using Allocator): VkUniform[T] =
+  def apply[T: Value]()(using Allocator): VkUniform[T] =
     val sizeOfT = typeStride(Value[T])
     val buffer = new Buffer.DeviceBuffer(sizeOfT, UsageFlags)
     new VkUniform[T](buffer)

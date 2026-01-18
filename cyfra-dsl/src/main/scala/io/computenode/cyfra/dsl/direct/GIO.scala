@@ -2,7 +2,19 @@ package io.computenode.cyfra.dsl.direct
 
 import io.computenode.cyfra.core.{ExpressionProgram, GProgram}
 import io.computenode.cyfra.core.GProgram.{InitProgramLayout, ProgramDispatch, WorkDimensions}
-import io.computenode.cyfra.core.expression.{Bool, BuildInFunction, CustomFunction, Expression, ExpressionBlock, JumpTarget, UInt32, Value, Var, unitZero, given}
+import io.computenode.cyfra.core.expression.{
+  Bool,
+  BuildInFunction,
+  CustomFunction,
+  Expression,
+  ExpressionBlock,
+  JumpTarget,
+  UInt32,
+  Value,
+  Var,
+  unitZero,
+  given,
+}
 import io.computenode.cyfra.core.expression.CustomFunction.CustomFunction1
 import io.computenode.cyfra.core.binding.{GBuffer, GUniform}
 import io.computenode.cyfra.core.expression.JumpTarget.{BreakTarget, ContinueTarget}
@@ -42,7 +54,7 @@ object GIO:
     val read = Expression.ReadUniform(uniform)
     gio.add(read)
     Value[T].indirect(read)
-    
+
   def write[T: Value](uniform: GUniform[T], value: T)(using gio: GIO): Unit =
     val v = value.irs
     val write = Expression.WriteUniform(uniform, v.result)

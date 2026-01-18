@@ -6,7 +6,15 @@ import io.computenode.cyfra.core.{GExecution, GProgram}
 import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.core.expression.Value
 import io.computenode.cyfra.core.binding.{GBinding, GBuffer, GUniform}
-import io.computenode.cyfra.runtime.ExecutionHandler.{BindingLogicError, Dispatch, DispatchType, ExecutionBinding, ExecutionStep, PipelineBarrier, ShaderCall}
+import io.computenode.cyfra.runtime.ExecutionHandler.{
+  BindingLogicError,
+  Dispatch,
+  DispatchType,
+  ExecutionBinding,
+  ExecutionStep,
+  PipelineBarrier,
+  ShaderCall,
+}
 import io.computenode.cyfra.runtime.ExecutionHandler.DispatchType.*
 import io.computenode.cyfra.runtime.ExecutionHandler.ExecutionBinding.{BufferBinding, UniformBinding}
 import io.computenode.cyfra.runtime.SpirvProgram.*

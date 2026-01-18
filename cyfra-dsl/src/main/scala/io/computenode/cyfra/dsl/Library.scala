@@ -15,6 +15,3 @@ object Library:
         ifFalse
       GIO.branch[A](cond, tBlock, fBlock)
     Value[A].extract(exp)
-  
-
-

@@ -6,4 +6,3 @@ class Var[T: Value]:
   def v: Value[T] = Value[T]
   val id: Int = nextId()
   override def toString: String = s"var#$id"
-

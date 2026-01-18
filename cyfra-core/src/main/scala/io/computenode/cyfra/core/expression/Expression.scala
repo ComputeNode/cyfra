@@ -36,5 +36,6 @@ object Expression:
     def v2: Value[A] = Value[A]
   case class ConditionalJump[A: Value](cond: Expression[Bool], target: JumpTarget[A], value: Expression[A]) extends Expression[Unit]:
     def v2: Value[A] = Value[A]
-  case class Composite[A <: Tuple: Value, N <: Int](value: Expression[A], n: N) extends Expression[Elem[A, N]](using value.v.composite(n).asInstanceOf[Value[Elem[A, N]]]):
+  case class Composite[A <: Tuple: Value, N <: Int](value: Expression[A], n: N)
+      extends Expression[Elem[A, N]](using value.v.composite(n).asInstanceOf[Value[Elem[A, N]]]):
     def v2: Value[A] = Value[A]
