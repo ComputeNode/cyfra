@@ -60,7 +60,7 @@ object TypeManager:
         case _                       => throw new Exception(s"Unsupported type: ${value.tag}")
       return manager.withIr(key, ir)
 
-    val composite = cOpt.get
+    val composite = cOpt.head
 
     val (ir, m1) = manager.getType(composite)
 

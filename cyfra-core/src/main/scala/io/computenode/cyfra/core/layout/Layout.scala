@@ -1,18 +1,13 @@
 package io.computenode.cyfra.core.layout
 
-import io.computenode.cyfra.core.binding.{BufferRef, UniformRef}
-import io.computenode.cyfra.dsl.Value.Int32
-import io.computenode.cyfra.dsl.Value
-import io.computenode.cyfra.dsl.struct.GStruct
-import io.computenode.cyfra.dsl.binding.{GBinding, GBuffer, GUniform}
+import io.computenode.cyfra.core.binding.{BufferRef, GBinding, GBuffer, GUniform, UniformRef}
+import io.computenode.cyfra.core.expression.*
 
 import scala.annotation.experimental
 import scala.compiletime.{error, summonAll}
 import scala.deriving.Mirror
 import scala.quoted.{Expr, Quotes, Type}
 import izumi.reflect.Tag
-import io.computenode.cyfra.dsl.Value.FromExpr
-import io.computenode.cyfra.dsl.struct.GStructSchema
 
 trait Layout[T]:
   def fromBindings(bindings: Seq[GBinding[?]]): T
@@ -34,25 +29,16 @@ object Layout:
       report.errorAndAbort(s"Can only derive Layout for case classes, tuples and singular GBindings. Found: ${layoutType.show}")
 
     def generateBindingRef(bindingType: TypeRepr, idx: Int): Expr[GBinding[?]] = bindingType.asType match
-      case '[type t <: Value; GBuffer[t]] =>
-        val tag = Implicits.search(TypeRepr.of[Tag[t]]) match
-          case iss: ImplicitSearchSuccess => iss.tree.asExprOf[Tag[t]]
-          case isf: ImplicitSearchFailure => report.errorAndAbort(s"Could not find Tag[${TypeRepr.of[t].show}]: ${isf.explanation}")
-        val fromExpr = Implicits.search(TypeRepr.of[FromExpr[t]]) match
-          case iss: ImplicitSearchSuccess => iss.tree.asExprOf[FromExpr[t]]
-          case isf: ImplicitSearchFailure => report.errorAndAbort(s"Could not find FromExpr[${TypeRepr.of[t].show}]: ${isf.explanation}")
-        '{ BufferRef[t](${ Expr(idx) })(using $tag, $fromExpr) }
-      case '[type t <: GStruct[?]; GUniform[t]] =>
-        val tag = Implicits.search(TypeRepr.of[Tag[t]]) match
-          case iss: ImplicitSearchSuccess => iss.tree.asExprOf[Tag[t]]
-          case isf: ImplicitSearchFailure => report.errorAndAbort(s"Could not find Tag[${TypeRepr.of[t].show}]: ${isf.explanation}")
-        val fromExpr = Implicits.search(TypeRepr.of[FromExpr[t]]) match
-          case iss: ImplicitSearchSuccess => iss.tree.asExprOf[FromExpr[t]]
-          case isf: ImplicitSearchFailure => report.errorAndAbort(s"Could not find FromExpr[${TypeRepr.of[t].show}]: ${isf.explanation}")
-        val structSchema = Implicits.search(TypeRepr.of[GStructSchema[t]]) match
-          case iss: ImplicitSearchSuccess => iss.tree.asExprOf[GStructSchema[t]]
-          case isf: ImplicitSearchFailure => report.errorAndAbort(s"Could not find GStructSchema[${TypeRepr.of[t].show}]: ${isf.explanation}")
-        '{ UniformRef[t](${ Expr(idx) })(using $tag, $fromExpr, $structSchema) }
+      case '[type t; GBuffer[t]] =>
+        val value = Implicits.search(TypeRepr.of[Value[t]]) match
+          case iss: ImplicitSearchSuccess => iss.tree.asExprOf[Value[t]]
+          case isf: ImplicitSearchFailure => report.errorAndAbort(s"Could not find Value[${TypeRepr.of[t].show}]: ${isf.explanation}")
+        '{ BufferRef[t](${ Expr(idx) })(using $value) }
+      case '[type t; GUniform[t]] =>
+        val value = Implicits.search(TypeRepr.of[Value[t]]) match
+          case iss: ImplicitSearchSuccess => iss.tree.asExprOf[Value[t]]
+          case isf: ImplicitSearchFailure => report.errorAndAbort(s"Could not find Value[${TypeRepr.of[t].show}]: ${isf.explanation}")
+        '{ UniformRef[t](${ Expr(idx) })(using $value) }
       case _ => report.errorAndAbort(s"All fields of a Layout must be of type GBuffer or GUniform, found: ${bindingType.show}")
 
     def constructLayout(args: List[Term]): Expr[T] =

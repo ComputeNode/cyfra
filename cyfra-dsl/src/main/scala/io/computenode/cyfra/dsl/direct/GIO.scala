@@ -7,7 +7,7 @@ import io.computenode.cyfra.core.expression.CustomFunction.CustomFunction1
 import io.computenode.cyfra.core.binding.{GBuffer, GUniform}
 import io.computenode.cyfra.core.expression.JumpTarget.{BreakTarget, ContinueTarget}
 import io.computenode.cyfra.core.expression.Value.irs
-import io.computenode.cyfra.core.layout.{Layout, LayoutBinding, LayoutStruct}
+import io.computenode.cyfra.core.layout.Layout
 
 class GIO:
   private var result: List[Expression[?]] = Nil

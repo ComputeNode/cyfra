@@ -8,7 +8,7 @@ val v1: Var[S1] = new Var()
 
 @main
 def run(): Unit =
-  v1._1 // ???
+//  v1._1 // ???
 
   println("runncing")
 

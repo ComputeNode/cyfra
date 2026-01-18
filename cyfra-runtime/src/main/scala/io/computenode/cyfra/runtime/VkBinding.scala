@@ -8,7 +8,7 @@ import io.computenode.cyfra.vulkan.core.{Device, Queue}
 import izumi.reflect.Tag
 import org.lwjgl.vulkan.VK10
 import org.lwjgl.vulkan.VK10.*
-import io.computenode.cyfra.dsl.binding.{GBinding, GBuffer, GUniform}
+import io.computenode.cyfra.core.binding.{GBinding, GBuffer, GUniform}
 import scala.collection.mutable
 import scala.util.chaining.given
 

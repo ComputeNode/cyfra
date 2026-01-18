@@ -4,7 +4,6 @@ import io.computenode.cyfra.core.{GProgram, ExpressionProgram}
 import io.computenode.cyfra.core.GProgram.InitProgramLayout
 import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.core.binding.{GBuffer, GUniform}
-import io.computenode.cyfra.spirv.compilers.DSLCompiler
 import io.computenode.cyfra.vulkan.compute.ComputePipeline
 import io.computenode.cyfra.runtime.SpirvProgram.*
 import io.computenode.cyfra.vulkan.compute.ComputePipeline.*

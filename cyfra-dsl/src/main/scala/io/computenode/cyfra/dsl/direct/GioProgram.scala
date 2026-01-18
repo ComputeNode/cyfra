@@ -22,12 +22,12 @@ import io.computenode.cyfra.core.expression.Value.irs
 import io.computenode.cyfra.dsl.direct.GIO.reify
 import io.computenode.cyfra.dsl.direct.GIO
 
-import io.computenode.cyfra.core.layout.{Layout, LayoutBinding, LayoutStruct}
+import io.computenode.cyfra.core.layout.Layout
 object GioProgram:
-  def apply[Params, L <: Layout: {LayoutBinding, LayoutStruct}](
+  def apply[Params, L: Layout](
     layout: InitProgramLayout ?=> Params => L,
     dispatch: (L, Params) => ProgramDispatch,
     workgroupSize: WorkDimensions = (128, 1, 1),
-  )(body: L => GIO ?=>  Unit): GProgram[Params, L] =
+  )(body: L => GIO ?=> Unit): GProgram[Params, L] =
     val nBody = (layout: L) => reify(body(layout))
     new ExpressionProgram[Params, L](nBody, s => layout(using s), dispatch, workgroupSize)

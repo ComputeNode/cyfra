@@ -1,12 +1,12 @@
 package io.computenode.cyfra.runtime
 
+import io.computenode.cyfra.core.GProgram
 import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.core.GProgram.{InitProgramLayout, ProgramDispatch, WorkDimensions}
 import io.computenode.cyfra.runtime.SpirvProgram.Operation.ReadWrite
 import io.computenode.cyfra.runtime.SpirvProgram.{Binding, ShaderLayout}
 import io.computenode.cyfra.core.binding.GBinding
 import io.computenode.cyfra.core.expression.Value
-import io.computenode.cyfra.core.layout.{Layout, LayoutBinding, LayoutStruct}
 import izumi.reflect.Tag
 
 import java.io.{File, FileInputStream}

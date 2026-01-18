@@ -105,7 +105,7 @@ lazy val vulkan = (project in file("cyfra-vulkan"))
 
 lazy val runtime = (project in file("cyfra-runtime"))
   .settings(commonSettings)
-  .dependsOn(core, vulkan, spirvTools, compiler)
+  .dependsOn(core, vulkan, spirvTools, compiler, dsl % Test)
 
 lazy val foton = (project in file("cyfra-foton"))
   .settings(commonSettings)

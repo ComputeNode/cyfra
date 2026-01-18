@@ -5,7 +5,7 @@ import io.computenode.cyfra.core.layout.*
 import io.computenode.cyfra.core.expression.ExpressionBlock
 import izumi.reflect.Tag
 
-case class GioProgram[Params, L: Layout](
+case class ExpressionProgram[Params, L: Layout](
   body: L => ExpressionBlock[Unit],
   layout: InitProgramLayout => Params => L,
   dispatch: (L, Params) => ProgramDispatch,

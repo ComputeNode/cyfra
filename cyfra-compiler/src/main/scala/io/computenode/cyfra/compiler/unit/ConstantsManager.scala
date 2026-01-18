@@ -40,7 +40,7 @@ object ConstantsManager:
     val key = CacheKey(const, value.tag)
     if manager.cache.contains(key) then return (manager.cache(key), manager)
 
-    val va = value.composite.get
+    val va = value.composite.head
     val seq = const.asInstanceOf[Product].productIterator.grouped(columns(value.baseTag.get)).toSeq
 
     val (scalars, m1) = seq.accumulate(manager): (acc, v) =>
@@ -55,7 +55,7 @@ object ConstantsManager:
     val key = CacheKey(const, value.tag)
     if manager.cache.contains(key) then return (manager.cache(key), manager)
 
-    val va = value.composite.get
+    val va = value.composite.head
     val seq = const.asInstanceOf[Product].productIterator.toSeq
 
     val (scalars, m1) = seq.accumulate(manager): (acc, v) =>

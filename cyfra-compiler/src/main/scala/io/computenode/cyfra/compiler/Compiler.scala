@@ -2,7 +2,6 @@ package io.computenode.cyfra.compiler
 
 import io.computenode.cyfra.core.binding.GBinding
 import io.computenode.cyfra.core.expression.ExpressionBlock
-import io.computenode.cyfra.core.layout.LayoutStruct
 import io.computenode.cyfra.compiler.modules.*
 import io.computenode.cyfra.compiler.modules.CompilationModule.StandardCompilationModule
 import io.computenode.cyfra.compiler.unit.Compilation

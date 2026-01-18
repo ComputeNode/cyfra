@@ -2,7 +2,7 @@ package io.computenode.cyfra.runtime
 
 import io.computenode.cyfra.compiler.Compiler
 import io.computenode.cyfra.core.GProgram.InitProgramLayout
-import io.computenode.cyfra.core.layout.{Layout, LayoutBinding, LayoutStruct}
+import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.core.{Allocation, CyfraRuntime, ExpressionProgram, GExecution, GProgram}
 import io.computenode.cyfra.spirvtools.SpirvToolsRunner
 import io.computenode.cyfra.vulkan.VulkanContext
@@ -33,12 +33,10 @@ class VkCyfraRuntime(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()) ex
     gProgramCache.update(program, spirvProgram)
     shaderCache.getOrElseUpdate(spirvProgram.shaderHash, VkShader(spirvProgram)).asInstanceOf[VkShader[L]]
 
-  private def compile[Params, L : Layout](
-    program: ExpressionProgram[Params, L],
-  ): SpirvProgram[Params, L] =
+  private def compile[Params, L: Layout](program: ExpressionProgram[Params, L]): SpirvProgram[Params, L] =
     val ExpressionProgram(body, layout, dispatch, workgroupSize) = program
-    val bindings = lbinding.toBindings(lstruct.layoutRef).toList
-    val compiled = compiler.compile(bindings, body(lstruct.layoutRef), workgroupSize)
+    val bindings = Layout[L].toBindings(Layout[L].layoutRef).toList
+    val compiled = compiler.compile(bindings, body(Layout[L].layoutRef), workgroupSize)
 
 //    val outputPath = Paths.get("out.spv")
 //    val channel = FileChannel.open(outputPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)

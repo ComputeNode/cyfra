@@ -4,32 +4,51 @@ import io.computenode.cyfra.core.expression.*
 import io.computenode.cyfra.core.expression.Value.map
 import io.computenode.cyfra.core.expression.{BuildInFunction, Value}
 import io.computenode.cyfra.core.expression.given
+import izumi.reflect.Tag
 
 import scala.annotation.targetName
 
+//trait EqualOps[T]
+//
+//given [T <: Scalar: Value]: EqualOps[T] with {}
+//given [T <: Scalar: Value]: EqualOps[Vec2[T]] with {}
+//given [T <: Scalar: Value]: EqualOps[Vec3[T]] with {}
+//given [T <: Scalar: Value]: EqualOps[Vec4[T]] with {}
+//
+//extension [T: {EqualOps, Value}](self: T)
+//  @targetName("equal")
+//  def ===(that: T): Bool =
+//    if Value[T].bottomComposite.tag =:= Tag[Bool] then self.map[T, Bool](that)(BuildInFunction.LogicalEqual)
+//    else self.map[T, Bool](that)(BuildInFunction.Equal)
+//
+//  @targetName("notEqual")
+//  def !==(that: T): Bool =
+//    if Value[T].bottomComposite.tag =:= Tag[Bool] then self.map[T, Bool](that)(BuildInFunction.LogicalNotEqual)
+//    else self.map[T, Bool](that)(BuildInFunction.NotEqual)
+
 // Logical operations on booleans
-given [T <: Bool: Value]: BooleanOps[T] with {}
-given [T <: Bool: Value]: BooleanOps[Vec2[T]] with {}
-given [T <: Bool: Value]: BooleanOps[Vec3[T]] with {}
-given [T <: Bool: Value]: BooleanOps[Vec4[T]] with {}
+given BooleanOps[Bool] with {}
+given BooleanOps[Vec2[Bool]] with {}
+given BooleanOps[Vec3[Bool]] with {}
+given BooleanOps[Vec4[Bool]] with {}
 
 trait BooleanOps[T]
 
 extension [T: {BooleanOps, Value}](self: T)
   @targetName("logicalOr")
   def ||(that: T): T = self.map(that)(BuildInFunction.LogicalOr)
-  
+
   @targetName("logicalAnd")
   def &&(that: T): T = self.map(that)(BuildInFunction.LogicalAnd)
-  
+
   @targetName("logicalNot")
   def unary_! : T = self.map(BuildInFunction.LogicalNot)
-  
-  @targetName("logicalEqual")
-  def ===(that: T): T = self.map(that)(BuildInFunction.LogicalEqual)
-  
-  @targetName("logicalNotEqual")
-  def !==(that: T): T = self.map(that)(BuildInFunction.LogicalNotEqual)
+
+//  @targetName("logicalEqual")
+//  def ===(that: T): T = self.map(that)(BuildInFunction.LogicalEqual)
+//
+//  @targetName("logicalNotEqual")
+//  def !==(that: T): T = self.map(that)(BuildInFunction.LogicalNotEqual)
 
 extension [V <: Vec[Bool]: Value](self: V)
   def any: Bool = self.map[Bool](BuildInFunction.LogicalAny)
@@ -67,19 +86,19 @@ trait ComparisonOps[T]
 extension [T: {ComparisonOps, Value}](self: T)
   @targetName("equal")
   def ===(that: T): Bool = self.map[T, Bool](that)(BuildInFunction.Equal)
-  
+
   @targetName("notEqual")
   def !==(that: T): Bool = self.map[T, Bool](that)(BuildInFunction.NotEqual)
-  
+
   @targetName("lessThan")
   def <(that: T): Bool = self.map[T, Bool](that)(BuildInFunction.LessThan)
-  
+
   @targetName("greaterThan")
   def >(that: T): Bool = self.map[T, Bool](that)(BuildInFunction.GreaterThan)
-  
+
   @targetName("lessThanEqual")
   def <=(that: T): Bool = self.map[T, Bool](that)(BuildInFunction.LessThanEqual)
-  
+
   @targetName("greaterThanEqual")
   def >=(that: T): Bool = self.map[T, Bool](that)(BuildInFunction.GreaterThanEqual)
 
@@ -91,4 +110,3 @@ extension [T: Value](cond: Bool)
 extension [V <: Vec[Bool]: Value, T <: Vec[?]: Value](cond: V)
   def select(obj1: T, obj2: T): T =
     cond.map[T, T, T](obj1, obj2)(BuildInFunction.Select)
-
