@@ -8,6 +8,8 @@ import io.computenode.cyfra.compiler.Spirv.Words
 import io.computenode.cyfra.core.binding.{BufferRef, GBuffer, GUniform, UniformRef}
 import io.computenode.cyfra.core.expression.*
 import io.computenode.cyfra.core.expression.given
+import io.computenode.cyfra.core.expression.types.*
+import io.computenode.cyfra.core.expression.types.given
 import io.computenode.cyfra.utility.Utility.nextId
 
 import scala.collection

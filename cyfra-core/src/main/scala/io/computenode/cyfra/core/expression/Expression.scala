@@ -3,8 +3,11 @@ package io.computenode.cyfra.core.expression
 import io.computenode.cyfra.core.binding.{GBuffer, GUniform}
 import io.computenode.cyfra.core.expression.JumpTarget.{BreakTarget, ContinueTarget}
 import io.computenode.cyfra.core.expression.given
+import io.computenode.cyfra.core.expression.types.*
+import io.computenode.cyfra.core.expression.types.given
+import io.computenode.cyfra.core.expression.types.given
 import io.computenode.cyfra.utility.Utility.nextId
-import io.computenode.cyfra.core.expression.{Bool, Float16, Float32, Int16, Int32, UInt16, UInt32, given}
+import io.computenode.cyfra.core.expression.given
 
 import scala.Tuple.Elem
 import scala.compiletime.constValue

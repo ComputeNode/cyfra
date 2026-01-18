@@ -6,7 +6,9 @@ import io.computenode.cyfra.compiler.Spirv.{Decoration, IntWord, Op, StorageClas
 import io.computenode.cyfra.compiler.modules.CompilationModule.{FunctionCompilationModule, StandardCompilationModule}
 import io.computenode.cyfra.compiler.unit.{Compilation, Context, Ctx}
 import io.computenode.cyfra.core.binding.{GBinding, GBuffer, GUniform}
-import io.computenode.cyfra.core.expression.{Int32, Value, typeStride, given}
+import io.computenode.cyfra.core.expression.types.*
+import io.computenode.cyfra.core.expression.types.given
+import io.computenode.cyfra.core.expression.{Value, given}
 import io.computenode.cyfra.utility.FlatList
 import izumi.reflect.macrortti.LightTypeTag
 

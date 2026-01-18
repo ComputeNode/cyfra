@@ -1,4 +1,4 @@
-package io.computenode.cyfra.core.expression
+package io.computenode.cyfra.core.expression.types
 
 given Conversion[Int, Int32] with
   def apply(value: Int): Int32 = Int32(value)

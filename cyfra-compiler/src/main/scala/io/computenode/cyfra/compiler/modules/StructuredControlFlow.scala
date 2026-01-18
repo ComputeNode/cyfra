@@ -8,6 +8,7 @@ import io.computenode.cyfra.compiler.modules.CompilationModule.FunctionCompilati
 import io.computenode.cyfra.compiler.unit.{Context, TypeManager}
 import io.computenode.cyfra.compiler.unit.Ctx
 import io.computenode.cyfra.compiler.Spirv.*
+import io.computenode.cyfra.core.expression.types.given
 import io.computenode.cyfra.core.expression.{JumpTarget, Value, given}
 import io.computenode.cyfra.utility.FlatList
 import izumi.reflect.Tag

@@ -2,8 +2,10 @@ package io.computenode.cyfra.runtime
 
 import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.core.{Allocation, GCodec, GExecution, GProgram}
-import io.computenode.cyfra.core.expression.{Expression, Int32, Value, typeStride}
+import io.computenode.cyfra.core.expression.{Expression, Value}
 import io.computenode.cyfra.core.binding.{GBinding, GBuffer, GUniform}
+import io.computenode.cyfra.core.expression.types.*
+import io.computenode.cyfra.core.expression.types.given
 import io.computenode.cyfra.runtime.VkAllocation.getUnderlying
 import io.computenode.cyfra.vulkan.command.CommandPool
 import io.computenode.cyfra.vulkan.memory.{Allocator, Buffer}

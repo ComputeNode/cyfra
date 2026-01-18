@@ -1,5 +1,6 @@
-package io.computenode.cyfra.core.expression
+package io.computenode.cyfra.core.expression.types
 
+import io.computenode.cyfra.core.expression.{Expression, ExpressionBlock, Value}
 import izumi.reflect.{Tag, TagK}
 
 given Value.Scalar[Float16] with

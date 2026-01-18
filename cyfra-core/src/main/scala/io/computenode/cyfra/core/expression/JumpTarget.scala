@@ -1,6 +1,8 @@
 package io.computenode.cyfra.core.expression
 
 import io.computenode.cyfra.utility.Utility.nextId
+import io.computenode.cyfra.core.expression.types.given
+
 
 class JumpTarget[A: Value]:
   val id: Int = nextId()

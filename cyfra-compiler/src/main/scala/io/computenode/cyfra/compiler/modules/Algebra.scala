@@ -8,6 +8,8 @@ import io.computenode.cyfra.compiler.Spirv.Op
 import io.computenode.cyfra.compiler.Spirv.Code
 import io.computenode.cyfra.core.expression.*
 import io.computenode.cyfra.core.expression.BuildInFunction.*
+import io.computenode.cyfra.core.expression.types.*
+import io.computenode.cyfra.core.expression.types.given
 import izumi.reflect.Tag
 
 class Algebra extends FunctionCompilationModule:

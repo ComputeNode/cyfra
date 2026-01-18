@@ -2,6 +2,9 @@ package io.computenode.cyfra.dsl
 
 import io.computenode.cyfra.core.expression.*
 import io.computenode.cyfra.core.expression.given
+import io.computenode.cyfra.core.expression.types.*
+import io.computenode.cyfra.core.expression.types.given
+
 import io.computenode.cyfra.dsl.direct.GIO
 
 object Library:

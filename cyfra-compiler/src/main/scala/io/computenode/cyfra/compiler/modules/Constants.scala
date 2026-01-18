@@ -6,6 +6,8 @@ import io.computenode.cyfra.compiler.modules.CompilationModule.FunctionCompilati
 import io.computenode.cyfra.compiler.unit.Ctx
 import io.computenode.cyfra.core.expression.Value
 import io.computenode.cyfra.core.expression.given
+import io.computenode.cyfra.core.expression.types.given
+
 import izumi.reflect.Tag
 
 class Constants extends FunctionCompilationModule:

@@ -1,4 +1,6 @@
-import io.computenode.cyfra.core.expression.{*, given}
+import io.computenode.cyfra.core.expression.types.*
+import io.computenode.cyfra.core.expression.types.given
+import io.computenode.cyfra.core.expression.*
 import izumi.reflect.{Tag, TagK, TagKK}
 import monocle.syntax.all.*
 

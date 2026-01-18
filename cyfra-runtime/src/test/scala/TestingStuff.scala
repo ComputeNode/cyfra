@@ -6,6 +6,8 @@ import io.computenode.cyfra.dsl.Library.*
 import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.core.binding.*
 import io.computenode.cyfra.core.expression.JumpTarget.BreakTarget
+import io.computenode.cyfra.core.expression.types.*
+import io.computenode.cyfra.core.expression.types.given
 import io.computenode.cyfra.dsl.direct.*
 import io.computenode.cyfra.core.{GBufferRegion, GExecution, GProgram}
 import io.computenode.cyfra.runtime.VkCyfraRuntime

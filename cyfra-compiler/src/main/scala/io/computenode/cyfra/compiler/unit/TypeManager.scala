@@ -6,6 +6,8 @@ import io.computenode.cyfra.compiler.Spirv.*
 import io.computenode.cyfra.core.expression.*
 import io.computenode.cyfra.core.expression.given
 import io.computenode.cyfra.compiler.unit.TypeManager.*
+import io.computenode.cyfra.core.expression.types.*
+import io.computenode.cyfra.core.expression.types.given
 import io.computenode.cyfra.utility.Utility.accumulate
 import izumi.reflect.{Tag, TagK, TagKK}
 import izumi.reflect.macrortti.LightTypeTag

@@ -2,13 +2,13 @@ package io.computenode.cyfra.runtime
 
 import io.computenode.cyfra.core.expression.Value
 import io.computenode.cyfra.core.binding.{GBinding, GBuffer, GUniform}
-import io.computenode.cyfra.core.expression.typeStride
 import io.computenode.cyfra.vulkan.memory.{Allocator, Buffer}
 import io.computenode.cyfra.vulkan.core.{Device, Queue}
 import izumi.reflect.Tag
 import org.lwjgl.vulkan.VK10
 import org.lwjgl.vulkan.VK10.*
 import io.computenode.cyfra.core.binding.{GBinding, GBuffer, GUniform}
+import io.computenode.cyfra.core.expression.types.typeStride
 import scala.collection.mutable
 import scala.util.chaining.given
 

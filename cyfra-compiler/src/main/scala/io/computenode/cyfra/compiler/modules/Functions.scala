@@ -7,6 +7,7 @@ import io.computenode.cyfra.compiler.unit.{Compilation, Context, Ctx}
 import io.computenode.cyfra.compiler.Spirv.Op
 import io.computenode.cyfra.compiler.Spirv.FunctionControlMask
 import io.computenode.cyfra.core.expression.{Value, given}
+import io.computenode.cyfra.core.expression.types.given
 import io.computenode.cyfra.utility.FlatList
 import izumi.reflect.Tag
 

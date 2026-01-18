@@ -1,8 +1,10 @@
 package io.computenode.cyfra.dsl.monad
 
-import io.computenode.cyfra.core.expression.{Bool, BuildInFunction, CustomFunction, JumpTarget, UInt32, Value, Var, given}
+import io.computenode.cyfra.core.expression.{BuildInFunction, CustomFunction, JumpTarget, Value, Var, given}
 import io.computenode.cyfra.core.binding.GBuffer
 import io.computenode.cyfra.core.expression.JumpTarget.{BreakTarget, ContinueTarget}
+import io.computenode.cyfra.core.expression.types.*
+import io.computenode.cyfra.core.expression.types.given
 import io.computenode.cyfra.utility.cats.Free
 
 sealed trait GOps[T: Value]:

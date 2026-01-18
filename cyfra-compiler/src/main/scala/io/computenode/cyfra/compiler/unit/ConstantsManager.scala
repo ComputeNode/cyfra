@@ -8,6 +8,8 @@ import io.computenode.cyfra.compiler.unit.ConstantsManager.*
 import io.computenode.cyfra.core.expression.*
 import io.computenode.cyfra.utility.Utility.accumulate
 import io.computenode.cyfra.core.expression.given
+import io.computenode.cyfra.core.expression.types.*
+import io.computenode.cyfra.core.expression.types.given
 import izumi.reflect.{Tag, TagK}
 import izumi.reflect.macrortti.LightTypeTag
 

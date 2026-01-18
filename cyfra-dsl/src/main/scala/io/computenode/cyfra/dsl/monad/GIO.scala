@@ -1,9 +1,11 @@
 package io.computenode.cyfra.dsl.monad
 
 import io.computenode.cyfra.utility.cats.{Free, FunctionK}
-import io.computenode.cyfra.core.expression.{Expression, ExpressionBlock, Value, Var, JumpTarget, Bool, BuildInFunction, CustomFunction, given}
+import io.computenode.cyfra.core.expression.{Expression, ExpressionBlock, Value, Var, JumpTarget, BuildInFunction, CustomFunction, given}
 import io.computenode.cyfra.core.binding.GBuffer
 import io.computenode.cyfra.core.expression.Value.irs
+import io.computenode.cyfra.core.expression.types.*
+import io.computenode.cyfra.core.expression.types.given
 
 type GIO[T] = Free[GOps, T]
 

@@ -1,4 +1,4 @@
-package io.computenode.cyfra.core.expression
+package io.computenode.cyfra.core.expression.types
 
 import io.computenode.cyfra.core.expression.*
 

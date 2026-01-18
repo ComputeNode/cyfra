@@ -1,7 +1,8 @@
-package io.computenode.cyfra.core.expression
+package io.computenode.cyfra.core.expression.types
 
-import izumi.reflect.{Tag, TagK}
+import io.computenode.cyfra.core.expression.Value
 import izumi.reflect.macrortti.LightTypeTag
+import izumi.reflect.{Tag, TagK}
 
 def typeStride(value: Value[?]): Int =
   val elementSize = value.bottomComposite.tag match

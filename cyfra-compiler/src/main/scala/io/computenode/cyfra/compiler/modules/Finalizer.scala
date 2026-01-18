@@ -7,8 +7,10 @@ import io.computenode.cyfra.compiler.ir.IR
 import io.computenode.cyfra.compiler.ir.IR.RefIR
 import io.computenode.cyfra.compiler.ir.IRs
 import io.computenode.cyfra.compiler.Spirv.*
-import io.computenode.cyfra.core.expression.{UInt32, Value, Vec3, given}
+import io.computenode.cyfra.core.expression.{Value, given}
 import io.computenode.cyfra.core.expression.BuildInFunction.GlobalInvocationId
+import io.computenode.cyfra.core.expression.types.*
+import io.computenode.cyfra.core.expression.types.given
 
 class Finalizer extends StandardCompilationModule:
   def compile(input: Compilation): Compilation =
