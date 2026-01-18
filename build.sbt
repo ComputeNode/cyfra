@@ -85,6 +85,7 @@ lazy val utility = (project in file("cyfra-utility"))
 
 lazy val core = (project in file("cyfra-core"))
   .settings(commonSettings)
+  .settings(libraryDependencies ++= Seq("dev.optics" %% "monocle-core" % "3.1.0" % Test, "dev.optics" %% "monocle-macro" % "3.1.0" % Test))
   .dependsOn(utility)
 
 lazy val dsl = (project in file("cyfra-dsl"))
