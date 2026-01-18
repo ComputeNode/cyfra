@@ -5,6 +5,7 @@ import io.computenode.cyfra.core.expression.ops.given
 import io.computenode.cyfra.dsl.Library.*
 import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.core.binding.*
+import io.computenode.cyfra.core.expression.JumpTarget.BreakTarget
 import io.computenode.cyfra.dsl.direct.*
 import io.computenode.cyfra.core.{GBufferRegion, GExecution, GProgram}
 import io.computenode.cyfra.runtime.VkCyfraRuntime
@@ -40,8 +41,9 @@ object TestingStuff:
     val bufferOffset = invocId * emitN
     val iV: Var[UInt32] = GIO.declare()
     GIO.write(iV, UInt32(0))
-    val body: GIO ?=> Unit =
+    val body: (BreakTarget, GIO) ?=> Unit =
       val i = GIO.read(iV)
+      GIO.conditionalBreak(i === emitN)
       GIO.write(layout.out, bufferOffset + i, element)
 
     val continue: GIO ?=> Unit =
@@ -114,6 +116,7 @@ object TestingStuff:
       .zipWithIndex
       .foreach:
         case ((e, a), i) => assert(e == a, s"Mismatch at index $i: expected $e, got $a")
+    println("DONE")
 
   @main
   def test =
