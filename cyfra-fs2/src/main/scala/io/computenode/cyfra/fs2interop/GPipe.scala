@@ -236,7 +236,7 @@ object GPipe:
     * @param input
     *   Batch of input arrays
     */
-  def batch[L <: Layout: LayoutBinding](program: GProgram[Int, L], batchSize: Int, inputStride: Int, outputStride: Int)(
+  def batch[L: Layout](program: GProgram[Int, L], batchSize: Int, inputStride: Int, outputStride: Int)(
     buildLayout: (Array[Float], Int) => Allocation ?=> L,
     outputBuffer: L => GBuffer[Float32],
   )(input: Array[Array[Float]])(using CyfraRuntime): Array[Array[Float]] =

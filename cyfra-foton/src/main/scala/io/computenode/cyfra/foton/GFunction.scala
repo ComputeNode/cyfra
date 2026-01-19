@@ -47,7 +47,6 @@ case class GFunction[G <: GStruct[G]: {GStructSchema, Tag}, H <: Value: {Tag, Fr
     val out = BufferUtils.createByteBuffer(outTypeSize * input.size)
     val uniform = BufferUtils.createByteBuffer(uniformStride)
     gCodec.toByteBuffer(uniform, Array(g))
-    ???
 
     GBufferRegion
       .allocate[GFunctionLayout[G, H, R]]
@@ -74,20 +73,18 @@ object GFunction:
       for _ <- layout.out.write(GIO.invocationId, result)
       yield Empty()
 
-    val inTypeSize = typeStride(Tag.apply[H])
-    val outTypeSize = typeStride(Tag.apply[R])
-    ???
+    val program = GProgram.static[GFunctionParams, GFunctionLayout[G, H, R]](
+      layout = (params: GFunctionParams) => GFunctionLayout(GBuffer(params.size), GBuffer(params.size), GUniform()),
+      dispatchSize = _.size,
+    )(body)
 
-//    GFunction(underlying =
-//      GProgram.apply[GFunctionParams, GFunctionLayout[G, H, R]](
-//        layout = (p: GFunctionParams) => GFunctionLayout[G, H, R](in = GBuffer[H](p.size), out = GBuffer[R](p.size), uniform = GUniform[G]()),
-//        dispatch = (l, p) => StaticDispatch((p.size + 255) / 256, 1, 1),
-//        workgroupSize = (256, 1, 1),
-//      )(body),
-//    )
+    GFunction(program)
 
   def apply[H <: Value: {Tag, FromExpr}, R <: Value: {Tag, FromExpr}](fn: H => R): GFunction[GStruct.Empty, H, R] =
     GFunction.forEachIndex[GStruct.Empty, H, R]((g: GStruct.Empty, index: Int32, a: GBuffer[H]) => fn(a.read(index)))
+
+  def apply[G <: GStruct[G]: {GStructSchema, Tag}, H <: Value: {Tag, FromExpr}, R <: Value: {Tag, FromExpr}](fn: (G, H) => R): GFunction[G, H, R] =
+    GFunction.forEachIndex[G, H, R]((g: G, index: Int32, a: GBuffer[H]) => fn(g, a.read(index)))
 
   def from2D[G <: GStruct[G]: {GStructSchema, Tag}, H <: Value: {Tag, FromExpr}, R <: Value: {Tag, FromExpr}](
     width: Int,
