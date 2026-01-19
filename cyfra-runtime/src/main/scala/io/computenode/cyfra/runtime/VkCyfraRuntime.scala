@@ -47,3 +47,9 @@ class VkCyfraRuntime(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()) ex
   def close(): Unit =
     shaderCache.values.foreach(_.underlying.destroy())
     context.destroy()
+
+object VkCyfraRuntime:
+  def using[T](f: VkCyfraRuntime ?=> T): T =
+    val runtime = new VkCyfraRuntime()
+    try f(using runtime)
+    finally runtime.close()

@@ -4,72 +4,30 @@ sidebar_position: 2
 
 # Getting Started
 
+:::note
+Cyfra is in an early beta version. We encourage you to experiment with it and use it for non-mission-critical tasks.
+However, it may not work on some setups and may suffer from issues with stability. We are working on it.
+Please report all the issues you face at [our github issue tracker](https://github.com/ComputeNode/cyfra/issues).
+:::
+
 This guide will help you set up Cyfra and run your first GPU computation in minutes.
 
 ## Requirements
 
-Cyfra requires a system with Vulkan support. Most modern GPUs from NVIDIA, AMD, and Intel work out of the box. You'll also need:
-
-- JDK 21 or later
-- sbt 1.9 or later
-- Vulkan SDK installed on your system
+Cyfra requires a system with Vulkan support. Most modern GPUs from NVIDIA, AMD, and Intel work out of the box. You'll also need JDK 21 or later.
 
 ## Installation
 
-Add Cyfra to your `build.sbt`:
+Add Cyfra to your `build.sbt` or other build tool:
 
 ```scala
 libraryDependencies ++= Seq(
-  "io.computenode" %% "cyfra-foton" % "0.1.0"  // Coming soon
+  "io.computenode" %% "cyfra-foton" % "0.1.0-RC1" 
 )
 ```
 
-:::note
-Cyfra is not yet published to Maven Central. For now, clone the repository and publish locally:
+## Validation layers
 
-```bash
-git clone https://github.com/computenode/cyfra.git
-cd cyfra
-sbt publishLocal
-```
-:::
+To use vulkan validation layers with your runs, install [Vulkan SDK](https://vulkan.lunarg.com/sdk/home).
 
-## Quick Start
-
-Here's a complete example that doubles an array of numbers on the GPU:
-
-```scala
-import io.computenode.cyfra.core.CyfraRuntime
-import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.foton.GFunction
-import io.computenode.cyfra.runtime.VkCyfraRuntime
-
-@main def quickStart(): Unit =
-  // Initialize the Vulkan runtime
-  given CyfraRuntime = VkCyfraRuntime()
-
-  // Define a GPU function
-  val doubleIt = GFunction[Float32, Float32] { x =>
-    x * 2.0f
-  }
-
-  // Run it
-  val input = Array(1.0f, 2.0f, 3.0f, 4.0f, 5.0f)
-  val result = doubleIt.run(input)
-
-  println(result.mkString(", "))
-  // Output: 2.0, 4.0, 6.0, 8.0, 10.0
-
-  summon[CyfraRuntime].asInstanceOf[VkCyfraRuntime].close()
-```
-
-That's it. The lambda `x => x * 2.0f` is compiled to SPIR-V, uploaded to the GPU, and executed in parallel across all elements.
-
-## Next Steps
-
-Now that you have Cyfra running, explore the core concepts:
-
-- **[GPU Functions](/docs/gpu-functions)** — Learn how to write and configure GPU functions
-- **[Composing GPU Programs](/docs/composing-gpu-programs)** — Build multi-pass pipelines that keep data on the GPU
-- **[Examples](/docs/examples)** — See complete examples including fractals and simulations
-
+Note that set-up on MacOS requires additional steps.

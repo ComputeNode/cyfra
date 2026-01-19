@@ -4,176 +4,165 @@ sidebar_position: 3
 
 # GPU Functions
 
-A `GFunction` represents a function that runs on the GPU, transforming an input array into an output array in parallel. Think of it as a GPU-accelerated `map` operation where each element is processed independently by a separate GPU thread.
-
-## Your First GPU Function
-
-The simplest way to create a GPU function is by passing a lambda that describes how to transform a single element:
+The simplest way to use the Cyfra library is with a GFunction. In essence, it is a function that takes any input you give it, runs on the GPU, and returns the output.
 
 ```scala
-import io.computenode.cyfra.core.CyfraRuntime
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.foton.GFunction
 import io.computenode.cyfra.runtime.VkCyfraRuntime
 
-@main def helloGpu(): Unit =
-  given CyfraRuntime = VkCyfraRuntime()
+@main
+def multiplyByTwo(): Unit =
+  VkCyfraRuntime.using:
+    val input = (0 until 256).map(_.toFloat)
 
-  val doubleIt: GFunction[GStruct.Empty, Float32, Float32] = GFunction { x =>
-    x * 2.0f
-  }
+    val doubleIt: GFunction[GStruct.Empty, Float32, Float32] = GFunction: x =>
+      x * 2.0f
 
-  val input = (0 until 256).map(_.toFloat).toArray
-  val result: Array[Float] = doubleIt.run(input)
+    val result: Array[Float] = doubleIt.run(input)
 
-  println(s"Input:  ${input.take(5).mkString(", ")}...")
-  println(s"Output: ${result.take(5).mkString(", ")}...")
-  // Output: 0.0, 2.0, 4.0, 6.0, 8.0...
-
-  summon[CyfraRuntime].asInstanceOf[VkCyfraRuntime].close()
+    println(s"Output: ${result.take(10).mkString(", ")}...")
 ```
 
-This creates a function that doubles every element. The type signature `GFunction[GStruct.Empty, Float32, Float32]` indicates that it takes no configuration parameters (`GStruct.Empty`), accepts `Float32` values as input, and produces `Float32` values as output.
+`doubleIt.run(input)` will simply take the provided input and run the GFunction on it. As a result, we will get an array of floats that are each a doubled entry from the input array.
 
-The entire array is processed in parallel on the GPU. Each invocation of the lambda operates on a different element, with thousands of GPU threads working simultaneously.
+## Cyfra DSL
 
-## Working with Vectors
+When you use Cyfra, you enter a world of values that are entirely separate from standard Scala values. Float becomes `Float32`, Double becomes `Float64`, and so on. Below is a table with more examples. Those are not all the types, but this includes most important ground types (`Float32`, `Int32`, `GBoolean`, etc.). Any ground types can be then used with Vectors. Additionally any types can be composed into `GStruct`s (including other `GStruct`s).
 
-Cyfra provides built-in vector types that map directly to GPU hardware. The `Vec4[Float32]` type represents a 4-component floating-point vector and supports standard operations like normalization and dot products:
+| Scala Type | Cyfra Type |
+|------------|------------|
+| `Float` | `Float32` |
+| `Double` | `Float64` |
+| `Int` | `Int32` |
+| `Int` | `UInt32` (unsigned) |
+| `Boolean` | `GBoolean` |
+| `(Float, Float)` | `Vec2[Float32]` |
+| `(Float, Float, Float, Float)` | `Vec4[Float32]` | 
+| `(Int, Int)` | `Vec2[Int32]` |
+
+The operators you use stay the same, but keep in mind - for an operation to happen on the GPU, it needs to involve a Cyfra value type.
+
+## Using Uniforms
+
+In the previous example, the GFunction only took a float array as an input. There is, however, a way to provide additional parameters to each run. This has to do with the first type parameter of `GFunction` that was set to `GStruct.Empty` in the previous example. This is the Uniform structure that can be provided for each GFunction.
 
 ```scala
-import io.computenode.cyfra.core.CyfraRuntime
-import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.foton.GFunction
-import io.computenode.cyfra.runtime.VkCyfraRuntime
+case class FunctionParam(a: Float32) extends GStruct[FunctionParam]
 
-@main def vectorOperations(): Unit =
-  given CyfraRuntime = VkCyfraRuntime()
+@main
+def multiplyByTwo(): Unit =
+  VkCyfraRuntime.using:
+    val input = (0 until 256).map(_.toFloat)
 
-  val normalizeVec4: GFunction[GStruct.Empty, Vec4[Float32], Vec4[Float32]] = GFunction { v =>
-    normalize(v)
-  }
+    val doubleIt: GFunction[FunctionParam, Float32, Float32] = GFunction: 
+      (params: FunctionParam, x: Float32) =>
+        x * params.a
 
-  val dotWithX: GFunction[GStruct.Empty, Vec4[Float32], Float32] = GFunction { v =>
-    val xAxis = vec4(1.0f, 0.0f, 0.0f, 0.0f)
-    v.dot(xAxis)
-  }
+    val params = FunctionParam(2.0f)
+    
+    val result: Array[Float] = doubleIt.run(input, params)
 
-  // On the Scala side, Vec4 maps to (Float, Float, Float, Float) tuples
-  val vectors: Array[(Float, Float, Float, Float)] = Array(
-    (3.0f, 0.0f, 0.0f, 0.0f),
-    (0.0f, 4.0f, 0.0f, 0.0f),
-    (1.0f, 1.0f, 1.0f, 1.0f)
-  ) ++ Array.fill(253)((1.0f, 0.0f, 0.0f, 0.0f))
-
-  val normalized = normalizeVec4.run(vectors)
-  println(f"(3,0,0,0) normalized: (${normalized(0)._1}%.2f, ${normalized(0)._2}%.2f, ${normalized(0)._3}%.2f, ${normalized(0)._4}%.2f)")
-  // Output: (1.00, 0.00, 0.00, 0.00)
-
-  val dots = dotWithX.run(vectors)
-  println(s"(3,0,0,0) dot X-axis: ${dots(0)}")
-  // Output: 3.0
-
-  summon[CyfraRuntime].asInstanceOf[VkCyfraRuntime].close()
+    println(s"Output: ${result.take(10).mkString(", ")}...")
 ```
 
-The codec system handles conversion between Scala tuples and GPU vector types automatically.
+You can see that the lambda in GFunction takes `FunctionParam`. The GStruct case class can be any product of any Cyfra values (including other structs).
 
-## Configuration with Structs
+## If-else becomes when-otherwise
 
-Many GPU functions need configuration parameters that remain constant across all elements. Instead of hardcoding values, you can define a configuration struct that gets passed to the GPU as a uniform buffer.
+Because in Cyfra we live in a different (GPU) world, it is required to use alternative control expressions. The most basic one is the `when`(-`elseWhen`-)`otherwise`:
+```scala
+val multiplyIt: GFunction[FunctionParam, Float32, Float32] = GFunction: 
+  (params: FunctionParam, x: Float32) =>
+    when(x < 100f):
+      x * params.a
+    .elseWhen(x < 200f):
+      x * params.a * 2f
+    .otherwise:
+      x * params.a * 4f
+```
 
-Define your configuration as a case class extending `GStruct`:
+## GSeqs
+
+To iterate and express collections, Cyfra offers a `GSeq` type. It corresponds to a `LazyList` from Scala - a lazily evaluated sequence that can be transformed and consumed with familiar functional operations.
+
+### Creating a GSeq
+
+Use `GSeq.gen` to create a sequence by providing an initial value and a function that produces the next element:
 
 ```scala
-import io.computenode.cyfra.core.CyfraRuntime
-import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.foton.GFunction
-import io.computenode.cyfra.runtime.VkCyfraRuntime
+// Create from a known list of elements
+val colors = GSeq.of(List(red, green, blue))
 
-case class TransformConfig(scale: Float32, offset: Float32) extends GStruct[TransformConfig]
+// Generate integers: 0, 1, 2, 3, ...
+val integers = GSeq.gen[Int32](0, n => n + 1)
 
-@main def configuredTransform(): Unit =
-  given CyfraRuntime = VkCyfraRuntime()
+// Generate Fibonacci-like: (0,1), (1,1), (1,2), (2,3), ...
+val fibonacci = GSeq.gen[(Int32, Int32)]((0, 1), pair => (pair._2, pair._1 + pair._2))
 
-  val transform: GFunction[TransformConfig, Float32, Float32] = 
-    GFunction.forEachIndex[TransformConfig, Float32, Float32] { (config, idx, buffer) =>
-      buffer.read(idx) * config.scale + config.offset
-    }
-
-  val data = (0 until 256).map(_.toFloat).toArray
-
-  // Same compiled GPU code, different configurations
-  val doubled = transform.run(data, TransformConfig(2.0f, 0.0f))
-  println(s"f(x) = x * 2:      ${doubled.take(5).mkString(", ")}...")
-  // Output: 0.0, 2.0, 4.0, 6.0, 8.0...
-
-  val shifted = transform.run(data, TransformConfig(1.0f, 10.0f))
-  println(s"f(x) = x + 10:     ${shifted.take(5).mkString(", ")}...")
-  // Output: 10.0, 11.0, 12.0, 13.0, 14.0...
-
-  val combined = transform.run(data, TransformConfig(0.5f, 100.0f))
-  println(s"f(x) = 0.5x + 100: ${combined.take(5).mkString(", ")}...")
-  // Output: 100.0, 100.5, 101.0, 101.5, 102.0...
-
-  summon[CyfraRuntime].asInstanceOf[VkCyfraRuntime].close()
+// Mandelbrot iteration: z = z² + c
+val mandelbrot = GSeq.gen(
+  vec2(0.0f, 0.0f), 
+  z => vec2(z.x * z.x - z.y * z.y + cx, 2.0f * z.x * z.y + cy)
+)
 ```
 
-The `forEachIndex` variant gives you access to the configuration struct, the element index, and the input buffer. The same compiled shader can be reused with different parameter values without recompilation.
+You must always call `.limit(n)` before consuming a GSeq to set a maximum iteration count (infinite sequences are not supported on GPU).
 
-## 2D Processing
+### Map, filter, takeWhile
 
-Image processing and grid-based computations work naturally when you compute 2D coordinates from the linear index. Here's a complete example that generates a Julia set fractal:
+Transform and filter sequences with familiar operations:
 
 ```scala
-import io.computenode.cyfra.core.CyfraRuntime
-import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.foton.{GFunction, ImageUtility}
-import io.computenode.cyfra.runtime.VkCyfraRuntime
-import java.nio.file.Paths
+// Map: transform each element
+val doubled = GSeq.gen[Int32](0, _ + 1).limit(100).map(_ * 2)
 
-case class JuliaConfig(width: Int32, height: Int32, cReal: Float32, cImag: Float32) 
-  extends GStruct[JuliaConfig]
+// Filter: keep only matching elements
+val evens = GSeq.gen[Int32](0, _ + 1).limit(100).filter(n => n.mod(2) === 0)
 
-@main def juliaFractal(): Unit =
-  given CyfraRuntime = VkCyfraRuntime()
-
-  val MaxIterations = 256
-  val width = 512
-  val height = 512
-
-  val julia: GFunction[JuliaConfig, Int32, Vec4[Float32]] = 
-    GFunction.forEachIndex[JuliaConfig, Int32, Vec4[Float32]] { (config, idx, buffer) =>
-      val pixelIdx = buffer.read(idx)
-      val px = pixelIdx.mod(config.width)
-      val py = pixelIdx / config.width
-      
-      val zx = px.asFloat / config.width.asFloat * 3.0f - 1.5f
-      val zy = py.asFloat / config.height.asFloat * 3.0f - 1.5f
-      
-      val iterations = GSeq
-        .gen(vec2(zx, zy), z => 
-          vec2(z.x * z.x - z.y * z.y + config.cReal, 2.0f * z.x * z.y + config.cImag)
-        )
-        .limit(MaxIterations)
-        .takeWhile(z => z.x * z.x + z.y * z.y < 4.0f)
-        .count
-      
-      val t = iterations.asFloat / MaxIterations.toFloat
-      vec4(t * t, t, sqrt(t), 1.0f)
-    }
-
-  val indices = (0 until width * height).toArray
-  val config = JuliaConfig(width, height, -0.7f, 0.27015f)
-
-  println(s"Computing ${width}x${height} Julia set on GPU...")
-  val colors: Array[(Float, Float, Float, Float)] = julia.run(indices, config)
-
-  ImageUtility.renderToImage(colors, width, height, Paths.get("julia.png"))
-  println("Saved to julia.png")
-
-  summon[CyfraRuntime].asInstanceOf[VkCyfraRuntime].close()
+// TakeWhile: stop when condition becomes false
+val underTen = GSeq.gen[Int32](0, _ + 1).limit(100).takeWhile(_ < 10)
 ```
 
-Each pixel is calculated independently on the GPU. The `GSeq` abstraction provides a functional way to express iterative computations that compile to efficient GPU loops.
+These can be chained together:
 
+```scala
+// Julia set iteration: iterate until escape or limit
+val iterations = GSeq
+  .gen(uv, v => ((v.x * v.x) - (v.y * v.y), 2.0f * v.x * v.y) + const)
+  .limit(1000)
+  .map(length)           // Transform to magnitude
+  .takeWhile(_ < 2.0f)   // Stop when magnitude exceeds 2
+```
+
+### Fold, count, lastOr
+
+Terminal operations consume the sequence and produce a result:
+
+```scala
+// Count: number of elements that passed through
+val iterationCount: Int32 = GSeq
+  .gen(vec2(0f, 0f), z => vec2(z.x*z.x - z.y*z.y + cx, 2f*z.x*z.y + cy))
+  .limit(256)
+  .takeWhile(z => z.x*z.x + z.y*z.y < 4.0f)
+  .count
+
+// Fold: reduce with accumulator
+val sum: Int32 = GSeq.gen[Int32](1, _ + 1).limit(10).fold(0, _ + _)
+
+// LastOr: get final element (or default if empty)
+val finalValue: Int32 = GSeq.gen[Int32](0, _ + 1).limit(10).lastOr(0)
+```
+
+**Every GSeq must have a hard `limit` of maximum elements it can hold**
+
+
+## Example usage
+
+GFunction may be a simple construct, but it is enough to accelerate many applications. An example is a raytracer that would otherwise take a very long time to run on a CPU. Here is the implementation of a raytracer with Cyfra:
+
+![Animated Raytracing](https://github.com/user-attachments/assets/3eac9f7f-72df-4a5d-b768-9117d651c78d)
+
+Source:
+ - [ImageRtRenderer.scala](https://github.com/ComputeNode/cyfra/blob/cab6b4cae3a3402a3de43272bc7cb50acf5ec67b/cyfra-foton/src/main/scala/io/computenode/cyfra/foton/rt/ImageRtRenderer.scala)
+ - [RtRenderer.scala](https://github.com/ComputeNode/cyfra/blob/cab6b4cae3a3402a3de43272bc7cb50acf5ec67b/cyfra-foton/src/main/scala/io/computenode/cyfra/foton/rt/RtRenderer.scala)
