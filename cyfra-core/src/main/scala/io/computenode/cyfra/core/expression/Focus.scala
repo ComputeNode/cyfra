@@ -1,6 +1,6 @@
 package io.computenode.cyfra.core.expression
 
-import io.computenode.cyfra.core.expression.types.IntegerType
+import io.computenode.cyfra.core.expression.types.{IntegerType, Mat, RuntimeArray, Vec}
 
 import scala.quoted.{Expr, Quotes, Type}
 
@@ -13,7 +13,9 @@ case class FocusConstant[Parent: Value, T: Value](parent: Focus[Parent], value: 
 case class FocusDynamic[Parent: Value, T: Value](parent: Focus[Parent], value: IntegerType) extends Focus[T]
 
 object Focus:
-  trait FocusContext
+  trait FocusContext:
+    extension [To: Value, I <: IntegerType: Value](from: RuntimeArray[To])
+      def at(index: I): To = scala.sys.error("method can only be used inside focus lambda")
 
   extension [From: Value, To: Value](from: Focus[From])
     transparent inline def focus(inline lambda: FocusContext ?=> From => To): Focus[To] =

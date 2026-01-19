@@ -39,6 +39,8 @@ abstract class Mat4x2[T: Value] extends Mat[T]
 abstract class Mat4x3[T: Value] extends Mat[T]
 abstract class Mat4x4[T: Value] extends Mat[T]
 
+abstract class RuntimeArray[T: Value]
+
 private def const[A: Value](value: Any): A =
   summon[Value[A]].extract(ExpressionBlock(Expression.Constant[A](value)))
 
