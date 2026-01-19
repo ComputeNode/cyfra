@@ -1,19 +1,16 @@
 import io.computenode.cyfra.core.expression.types.*
 import io.computenode.cyfra.core.expression.types.given
 import io.computenode.cyfra.core.expression.*
+import io.computenode.cyfra.core.expression.Focus.*
 import izumi.reflect.{Tag, TagK, TagKK}
-import monocle.syntax.all.*
 
 val v1: Var[Struct] = new Var()
 
 @main
 def run(): Unit =
-//  v1._1
+  val a = v1.focus(_._2._1)
 
-  val a = (42, (3.14f, 2137))
-  val res = a.focus(_._2._1).get
-
-  println(res)
+  println("dupa" + a)
 
 private def eNa[T: Value](block: ExpressionBlock[?], exp: Expression[T]): T =
   exp.v.extract(block.add(exp))
