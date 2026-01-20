@@ -140,7 +140,7 @@ lazy val e2eTest = (project in file("cyfra-e2e-test"))
 lazy val root = (project in file("."))
   .settings(name := "Cyfra")
   .settings(publish / skip := true)
-  .aggregate(compiler, dsl, foton, core, runtime, vulkan, examples, fs2interop, fluids, analytics, utility, spirvTools, vscode, )
+  .aggregate(compiler, dsl, foton, core, runtime, vulkan, examples, fs2interop, fluids, analytics, utility, spirvTools, vscode)
 
 e2eTest / Test / javaOptions ++= Seq("-Dorg.lwjgl.system.stackSize=1024", "-DuniqueLibraryNames=true")
 
