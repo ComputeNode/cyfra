@@ -36,6 +36,7 @@ lazy val vulkanNatives =
   else Seq.empty
 
 lazy val commonSettings = Seq(
+  moduleName := s"cyfra-${thisProject.value.id}",
   scalacOptions ++= Seq("-feature", "-deprecation", "-unchecked", "-language:implicitConversions"),
   resolvers += "maven snapshots" at "https://central.sonatype.com/repository/maven-snapshots/",
   resolvers += "OSGeo Release Repository" at "https://repo.osgeo.org/repository/release/",
@@ -138,7 +139,8 @@ lazy val e2eTest = (project in file("cyfra-e2e-test"))
 
 lazy val root = (project in file("."))
   .settings(name := "Cyfra")
-  .aggregate(compiler, dsl, foton, core, runtime, vulkan, examples, fs2interop, fluids, analytics)
+  .settings(publish / skip := true)
+  .aggregate(compiler, dsl, foton, core, runtime, vulkan, examples, fs2interop, fluids, analytics, utility, spirvTools, vscode, )
 
 e2eTest / Test / javaOptions ++= Seq("-Dorg.lwjgl.system.stackSize=1024", "-DuniqueLibraryNames=true")
 
