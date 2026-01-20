@@ -44,18 +44,18 @@ val doubleProgram: GProgram[Int, DoubleLayout] = GProgram[Int, DoubleLayout](
     val value = GIO.read(layout.input, idx)
     GIO.write(layout.output, idx, value * 2.0f)
 
-case class AddParams(value: Float32) extends GStruct[AddParams]
-case class AddLayout(
+case class SumParams(value: Float32) extends GStruct[SumParams]
+case class SumLayout(
   input: GBuffer[Float32], 
   output: GBuffer[Float32], 
   params: GUniform[AddParams]
 ) derives Layout
 
-val addProgram: GProgram[Int, AddLayout] = GProgram[Int, AddLayout](
-  layout = size => AddLayout(
+val sumProgram: GProgram[Int, SumLayout] = GProgram[Int, SumLayout](
+  layout = size => SumLayout(
     input = GBuffer[Float32](size), 
     output = GBuffer[Float32](size), 
-    params = GUniform[AddParams]()
+    params = GUniform[SumParams]()
   ),
   dispatch = (_, size) => StaticDispatch(((size + 255) / 256, 1, 1)),
   workgroupSize = (256, 1, 1),
@@ -81,7 +81,7 @@ case class PipelineLayout(
   input: GBuffer[Float32],
   doubled: GBuffer[Float32],   // Intermediate buffer
   output: GBuffer[Float32],
-  addParams: GUniform[AddParams]
+  sumParams: GUniform[SumParams]
 ) derives Layout
 
 // Step 3: Compose the pipeline
@@ -91,13 +91,15 @@ val doubleAndAddPipeline: GExecution[Int, PipelineLayout, PipelineLayout] =
       size => size,  // Map params: pipeline size -> program size
       layout => DoubleLayout(layout.input, layout.doubled)  // Map layout
     )
-    .addProgram(addProgram)(
+    .addProgram(sumProgram)(
       size => size,
-      layout => AddLayout(layout.doubled, layout.output, layout.addParams)
+      layout => SumLayout(layout.doubled, layout.output, layout.sumParams)
     )
 ```
 
 Notice how the `doubled` buffer connects the two programs - the first program writes to it, and the second reads from it.
+
+**Pipelines can be made from any number of GPrograms that form a directed acyclic graph.**
 
 ## Running the Pipeline
 
@@ -105,7 +107,7 @@ Execute the pipeline using `GBufferRegion`:
 
 ```scala
 @main
-def runDoubleAndAddPipeline(): Unit = VkCyfraRuntime.using:
+def runDoubleAndSumPipeline(): Unit = VkCyfraRuntime.using:
   val size = 256
   val inputData = (0 until size).map(_.toFloat).toArray
   val results = Array.ofDim[Float](size)
@@ -120,7 +122,7 @@ def runDoubleAndAddPipeline(): Unit = VkCyfraRuntime.using:
       input = GBuffer(inputData),
       doubled = GBuffer[Float32](size),
       output = GBuffer[Float32](size),
-      addParams = GUniform(AddParams(10.0f)),
+      sumParams = GUniform(SumParams(10.0f)),
     ),
     onDone = layout => layout.output.readArray(results),
   )
@@ -162,9 +164,11 @@ execution.flatMap: resultLayout =>
 
 A great read for understanding pipelines is a report from our contributor `spamegg`. It describes a process of implementing a [parallel prefix sum](https://developer.nvidia.com/gpugems/gpugems3/part-vi-gpu-computing/chapter-39-parallel-prefix-sum-scan-cuda) based filtering approach. We highly recommend reading it: [GSoC 2025: fs2 filtering through Cyfra](https://spamegg1.github.io/gsoc-2025/#fs2-filtering-through-cyfra).
 
+This article also tackles the topic of adapting GPrograms of mismatched Layouts and Parameters with `contramap` and `contramapParams`. They make it possible to connect any kinds of unrelated GPrograms into one pipeline.
+
 ## Example: Navier-Stokes Fluid Simulation
 
-The `cyfra-fluids` module implements a full 3D Navier-Stokes fluid solver using GExecution pipelines. Each simulation step chains multiple GPU programs: forces, advection, diffusion, pressure projection, and boundary conditions.
+The `cyfra-fluids` module implements a full 3D Navier-Stokes fluid solver using GExecution pipelines. Each simulation step chains multiple GPU programs: forces, advection, diffusion, pressure projection, and boundary conditions. The GPipeline in this example is built from over 100 GPrograms.
 
 ![Fluid Simulation](/img/full_fluid_8s.gif)
 

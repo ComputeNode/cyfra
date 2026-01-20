@@ -31,14 +31,9 @@ val doubleProgram: GProgram[Int, DoubleLayout] = GProgram.static[Int, DoubleLayo
   ),
   dispatchSize = size => size,
 ): layout =>
-  val idx = GIO.invocationId
-  for
-    _ <- GIO.when(idx < 256):
-      for
-        value <- GIO.value(layout.input.read(idx))
-        _ <- layout.output.write(idx, value * 2.0f)
-      yield ()
-  yield ()
+  GIO.when(idx < 256):
+    val value = layout.input.read(idx)
+    layout.output.write(idx, value * 2.0f)
 ```
 
 There are many elements in that snippet that may seem unfamiliar at the moment, but they will be addressed in this article:
@@ -52,6 +47,8 @@ The layout is a case class that contains all the buffers (`GBuffer`) and uniform
 
 - **GBuffer[T]** - A GPU buffer that stores an array of values of type `T`
 - **GUniform[T]** - A uniform value (constant for all invocations) of type `T` (must extend `GStruct`)
+
+Layout is a product of GBuffers and GUniforms and it does not enforce any structure. Any of them can be an input, output, or some intermediate step in computation. 
 
 ### Dispatch and Execution Model
 
@@ -124,6 +121,8 @@ Now that we understand `GProgram`, we need a way to execute it. `GBufferRegion` 
 1. Allocate GPU buffers
 2. Run programs that use those buffers
 3. Read results back to CPU
+
+`DoubleProgram` and `DoubleLayout` are the custom definitions that were shown in the previous section. Those define your custom program.
 
 ```scala
 import io.computenode.cyfra.core.GBufferRegion
@@ -198,11 +197,10 @@ val mulProgram: GProgram[Int, MulLayout] = GProgram.static[Int, MulLayout](
   dispatchSize = size => size,
 ): layout =>
   val idx = GIO.invocationId
-  for
-    _ <- GIO.when(idx < 256):
-      val value = layout.input.read(idx)
-      val factor = layout.params.read.factor
-      layout.output.write(idx, value * factor)
+  GIO.when(idx < 256):
+    val value = layout.input.read(idx)
+    val factor = layout.params.read.factor
+    layout.output.write(idx, value * factor)
   yield ()
 
 @main
@@ -226,6 +224,8 @@ def runMultiply(): Unit = VkCyfraRuntime.using:
   )
 ```
 
+In this example you can also see how `GUniform` can be used to pass a single value to the program (contrary to GBuffer that represents an array of values).
+
 ## Running Multiple Programs
 
 You can run multiple programs within a single `GBufferRegion.map` block. The key insight is that `.execute` returns the Layout, so you can use the output buffers from one program as input to the next.
@@ -244,10 +244,9 @@ val doubleProgram = GProgram.static[Int, DoubleLayout](
   dispatchSize = size => size
 ): layout =>
   val idx = GIO.invocationId
-  for
-    _ <- GIO.when(idx < 256):
-      val value = layout.input.read(idx)
-      layout.output.write(idx, value * 2.0f)
+  GIO.when(idx < 256):
+    val value = layout.input.read(idx)
+    layout.output.write(idx, value * 2.0f)
   yield ()
 
 // Program 2: Add a constant
@@ -259,11 +258,10 @@ val addProgram = GProgram.static[Int, AddLayout](
   dispatchSize = size => size
 ): layout =>
   val idx = GIO.invocationId
-  for
-    _ <- GIO.when(idx < 256):
-      val value = layout.input.read(idx)
-      val addend = layout.params.read.addend
-      layout.output.write(idx, value + addend)
+  GIO.when(idx < 256):
+    val value = layout.input.read(idx)
+    val addend = layout.params.read.addend
+    layout.output.write(idx, value + addend)
   yield ()
 
 // Combined layout with intermediate buffer
@@ -302,5 +300,71 @@ def runPipeline(): Unit = VkCyfraRuntime.using:
     onDone = layout => layout.output.readArray(results),
   )
 ```
+
+In this example, you can see that there is an `intermediate` buffer introduced, that is neither an input or an output of our GPU pipeline. It just is used to transfer data between programs.
+
+## Using java.nio's ByteBuffers
+
+While Scala arrays are convenient for small datasets, `ByteBuffer` provides a more efficient alternative for large data or when integrating with native libraries.
+
+### Initializing GBuffer from ByteBuffer
+
+Use `GBuffer[T](byteBuffer)` to create a buffer from existing data:
+
+```scala
+import java.nio.{ByteBuffer, ByteOrder}
+
+val data = (0 until 1024).toArray
+val byteBuffer = ByteBuffer.allocateDirect(data.length * 4).order(ByteOrder.nativeOrder())
+byteBuffer.asIntBuffer().put(data)
+byteBuffer.flip()
+
+region.runUnsafe(
+  init = MyLayout(
+    input = GBuffer[Int32](byteBuffer),  // Initialize from ByteBuffer
+    output = GBuffer[Int32](1024),
+  ),
+  onDone = layout => ...
+)
+```
+
+### Reading Results to ByteBuffer
+
+Use `buffer.read(byteBuffer)` to copy GPU data directly into a ByteBuffer:
+
+```scala
+import java.nio.{ByteBuffer, ByteOrder}
+
+val resultBuffer = ByteBuffer.allocateDirect(1024 * 4).order(ByteOrder.nativeOrder())
+
+region.runUnsafe(
+  init = MyLayout(...),
+  onDone = layout => layout.output.read(resultBuffer),  // Read into ByteBuffer
+)
+
+// Access results
+val intView = resultBuffer.asIntBuffer()
+val firstValue = intView.get(0)
+```
+
+### Writing to GPU from ByteBuffer
+
+For dynamic updates, use `buffer.write(byteBuffer)`:
+
+```scala
+val updateBuffer = ByteBuffer.allocateDirect(1024 * 4).order(ByteOrder.nativeOrder())
+updateBuffer.asFloatBuffer().put(newData)
+updateBuffer.flip()
+
+// Inside onDone or map block:
+layout.someBuffer.write(updateBuffer)
+```
+
+### When to Use ByteBuffers
+
+- **Large datasets** - Avoids array copy overhead
+- **Native interop** - Works with LWJGL, JNI, or memory-mapped files
+- **Streaming data** - Reuse buffers across multiple runs
+- **Custom layouts** - Direct control over memory layout and byte ordering
 
 For more complex compositions with better type safety and reusability, see [GPU Pipelines](./gpu-pipelines.md).

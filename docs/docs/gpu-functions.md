@@ -16,7 +16,7 @@ import io.computenode.cyfra.runtime.VkCyfraRuntime
 @main
 def multiplyByTwo(): Unit =
   VkCyfraRuntime.using:
-    val input = (0 until 256).map(_.toFloat).toArrayQ
+    val input = (0 until 256).map(_.toFloat)
 
     val doubleIt: GFunction[GStruct.Empty, Float32, Float32] = GFunction: x =>
       x * 2.0f
@@ -30,7 +30,7 @@ def multiplyByTwo(): Unit =
 
 ## Cyfra DSL
 
-When you use Cyfra, you enter a world of values that are entirely separate from standard Scala values. Float becomes Float32, Double becomes Float64, and so on. Below is a table with more examples.
+When you use Cyfra, you enter a world of values that are entirely separate from standard Scala values. Float becomes `Float32`, Double becomes `Float64`, and so on. Below is a table with more examples. Those are not all the types, but this includes most important ground types (`Float32`, `Int32`, `GBoolean`, etc.). Any ground types can be then used with Vectors. Additionally any types can be composed into `GStruct`s (including other `GStruct`s).
 
 | Scala Type | Cyfra Type |
 |------------|------------|
@@ -55,7 +55,7 @@ case class FunctionParam(a: Float32) extends GStruct[FunctionParam]
 @main
 def multiplyByTwo(): Unit =
   VkCyfraRuntime.using:
-    val input = (0 until 256).map(_.toFloat).toArrayQ
+    val input = (0 until 256).map(_.toFloat)
 
     val doubleIt: GFunction[FunctionParam, Float32, Float32] = GFunction: 
       (params: FunctionParam, x: Float32) =>
@@ -69,6 +69,95 @@ def multiplyByTwo(): Unit =
 ```
 
 You can see that the lambda in GFunction takes `FunctionParam`. The GStruct case class can be any product of any Cyfra values (including other structs).
+
+## If-else becomes when-otherwise
+
+Because in Cyfra we live in a different (GPU) world, it is required to use alternative control expressions. The most basic one is the `when`(-`elseWhen`-)`otherwise`:
+```scala
+val multiplyIt: GFunction[FunctionParam, Float32, Float32] = GFunction: 
+  (params: FunctionParam, x: Float32) =>
+    when(x < 100f):
+      x * params.a
+    .elseWhen(x < 200f):
+      x * params.a * 2f
+    .otherwise:
+      x * params.a * 4f
+```
+
+## GSeqs
+
+To iterate and express collections, Cyfra offers a `GSeq` type. It corresponds to a `LazyList` from Scala - a lazily evaluated sequence that can be transformed and consumed with familiar functional operations.
+
+### Creating a GSeq
+
+Use `GSeq.gen` to create a sequence by providing an initial value and a function that produces the next element:
+
+```scala
+// Create from a known list of elements
+val colors = GSeq.of(List(red, green, blue))
+
+// Generate integers: 0, 1, 2, 3, ...
+val integers = GSeq.gen[Int32](0, n => n + 1)
+
+// Generate Fibonacci-like: (0,1), (1,1), (1,2), (2,3), ...
+val fibonacci = GSeq.gen[(Int32, Int32)]((0, 1), pair => (pair._2, pair._1 + pair._2))
+
+// Mandelbrot iteration: z = z² + c
+val mandelbrot = GSeq.gen(
+  vec2(0.0f, 0.0f), 
+  z => vec2(z.x * z.x - z.y * z.y + cx, 2.0f * z.x * z.y + cy)
+)
+```
+
+You must always call `.limit(n)` before consuming a GSeq to set a maximum iteration count (infinite sequences are not supported on GPU).
+
+### Map, filter, takeWhile
+
+Transform and filter sequences with familiar operations:
+
+```scala
+// Map: transform each element
+val doubled = GSeq.gen[Int32](0, _ + 1).limit(100).map(_ * 2)
+
+// Filter: keep only matching elements
+val evens = GSeq.gen[Int32](0, _ + 1).limit(100).filter(n => n.mod(2) === 0)
+
+// TakeWhile: stop when condition becomes false
+val underTen = GSeq.gen[Int32](0, _ + 1).limit(100).takeWhile(_ < 10)
+```
+
+These can be chained together:
+
+```scala
+// Julia set iteration: iterate until escape or limit
+val iterations = GSeq
+  .gen(uv, v => ((v.x * v.x) - (v.y * v.y), 2.0f * v.x * v.y) + const)
+  .limit(1000)
+  .map(length)           // Transform to magnitude
+  .takeWhile(_ < 2.0f)   // Stop when magnitude exceeds 2
+```
+
+### Fold, count, lastOr
+
+Terminal operations consume the sequence and produce a result:
+
+```scala
+// Count: number of elements that passed through
+val iterationCount: Int32 = GSeq
+  .gen(vec2(0f, 0f), z => vec2(z.x*z.x - z.y*z.y + cx, 2f*z.x*z.y + cy))
+  .limit(256)
+  .takeWhile(z => z.x*z.x + z.y*z.y < 4.0f)
+  .count
+
+// Fold: reduce with accumulator
+val sum: Int32 = GSeq.gen[Int32](1, _ + 1).limit(10).fold(0, _ + _)
+
+// LastOr: get final element (or default if empty)
+val finalValue: Int32 = GSeq.gen[Int32](0, _ + 1).limit(10).lastOr(0)
+```
+
+**Every GSeq must have a hard `limit` of maximum elements it can hold**
+
 
 ## Example usage
 
