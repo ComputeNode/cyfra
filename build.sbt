@@ -1,6 +1,6 @@
 ThisBuild / organization := "com.computenode.cyfra"
 ThisBuild / scalaVersion := "3.6.4"
-ThisBuild / version := "0.2.0-SNAPSHOT"
+ThisBuild / version := "0.1.0-RC1"
 
 val lwjglVersion = "3.4.0-SNAPSHOT"
 val jomlVersion = "1.10.0"
@@ -156,3 +156,30 @@ formatCheckAll := {
   (Compile / scalafmtSbtCheck).value
   scalafmtCheckAll.all(ScopeFilter(inAnyProject)).value
 }
+
+inThisBuild(List(
+  organization := "io.computenode",
+  homepage := Some(url("https://github.com/ComputeNode/cyfra")),
+  licenses := List("LGPL-2.1" -> url("http://www.gnu.org/licenses/lgpl-2.1.html")),
+  developers := List(
+    Developer(
+      id = "szymon-rd",
+      name = "Szymon Rodziewicz",
+      email = "xjacadev@gmail.com",
+      url = url("https://github.com/szymon-rd")
+    ),
+    Developer(
+      id = "MarconZet",
+      name = "Marcin Złakowski",
+      email = "25779550+MarconZet@users.noreply.github.com",
+      url = url("https://github.com/MarconZet")
+    )
+  )
+))
+
+// Don't publish these projects
+examples / publish / skip := true
+e2eTest / publish / skip := true
+vscode / publish / skip := true
+fluids / publish / skip := true
+analytics / publish / skip := true
