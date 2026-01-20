@@ -2,7 +2,7 @@ ThisBuild / organization := "com.computenode.cyfra"
 ThisBuild / scalaVersion := "3.6.4"
 ThisBuild / version := "0.1.0-RC1"
 
-val lwjglVersion = "3.4.0-SNAPSHOT"
+val lwjglVersion = "3.4.0"
 val jomlVersion = "1.10.0"
 
 lazy val osName = System.getProperty("os.name").toLowerCase
