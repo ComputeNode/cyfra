@@ -8,8 +8,6 @@ It is multiplatform. It works on:
 - Any dedicated or integrated GPUs that support Vulkan. In practice, it means almost all moderately modern devices from
   most manufacturers including Nvidia, AMD, Intel, Apple.
 
-Library is in an early stage - alpha release and proper documentation are coming.
-
 ## Animations
 
 Included Foton library provides a clean and fun way to animate functions and ray traced scenes.
