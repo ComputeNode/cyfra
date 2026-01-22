@@ -10,6 +10,7 @@ private[cyfra] object SpirvTypes:
 
   val Int32Tag = summon[Tag[Int32]]
   val UInt32Tag = summon[Tag[UInt32]]
+  val Float16Tag = summon[Tag[Float16]]
   val Float32Tag = summon[Tag[Float32]]
   val GBooleanTag = summon[Tag[GBoolean]]
   val Vec2TagWithoutArgs = summon[Tag[Vec2[?]]].tag.withoutArgs
@@ -22,6 +23,7 @@ private[cyfra] object SpirvTypes:
 
   val LInt32Tag = Int32Tag.tag
   val LUInt32Tag = UInt32Tag.tag
+  val LFloat16Tag = Float16Tag.tag
   val LFloat32Tag = Float32Tag.tag
   val LGBooleanTag = GBooleanTag.tag
   val LVec2TagWithoutArgs = Vec2TagWithoutArgs
@@ -36,9 +38,38 @@ private[cyfra] object SpirvTypes:
   type Vec3C[T <: Value] = Vec3[T]
   type Vec4C[T <: Value] = Vec4[T]
 
+  /** Convert Float32 to Float16 (half precision) bits.
+    * Uses round-to-nearest-even rounding mode.
+    */
+  def floatToFloat16(f: Float): Int = {
+    val bits = java.lang.Float.floatToIntBits(f)
+    val sign = (bits >>> 16) & 0x8000
+    val exponent = ((bits >>> 23) & 0xFF) - 127 + 15
+    val mantissa = bits & 0x007FFFFF
+    
+    if (exponent <= 0) {
+      // Denormalized or zero
+      if (exponent < -10) {
+        sign // Zero
+      } else {
+        // Denormalized
+        val m = mantissa | 0x00800000
+        val shifted = m >>> (1 - exponent)
+        sign | (shifted >>> 13)
+      }
+    } else if (exponent >= 31) {
+      // Infinity or NaN
+      sign | 0x7C00 | (if (mantissa != 0) 0x200 else 0)
+    } else {
+      // Normalized
+      sign | (exponent << 10) | (mantissa >>> 13)
+    }
+  }
+
   def scalarTypeDefInsn(tag: Tag[?], typeDefIndex: Int) = tag match
     case Int32Tag    => Instruction(Op.OpTypeInt, List(ResultRef(typeDefIndex), IntWord(32), IntWord(1)))
     case UInt32Tag   => Instruction(Op.OpTypeInt, List(ResultRef(typeDefIndex), IntWord(32), IntWord(0)))
+    case Float16Tag  => Instruction(Op.OpTypeFloat, List(ResultRef(typeDefIndex), IntWord(16)))
     case Float32Tag  => Instruction(Op.OpTypeFloat, List(ResultRef(typeDefIndex), IntWord(32)))
     case GBooleanTag => Instruction(Op.OpTypeBool, List(ResultRef(typeDefIndex)))
 
@@ -50,6 +81,7 @@ private[cyfra] object SpirvTypes:
   def typeStride(tag: LightTypeTag): Int = tag match
     case LInt32Tag          => 4
     case LUInt32Tag         => 4
+    case LFloat16Tag        => 2
     case LFloat32Tag        => 4
     case LGBooleanTag       => 4
     case v if v <:< LVecTag =>
@@ -63,6 +95,14 @@ private[cyfra] object SpirvTypes:
       IntWord(value.asInstanceOf[Int])
     case t if t == UInt32Tag =>
       IntWord(value.asInstanceOf[Int])
+    case t if t == Float16Tag =>
+      val fl = value match
+        case fl: Float  => fl
+        case dl: Double => dl.toFloat
+        case il: Int    => il.toFloat
+      // Convert Float32 to Float16 (half precision)
+      val f16Bits = floatToFloat16(fl)
+      Word(intToBytes(f16Bits & 0xFFFF).reverse.toArray)
     case t if t == Float32Tag =>
       val fl = value match
         case fl: Float  => fl
@@ -71,7 +111,7 @@ private[cyfra] object SpirvTypes:
       Word(intToBytes(java.lang.Float.floatToIntBits(fl)).reverse.toArray)
 
   def defineScalarTypes(types: List[Tag[?]], context: Context): (List[Words], Context) =
-    val basicTypes = List(Int32Tag, Float32Tag, UInt32Tag, GBooleanTag)
+    val basicTypes = List(Int32Tag, Float16Tag, Float32Tag, UInt32Tag, GBooleanTag)
     (basicTypes ::: types).distinct.foldLeft((List[Words](), context)) { case ((words, ctx), valType) =>
       val typeDefIndex = ctx.nextResultId
       val code = List(

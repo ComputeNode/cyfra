@@ -163,6 +163,36 @@ object GFunctionExamples:
     println(s"Saved to examples_output/julia.png")
     println()
 
+  def example4_FibonacciSequence(): Unit =
+    // Test the Fibonacci-like GSeq from documentation using Vec2[Float32]
+    // Pattern: GSeq.gen[Vec2[Float32]](init, pair => vec2(pair.y, pair.x + pair.y))
+    // Generates: (0,1), (1,1), (1,2), (2,3), (3,5), (5,8), ...
+    //            fib(0), fib(1), fib(2), fib(3), fib(4), fib(5), ...
+    val fibonacciNth: GFunction[GStruct.Empty, Float32, Float32] = GFunction: _ =>
+      // Generate Fibonacci-like pairs: (a, b) -> (b, a+b)
+      val fibonacci = GSeq.gen[Vec2[Float32]]((0.0f, 1.0f), pair => (pair.y, pair.x + pair.y))
+      // limit(n) gives n pairs, last.x = fib(n-1)
+      // So limit(11).last.x = fib(10) = 55
+      fibonacci.limit(11).lastOr(vec2(0.0f, 0.0f)).x
+
+    val input = Array.fill(256)(0.0f) // dummy input
+
+    println("Example 4: Fibonacci Sequence (GSeq.gen with Vec2)")
+    println("Testing: GSeq.gen[Vec2[Float32]](vec2(0, 1), pair => vec2(pair.y, pair.x + pair.y))")
+    println("Computing fib(10) on GPU using limit(11).last.x ...")
+
+    val results: Array[Float] = fibonacciNth.run(input)
+
+    // Sequence with limit(11): (0,1), (1,1), (1,2), (2,3), (3,5), (5,8), (8,13), (13,21), (21,34), (34,55), (55,89)
+    // last.x = 55 = fib(10)
+    val expected = 55.0f
+    println(s"Result: fib(10) = ${results(0).toInt}")
+    println(s"Expected: ${expected.toInt}")
+
+    val correct = Math.abs(results(0) - expected) < 0.001f
+    println(s"Result correct: $correct")
+    println()
+
   case class TransformConfig(scale: Float32, offset: Float32) extends GStruct[TransformConfig]
 
   def example8_Uniforms(): Unit =
@@ -203,6 +233,7 @@ object GFunctionExamples:
       example1_HelloGpu()
       example2_VectorOperations()
       example3_CustomStructs()
+      example4_FibonacciSequence()
       example6_Mandelbrot()
       example7_JuliaSet()
       example8_Uniforms()

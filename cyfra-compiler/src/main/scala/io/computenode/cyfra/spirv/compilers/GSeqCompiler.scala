@@ -68,7 +68,7 @@ private[cyfra] object GSeqCompiler:
           ::: List( // acc = nextAcc
             Instruction(Op.OpStore, List(ResultRef(resultVar), ResultRef(reduceCtx.exprRefs(foldFnExpr.treeid)))),
           )
-          (instructions, ctx.joinNested(reduceCtx))
+          (instructions, context.joinNested(reduceCtx))
         case (op, dExpr) :: tail =>
 
           op match
@@ -176,7 +176,8 @@ private[cyfra] object GSeqCompiler:
       ),
       Instruction(Op.OpBranch, List(ResultRef(loopBack))),
       Instruction(Op.OpLabel, List(ResultRef(loopBack))),
-      Instruction(Op.OpLoopMerge, List(ResultRef(mergeBlock), ResultRef(continueTarget), LoopControlMask.MaskNone)),
+      Instruction(Op.OpLoopMerge, List(ResultRef(mergeBlock), ResultRef(continueTarget), 
+        if fold.unroll then LoopControlMask.Unroll else LoopControlMask.MaskNone)),
       Instruction(Op.OpBranch, List(ResultRef(postLoopMergeLabel))),
       Instruction(Op.OpLabel, List(ResultRef(postLoopMergeLabel))),
       Instruction(Op.OpLoad, List(ResultRef(boolType), ResultRef(shouldTakeInCheck), ResultRef(shouldTakeVar))),

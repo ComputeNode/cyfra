@@ -29,6 +29,33 @@ private[cyfra] object ExpressionCompiler:
     case _: Div[?]  => (Op.OpSDiv, Op.OpFDiv)
     case _: Mod[?]  => (Op.OpSMod, Op.OpFMod)
 
+  private def compileSubgroupOp(
+    expr: E[?],
+    value: Value.Scalar,
+    op: SubgroupOp,
+    spirvOp: Code,
+    ctx: Context,
+  ): (List[Instruction], Context) =
+    val scopeId = ctx.constRefs((Int32Tag, Scope.Subgroup.opcode))
+    val groupOpCode = op match
+      case SubgroupOp.Reduce        => GroupOperation.Reduce
+      case SubgroupOp.InclusiveScan => GroupOperation.InclusiveScan
+      case SubgroupOp.ExclusiveScan => GroupOperation.ExclusiveScan
+    val instructions = List(
+      Instruction(
+        spirvOp,
+        List(
+          ResultRef(ctx.valueTypeMap(expr.tag.tag)),
+          ResultRef(ctx.nextResultId),
+          ResultRef(scopeId),
+          groupOpCode,
+          ResultRef(ctx.exprRefs(value.treeid)),
+        ),
+      ),
+    )
+    val updatedContext = ctx.copy(exprRefs = ctx.exprRefs + (expr.treeid -> ctx.nextResultId), nextResultId = ctx.nextResultId + 1)
+    (instructions, updatedContext)
+
   private def compileBinaryOpExpression(bexpr: BinaryOpExpression[?], ctx: Context): (List[Instruction], Context) =
     val tpe = bexpr.tag
     val typeRef = ctx.valueTypeMap(tpe.tag)
@@ -52,12 +79,18 @@ private[cyfra] object ExpressionCompiler:
     val tpe = cexpr.tag
     val typeRef = ctx.valueTypeMap(tpe.tag)
     val tfOpcode = (cexpr.fromTag, cexpr) match
-      case (from, _: ToFloat32[?]) if from.tag =:= Int32Tag.tag  => Op.OpConvertSToF
-      case (from, _: ToFloat32[?]) if from.tag =:= UInt32Tag.tag => Op.OpConvertUToF
-      case (from, _: ToInt32[?]) if from.tag =:= Float32Tag.tag  => Op.OpConvertFToS
-      case (from, _: ToUInt32[?]) if from.tag =:= Float32Tag.tag => Op.OpConvertFToU
-      case (from, _: ToInt32[?]) if from.tag =:= UInt32Tag.tag   => Op.OpBitcast
-      case (from, _: ToUInt32[?]) if from.tag =:= Int32Tag.tag   => Op.OpBitcast
+      case (from, _: ToFloat16[?]) if from.tag =:= Float32Tag.tag => Op.OpFConvert
+      case (from, _: ToFloat16[?]) if from.tag =:= Int32Tag.tag   => Op.OpConvertSToF
+      case (from, _: ToFloat16[?]) if from.tag =:= UInt32Tag.tag  => Op.OpConvertUToF
+      case (from, _: ToFloat32[?]) if from.tag =:= Float16Tag.tag => Op.OpFConvert
+      case (from, _: ToFloat32[?]) if from.tag =:= Int32Tag.tag   => Op.OpConvertSToF
+      case (from, _: ToFloat32[?]) if from.tag =:= UInt32Tag.tag  => Op.OpConvertUToF
+      case (from, _: ToInt32[?]) if from.tag =:= Float32Tag.tag   => Op.OpConvertFToS
+      case (from, _: ToInt32[?]) if from.tag =:= Float16Tag.tag   => Op.OpConvertFToS
+      case (from, _: ToUInt32[?]) if from.tag =:= Float32Tag.tag  => Op.OpConvertFToU
+      case (from, _: ToUInt32[?]) if from.tag =:= Float16Tag.tag  => Op.OpConvertFToU
+      case (from, _: ToInt32[?]) if from.tag =:= UInt32Tag.tag    => Op.OpBitcast
+      case (from, _: ToUInt32[?]) if from.tag =:= Int32Tag.tag    => Op.OpBitcast
     val instructions = List(Instruction(tfOpcode, List(ResultRef(typeRef), ResultRef(ctx.nextResultId), ResultRef(ctx.exprRefs(cexpr.a.treeid)))))
     val updatedContext = ctx.copy(exprRefs = ctx.exprRefs + (cexpr.treeid -> ctx.nextResultId), nextResultId = ctx.nextResultId + 1)
     (instructions, updatedContext)
@@ -109,11 +142,135 @@ private[cyfra] object ExpressionCompiler:
             case w @ InvocationId =>
               (Nil, ctx.copy(exprRefs = ctx.exprRefs + (w.treeid -> ctx.workerIndexRef)))
 
+            case w @ LocalInvocationIndex =>
+              (Nil, ctx.copy(exprRefs = ctx.exprRefs + (w.treeid -> ctx.localInvocationIndexRef)))
+
+            case w @ LocalInvocationId =>
+              (Nil, ctx.copy(exprRefs = ctx.exprRefs + (w.treeid -> ctx.localInvocationIdRef)))
+
+            case w @ WorkgroupId =>
+              (Nil, ctx.copy(exprRefs = ctx.exprRefs + (w.treeid -> ctx.workgroupIdRef)))
+
+            case w @ NumWorkgroups =>
+              (Nil, ctx.copy(exprRefs = ctx.exprRefs + (w.treeid -> ctx.numWorkgroupsRef)))
+
+            case w @ SubgroupId =>
+              (Nil, ctx.copy(exprRefs = ctx.exprRefs + (w.treeid -> ctx.subgroupIdRef)))
+
+            case w @ SubgroupLocalInvocationId =>
+              (Nil, ctx.copy(exprRefs = ctx.exprRefs + (w.treeid -> ctx.subgroupLocalInvocationIdRef)))
+
+            case w @ SubgroupSize =>
+              (Nil, ctx.copy(exprRefs = ctx.exprRefs + (w.treeid -> ctx.subgroupSizeRef)))
+
+            case sg @ SubgroupAddI(v, op) =>
+              compileSubgroupOp(sg, v, op, Op.OpGroupNonUniformIAdd, ctx)
+
+            case sg @ SubgroupAddF(v, op) =>
+              compileSubgroupOp(sg, v, op, Op.OpGroupNonUniformFAdd, ctx)
+
+            case sg @ SubgroupAddF16(v, op) =>
+              compileSubgroupOp(sg, v, op, Op.OpGroupNonUniformFAdd, ctx)
+
+            case sg @ SubgroupMinI(v, op) =>
+              compileSubgroupOp(sg, v, op, Op.OpGroupNonUniformSMin, ctx)
+
+            case sg @ SubgroupMinF(v, op) =>
+              compileSubgroupOp(sg, v, op, Op.OpGroupNonUniformFMin, ctx)
+
+            case sg @ SubgroupMinF16(v, op) =>
+              compileSubgroupOp(sg, v, op, Op.OpGroupNonUniformFMin, ctx)
+
+            case sg @ SubgroupMaxI(v, op) =>
+              compileSubgroupOp(sg, v, op, Op.OpGroupNonUniformSMax, ctx)
+
+            case sg @ SubgroupMaxF(v, op) =>
+              compileSubgroupOp(sg, v, op, Op.OpGroupNonUniformFMax, ctx)
+
+            case sg @ SubgroupMaxF16(v, op) =>
+              compileSubgroupOp(sg, v, op, Op.OpGroupNonUniformFMax, ctx)
+
+            case sg @ SubgroupBroadcast(v, lane) =>
+              val scopeId = ctx.constRefs((Int32Tag, Scope.Subgroup.opcode))
+              val instructions = List(
+                Instruction(
+                  Op.OpGroupNonUniformBroadcast,
+                  List(
+                    ResultRef(ctx.valueTypeMap(sg.tag.tag)),
+                    ResultRef(ctx.nextResultId),
+                    ResultRef(scopeId),
+                    ResultRef(ctx.exprRefs(v.treeid)),
+                    ResultRef(ctx.exprRefs(lane.treeid)),
+                  ),
+                ),
+              )
+              val updatedContext = ctx.copy(exprRefs = ctx.exprRefs + (sg.treeid -> ctx.nextResultId), nextResultId = ctx.nextResultId + 1)
+              (instructions, updatedContext)
+
+            case sg @ SubgroupBroadcastFirst(v) =>
+              val scopeId = ctx.constRefs((Int32Tag, Scope.Subgroup.opcode))
+              val instructions = List(
+                Instruction(
+                  Op.OpGroupNonUniformBroadcastFirst,
+                  List(
+                    ResultRef(ctx.valueTypeMap(sg.tag.tag)),
+                    ResultRef(ctx.nextResultId),
+                    ResultRef(scopeId),
+                    ResultRef(ctx.exprRefs(v.treeid)),
+                  ),
+                ),
+              )
+              val updatedContext = ctx.copy(exprRefs = ctx.exprRefs + (sg.treeid -> ctx.nextResultId), nextResultId = ctx.nextResultId + 1)
+              (instructions, updatedContext)
+
+            case sg @ SubgroupShuffle(v, lane) =>
+              val scopeId = ctx.constRefs((Int32Tag, Scope.Subgroup.opcode))
+              val instructions = List(
+                Instruction(
+                  Op.OpGroupNonUniformShuffle,
+                  List(
+                    ResultRef(ctx.valueTypeMap(sg.tag.tag)),
+                    ResultRef(ctx.nextResultId),
+                    ResultRef(scopeId),
+                    ResultRef(ctx.exprRefs(v.treeid)),
+                    ResultRef(ctx.exprRefs(lane.treeid)),
+                  ),
+                ),
+              )
+              val updatedContext = ctx.copy(exprRefs = ctx.exprRefs + (sg.treeid -> ctx.nextResultId), nextResultId = ctx.nextResultId + 1)
+              (instructions, updatedContext)
+
+            case sg @ SubgroupShuffleXor(v, mask) =>
+              val scopeId = ctx.constRefs((Int32Tag, Scope.Subgroup.opcode))
+              val instructions = List(
+                Instruction(
+                  Op.OpGroupNonUniformShuffleXor,
+                  List(
+                    ResultRef(ctx.valueTypeMap(sg.tag.tag)),
+                    ResultRef(ctx.nextResultId),
+                    ResultRef(scopeId),
+                    ResultRef(ctx.exprRefs(v.treeid)),
+                    ResultRef(ctx.exprRefs(mask.treeid)),
+                  ),
+                ),
+              )
+              val updatedContext = ctx.copy(exprRefs = ctx.exprRefs + (sg.treeid -> ctx.nextResultId), nextResultId = ctx.nextResultId + 1)
+              (instructions, updatedContext)
+
             case d @ ReadUniform(u) =>
               (Nil, ctx.copy(exprRefs = ctx.exprRefs + (d.treeid -> ctx.uniformVarRefs(u))))
 
             case c: ConvertExpression[?, ?] =>
               compileConvertExpression(c, ctx)
+
+            case cvf @ ConvertVec4F16ToF32(v) =>
+              // Convert Vec4[Float16] to Vec4[Float32] using OpFConvert
+              val vec4F32TypeRef = ctx.valueTypeMap(cvf.tag.tag)
+              val instructions = List(
+                Instruction(Op.OpFConvert, List(ResultRef(vec4F32TypeRef), ResultRef(ctx.nextResultId), ResultRef(ctx.exprRefs(v.treeid))))
+              )
+              val updatedContext = ctx.copy(exprRefs = ctx.exprRefs + (cvf.treeid -> ctx.nextResultId), nextResultId = ctx.nextResultId + 1)
+              (instructions, updatedContext)
 
             case b: BinaryOpExpression[?] =>
               compileBinaryOpExpression(b, ctx)
@@ -298,6 +455,24 @@ private[cyfra] object ExpressionCompiler:
                     ResultRef(ctx.nextResultId),
                     ResultRef(ctx.bufferBlocks(buffer).blockVarRef),
                     ResultRef(ctx.constRefs((Int32Tag, 0))),
+                    ResultRef(ctx.exprRefs(i.treeid)),
+                  ),
+                ),
+                Instruction(Op.OpLoad, List(IntWord(ctx.valueTypeMap(buffer.tag.tag)), ResultRef(ctx.nextResultId + 1), ResultRef(ctx.nextResultId))),
+              )
+              val updatedContext = ctx.copy(exprRefs = ctx.exprRefs + (expr.treeid -> (ctx.nextResultId + 1)), nextResultId = ctx.nextResultId + 2)
+              (instructions, updatedContext)
+
+            case ReadShared(buffer, i) =>
+              val sharedId = buffer.asInstanceOf[GShared.GSharedImpl[?]].sharedId
+              val sharedBlock = ctx.sharedVarRefs(sharedId)
+              val instructions = List(
+                Instruction(
+                  Op.OpAccessChain,
+                  List(
+                    ResultRef(sharedBlock.pointerTypeRef),
+                    ResultRef(ctx.nextResultId),
+                    ResultRef(sharedBlock.varRef),
                     ResultRef(ctx.exprRefs(i.treeid)),
                   ),
                 ),

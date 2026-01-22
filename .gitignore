@@ -31,4 +31,6 @@ metals.sbt
 smoke
 julia
 
-
+# Model weight files
+*.gguf
+.lwjgl/

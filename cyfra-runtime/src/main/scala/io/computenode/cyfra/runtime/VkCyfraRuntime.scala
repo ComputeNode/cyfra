@@ -31,9 +31,9 @@ class VkCyfraRuntime(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()) ex
     shaderCache.getOrElseUpdate(spirvProgram.shaderHash, VkShader(spirvProgram)).asInstanceOf[VkShader[L]]
 
   private def compile[Params, L: Layout as l](program: GioProgram[Params, L]): SpirvProgram[Params, L] =
-    val GioProgram(_, layout, dispatch, _) = program
+    val GioProgram(_, layout, dispatch, workgroupSize) = program
     val bindings = l.toBindings(l.layoutRef).toList
-    val compiled = DSLCompiler.compile(program.body(l.layoutRef), bindings)
+    val compiled = DSLCompiler.compile(program.body(l.layoutRef), bindings, workgroupSize)
     val optimizedShaderCode = spirvToolsRunner.processShaderCodeWithSpirvTools(compiled)
     SpirvProgram((il: InitProgramLayout) ?=> layout(il), dispatch, optimizedShaderCode)
 
@@ -49,7 +49,7 @@ class VkCyfraRuntime(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()) ex
     context.destroy()
 
 object VkCyfraRuntime:
-  def using[T](f: VkCyfraRuntime ?=> T): T =
-    val runtime = new VkCyfraRuntime()
+  def using[T](f: VkCyfraRuntime ?=> T)(using spirvTools: SpirvToolsRunner = SpirvToolsRunner()): T =
+    val runtime = new VkCyfraRuntime(spirvTools)
     try f(using runtime)
     finally runtime.close()

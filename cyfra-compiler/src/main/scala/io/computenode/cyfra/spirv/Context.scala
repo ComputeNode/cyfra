@@ -4,7 +4,7 @@ import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
 import io.computenode.cyfra.dsl.macros.FnCall.FnIdentifier
 import io.computenode.cyfra.spirv.SpirvConstants.HEADER_REFS_TOP
 import io.computenode.cyfra.spirv.compilers.FunctionCompiler.SprivFunction
-import io.computenode.cyfra.spirv.compilers.SpirvProgramCompiler.ArrayBufferBlock
+import io.computenode.cyfra.spirv.compilers.SpirvProgramCompiler.{ArrayBufferBlock, SharedBlock}
 import izumi.reflect.Tag
 import izumi.reflect.macrortti.LightTypeTag
 
@@ -13,15 +13,24 @@ private[cyfra] case class Context(
   funPointerTypeMap: Map[Int, Int] = Map(),
   uniformPointerMap: Map[Int, Int] = Map(),
   inputPointerMap: Map[Int, Int] = Map(),
+  workgroupPointerMap: Map[Int, Int] = Map(),
   funcTypeMap: Map[(LightTypeTag, List[LightTypeTag]), Int] = Map(),
   voidTypeRef: Int = -1,
   voidFuncTypeRef: Int = -1,
   workerIndexRef: Int = -1,
+  localInvocationIndexRef: Int = -1,
+  localInvocationIdRef: Int = -1,
+  workgroupIdRef: Int = -1,
+  numWorkgroupsRef: Int = -1,
+  subgroupIdRef: Int = -1,
+  subgroupLocalInvocationIdRef: Int = -1,
+  subgroupSizeRef: Int = -1,
   uniformVarRefs: Map[GUniform[?], Int] = Map.empty,
   bindingToStructType: Map[Int, Int] = Map.empty,
   constRefs: Map[(Tag[?], Any), Int] = Map(),
   exprRefs: Map[Int, Int] = Map(),
   bufferBlocks: Map[GBuffer[?], ArrayBufferBlock] = Map(),
+  sharedVarRefs: Map[Int, SharedBlock] = Map(),
   nextResultId: Int = HEADER_REFS_TOP,
   nextBinding: Int = 0,
   exprNames: Map[Int, String] = Map(),

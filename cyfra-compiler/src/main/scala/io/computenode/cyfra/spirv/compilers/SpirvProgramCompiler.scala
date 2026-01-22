@@ -22,31 +22,72 @@ private[cyfra] object SpirvProgramCompiler:
       case _                             => false
 
   def compileMain(bodyIo: GIO[?], ctx: Context): (List[Words], Context) =
+    val int32TypeRef = ctx.valueTypeMap(Int32Tag.tag)
+    val vec3Int32TypeRef = ctx.valueTypeMap(summon[Tag[Vec3[Int32]]].tag)
+    val int32PtrInputRef = ctx.inputPointerMap(int32TypeRef)
+    val vec3Int32PtrInputRef = ctx.inputPointerMap(vec3Int32TypeRef)
+    val zeroConstRef = ctx.constRefs(Int32Tag, 0)
 
     val init = List(
       Instruction(Op.OpFunction, List(ResultRef(ctx.voidTypeRef), ResultRef(MAIN_FUNC_REF), SamplerAddressingMode.None, ResultRef(VOID_FUNC_TYPE_REF))),
       Instruction(Op.OpLabel, List(ResultRef(ctx.nextResultId))),
     )
 
-    val initWorkerIndex = List(
-      Instruction(
-        Op.OpAccessChain,
-        List(
-          ResultRef(ctx.inputPointerMap(ctx.valueTypeMap(Int32Tag.tag))),
-          ResultRef(ctx.nextResultId + 1),
-          ResultRef(GL_GLOBAL_INVOCATION_ID_REF),
-          ResultRef(ctx.constRefs(Int32Tag, 0)),
-        ),
-      ),
-      Instruction(Op.OpLoad, List(ResultRef(ctx.valueTypeMap(Int32Tag.tag)), ResultRef(ctx.nextResultId + 2), ResultRef(ctx.nextResultId + 1))),
+    var nextId = ctx.nextResultId + 1
+
+    def loadScalarFromVec3(varRef: Int): (List[Words], Int) =
+      val ptrId = nextId
+      val loadId = nextId + 1
+      nextId += 2
+      val insns = List(
+        Instruction(Op.OpAccessChain, List(ResultRef(int32PtrInputRef), ResultRef(ptrId), ResultRef(varRef), ResultRef(zeroConstRef))),
+        Instruction(Op.OpLoad, List(ResultRef(int32TypeRef), ResultRef(loadId), ResultRef(ptrId))),
+      )
+      (insns, loadId)
+
+    def loadVec3(varRef: Int): (List[Words], Int) =
+      val loadId = nextId
+      nextId += 1
+      val insns = List(Instruction(Op.OpLoad, List(ResultRef(vec3Int32TypeRef), ResultRef(loadId), ResultRef(varRef))))
+      (insns, loadId)
+
+    def loadScalar(varRef: Int): (List[Words], Int) =
+      val loadId = nextId
+      nextId += 1
+      val insns = List(Instruction(Op.OpLoad, List(ResultRef(int32TypeRef), ResultRef(loadId), ResultRef(varRef))))
+      (insns, loadId)
+
+    val (globalInvocInsns, globalInvocId) = loadScalarFromVec3(GL_GLOBAL_INVOCATION_ID_REF)
+    val (localIdInsns, localIdRef) = loadVec3(GL_LOCAL_INVOCATION_ID_REF)
+    val (localIndexInsns, localIndexRef) = loadScalar(GL_LOCAL_INVOCATION_INDEX_REF)
+    val (workgroupIdInsns, workgroupIdLoadRef) = loadVec3(GL_WORKGROUP_ID_REF)
+    val (numWorkgroupsInsns, numWorkgroupsLoadRef) = loadVec3(GL_NUM_WORKGROUPS_REF)
+    val (subgroupIdInsns, subgroupIdLoadRef) = loadScalar(GL_SUBGROUP_ID_REF)
+    val (subgroupLocalIdInsns, subgroupLocalIdLoadRef) = loadScalar(GL_SUBGROUP_LOCAL_INVOCATION_ID_REF)
+    val (subgroupSizeInsns, subgroupSizeLoadRef) = loadScalar(GL_SUBGROUP_SIZE_REF)
+
+    val loadInsns = globalInvocInsns ::: localIdInsns ::: localIndexInsns :::
+      workgroupIdInsns ::: numWorkgroupsInsns :::
+      subgroupIdInsns ::: subgroupLocalIdInsns ::: subgroupSizeInsns
+
+    val bodyCtx = ctx.copy(
+      nextResultId = nextId,
+      workerIndexRef = globalInvocId,
+      localInvocationIdRef = localIdRef,
+      localInvocationIndexRef = localIndexRef,
+      workgroupIdRef = workgroupIdLoadRef,
+      numWorkgroupsRef = numWorkgroupsLoadRef,
+      subgroupIdRef = subgroupIdLoadRef,
+      subgroupLocalInvocationIdRef = subgroupLocalIdLoadRef,
+      subgroupSizeRef = subgroupSizeLoadRef,
     )
 
-    val (body, codeCtx) = GIOCompiler.compileGio(bodyIo, ctx.copy(nextResultId = ctx.nextResultId + 3, workerIndexRef = ctx.nextResultId + 2))
+    val (body, codeCtx) = GIOCompiler.compileGio(bodyIo, bodyCtx)
 
     val (vars, nonVarsBody) = bubbleUpVars(body)
 
     val end = List(Instruction(Op.OpReturn, List()), Instruction(Op.OpFunctionEnd, List()))
-    (init ::: vars ::: initWorkerIndex ::: nonVarsBody ::: end, codeCtx.copy(nextResultId = codeCtx.nextResultId + 1))
+    (init ::: vars ::: loadInsns ::: nonVarsBody ::: end, codeCtx.copy(nextResultId = codeCtx.nextResultId + 1))
 
   def getNameDecorations(ctx: Context): List[Instruction] =
     val funNames = ctx.functions.map { case (id, fn) =>
@@ -65,25 +106,58 @@ private[cyfra] object SpirvProgramCompiler:
     binding: Int,
   )
 
-  val headers: List[Words] =
+  case class SharedBlock(
+    arrayTypeRef: Int,
+    varRef: Int,
+    pointerTypeRef: Int,
+  )
+
+  def headers(workgroupSize: (Int, Int, Int)): List[Words] =
+    val (localSizeX, localSizeY, localSizeZ) = workgroupSize
     Word(Array(0x03, 0x02, 0x23, 0x07)) :: // SPIR-V
       Word(Array(0x00, 0x00, 0x01, 0x00)) :: // Version: 0.1.0
       Word(Array(cyfraVendorId, 0x00, 0x01, 0x00)) :: // Generator: cyfra; 1
       WordVariable(BOUND_VARIABLE) :: // Bound: To be calculated
       Word(Array(0x00, 0x00, 0x00, 0x00)) :: // Schema: 0
-      Instruction(Op.OpCapability, List(Capability.Shader)) :: // OpCapability Shader
-      Instruction(Op.OpExtension, List(Text("SPV_KHR_non_semantic_info"))) :: // OpExtension "SPV_KHR_non_semantic_info"
-      Instruction(Op.OpExtInstImport, List(ResultRef(GLSL_EXT_REF), Text(GLSL_EXT_NAME))) :: // OpExtInstImport "GLSL.std.450"
-      Instruction(Op.OpExtInstImport, List(ResultRef(DEBUG_PRINTF_REF), Text(NON_SEMANTIC_DEBUG_PRINTF))) :: // OpExtInstImport "NonSemantic.DebugPrintf"
-      Instruction(Op.OpMemoryModel, List(AddressingModel.Logical, MemoryModel.GLSL450)) :: // OpMemoryModel Logical GLSL450
-      Instruction(Op.OpEntryPoint, List(ExecutionModel.GLCompute, ResultRef(MAIN_FUNC_REF), Text("main"), ResultRef(GL_GLOBAL_INVOCATION_ID_REF))) :: // OpEntryPoint GLCompute %MAIN_FUNC_REF "main" %GL_GLOBAL_INVOCATION_ID_REF
-      Instruction(Op.OpExecutionMode, List(ResultRef(MAIN_FUNC_REF), ExecutionMode.LocalSize, IntWord(256), IntWord(1), IntWord(1))) :: // OpExecutionMode %4 LocalSize 128 1 1
-      Instruction(Op.OpSource, List(SourceLanguage.GLSL, IntWord(450))) :: // OpSource GLSL 450
+      Instruction(Op.OpCapability, List(Capability.Shader)) ::
+      Instruction(Op.OpCapability, List(Capability.GroupNonUniform)) ::
+      Instruction(Op.OpCapability, List(Capability.GroupNonUniformArithmetic)) ::
+      Instruction(Op.OpExtension, List(Text("SPV_KHR_non_semantic_info"))) ::
+      Instruction(Op.OpExtInstImport, List(ResultRef(GLSL_EXT_REF), Text(GLSL_EXT_NAME))) ::
+      Instruction(Op.OpExtInstImport, List(ResultRef(DEBUG_PRINTF_REF), Text(NON_SEMANTIC_DEBUG_PRINTF))) ::
+      Instruction(Op.OpMemoryModel, List(AddressingModel.Logical, MemoryModel.GLSL450)) ::
+      Instruction(
+        Op.OpEntryPoint,
+        List(
+          ExecutionModel.GLCompute,
+          ResultRef(MAIN_FUNC_REF),
+          Text("main"),
+          ResultRef(GL_GLOBAL_INVOCATION_ID_REF),
+          ResultRef(GL_LOCAL_INVOCATION_ID_REF),
+          ResultRef(GL_LOCAL_INVOCATION_INDEX_REF),
+          ResultRef(GL_WORKGROUP_ID_REF),
+          ResultRef(GL_NUM_WORKGROUPS_REF),
+          ResultRef(GL_SUBGROUP_ID_REF),
+          ResultRef(GL_SUBGROUP_LOCAL_INVOCATION_ID_REF),
+          ResultRef(GL_SUBGROUP_SIZE_REF),
+        ),
+      ) ::
+      Instruction(Op.OpExecutionMode, List(ResultRef(MAIN_FUNC_REF), ExecutionMode.LocalSize, IntWord(localSizeX), IntWord(localSizeY), IntWord(localSizeZ))) ::
+      Instruction(Op.OpSource, List(SourceLanguage.GLSL, IntWord(450))) ::
       Nil
 
   val workgroupDecorations: List[Words] =
-    Instruction(Op.OpDecorate, List(ResultRef(GL_GLOBAL_INVOCATION_ID_REF), Decoration.BuiltIn, BuiltIn.GlobalInvocationId)) :: // OpDecorate %GL_GLOBAL_INVOCATION_ID_REF BuiltIn GlobalInvocationId
-      Instruction(Op.OpDecorate, List(ResultRef(GL_WORKGROUP_SIZE_REF), Decoration.BuiltIn, BuiltIn.WorkgroupSize)) :: Nil
+    List(
+      Instruction(Op.OpDecorate, List(ResultRef(GL_GLOBAL_INVOCATION_ID_REF), Decoration.BuiltIn, BuiltIn.GlobalInvocationId)),
+      Instruction(Op.OpDecorate, List(ResultRef(GL_WORKGROUP_SIZE_REF), Decoration.BuiltIn, BuiltIn.WorkgroupSize)),
+      Instruction(Op.OpDecorate, List(ResultRef(GL_LOCAL_INVOCATION_ID_REF), Decoration.BuiltIn, BuiltIn.LocalInvocationId)),
+      Instruction(Op.OpDecorate, List(ResultRef(GL_LOCAL_INVOCATION_INDEX_REF), Decoration.BuiltIn, BuiltIn.LocalInvocationIndex)),
+      Instruction(Op.OpDecorate, List(ResultRef(GL_WORKGROUP_ID_REF), Decoration.BuiltIn, BuiltIn.WorkgroupId)),
+      Instruction(Op.OpDecorate, List(ResultRef(GL_NUM_WORKGROUPS_REF), Decoration.BuiltIn, BuiltIn.NumWorkgroups)),
+      Instruction(Op.OpDecorate, List(ResultRef(GL_SUBGROUP_ID_REF), Decoration.BuiltIn, BuiltIn.SubgroupId)),
+      Instruction(Op.OpDecorate, List(ResultRef(GL_SUBGROUP_LOCAL_INVOCATION_ID_REF), Decoration.BuiltIn, BuiltIn.SubgroupLocalInvocationId)),
+      Instruction(Op.OpDecorate, List(ResultRef(GL_SUBGROUP_SIZE_REF), Decoration.BuiltIn, BuiltIn.SubgroupSize)),
+    )
 
   def defineVoids(context: Context): (List[Words], Context) =
     val voidDef = List[Words](
@@ -93,7 +167,8 @@ private[cyfra] object SpirvProgramCompiler:
     val ctxWithVoid = context.copy(voidTypeRef = TYPE_VOID_REF, voidFuncTypeRef = VOID_FUNC_TYPE_REF)
     (voidDef, ctxWithVoid)
 
-  def createInvocationId(context: Context): (List[Words], Context) =
+  def createInvocationId(context: Context, workgroupSize: (Int, Int, Int)): (List[Words], Context) =
+    val (localSizeX, localSizeY, localSizeZ) = workgroupSize
     val definitionInstructions = List(
       Instruction(Op.OpConstant, List(ResultRef(context.valueTypeMap(UInt32Tag.tag)), ResultRef(context.nextResultId + 0), IntWord(localSizeX))),
       Instruction(Op.OpConstant, List(ResultRef(context.valueTypeMap(UInt32Tag.tag)), ResultRef(context.nextResultId + 1), IntWord(localSizeY))),
@@ -239,7 +314,14 @@ private[cyfra] object SpirvProgramCompiler:
     }
   }
 
-  val predefinedConsts = List((Int32Tag, 0), (UInt32Tag, 0), (Int32Tag, 1))
+  val predefinedConsts = List(
+    (Int32Tag, 0),
+    (UInt32Tag, 0),
+    (Int32Tag, 1),
+    (Int32Tag, Scope.Workgroup.opcode),
+    (Int32Tag, Scope.Subgroup.opcode),
+    (Int32Tag, MemorySemantics.WorkgroupMemory.opcode | MemorySemantics.AcquireRelease.opcode),
+  )
   def defineConstants(exprs: List[E[?]], ctx: Context): (List[Words], Context) =
     // Collect field indices from GetField expressions
     val fieldIndices = exprs.collect { case gf: GetField[?, ?] =>
@@ -269,16 +351,18 @@ private[cyfra] object SpirvProgramCompiler:
     )
 
   def defineVarNames(ctx: Context): (List[Words], Context) =
+    val vec3Int32PtrId = ctx.inputPointerMap(ctx.valueTypeMap(summon[Tag[Vec3[Int32]]].tag))
+    val int32PtrInputId = ctx.inputPointerMap(ctx.valueTypeMap(summon[Tag[Int32]].tag))
     (
       List(
-        Instruction(
-          Op.OpVariable,
-          List(
-            ResultRef(ctx.inputPointerMap(ctx.valueTypeMap(summon[Tag[Vec3[Int32]]].tag))),
-            ResultRef(GL_GLOBAL_INVOCATION_ID_REF),
-            StorageClass.Input,
-          ),
-        ),
+        Instruction(Op.OpVariable, List(ResultRef(vec3Int32PtrId), ResultRef(GL_GLOBAL_INVOCATION_ID_REF), StorageClass.Input)),
+        Instruction(Op.OpVariable, List(ResultRef(vec3Int32PtrId), ResultRef(GL_LOCAL_INVOCATION_ID_REF), StorageClass.Input)),
+        Instruction(Op.OpVariable, List(ResultRef(int32PtrInputId), ResultRef(GL_LOCAL_INVOCATION_INDEX_REF), StorageClass.Input)),
+        Instruction(Op.OpVariable, List(ResultRef(vec3Int32PtrId), ResultRef(GL_WORKGROUP_ID_REF), StorageClass.Input)),
+        Instruction(Op.OpVariable, List(ResultRef(vec3Int32PtrId), ResultRef(GL_NUM_WORKGROUPS_REF), StorageClass.Input)),
+        Instruction(Op.OpVariable, List(ResultRef(int32PtrInputId), ResultRef(GL_SUBGROUP_ID_REF), StorageClass.Input)),
+        Instruction(Op.OpVariable, List(ResultRef(int32PtrInputId), ResultRef(GL_SUBGROUP_LOCAL_INVOCATION_ID_REF), StorageClass.Input)),
+        Instruction(Op.OpVariable, List(ResultRef(int32PtrInputId), ResultRef(GL_SUBGROUP_SIZE_REF), StorageClass.Input)),
       ),
-      ctx.copy(),
+      ctx,
     )

@@ -87,15 +87,20 @@ object Expression:
   sealed trait ConvertExpression[F <: Scalar: Tag, T <: Scalar: Tag] extends Expression[T]:
     def fromTag: Tag[F] = summon[Tag[F]]
     def a: F
+  case class ToFloat16[T <: Scalar: Tag](a: T) extends ConvertExpression[T, Float16]
   case class ToFloat32[T <: Scalar: Tag](a: T) extends ConvertExpression[T, Float32]
   case class ToInt32[T <: Scalar: Tag](a: T) extends ConvertExpression[T, Int32]
   case class ToUInt32[T <: Scalar: Tag](a: T) extends ConvertExpression[T, UInt32]
+
+  /** Convert Vec4[Float16] to Vec4[Float32] using OpFConvert. */
+  case class ConvertVec4F16ToF32(a: Vec4[Float16]) extends Expression[Vec4[Float32]]
 
   sealed trait Const[T <: Scalar: Tag] extends Expression[T]:
     def value: Any
   object Const:
     def unapply[T <: Scalar](c: Const[T]): Option[Any] = Some(c.value)
 
+  case class ConstFloat16(value: Float) extends Const[Float16]
   case class ConstFloat32(value: Float) extends Const[Float32]
   case class ConstInt32(value: Int) extends Const[Int32]
   case class ConstUInt32(value: Int) extends Const[UInt32]
@@ -115,3 +120,33 @@ object Expression:
 
   case object WorkerIndex extends E[Int32]
   case class Binding[T <: Value: Tag](binding: Int) extends E[T]
+
+  // Workgroup built-ins
+  case object LocalInvocationIndex extends E[Int32]
+  case object LocalInvocationId extends E[Vec3[Int32]]
+  case object WorkgroupId extends E[Vec3[Int32]]
+  case object NumWorkgroups extends E[Vec3[Int32]]
+  case object SubgroupId extends E[Int32]
+  case object SubgroupLocalInvocationId extends E[Int32]
+  case object SubgroupSize extends E[Int32]
+
+  // Subgroup operations
+  sealed trait SubgroupOp
+  object SubgroupOp:
+    case object Reduce extends SubgroupOp
+    case object InclusiveScan extends SubgroupOp
+    case object ExclusiveScan extends SubgroupOp
+
+  case class SubgroupAddI(value: Int32, op: SubgroupOp) extends E[Int32]
+  case class SubgroupAddF16(value: Float16, op: SubgroupOp) extends E[Float16]
+  case class SubgroupAddF(value: Float32, op: SubgroupOp) extends E[Float32]
+  case class SubgroupMinI(value: Int32, op: SubgroupOp) extends E[Int32]
+  case class SubgroupMinF16(value: Float16, op: SubgroupOp) extends E[Float16]
+  case class SubgroupMinF(value: Float32, op: SubgroupOp) extends E[Float32]
+  case class SubgroupMaxI(value: Int32, op: SubgroupOp) extends E[Int32]
+  case class SubgroupMaxF16(value: Float16, op: SubgroupOp) extends E[Float16]
+  case class SubgroupMaxF(value: Float32, op: SubgroupOp) extends E[Float32]
+  case class SubgroupBroadcast[T <: Value.Scalar: Tag](value: T, lane: Int32) extends E[T]
+  case class SubgroupBroadcastFirst[T <: Value.Scalar: Tag](value: T) extends E[T]
+  case class SubgroupShuffle[T <: Value.Scalar: Tag](value: T, lane: Int32) extends E[T]
+  case class SubgroupShuffleXor[T <: Value.Scalar: Tag](value: T, mask: Int32) extends E[T]

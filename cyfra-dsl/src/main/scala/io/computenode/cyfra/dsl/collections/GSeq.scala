@@ -17,6 +17,7 @@ class GSeq[T <: Value: {Tag, FromExpr}](
   val name: Source,
   val currentElemExprTreeId: Int = treeidState.getAndIncrement(),
   val aggregateElemExprTreeId: Int = treeidState.getAndIncrement(),
+  val shouldUnroll: Boolean = false,
 ):
 
   def copyWithDynamicTrees[R <: Value: {Tag, FromExpr}](
@@ -24,7 +25,8 @@ class GSeq[T <: Value: {Tag, FromExpr}](
     limit: Option[Int] = limit,
     currentElemExprTreeId: Int = currentElemExprTreeId,
     aggregateElemExprTreeId: Int = aggregateElemExprTreeId,
-  ) = GSeq[R](uninitSource, elemOps, limit, name, currentElemExprTreeId, aggregateElemExprTreeId)
+    shouldUnroll: Boolean = shouldUnroll,
+  ) = GSeq[R](uninitSource, elemOps, limit, name, currentElemExprTreeId, aggregateElemExprTreeId, shouldUnroll)
 
   private val currentElemExpr = CurrentElem[T](currentElemExprTreeId)
   val source = uninitSource(currentElemExpr)
@@ -43,8 +45,15 @@ class GSeq[T <: Value: {Tag, FromExpr}](
   def limit(n: Int): GSeq[T] =
     this.copyWithDynamicTrees(limit = Some(n))
 
+  /** Mark this sequence for loop unrolling in the generated shader.
+    * This generates [[unroll]] pragma in GLSL, which hints the compiler
+    * to fully unroll the loop for better performance on small fixed-size loops.
+    */
+  def unroll: GSeq[T] =
+    this.copyWithDynamicTrees(shouldUnroll = true)
+
   def fold[R <: Value: {Tag, FromExpr}](zero: R, fn: (R, T) => R): R =
-    summon[FromExpr[R]].fromExpr(GSeq.FoldSeq(zero, fn(aggregateElem, currentElem).tree, this))
+    summon[FromExpr[R]].fromExpr(GSeq.FoldSeq(zero, fn(aggregateElem, currentElem).tree, this, shouldUnroll))
 
   def count: Int32 =
     fold(0, (acc: Int32, _: T) => acc + 1)
@@ -90,7 +99,7 @@ object GSeq:
   sealed trait GSeqSource[T <: Value: Tag]
   case class GSeqStream[T <: Value: Tag](init: T, next: Expression[?]) extends GSeqSource[T]
 
-  case class FoldSeq[R <: Value: Tag, T <: Value: Tag](zero: R, fn: Expression[?], seq: GSeq[T]) extends Expression[R]:
+  case class FoldSeq[R <: Value: Tag, T <: Value: Tag](zero: R, fn: Expression[?], seq: GSeq[T], unroll: Boolean = false) extends Expression[R]:
     val zeroExpr = zero.tree
     val fnExpr = fn
     val streamInitExpr = seq.source.init.tree
