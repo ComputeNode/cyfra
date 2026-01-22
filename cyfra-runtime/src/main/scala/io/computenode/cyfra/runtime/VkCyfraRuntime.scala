@@ -59,7 +59,7 @@ class VkCyfraRuntime(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()) ex
     context.destroy()
 
 object VkCyfraRuntime:
-  def using[T](f: VkCyfraRuntime ?=> T): T =
-    val runtime = new VkCyfraRuntime()
+  def using[T](f: VkCyfraRuntime ?=> T)(using spirvTools: SpirvToolsRunner = SpirvToolsRunner()): T =
+    val runtime = new VkCyfraRuntime(spirvTools)
     try f(using runtime)
     finally runtime.close()

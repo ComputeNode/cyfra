@@ -31,9 +31,10 @@ metals.sbt
 smoke
 julia
 
-
-
 # LWJGL extracted natives and example render outputs
 .lwjgl/
 examples_output/
 /generated*.png
+
+# Model weight files
+*.gguf

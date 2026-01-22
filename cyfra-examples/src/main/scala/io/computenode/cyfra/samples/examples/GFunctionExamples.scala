@@ -207,6 +207,7 @@ object GFunctionExamples:
       example1_HelloGpu()
       example2_VectorOperations()
       example3_CustomStructs()
+      example4_FibonacciSequence()
       example6_Mandelbrot()
       example7_JuliaSet()
       example8_Uniforms()
