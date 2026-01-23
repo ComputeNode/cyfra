@@ -1,0 +1,18 @@
+package io.computenode.cyfra.core.expression
+
+import io.computenode.cyfra.utility.Utility.nextId
+import io.computenode.cyfra.core.expression.types.given
+
+
+class JumpTarget[A: Value]:
+  val id: Int = nextId()
+  override def toString: String = s"jt#$id"
+
+  override def hashCode(): Int = id + 1
+  override def equals(obj: Any): Boolean = obj match
+    case value: JumpTarget[A] => value.id == id
+    case _                    => false
+
+object JumpTarget:
+  class BreakTarget extends JumpTarget[Unit]
+  class ContinueTarget extends JumpTarget[Unit]
