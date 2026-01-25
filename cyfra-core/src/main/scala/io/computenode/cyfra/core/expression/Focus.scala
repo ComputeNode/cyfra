@@ -17,11 +17,14 @@ object Focus:
     extension [To: Value, I <: IntegerType: Value](from: RuntimeArray[To])
       def at(index: I): To = scala.sys.error("method can only be used inside focus lambda")
 
+    extension [To: Value](from: RuntimeArray[To])
+      def at(index: Int): To = scala.sys.error("method can only be used inside focus lambda")
+
   extension [From: Value, To: Value](from: Focus[From])
     transparent inline def focus(inline lambda: FocusContext ?=> From => To): Focus[To] =
       ${ focusImpl[From, To]('from, 'lambda) }
 
-  def focusImpl[From: Type, To: Type](from: Expr[Focus[From]], lambda: Expr[FocusContext ?=> From => To])(using quotes: Quotes): Expr[Focus[To]] =
+  private def focusImpl[From: Type, To: Type](from: Expr[Focus[From]], lambda: Expr[FocusContext ?=> From => To])(using quotes: Quotes): Expr[Focus[To]] =
     import quotes.reflect.*
     given Printer[Tree] = Printer.TreeCode
 

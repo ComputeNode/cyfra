@@ -5,10 +5,23 @@ import io.computenode.cyfra.core.expression.Focus.*
 import izumi.reflect.{Tag, TagK, TagKK}
 
 val v1: Var[Struct] = new Var()
+val v2: Var[RuntimeArray[Inner]] = new Var()
 
 @main
 def run(): Unit =
   val a = v1.focus(_._2._1)
+  val a_res: Focus[Float32] = FocusConstant[Inner, Float32](FocusConstant[Struct, Inner](v1, 2), 1)
+  assert(a == a_res)
+
+  val b = v2.focus(_.at(10)._2)
+  val b_res: Focus[Int32] = FocusConstant[Inner, Int32](FocusConstant[RuntimeArray[Inner], Inner](v2, 10), 2)
+  assert(b == b_res)
+
+  val i: Int32 = Int32(9)
+
+  val c = v2.focus(_.at(i))
+  val c_res: Focus[Inner] = FocusDynamic[RuntimeArray[Inner], Inner](v2, i)
+  assert(c == c_res)
 
   println("dupa" + a)
 

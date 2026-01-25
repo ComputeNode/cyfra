@@ -123,3 +123,10 @@ given [T <: Scalar: Value]: Value[Mat4x4[T]] with
   def tag: Tag[Mat4x4[T]] = Tag[Mat4x4[T]]
   def composite: List[Value[?]] = List(Value[Vec4[T]])
   def baseTag: Option[TagK[?]] = Some(TagK[Mat4x4].asInstanceOf[TagK[?]])
+
+given [T: Value]: Value[RuntimeArray[T]] with
+  protected def extractUnsafe(ir: ExpressionBlock[RuntimeArray[T]]): RuntimeArray[T] = new RuntimeArrayImpl[T](ir)
+  given Tag[T] = Value[T].tag
+  def tag: Tag[RuntimeArray[T]] = Tag[RuntimeArray[T]]
+  def composite: List[Value[?]] = List(Value[T])
+  def baseTag: Option[TagK[?]] = Some(TagK[RuntimeArray].asInstanceOf[TagK[?]])
