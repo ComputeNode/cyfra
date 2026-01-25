@@ -1,7 +1,7 @@
 package io.computenode.cyfra.core
 
 import io.computenode.cyfra.core.GProgram.*
-import io.computenode.cyfra.core.layout.*
+import io.computenode.cyfra.core.*
 import io.computenode.cyfra.core.expression.ExpressionBlock
 import izumi.reflect.Tag
 

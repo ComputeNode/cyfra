@@ -1,7 +1,6 @@
 package io.computenode.cyfra.runtime
 
-import io.computenode.cyfra.core.GProgram
-import io.computenode.cyfra.core.layout.Layout
+import io.computenode.cyfra.core.{GProgram, Layout}
 import io.computenode.cyfra.core.GProgram.{InitProgramLayout, ProgramDispatch, WorkDimensions}
 import io.computenode.cyfra.runtime.SpirvProgram.Operation.ReadWrite
 import io.computenode.cyfra.runtime.SpirvProgram.{Binding, ShaderLayout}

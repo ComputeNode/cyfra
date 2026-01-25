@@ -2,7 +2,6 @@ package io.computenode.cyfra.core
 
 import io.computenode.cyfra.core.binding.{GBinding, GBuffer, GUniform}
 import io.computenode.cyfra.core.expression.Value
-import io.computenode.cyfra.core.layout.Layout
 import izumi.reflect.Tag
 
 import java.nio.ByteBuffer

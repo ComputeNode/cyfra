@@ -2,8 +2,7 @@ package io.computenode.cyfra.runtime
 
 import io.computenode.cyfra.core.GProgram.InitProgramLayout
 import io.computenode.cyfra.core.binding.{BufferRef, UniformRef}
-import io.computenode.cyfra.core.{GExecution, GProgram}
-import io.computenode.cyfra.core.layout.Layout
+import io.computenode.cyfra.core.{GExecution, GProgram, Layout}
 import io.computenode.cyfra.core.expression.Value
 import io.computenode.cyfra.core.binding.{GBinding, GBuffer, GUniform}
 import io.computenode.cyfra.runtime.ExecutionHandler.{

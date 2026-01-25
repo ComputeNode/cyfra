@@ -2,8 +2,7 @@ package io.computenode.cyfra.runtime
 
 import io.computenode.cyfra.compiler.Compiler
 import io.computenode.cyfra.core.GProgram.InitProgramLayout
-import io.computenode.cyfra.core.layout.Layout
-import io.computenode.cyfra.core.{Allocation, CyfraRuntime, ExpressionProgram, GExecution, GProgram}
+import io.computenode.cyfra.core.{Allocation, CyfraRuntime, ExpressionProgram, GExecution, GProgram, Layout}
 import io.computenode.cyfra.spirvtools.SpirvToolsRunner
 import io.computenode.cyfra.vulkan.VulkanContext
 import io.computenode.cyfra.vulkan.compute.ComputePipeline

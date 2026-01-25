@@ -5,7 +5,7 @@ import io.computenode.cyfra.compiler.ir.IR.RefIR
 import io.computenode.cyfra.compiler.ir.IRs
 import io.computenode.cyfra.compiler.Spirv.Code
 import io.computenode.cyfra.compiler.Spirv.Words
-import io.computenode.cyfra.core.binding.{BufferRef, GBuffer, GUniform, UniformRef}
+import io.computenode.cyfra.core.binding.{BufferRef, GBuffer, GUniform, UniformRef, Var}
 import io.computenode.cyfra.core.expression.*
 import io.computenode.cyfra.core.expression.given
 import io.computenode.cyfra.core.expression.types.*

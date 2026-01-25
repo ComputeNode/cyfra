@@ -1,7 +1,6 @@
 package io.computenode.cyfra.runtime
 
-import io.computenode.cyfra.core.layout.Layout
-import io.computenode.cyfra.core.{Allocation, GCodec, GExecution, GProgram}
+import io.computenode.cyfra.core.{Allocation, GCodec, GExecution, GProgram, Layout}
 import io.computenode.cyfra.core.expression.{Expression, Value}
 import io.computenode.cyfra.core.binding.{GBinding, GBuffer, GUniform}
 import io.computenode.cyfra.core.expression.types.*

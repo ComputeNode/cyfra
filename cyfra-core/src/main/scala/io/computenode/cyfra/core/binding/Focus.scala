@@ -1,10 +1,12 @@
-package io.computenode.cyfra.core.expression
+package io.computenode.cyfra.core.binding
 
+import io.computenode.cyfra.core.expression.Value
 import io.computenode.cyfra.core.expression.types.{IntegerType, Mat, RuntimeArray, Vec}
 
 import scala.quoted.{Expr, Quotes, Type}
 
-sealed trait Focus[T: Value]
+sealed trait Focus[T: Value]:
+  def v: Value[T] = Value[T]
 
 trait FocusRoot[T: Value] extends Focus[T]
 
@@ -14,17 +16,18 @@ case class FocusDynamic[Parent: Value, T: Value](parent: Focus[Parent], value: I
 
 object Focus:
   trait FocusContext:
-    extension [To: Value, I <: IntegerType: Value](from: RuntimeArray[To])
-      def at(index: I): To = scala.sys.error("method can only be used inside focus lambda")
-
     extension [To: Value](from: RuntimeArray[To])
       def at(index: Int): To = scala.sys.error("method can only be used inside focus lambda")
+     
+      def at[I <: IntegerType: Value](index: I): To = scala.sys.error("method can only be used inside focus lambda")
 
   extension [From: Value, To: Value](from: Focus[From])
     transparent inline def focus(inline lambda: FocusContext ?=> From => To): Focus[To] =
       ${ focusImpl[From, To]('from, 'lambda) }
 
-  private def focusImpl[From: Type, To: Type](from: Expr[Focus[From]], lambda: Expr[FocusContext ?=> From => To])(using quotes: Quotes): Expr[Focus[To]] =
+  private def focusImpl[From: Type, To: Type](from: Expr[Focus[From]], lambda: Expr[FocusContext ?=> From => To])(using
+    quotes: Quotes,
+  ): Expr[Focus[To]] =
     import quotes.reflect.*
 
     // Represents an access step in the focus path
@@ -35,11 +38,11 @@ object Focus:
 
     // Extract lambda body - handles context function wrapping
     def extractLambdaBody(term: Term): Term = term match
-      case Inlined(_, _, body) => extractLambdaBody(body)
+      case Inlined(_, _, body)                         => extractLambdaBody(body)
       case Block(List(DefDef(_, _, _, Some(body))), _) => extractLambdaBody(body)
-      case Block(Nil, body) => extractLambdaBody(body)
-      case Lambda(_, body) => body
-      case _ => term
+      case Block(Nil, body)                            => extractLambdaBody(body)
+      case Lambda(_, body)                             => body
+      case _                                           => term
 
     // Get the tuple element index from method name like "_1", "_2", etc.
     def tupleElementIndex(name: String): Option[Int] =
@@ -85,12 +88,12 @@ object Focus:
         (Nil, ident)
 
       case other =>
-        report.errorAndAbort(s"Unsupported focus expression: ${other.show}\nTree: ${other}")
+        report.errorAndAbort(s"Unsupported focus expression: ${other.show}\nTree: $other")
 
     // Build the Focus expression from collected steps
     def buildFocusExpr(steps: List[AccessStep], currentFocus: Term, currentType: TypeRepr): Term =
       steps match
-        case Nil => currentFocus
+        case Nil          => currentFocus
         case step :: rest =>
           step match
             case AccessStep.TupleElement(index, parentType, elementType) =>
@@ -100,24 +103,21 @@ object Focus:
               // Find Value instances for parent and element types
               val parentValue = Implicits.search(TypeRepr.of[Value].appliedTo(parentType)) match
                 case success: ImplicitSearchSuccess => success.tree
-                case _ => report.errorAndAbort(s"Could not find Value instance for ${parentType.show}")
+                case _                              => report.errorAndAbort(s"Could not find Value instance for ${parentType.show}")
 
               val elementValue = Implicits.search(TypeRepr.of[Value].appliedTo(elementType)) match
                 case success: ImplicitSearchSuccess => success.tree
-                case _ => report.errorAndAbort(s"Could not find Value instance for ${elementType.show}")
+                case _                              => report.errorAndAbort(s"Could not find Value instance for ${elementType.show}")
 
               val focusConstantType = TypeRepr.of[FocusConstant].appliedTo(List(parentType, elementType))
               val focusConstantCompanion = Ref(Symbol.requiredModule("io.computenode.cyfra.core.expression.FocusConstant"))
 
               val newFocus = Apply(
                 Apply(
-                  TypeApply(
-                    Select.unique(focusConstantCompanion, "apply"),
-                    List(parentTypeTree, elementTypeTree)
-                  ),
-                  List(currentFocus, Literal(IntConstant(index)))
+                  TypeApply(Select.unique(focusConstantCompanion, "apply"), List(parentTypeTree, elementTypeTree)),
+                  List(currentFocus, Literal(IntConstant(index))),
                 ),
-                List(parentValue, elementValue)
+                List(parentValue, elementValue),
               )
               buildFocusExpr(rest, newFocus, elementType)
 
@@ -128,23 +128,20 @@ object Focus:
 
               val parentValue = Implicits.search(TypeRepr.of[Value].appliedTo(parentType)) match
                 case success: ImplicitSearchSuccess => success.tree
-                case _ => report.errorAndAbort(s"Could not find Value instance for ${parentType.show}")
+                case _                              => report.errorAndAbort(s"Could not find Value instance for ${parentType.show}")
 
               val elementValue = Implicits.search(TypeRepr.of[Value].appliedTo(elementType)) match
                 case success: ImplicitSearchSuccess => success.tree
-                case _ => report.errorAndAbort(s"Could not find Value instance for ${elementType.show}")
+                case _                              => report.errorAndAbort(s"Could not find Value instance for ${elementType.show}")
 
               val focusConstantCompanion = Ref(Symbol.requiredModule("io.computenode.cyfra.core.expression.FocusConstant"))
 
               val newFocus = Apply(
                 Apply(
-                  TypeApply(
-                    Select.unique(focusConstantCompanion, "apply"),
-                    List(parentTypeTree, elementTypeTree)
-                  ),
-                  List(currentFocus, Literal(IntConstant(index)))
+                  TypeApply(Select.unique(focusConstantCompanion, "apply"), List(parentTypeTree, elementTypeTree)),
+                  List(currentFocus, Literal(IntConstant(index))),
                 ),
-                List(parentValue, elementValue)
+                List(parentValue, elementValue),
               )
               buildFocusExpr(rest, newFocus, elementType)
 
@@ -155,11 +152,11 @@ object Focus:
 
               val parentValue = Implicits.search(TypeRepr.of[Value].appliedTo(parentType)) match
                 case success: ImplicitSearchSuccess => success.tree
-                case _ => report.errorAndAbort(s"Could not find Value instance for ${parentType.show}")
+                case _                              => report.errorAndAbort(s"Could not find Value instance for ${parentType.show}")
 
               val elementValue = Implicits.search(TypeRepr.of[Value].appliedTo(elementType)) match
                 case success: ImplicitSearchSuccess => success.tree
-                case _ => report.errorAndAbort(s"Could not find Value instance for ${elementType.show}")
+                case _                              => report.errorAndAbort(s"Could not find Value instance for ${elementType.show}")
 
               val focusDynamicCompanion = Ref(Symbol.requiredModule("io.computenode.cyfra.core.expression.FocusDynamic"))
 
@@ -168,13 +165,10 @@ object Focus:
 
               val newFocus = Apply(
                 Apply(
-                  TypeApply(
-                    Select.unique(focusDynamicCompanion, "apply"),
-                    List(parentTypeTree, elementTypeTree)
-                  ),
-                  List(currentFocus, indexAsIntegerType)
+                  TypeApply(Select.unique(focusDynamicCompanion, "apply"), List(parentTypeTree, elementTypeTree)),
+                  List(currentFocus, indexAsIntegerType),
                 ),
-                List(parentValue, elementValue)
+                List(parentValue, elementValue),
               )
               buildFocusExpr(rest, newFocus, elementType)
 

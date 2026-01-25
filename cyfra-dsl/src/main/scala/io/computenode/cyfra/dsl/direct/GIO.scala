@@ -1,6 +1,6 @@
 package io.computenode.cyfra.dsl.direct
 
-import io.computenode.cyfra.core.{ExpressionProgram, GProgram}
+import io.computenode.cyfra.core.{ExpressionProgram, GProgram, Layout}
 import io.computenode.cyfra.core.GProgram.{InitProgramLayout, ProgramDispatch, WorkDimensions}
 import io.computenode.cyfra.core.expression.{
   BuildInFunction,
@@ -9,16 +9,14 @@ import io.computenode.cyfra.core.expression.{
   ExpressionBlock,
   JumpTarget,
   Value,
-  Var,
   given,
 }
 import io.computenode.cyfra.core.expression.CustomFunction.CustomFunction1
-import io.computenode.cyfra.core.binding.{GBuffer, GUniform}
+import io.computenode.cyfra.core.binding.{GBuffer, GUniform, Var}
 import io.computenode.cyfra.core.expression.JumpTarget.{BreakTarget, ContinueTarget}
 import io.computenode.cyfra.core.expression.Value.irs
 import io.computenode.cyfra.core.expression.types.*
 import io.computenode.cyfra.core.expression.types.given
-import io.computenode.cyfra.core.layout.Layout
 
 class GIO:
   private var result: List[Expression[?]] = Nil

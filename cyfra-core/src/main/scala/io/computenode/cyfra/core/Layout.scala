@@ -1,13 +1,13 @@
-package io.computenode.cyfra.core.layout
+package io.computenode.cyfra.core
 
-import io.computenode.cyfra.core.binding.{BufferRef, GBinding, GBuffer, GUniform, UniformRef}
+import io.computenode.cyfra.core.binding.*
 import io.computenode.cyfra.core.expression.*
+import izumi.reflect.Tag
 
 import scala.annotation.experimental
 import scala.compiletime.{error, summonAll}
 import scala.deriving.Mirror
 import scala.quoted.{Expr, Quotes, Type}
-import izumi.reflect.Tag
 
 trait Layout[T]:
   def fromBindings(bindings: Seq[GBinding[?]]): T

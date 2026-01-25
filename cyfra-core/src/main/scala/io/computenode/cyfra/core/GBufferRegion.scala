@@ -3,7 +3,6 @@ package io.computenode.cyfra.core
 import io.computenode.cyfra.core.Allocation
 import io.computenode.cyfra.core.GBufferRegion.MapRegion
 import io.computenode.cyfra.core.GProgram.BufferLengthSpec
-import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.core.expression.Value
 import io.computenode.cyfra.core.binding.GBuffer
 import izumi.reflect.Tag

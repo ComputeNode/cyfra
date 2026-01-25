@@ -1,6 +1,6 @@
 package io.computenode.cyfra.core.expression
 
-import io.computenode.cyfra.core.binding.{GBuffer, GUniform}
+import io.computenode.cyfra.core.binding.{GBuffer, GUniform, Var}
 import io.computenode.cyfra.core.expression.JumpTarget.{BreakTarget, ContinueTarget}
 import io.computenode.cyfra.core.expression.given
 import io.computenode.cyfra.core.expression.types.*

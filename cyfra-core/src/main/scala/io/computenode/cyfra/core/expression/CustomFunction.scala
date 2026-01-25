@@ -1,5 +1,6 @@
 package io.computenode.cyfra.core.expression
 
+import io.computenode.cyfra.core.binding.Var
 import io.computenode.cyfra.utility.Utility.nextId
 
 class CustomFunction[Res: Value] private[cyfra] (val name: String, val arg: List[Var[?]], val body: ExpressionBlock[Res]):

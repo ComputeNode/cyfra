@@ -6,8 +6,8 @@ import io.computenode.cyfra.compiler.ir.IRs
 import io.computenode.cyfra.compiler.CompilationException
 import io.computenode.cyfra.core.expression.types.given
 import io.computenode.cyfra.compiler.unit.Compilation
-import io.computenode.cyfra.core.binding.{BufferRef, GBuffer, GUniform, UniformRef}
-import io.computenode.cyfra.core.expression.{BuildInFunction, CustomFunction, Expression, ExpressionBlock, Value, Var, given}
+import io.computenode.cyfra.core.binding.{BufferRef, GBuffer, GUniform, UniformRef, Var}
+import io.computenode.cyfra.core.expression.{BuildInFunction, CustomFunction, Expression, ExpressionBlock, Value, given}
 
 import scala.collection.mutable
 

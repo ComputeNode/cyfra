@@ -1,7 +1,6 @@
 package io.computenode.cyfra.core
 
 import io.computenode.cyfra.core.GProgram.*
-import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.core.expression.*
 
 import java.nio.ByteBuffer

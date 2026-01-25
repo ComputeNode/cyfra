@@ -1,8 +1,7 @@
 package io.computenode.cyfra.runtime
 
-import io.computenode.cyfra.core.{GProgram, ExpressionProgram}
+import io.computenode.cyfra.core.{ExpressionProgram, GProgram, Layout}
 import io.computenode.cyfra.core.GProgram.InitProgramLayout
-import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.core.binding.{GBuffer, GUniform}
 import io.computenode.cyfra.vulkan.compute.ComputePipeline
 import io.computenode.cyfra.runtime.SpirvProgram.*

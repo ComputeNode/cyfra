@@ -1,8 +1,7 @@
 package io.computenode.cyfra.samples.examples
 
-import io.computenode.cyfra.core.{GBufferRegion, GExecution, GProgram}
+import io.computenode.cyfra.core.{GBufferRegion, GExecution, GProgram, Layout}
 import io.computenode.cyfra.core.GProgram.StaticDispatch
-import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.runtime.VkCyfraRuntime
 
