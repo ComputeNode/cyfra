@@ -12,7 +12,7 @@ import io.computenode.cyfra.core.expression.{
   given,
 }
 import io.computenode.cyfra.core.expression.CustomFunction.CustomFunction1
-import io.computenode.cyfra.core.binding.{GBuffer, GUniform, Var}
+import io.computenode.cyfra.core.binding.{GBuffer, GUniform, Variable}
 import io.computenode.cyfra.core.expression.JumpTarget.{BreakTarget, ContinueTarget}
 import io.computenode.cyfra.core.expression.Value.irs
 import io.computenode.cyfra.core.expression.types.*
@@ -57,17 +57,17 @@ object GIO:
     val write = Expression.WriteUniform(uniform, v.result)
     gio.extend(write :: v.body)
 
-  def declare[T: Value]()(using gio: GIO): Var[T] =
-    val variable = Var[T]()
+  def declare[T: Value]()(using gio: GIO): Variable[T] =
+    val variable = Variable[T]()
     gio.add(Expression.VarDeclare(variable))
     variable
 
-  def read[T: Value](variable: Var[T])(using gio: GIO): T =
+  def read[T: Value](variable: Variable[T])(using gio: GIO): T =
     val read = Expression.VarRead(variable)
     gio.add(read)
     Value[T].indirect(read)
 
-  def write[T: Value](variable: Var[T], value: T)(using gio: GIO): Unit =
+  def write[T: Value](variable: Variable[T], value: T)(using gio: GIO): Unit =
     val v = value.irs
     val write = Expression.VarWrite(variable, v.result)
     gio.extend(write :: v.body)
@@ -115,7 +115,7 @@ object GIO:
     gio.extend(next :: a1.body ++ a2.body ++ a3.body ++ a4.body)
     summon[Value[Res]].indirect(next)
 
-  def call[A: Value, Res: Value](func: CustomFunction1[Res, A], arg: Var[A])(using gio: GIO): Res =
+  def call[A: Value, Res: Value](func: CustomFunction1[Res, A], arg: Variable[A])(using gio: GIO): Res =
     val next = Expression.CustomCall(func, List(arg))
     gio.add(next)
     summon[Value[Res]].indirect(next)

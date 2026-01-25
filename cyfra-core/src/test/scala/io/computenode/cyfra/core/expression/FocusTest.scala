@@ -1,6 +1,6 @@
 package io.computenode.cyfra.core.expression
 
-import io.computenode.cyfra.core.binding.{Focus, FocusConstant, FocusDynamic, Var}
+import io.computenode.cyfra.core.binding.{Focus, FocusConstant, FocusDynamic, Var, Variable}
 import io.computenode.cyfra.core.binding.Focus.*
 import io.computenode.cyfra.core.expression.types.*
 import io.computenode.cyfra.core.expression.types.given

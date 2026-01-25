@@ -75,9 +75,9 @@ object Focus:
           case _ =>
             report.errorAndAbort(s"Expected constant Int index in at(), got: ${indexTerm.show}")
 
-      // Extension method array access with dynamic IntegerType: context.at[Elem, I](qualifier)(index)(evidences)
-      // Tree: Apply(Apply(Apply(TypeApply(Select(context, "at"), List(elemType, indexType)), List(qualifier)), List(index)), List(evidences))
-      case Apply(Apply(Apply(TypeApply(Select(_, "at"), List(elemTypeTree, _)), List(qualifier)), List(indexTerm)), _) =>
+      // Extension method array access with dynamic IntegerType: context.at[Elem](qualifier)[I](index)(evidences)
+      // Tree: Apply(Apply(TypeApply(Apply(TypeApply(Select(context, "at"), List(elemType)), List(qualifier)), List(indexType)), List(index)), List(evidences))
+      case Apply(Apply(TypeApply(Apply(TypeApply(Select(_, "at"), List(elemTypeTree)), List(qualifier)), _), List(indexTerm)), _) =>
         val (innerSteps, param) = collectSteps(qualifier)
         val elemType = elemTypeTree.tpe.widen
         val step = AccessStep.ArrayDynamic(indexTerm, indexTerm.tpe.widen, elemType)
@@ -110,7 +110,7 @@ object Focus:
                 case _                              => report.errorAndAbort(s"Could not find Value instance for ${elementType.show}")
 
               val focusConstantType = TypeRepr.of[FocusConstant].appliedTo(List(parentType, elementType))
-              val focusConstantCompanion = Ref(Symbol.requiredModule("io.computenode.cyfra.core.expression.FocusConstant"))
+              val focusConstantCompanion = Ref(Symbol.requiredModule("io.computenode.cyfra.core.binding.FocusConstant"))
 
               val newFocus = Apply(
                 Apply(
@@ -134,7 +134,7 @@ object Focus:
                 case success: ImplicitSearchSuccess => success.tree
                 case _                              => report.errorAndAbort(s"Could not find Value instance for ${elementType.show}")
 
-              val focusConstantCompanion = Ref(Symbol.requiredModule("io.computenode.cyfra.core.expression.FocusConstant"))
+              val focusConstantCompanion = Ref(Symbol.requiredModule("io.computenode.cyfra.core.binding.FocusConstant"))
 
               val newFocus = Apply(
                 Apply(
@@ -158,7 +158,7 @@ object Focus:
                 case success: ImplicitSearchSuccess => success.tree
                 case _                              => report.errorAndAbort(s"Could not find Value instance for ${elementType.show}")
 
-              val focusDynamicCompanion = Ref(Symbol.requiredModule("io.computenode.cyfra.core.expression.FocusDynamic"))
+              val focusDynamicCompanion = Ref(Symbol.requiredModule("io.computenode.cyfra.core.binding.FocusDynamic"))
 
               // Cast the index expression to IntegerType
               val indexAsIntegerType = indexExpr.asExprOf[IntegerType].asTerm

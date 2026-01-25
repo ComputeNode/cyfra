@@ -1,17 +1,19 @@
 package io.computenode.cyfra.core.binding
 
 import io.computenode.cyfra.core.expression.Value
+import io.computenode.cyfra.core.expression.types.RuntimeArray
 
-sealed trait GBinding[T: Value]:
-  def v: Value[T] = Value[T]
-
-object GBinding
+sealed trait GBinding[T: Value] extends Variable[T]
 
 trait GBuffer[T: Value] extends GBinding[T]
 
-object GBuffer
+type GArray[T] = GBuffer[RuntimeArray[T]]
 
 trait GUniform[T: Value] extends GBinding[T]
+
+object GBuffer
+
+object GBinding
 
 object GUniform:
   class ParamUniform[T: Value] extends GUniform[T]

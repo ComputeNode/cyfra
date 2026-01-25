@@ -40,7 +40,7 @@ object TestingStuff:
     val emitN = GIO.read(layout.args)
     val element = GIO.read(layout.in, invocId)
     val bufferOffset = invocId * emitN
-    val iV: Var[UInt32] = GIO.declare()
+    val iV: Variable[UInt32] = GIO.declare()
     GIO.write(iV, UInt32(0))
     val body: (BreakTarget, GIO) ?=> Unit =
       val i = GIO.read(iV)

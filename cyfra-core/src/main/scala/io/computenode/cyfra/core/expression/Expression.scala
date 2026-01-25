@@ -1,6 +1,6 @@
 package io.computenode.cyfra.core.expression
 
-import io.computenode.cyfra.core.binding.{GBuffer, GUniform, Var}
+import io.computenode.cyfra.core.binding.{GBuffer, GUniform, Var, Variable}
 import io.computenode.cyfra.core.expression.JumpTarget.{BreakTarget, ContinueTarget}
 import io.computenode.cyfra.core.expression.given
 import io.computenode.cyfra.core.expression.types.*
@@ -20,8 +20,8 @@ object Expression:
   case class Constant[A: Value](value: Any) extends Expression[A]
   case class VarDeclare[A: Value](variable: Var[A]) extends Expression[Unit]:
     def v2: Value[A] = Value[A]
-  case class VarRead[A: Value](variable: Var[A]) extends Expression[A]
-  case class VarWrite[A: Value](variable: Var[A], value: Expression[A]) extends Expression[Unit]:
+  case class VarRead[A: Value](variable: Variable[A]) extends Expression[A]
+  case class VarWrite[A: Value](variable: Variable[A], value: Expression[A]) extends Expression[Unit]:
     def v2: Value[A] = Value[A]
   case class ReadBuffer[A: Value](buffer: GBuffer[A], index: Expression[UInt32]) extends Expression[A]
   case class WriteBuffer[A: Value](buffer: GBuffer[A], index: Expression[UInt32], value: Expression[A]) extends Expression[Unit]:
@@ -30,7 +30,7 @@ object Expression:
   case class WriteUniform[A: Value](uniform: GUniform[A], value: Expression[A]) extends Expression[Unit]:
     def v2: Value[A] = Value[A]
   case class BuildInOperation[A: Value](func: BuildInFunction[A], args: List[Expression[?]]) extends Expression[A]
-  case class CustomCall[A: Value](func: CustomFunction[A], args: List[Var[?]]) extends Expression[A]
+  case class CustomCall[A: Value](func: CustomFunction[A], args: List[Variable[?]]) extends Expression[A]
   case class Branch[T: Value](cond: Expression[Bool], ifTrue: ExpressionBlock[T], ifFalse: ExpressionBlock[T], break: JumpTarget[T])
       extends Expression[T]
   case class Loop(mainBody: ExpressionBlock[Unit], continueBody: ExpressionBlock[Unit], break: BreakTarget, continue: ContinueTarget)

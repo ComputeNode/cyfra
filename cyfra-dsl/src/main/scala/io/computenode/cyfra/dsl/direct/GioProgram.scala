@@ -4,7 +4,7 @@ import io.computenode.cyfra.core.{ExpressionProgram, GProgram, Layout}
 import io.computenode.cyfra.core.GProgram.{InitProgramLayout, ProgramDispatch, WorkDimensions}
 import io.computenode.cyfra.core.expression.{BuildInFunction, CustomFunction, Expression, ExpressionBlock, JumpTarget, Value, given}
 import io.computenode.cyfra.core.expression.CustomFunction.CustomFunction1
-import io.computenode.cyfra.core.binding.{GBuffer, Var}
+import io.computenode.cyfra.core.binding.{GBuffer, Variable}
 import io.computenode.cyfra.core.expression.JumpTarget.{BreakTarget, ContinueTarget}
 import io.computenode.cyfra.core.expression.Value.irs
 import io.computenode.cyfra.core.expression.types.*

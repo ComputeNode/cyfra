@@ -1,7 +1,7 @@
 package io.computenode.cyfra.dsl.monad
 
 import io.computenode.cyfra.core.expression.{BuildInFunction, CustomFunction, JumpTarget, Value, given}
-import io.computenode.cyfra.core.binding.{GBuffer, Var}
+import io.computenode.cyfra.core.binding.{GBuffer, Variable}
 import io.computenode.cyfra.core.expression.JumpTarget.{BreakTarget, ContinueTarget}
 import io.computenode.cyfra.core.expression.types.*
 import io.computenode.cyfra.core.expression.types.given
@@ -14,10 +14,10 @@ object GOps:
   case class ReadBuffer[T: Value](buffer: GBuffer[T], index: UInt32) extends GOps[T]
   case class WriteBuffer[T: Value](buffer: GBuffer[T], index: UInt32, value: T) extends GOps[Unit]:
     def tv: Value[T] = Value[T]
-  case class DeclareVariable[T: Value](variable: Var[T]) extends GOps[Unit]:
+  case class DeclareVariable[T: Value](variable: Variable[T]) extends GOps[Unit]:
     def tv: Value[T] = Value[T]
-  case class ReadVariable[T: Value](variable: Var[T]) extends GOps[T]
-  case class WriteVariable[T: Value](variable: Var[T], value: T) extends GOps[Unit]:
+  case class ReadVariable[T: Value](variable: Variable[T]) extends GOps[T]
+  case class WriteVariable[T: Value](variable: Variable[T], value: T) extends GOps[Unit]:
     def tv: Value[T] = Value[T]
   case class CallBuildIn0[Res: Value](func: BuildInFunction.BuildInFunction0[Res]) extends GOps[Res]
   case class CallBuildIn1[A: Value, Res: Value](func: BuildInFunction.BuildInFunction1[A, Res], arg: A) extends GOps[Res]:
@@ -46,7 +46,7 @@ object GOps:
     def tv2: Value[A2] = summon[Value[A2]]
     def tv3: Value[A3] = summon[Value[A3]]
     def tv4: Value[A4] = summon[Value[A4]]
-  case class CallCustom1[A: Value, Res: Value](func: CustomFunction[Res], arg: Var[A]) extends GOps[Res]:
+  case class CallCustom1[A: Value, Res: Value](func: CustomFunction[Res], arg: Variable[A]) extends GOps[Res]:
     def tv: Value[A] = summon[Value[A]]
   case class Branch[T: Value](cond: Bool, ifTrue: GIO[T], ifFalse: GIO[T], break: JumpTarget[T]) extends GOps[T]
   case class Loop(mainBody: GIO[Unit], continueBody: GIO[Unit], break: BreakTarget, continue: ContinueTarget) extends GOps[Unit]
@@ -61,14 +61,14 @@ object GOps:
   def write[T: Value](buffer: GBuffer[T], index: UInt32, value: T): GIO[Unit] =
     Free.liftF[GOps, Unit](WriteBuffer(buffer, index, value))
 
-  def declare[T: Value]: GIO[Var[T]] =
-    val variable = Var[T]()
+  def declare[T: Value]: GIO[Variable[T]] =
+    val variable = Variable[T]()
     Free.liftF[GOps, Unit](DeclareVariable(variable)).map(_ => variable)
 
-  def read[T: Value](variable: Var[T]): GIO[T] =
+  def read[T: Value](variable: Variable[T]): GIO[T] =
     Free.liftF[GOps, T](ReadVariable(variable))
 
-  def write[T: Value](variable: Var[T], value: T): GIO[Unit] =
+  def write[T: Value](variable: Variable[T], value: T): GIO[Unit] =
     Free.liftF[GOps, Unit](WriteVariable(variable, value))
 
   def call[Res: Value](func: BuildInFunction.BuildInFunction0[Res]): GIO[Res] =
@@ -97,7 +97,7 @@ object GOps:
   ): GIO[Res] =
     Free.liftF[GOps, Res](CallBuildIn4(func, arg1, arg2, arg3, arg4))
 
-  def call[A: Value, Res: Value](func: CustomFunction[Res], arg: Var[A]): GIO[Res] =
+  def call[A: Value, Res: Value](func: CustomFunction[Res], arg: Variable[A]): GIO[Res] =
     Free.liftF[GOps, Res](CallCustom1(func, arg))
 
   def branch[T: Value](cond: Bool)(ifTrue: JumpTarget[T] => GIO[T])(ifFalse: JumpTarget[T] => GIO[T]): GIO[T] =
