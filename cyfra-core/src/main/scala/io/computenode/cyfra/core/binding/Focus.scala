@@ -33,6 +33,7 @@ object Focus:
     // Represents an access step in the focus path
     enum AccessStep:
       case TupleElement(index: Int, parentType: TypeRepr, elementType: TypeRepr)
+      case CaseClassField(fieldName: String, index: Int, parentType: TypeRepr, elementType: TypeRepr)
       case ArrayConstant(index: Int, elementType: TypeRepr)
       case ArrayDynamic(indexExpr: Term, indexType: TypeRepr, elementType: TypeRepr)
 
@@ -61,6 +62,23 @@ object Focus:
         val (innerSteps, param) = collectSteps(qualifier)
         val step = AccessStep.TupleElement(index, qualifier.tpe.widen, term.tpe.widen)
         (innerSteps :+ step, param)
+
+      // Case class field access: expr.fieldName
+      case Select(qualifier, fieldName) =>
+        val qualType = qualifier.tpe.widen
+        val qualSym = qualType.typeSymbol
+        if qualSym.flags.is(Flags.Case) then
+          val fields = qualSym.caseFields
+          val fieldIndex = fields.indexWhere(_.name == fieldName)
+          if fieldIndex >= 0 then
+            val (innerSteps, param) = collectSteps(qualifier)
+            // Case class fields are 1-indexed like tuples for consistency with FocusConstant
+            val step = AccessStep.CaseClassField(fieldName, fieldIndex + 1, qualType, term.tpe.widen)
+            (innerSteps :+ step, param)
+          else
+            report.errorAndAbort(s"Field '$fieldName' not found in case class ${qualType.show}")
+        else
+          report.errorAndAbort(s"Cannot access field '$fieldName' on non-case-class type ${qualType.show}")
 
       // Extension method array access with constant Int: context.at[Elem](qualifier)(constIndex)(evidence)
       // Tree: Apply(Apply(Apply(TypeApply(Select(context, "at"), List(elemType)), List(qualifier)), List(index)), List(evidence))
@@ -110,6 +128,30 @@ object Focus:
                 case _                              => report.errorAndAbort(s"Could not find Value instance for ${elementType.show}")
 
               val focusConstantType = TypeRepr.of[FocusConstant].appliedTo(List(parentType, elementType))
+              val focusConstantCompanion = Ref(Symbol.requiredModule("io.computenode.cyfra.core.binding.FocusConstant"))
+
+              val newFocus = Apply(
+                Apply(
+                  TypeApply(Select.unique(focusConstantCompanion, "apply"), List(parentTypeTree, elementTypeTree)),
+                  List(currentFocus, Literal(IntConstant(index))),
+                ),
+                List(parentValue, elementValue),
+              )
+              buildFocusExpr(rest, newFocus, elementType)
+
+            case AccessStep.CaseClassField(fieldName, index, parentType, elementType) =>
+              val parentTypeTree = TypeTree.of(using parentType.asType)
+              val elementTypeTree = TypeTree.of(using elementType.asType)
+
+              // Find Value instances for parent and element types
+              val parentValue = Implicits.search(TypeRepr.of[Value].appliedTo(parentType)) match
+                case success: ImplicitSearchSuccess => success.tree
+                case _                              => report.errorAndAbort(s"Could not find Value instance for ${parentType.show}")
+
+              val elementValue = Implicits.search(TypeRepr.of[Value].appliedTo(elementType)) match
+                case success: ImplicitSearchSuccess => success.tree
+                case _                              => report.errorAndAbort(s"Could not find Value instance for ${elementType.show}")
+
               val focusConstantCompanion = Ref(Symbol.requiredModule("io.computenode.cyfra.core.binding.FocusConstant"))
 
               val newFocus = Apply(

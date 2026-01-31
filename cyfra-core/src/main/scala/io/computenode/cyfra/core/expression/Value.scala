@@ -6,6 +6,7 @@ import io.computenode.cyfra.utility.cats.Monad
 import izumi.reflect.{Tag, TagK}
 
 import scala.annotation.tailrec
+import scala.quoted.{Expr, Quotes, Type, Varargs}
 
 trait Value[A]:
   protected def extractUnsafe(ir: ExpressionBlock[A]): A
@@ -31,6 +32,99 @@ object Value:
   trait Scalar[A] extends Value[A]:
     def baseTag: Option[TagK[?]] = None
     def composite: List[Value[?]] = Nil
+
+  // Derived Value implementation for tuples/products
+  class Derived[T](
+    elemValues: List[Value[?]],
+    theTag: Tag[T],
+    theBaseTag: Option[TagK[?]],
+    extract: (ExpressionBlock[T], Value[T]) => T
+  ) extends Value[T]:
+    protected def extractUnsafe(ir: ExpressionBlock[T]): T = extract(ir, this)
+    def tag: Tag[T] = theTag
+    def baseTag: Option[TagK[?]] = theBaseTag
+    def composite: List[Value[?]] = elemValues
+
+  // Runtime helper for extraction - used by the macro
+  def extractComposite[Parent, T](ir: ExpressionBlock[Parent], parentValue: Value[Parent], elemValue: Value[T], idx: Int): T =
+    val expr = Expression.Composite[Parent & Tuple, idx.type](ir.result.asInstanceOf[Expression[Parent & Tuple]], idx)(using parentValue.asInstanceOf[Value[Parent & Tuple]])
+    elemValue.extract(ir.add(expr.asInstanceOf[Expression[T]]))
+
+  // Helper to get Tuple base tag - avoids compile-time kind issues  
+  private[expression] val tupleBaseTag: Option[TagK[?]] = Some(Tag[Tuple].asInstanceOf[TagK[?]])
+
+  // Auto-derivation for tuples and case classes
+  inline given derived[T]: Value[T] = ${ derivedMacro[T] }
+
+  private def derivedMacro[T: Type](using quotes: Quotes): Expr[Value[T]] =
+    import quotes.reflect.*
+
+    val tpe = TypeRepr.of[T]
+    val sym = tpe.typeSymbol
+
+    if !sym.flags.is(Flags.Case) then
+      report.errorAndAbort(s"Can only derive Value for case classes and tuples. Found: ${tpe.show}")
+
+    // Get element types from tuple/case class
+    val elemTypes: List[TypeRepr] = tpe match
+      case AppliedType(_, args) => args
+      case _ => sym.caseFields.map(f => tpe.memberType(f))
+
+    // Generate Value lookups for each element
+    def lookupValue(elemType: TypeRepr): Expr[Value[?]] =
+      val valueType = TypeRepr.of[Value].appliedTo(elemType)
+      Implicits.search(valueType) match
+        case iss: ImplicitSearchSuccess => iss.tree.asExprOf[Value[?]]
+        case isf: ImplicitSearchFailure =>
+          report.errorAndAbort(s"Could not find Value[${elemType.show}]: ${isf.explanation}")
+
+    val elemValueExprs: List[Expr[Value[?]]] = elemTypes.map(lookupValue)
+    val elemValuesExpr: Expr[List[Value[?]]] = Expr.ofList(elemValueExprs)
+
+    // Get Tag[T]
+    val tagExpr: Expr[Tag[T]] = Implicits.search(TypeRepr.of[Tag[T]]) match
+      case iss: ImplicitSearchSuccess => iss.tree.asExprOf[Tag[T]]
+      case isf: ImplicitSearchFailure =>
+        report.errorAndAbort(s"Could not find Tag[${tpe.show}]: ${isf.explanation}")
+
+    // Get baseTag for tuples
+    val isTuple = tpe match
+      case AppliedType(tycon, _) => tycon.typeSymbol.fullName.startsWith("scala.Tuple")
+      case _ => false
+    val baseTagExpr: Expr[Option[TagK[?]]] =
+      if isTuple then '{ Value.tupleBaseTag }
+      else '{ None }
+
+    // Generate tuple construction from array
+    def constructFromArray(arrExpr: Expr[Array[Any]]): Expr[T] =
+      val args = elemTypes.zipWithIndex.map: (elemType, idx) =>
+        elemType.asType match
+          case '[t] =>
+            val elem = '{ $arrExpr(${ Expr(idx) }).asInstanceOf[t] }
+            elem.asTerm
+
+      val constructor = Select(New(TypeIdent(sym)), sym.primaryConstructor)
+      val applied = tpe.typeArgs match
+        case Nil => constructor
+        case typeArgs => TypeApply(constructor, typeArgs.map(t => TypeTree.of(using t.asType)))
+
+      Apply(applied, args).asExprOf[T]
+
+    // Generate extraction lambda
+    val extractLambda: Expr[(ExpressionBlock[T], Value[T]) => T] =
+      '{ (ir: ExpressionBlock[T], self: Value[T]) =>
+        val elements = Array[Any](${
+          val extractions = elemTypes.zipWithIndex.map: (elemType, idx) =>
+            elemType.asType match
+              case '[t] =>
+                val valueExpr = elemValueExprs(idx).asExprOf[Value[t]]
+                '{ Value.extractComposite[T, t](ir, self, $valueExpr, ${ Expr(idx) }) }
+          Varargs(extractions)
+        }*)
+        ${ constructFromArray('elements) }
+      }
+
+    '{ new Value.Derived[T]($elemValuesExpr, $tagExpr, $baseTagExpr, $extractLambda) }
 
   def map[Res: Value as vr](f: BuildInFunction0[Res]): Res =
     val next = Expression.BuildInOperation(f, Nil)
