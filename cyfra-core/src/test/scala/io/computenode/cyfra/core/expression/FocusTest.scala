@@ -9,30 +9,12 @@ import izumi.reflect.{Tag, TagK}
 class FocusTest extends munit.FunSuite:
 
   private type Inner = (Float32, UInt32)
-  private type Struct = (Int32, Inner)
+  private type Struct = (Int32, Inner, UInt32)
 
-  private def eNa[T: Value](block: ExpressionBlock[?], exp: Expression[T]): T =
-    exp.v.extract(block.add(exp))
-
-  private given Value[Inner] = new Value:
-    protected def extractUnsafe(ir: ExpressionBlock[Inner]): Inner =
-      val a = Expression.Composite[Inner, 0](ir.result, 0)
-      val b = Expression.Composite[Inner, 1](ir.result, 1)
-      (eNa(ir, a), eNa(ir, b))
-
-    def tag: Tag[Inner] = Tag[Inner]
-    def baseTag: Option[TagK[?]] = Some(Tag[Tuple2].asInstanceOf[TagK[?]])
-    def composite: List[Value[?]] = List(Value[Float32], Value[UInt32])
-
-  private given Value[Struct] = new Value:
-    protected def extractUnsafe(ir: ExpressionBlock[Struct]): Struct =
-      val a = Expression.Composite[Struct, 0](ir.result, 0)
-      val b = Expression.Composite[Struct, 1](ir.result, 1)
-      (eNa(ir, a), b.v.extract(ir.add(b)))
-
-    def tag: Tag[Struct] = Tag[Struct]
-    def baseTag: Option[TagK[?]] = Some(Tag[Tuple2].asInstanceOf[TagK[?]])
-    def composite: List[Value[?]] = List(Value[Int32], Value[Inner])
+  test("value derives correctly"):
+    val v = Value[Struct]
+    assertEquals(v.bottomComposite, v)
+    assert(v.baseTag.get =:= Tag[Tuple])
 
   test("focus on nested tuple elements"):
     val v1: Var[Struct] = new Var()
@@ -67,5 +49,41 @@ class FocusTest extends munit.FunSuite:
 
     val result = v2.focus(_.at(i))
     val expected: Focus[Inner] = FocusDynamic[RuntimeArray[Inner], Inner](v2, i)
+
+    assertEquals(result, expected)
+
+  // Case class field access tests
+  case class Point(x: Float32, y: Float32)
+  case class Line(start: Point, end: Point)
+
+  test("focus on case class field"):
+    val v: Var[Point] = new Var()
+
+    val result = v.focus(_.x)
+    val expected: Focus[Float32] = FocusConstant[Point, Float32](v, 1)
+
+    assertEquals(result, expected)
+
+  test("focus on second case class field"):
+    val v: Var[Point] = new Var()
+
+    val result = v.focus(_.y)
+    val expected: Focus[Float32] = FocusConstant[Point, Float32](v, 2)
+
+    assertEquals(result, expected)
+
+  test("focus on nested case class fields"):
+    val v: Var[Line] = new Var()
+
+    val result = v.focus(_.end.x)
+    val expected: Focus[Float32] = FocusConstant[Point, Float32](FocusConstant[Line, Point](v, 2), 1)
+
+    assertEquals(result, expected)
+
+  test("focus on case class in RuntimeArray"):
+    val v: Var[RuntimeArray[Point]] = new Var()
+
+    val result = v.focus(_.at(5).y)
+    val expected: Focus[Float32] = FocusConstant[Point, Float32](FocusConstant[RuntimeArray[Point], Point](v, 5), 2)
 
     assertEquals(result, expected)
