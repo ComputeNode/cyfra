@@ -23,7 +23,7 @@ import scala.reflect.ClassTag
 import scala.util.Try
 import scala.util.chaining.*
 
-class VkAllocation(val commandPool: CommandPool.Reset, executionHandler: ExecutionHandler)(using Allocator, Device) extends Allocation:
+class VkAllocation(val commandPool: CommandPool.Reset, val executionHandler: ExecutionHandler)(using Allocator, Device) extends Allocation:
   given VkAllocation = this
 
   override def submitLayout[L: Layout](layout: L): Unit =
