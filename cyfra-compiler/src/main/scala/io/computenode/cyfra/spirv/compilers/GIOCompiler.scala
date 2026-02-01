@@ -105,19 +105,30 @@ object GIOCompiler:
     ctx: Context,
     acc: List[Words],
   ): (List[Words], Context) =
-    // TODO: Loop invariant optimization disabled temporarily - causes hangs in some programs
-    // The optimization extracts loop-invariant expressions outside the loop, but something
-    // is going wrong with certain expression patterns (like in EncoderProgram).
-    // For now, just compile n and proceed with the loop body.
     val (nInsts, ctxWithN) = ExpressionCompiler.compileBlock(n.tree, ctx)
 
-    val intTy = ctxWithN.valueTypeMap(Int32Tag.tag)
-    val boolTy = ctxWithN.valueTypeMap(GBooleanTag.tag)
-    val zeroId = ctxWithN.constRefs((Int32Tag, 0))
-    val oneId = ctxWithN.constRefs((Int32Tag, 1))
-    val nId = ctxWithN.exprRefs(n.tree.treeid)
+    // Hoist loop-invariant expressions before the loop
+    // Only hoist expressions that don't depend on loop variables or control flow
+    val bodyExprs = collectExpressionsMap(f)
+    val loopDependent = findLoopDependentExprs(bodyExprs, CurrentRepeatIndex.treeid)
+    val scopeDependent = findScopeDependentExprs(bodyExprs)
+    // Filter out loop-dependent and scope-dependent (When, etc.) expressions
+    val invariantExprs = bodyExprs.values.filter { e =>
+      !loopDependent.contains(e.treeid) && !scopeDependent.contains(e.treeid)
+    }.toList.sortBy(_.treeid)  // Sort by treeid to respect definition order
+    val (invariantInsts, ctxWithInvariants) = invariantExprs.foldLeft((List.empty[Words], ctxWithN)) {
+      case ((instsAcc, ctxAcc), expr) =>
+        val (insts, newCtx) = ExpressionCompiler.compileBlock(expr, ctxAcc)
+        (instsAcc ::: insts, newCtx)
+    }
 
-    val baseId = ctxWithN.nextResultId
+    val intTy = ctxWithInvariants.valueTypeMap(Int32Tag.tag)
+    val boolTy = ctxWithInvariants.valueTypeMap(GBooleanTag.tag)
+    val zeroId = ctxWithInvariants.constRefs((Int32Tag, 0))
+    val oneId = ctxWithInvariants.constRefs((Int32Tag, 1))
+    val nId = ctxWithInvariants.exprRefs(n.tree.treeid)
+
+    val baseId = ctxWithInvariants.nextResultId
     val preHeaderId = baseId
     val headerId = baseId + 1
     val bodyId = baseId + 2
@@ -127,9 +138,9 @@ object GIOCompiler:
     val cmpId = baseId + 6
     val addId = baseId + 7
 
-    val bodyCtx = ctxWithN.copy(
+    val bodyCtx = ctxWithInvariants.copy(
       nextResultId = baseId + 8,
-      exprRefs = ctxWithN.exprRefs + (CurrentRepeatIndex.treeid -> phiId),
+      exprRefs = ctxWithInvariants.exprRefs + (CurrentRepeatIndex.treeid -> phiId),
     )
     val (bodyInsts, ctxAfterBody) = compileGio(f, bodyCtx)
 
@@ -165,9 +176,9 @@ object GIOCompiler:
     val mergeBlk = List(Instruction(Op.OpLabel, List(ResultRef(mergeId))))
 
     val finalNextId = math.max(ctxAfterBody.nextResultId, addId + 1)
-    val finalCtx = ctxWithN.copy(nextResultId = finalNextId)
+    val finalCtx = ctxWithInvariants.copy(nextResultId = finalNextId)
 
-    (acc ::: nInsts ::: preheader ::: header ::: bodyBlk ::: contBlk ::: mergeBlk, finalCtx)
+    (acc ::: nInsts ::: invariantInsts ::: preheader ::: header ::: bodyBlk ::: contBlk ::: mergeBlk, finalCtx)
 
   /** Compiles foldRepeat - a loop with an accumulator that can contain barriers. */
   private def compileFoldRepeat(
@@ -184,15 +195,30 @@ object GIOCompiler:
     val (nInsts, ctxWithN) = ExpressionCompiler.compileBlock(n.tree, ctx)
     val (initInsts, ctxWithInit) = ExpressionCompiler.compileBlock(init.tree, ctxWithN)
 
-    val intTy = ctxWithInit.valueTypeMap(Int32Tag.tag)
-    val accTy = ctxWithInit.valueTypeMap(init.tree.tag.tag)
-    val boolTy = ctxWithInit.valueTypeMap(GBooleanTag.tag)
-    val zeroId = ctxWithInit.constRefs((Int32Tag, 0))
-    val oneId = ctxWithInit.constRefs((Int32Tag, 1))
-    val nId = ctxWithInit.exprRefs(n.tree.treeid)
-    val initId = ctxWithInit.exprRefs(init.tree.treeid)
+    // Hoist loop-invariant expressions before the loop
+    // Only hoist expressions that don't depend on loop variables
+    val bodyExprs = collectExpressionsMap(body)
+    val loopDependent = findLoopDependentExprs(bodyExprs, CurrentRepeatIndex.treeid) + accTreeId
+    val scopeDependent = findScopeDependentExprs(bodyExprs)
+    // Filter out loop-dependent and scope-dependent (When, etc.) expressions
+    val invariantExprs = bodyExprs.values.filter { e =>
+      !loopDependent.contains(e.treeid) && !scopeDependent.contains(e.treeid)
+    }.toList.sortBy(_.treeid)  // Sort by treeid to respect definition order
+    val (invariantInsts, ctxWithInvariants) = invariantExprs.foldLeft((List.empty[Words], ctxWithInit)) {
+      case ((instsAcc, ctxAcc), expr) =>
+        val (insts, newCtx) = ExpressionCompiler.compileBlock(expr, ctxAcc)
+        (instsAcc ::: insts, newCtx)
+    }
 
-    val baseId = ctxWithInit.nextResultId
+    val intTy = ctxWithInvariants.valueTypeMap(Int32Tag.tag)
+    val accTy = ctxWithInvariants.valueTypeMap(init.tree.tag.tag)
+    val boolTy = ctxWithInvariants.valueTypeMap(GBooleanTag.tag)
+    val zeroId = ctxWithInvariants.constRefs((Int32Tag, 0))
+    val oneId = ctxWithInvariants.constRefs((Int32Tag, 1))
+    val nId = ctxWithInvariants.exprRefs(n.tree.treeid)
+    val initId = ctxWithInvariants.exprRefs(init.tree.treeid)
+
+    val baseId = ctxWithInvariants.nextResultId
     val preHeaderId = baseId
     val headerId = baseId + 1
     val bodyId = baseId + 2
@@ -204,9 +230,9 @@ object GIOCompiler:
     val addId = baseId + 8
 
     // Setup context for body compilation with both loop counter and accumulator
-    val bodyCtx = ctxWithInit.copy(
+    val bodyCtx = ctxWithInvariants.copy(
       nextResultId = baseId + 9,
-      exprRefs = ctxWithInit.exprRefs
+      exprRefs = ctxWithInvariants.exprRefs
         + (CurrentRepeatIndex.treeid -> iterPhiId)
         + (accTreeId -> accPhiId),
     )
@@ -263,7 +289,7 @@ object GIOCompiler:
         + (body.underlying.tree.treeid -> accPhiId),
     )
 
-    (acc ::: nInsts ::: initInsts ::: preheader ::: header ::: bodyBlk ::: contBlk ::: mergeBlk, finalCtx)
+    (acc ::: nInsts ::: initInsts ::: invariantInsts ::: preheader ::: header ::: bodyBlk ::: contBlk ::: mergeBlk, finalCtx)
 
   /** Finds the CurrentFoldRepeatAcc phantom expression in a GIO tree. */
   private def findFoldRepeatAcc(gio: GIO[?]): Option[CurrentFoldRepeatAcc[?]] =
@@ -313,6 +339,20 @@ object GIOCompiler:
       exprsMap.values.foreach: expr =>
         if !dependent.contains(expr.treeid) then
           // Check if any dependency's treeid is in dependent set
+          if expr.exprDependencies.exists(dep => dependent.contains(dep.treeid)) then
+            dependent += expr.treeid
+            changed = true
+    dependent.toSet
+
+  /** Find expressions that depend (transitively) on scope-introducing expressions like When. */
+  private def findScopeDependentExprs(exprsMap: Map[Int, E[?]]): Set[Int] =
+    val scopeExprs = exprsMap.values.filter(_.introducedScopes.nonEmpty).map(_.treeid).toSet
+    val dependent = mutable.Set.from(scopeExprs)
+    var changed = true
+    while changed do
+      changed = false
+      exprsMap.values.foreach: expr =>
+        if !dependent.contains(expr.treeid) then
           if expr.exprDependencies.exists(dep => dependent.contains(dep.treeid)) then
             dependent += expr.treeid
             changed = true

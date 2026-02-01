@@ -115,11 +115,12 @@ private[cyfra] object SpirvProgramCompiler:
   def headers(workgroupSize: (Int, Int, Int)): List[Words] =
     val (localSizeX, localSizeY, localSizeZ) = workgroupSize
     Word(Array(0x03, 0x02, 0x23, 0x07)) :: // SPIR-V
-      Word(Array(0x00, 0x00, 0x01, 0x00)) :: // Version: 0.1.0
+      Word(Array(0x00, 0x03, 0x01, 0x00)) :: // Version: 1.3.0 (for GroupNonUniform)
       Word(Array(cyfraVendorId, 0x00, 0x01, 0x00)) :: // Generator: cyfra; 1
       WordVariable(BOUND_VARIABLE) :: // Bound: To be calculated
       Word(Array(0x00, 0x00, 0x00, 0x00)) :: // Schema: 0
       Instruction(Op.OpCapability, List(Capability.Shader)) ::
+      Instruction(Op.OpCapability, List(Capability.Float16)) ::
       Instruction(Op.OpCapability, List(Capability.GroupNonUniform)) ::
       Instruction(Op.OpCapability, List(Capability.GroupNonUniformArithmetic)) ::
       Instruction(Op.OpExtension, List(Text("SPV_KHR_non_semantic_info"))) ::

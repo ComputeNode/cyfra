@@ -34,3 +34,6 @@ julia
 # Model weight files
 *.gguf
 .lwjgl/
+
+# AMD Radeon GPU Analyzer
+rga-*/

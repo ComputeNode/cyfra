@@ -66,7 +66,7 @@ private[cyfra] object Opcodes:
     override def toString: String = s"%$result"
 
   val MagicNumber = Code("MagicNumber", 0x07230203)
-  val Version = Code("Version", 0x00010000)
+  val Version = Code("Version", 0x00010300)  // SPIR-V 1.3 for GroupNonUniform
   val Revision = Code("Revision", 8)
   val Generator = Code("Generator", 0)
   val OpCodeMask = Code("OpCodeMask", 0xffff)
