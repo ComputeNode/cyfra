@@ -40,74 +40,81 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
   private val dsManager: DescriptorSetManager = threadContext.descriptorSetManager
   private val commandPool: CommandPool.Reset = threadContext.commandPool
   
-  // Cache for interpret results - keyed by (execution identity, layout bindings hash)
-  // This avoids re-traversing the GExecution tree when the same pipeline is called with the same buffers
-  private case class CachedInterpret(
-    resultBindings: Seq[GBinding[?]],  // The result layout bindings
-    shaderCalls: Seq[ShaderCall],       // Pre-resolved shader calls
+  // Full execution cache - caches command buffer, descriptor sets, and result
+  // Keyed by (execution identity, layout bindings identity hash)
+  private case class CachedExecution(
+    resultBindings: Seq[GBinding[?]],
+    commandBuffer: VkCommandBuffer,
+    executeSteps: Seq[ExecutionStep],
+    var lastExecution: Option[PendingExecution],
   )
-  private val interpretCache = mutable.Map[(Int, Int), CachedInterpret]()
+  private val executionCache = mutable.Map[(Int, Int), CachedExecution]()
 
   def handle[Params, EL: Layout, RL: Layout](execution: GExecution[Params, EL, RL], params: Params, layout: EL)(using VkAllocation): RL =
-    val (result, shaderCalls) = interpret(execution, params, layout)
+    val layoutBindings = Layout[EL].toBindings(layout)
+    val layoutHash = layoutBindings.map(System.identityHashCode).hashCode()
+    val cacheKey = (System.identityHashCode(execution), layoutHash)
+    
+    executionCache.get(cacheKey) match
+      case Some(cached) =>
+        // Cache hit - wait for previous execution, then resubmit same command buffer
+        cached.lastExecution.foreach(_.block())
+        
+        val externalBindings = getAllBindings(cached.executeSteps).map(VkAllocation.getUnderlying)
+        val deps = externalBindings.flatMap(_.execution.fold(Seq(_), _.toSeq))
+        val pe = new PendingExecution(cached.commandBuffer, deps, () => ()) // no-op cleanup
+        summon[VkAllocation].addExecution(pe)
+        externalBindings.foreach(_.execution = Left(pe))
+        cached.lastExecution = Some(pe)
+        
+        Layout[RL].fromBindings(cached.resultBindings)
+        
+      case None =>
+        // Cache miss - full execution path
+        val (result, shaderCalls) = interpret(execution, params, layout)
 
-    val descriptorSets = shaderCalls.map:
-      case ShaderCall(pipeline, layout, _) =>
-        pipeline.pipelineLayout.sets
-          .map(dsManager.allocate)
-          .zip(layout)
+        val descriptorSets = shaderCalls.map:
+          case ShaderCall(pipeline, layout, _) =>
+            pipeline.pipelineLayout.sets
+              .map(dsManager.allocate)
+              .zip(layout)
+              .map:
+                case (set, bindings) =>
+                  set.update(bindings.map(x => VkAllocation.getUnderlying(x.binding).buffer))
+                  set
+
+        val dispatches: Seq[Dispatch] = shaderCalls
+          .zip(descriptorSets)
           .map:
-            case (set, bindings) =>
-              set.update(bindings.map(x => VkAllocation.getUnderlying(x.binding).buffer))
-              set
+            case (ShaderCall(pipeline, layout, dispatch), sets) =>
+              Dispatch(pipeline, layout, sets, dispatch)
 
-    val dispatches: Seq[Dispatch] = shaderCalls
-      .zip(descriptorSets)
-      .map:
-        case (ShaderCall(pipeline, layout, dispatch), sets) =>
-          Dispatch(pipeline, layout, sets, dispatch)
+        val (executeSteps, _) = dispatches.foldLeft((Seq.empty[ExecutionStep], Set.empty[GBinding[?]])):
+          case ((steps, dirty), step) =>
+            val bindings = step.layout.flatten.map(_.binding)
+            if bindings.exists(dirty.contains) then (steps.appendedAll(Seq(PipelineBarrier, step)), bindings.toSet)
+            else (steps.appended(step), dirty ++ bindings)
 
-    val (executeSteps, _) = dispatches.foldLeft((Seq.empty[ExecutionStep], Set.empty[GBinding[?]])):
-      case ((steps, dirty), step) =>
-        val bindings = step.layout.flatten.map(_.binding)
-        if bindings.exists(dirty.contains) then (steps.appendedAll(Seq(PipelineBarrier, step)), bindings.toSet)
-        else (steps.appended(step), dirty ++ bindings)
+        val commandBuffer = recordCommandBuffer(executeSteps)
 
-    val commandBuffer = recordCommandBuffer(executeSteps)
-    val cleanup = () =>
-      descriptorSets.flatten.foreach(dsManager.free)
-      commandPool.freeCommandBuffer(commandBuffer)
+        val externalBindings = getAllBindings(executeSteps).map(VkAllocation.getUnderlying)
+        val deps = externalBindings.flatMap(_.execution.fold(Seq(_), _.toSeq))
+        val pe = new PendingExecution(commandBuffer, deps, () => ()) // no-op cleanup - resources cached
+        summon[VkAllocation].addExecution(pe)
+        externalBindings.foreach(_.execution = Left(pe))
+        
+        // Cache the execution
+        val resultBindings = Layout[RL].toBindings(result)
+        executionCache(cacheKey) = CachedExecution(resultBindings, commandBuffer, executeSteps, Some(pe))
+        
+        result
 
-    val externalBindings = getAllBindings(executeSteps).map(VkAllocation.getUnderlying)
-    val deps = externalBindings.flatMap(_.execution.fold(Seq(_), _.toSeq))
-    val pe = new PendingExecution(commandBuffer, deps, cleanup)
-    summon[VkAllocation].addExecution(pe)
-    externalBindings.foreach(_.execution = Left(pe)) // TODO we assume all accesses are read-write
-    result
-
-  /** Interpret with caching - avoids tree traversal when same execution + layout is used */
   private def interpret[Params, EL: Layout, RL: Layout](
     execution: GExecution[Params, EL, RL], 
     params: Params, 
     layout: EL
   )(using VkAllocation): (RL, Seq[ShaderCall]) =
-    // Cache key: execution identity + layout bindings identity
-    // Same execution object + same buffer objects = same result
-    val layoutBindings = Layout[EL].toBindings(layout)
-    val layoutHash = layoutBindings.map(System.identityHashCode).hashCode()
-    val cacheKey = (System.identityHashCode(execution), layoutHash)
-    
-    interpretCache.get(cacheKey) match
-      case Some(cached) =>
-        // Cache hit - reconstruct result from cached bindings
-        val result = Layout[RL].fromBindings(cached.resultBindings)
-        (result, cached.shaderCalls)
-      case None =>
-        // Cache miss - do full interpretation and cache result
-        val (result, shaderCalls) = interpretUncached(execution, params, layout)
-        val resultBindings = Layout[RL].toBindings(result)
-        interpretCache(cacheKey) = CachedInterpret(resultBindings, shaderCalls)
-        (result, shaderCalls)
+    interpretUncached(execution, params, layout)
 
   private def interpretUncached[Params, EL: Layout, RL: Layout](execution: GExecution[Params, EL, RL], params: Params, layout: EL)(using
     VkAllocation,
