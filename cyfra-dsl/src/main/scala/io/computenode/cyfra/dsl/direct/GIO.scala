@@ -2,17 +2,9 @@ package io.computenode.cyfra.dsl.direct
 
 import io.computenode.cyfra.core.{ExpressionProgram, GProgram, Layout}
 import io.computenode.cyfra.core.GProgram.{InitProgramLayout, ProgramDispatch, WorkDimensions}
-import io.computenode.cyfra.core.expression.{
-  BuildInFunction,
-  CustomFunction,
-  Expression,
-  ExpressionBlock,
-  JumpTarget,
-  Value,
-  given,
-}
+import io.computenode.cyfra.core.expression.{BuildInFunction, CustomFunction, Expression, ExpressionBlock, JumpTarget, Value, given}
 import io.computenode.cyfra.core.expression.CustomFunction.CustomFunction1
-import io.computenode.cyfra.core.memory.{GBuffer, GUniform, Variable}
+import io.computenode.cyfra.core.memory.{GBuffer, GUniform, LocalVariable, Variable}
 import io.computenode.cyfra.core.expression.JumpTarget.{BreakTarget, ContinueTarget}
 import io.computenode.cyfra.core.expression.Value.irs
 import io.computenode.cyfra.core.expression.types.*
@@ -57,19 +49,19 @@ object GIO:
     val write = Expression.WriteUniform(uniform, v.result)
     gio.extend(write :: v.body)
 
-  def declare[T: Value]()(using gio: GIO): Variable[T] =
-    val variable = Variable[T]()
-    gio.add(Expression.VarDeclare(variable))
+  def declare[T: Value](shared: Boolean = false)(using gio: GIO): Variable[T] =
+    val variable = LocalVariable[T]()
+    gio.add(Expression.VariableDeclare(variable))
     variable
 
   def read[T: Value](variable: Variable[T])(using gio: GIO): T =
-    val read = Expression.VarRead(variable)
+    val read = Expression.Read(variable)
     gio.add(read)
     Value[T].indirect(read)
 
   def write[T: Value](variable: Variable[T], value: T)(using gio: GIO): Unit =
     val v = value.irs
-    val write = Expression.VarWrite(variable, v.result)
+    val write = Expression.Write(variable, v.result)
     gio.extend(write :: v.body)
 
   def op[Res: Value](func: BuildInFunction.BuildInFunction0[Res])(using gio: GIO): Res =

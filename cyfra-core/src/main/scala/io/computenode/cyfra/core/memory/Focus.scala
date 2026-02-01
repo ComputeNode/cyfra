@@ -7,18 +7,22 @@ import scala.quoted.{Expr, Quotes, Type}
 
 sealed trait Focus[T: Value]:
   def v: Value[T] = Value[T]
+  def getRoot: FocusRoot[?]
 
-trait FocusRoot[T: Value] extends Focus[T]
+trait FocusRoot[T: Value] extends Focus[T]:
+  def getRoot: FocusRoot[?] = this
 
-case class FocusConstant[Parent: Value, T: Value](parent: Focus[Parent], value: Int) extends Focus[T]
+case class FocusConstant[Parent: Value, T: Value](parent: Focus[Parent], value: Int) extends Focus[T]:
+  def getRoot: FocusRoot[?] = parent.getRoot
 
-case class FocusDynamic[Parent: Value, T: Value](parent: Focus[Parent], value: IntegerType) extends Focus[T]
+case class FocusDynamic[Parent: Value, T: Value](parent: Focus[Parent], value: IntegerType) extends Focus[T]:
+  def getRoot: FocusRoot[?] = parent.getRoot
 
 object Focus:
   trait FocusContext:
     extension [To: Value](from: RuntimeArray[To])
       def at(index: Int): To = scala.sys.error("method can only be used inside focus lambda")
-     
+
       def at[I <: IntegerType: Value](index: I): To = scala.sys.error("method can only be used inside focus lambda")
 
   extension [From: Value, To: Value](from: Focus[From])
@@ -75,10 +79,8 @@ object Focus:
             // Case class fields are 1-indexed like tuples for consistency with FocusConstant
             val step = AccessStep.CaseClassField(fieldName, fieldIndex + 1, qualType, term.tpe.widen)
             (innerSteps :+ step, param)
-          else
-            report.errorAndAbort(s"Field '$fieldName' not found in case class ${qualType.show}")
-        else
-          report.errorAndAbort(s"Cannot access field '$fieldName' on non-case-class type ${qualType.show}")
+          else report.errorAndAbort(s"Field '$fieldName' not found in case class ${qualType.show}")
+        else report.errorAndAbort(s"Cannot access field '$fieldName' on non-case-class type ${qualType.show}")
 
       // Extension method array access with constant Int: context.at[Elem](qualifier)(constIndex)(evidence)
       // Tree: Apply(Apply(Apply(TypeApply(Select(context, "at"), List(elemType)), List(qualifier)), List(index)), List(evidence))

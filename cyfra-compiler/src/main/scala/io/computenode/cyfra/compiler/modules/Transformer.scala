@@ -71,14 +71,14 @@ class Transformer extends CompilationModule[ExpressionBlock[Unit], Compilation]:
     val res: IR[A] = expr match
       case Expression.Constant(value) =>
         IR.Constant[A](value)
-      case x: Expression.VarDeclare[a] =>
+      case x: Expression.VariableDeclare[a] =>
         given Value[a] = x.v2
         IR.VarDeclare(x.variable)
-      case Expression.VarRead(variable) =>
+      case Expression.Read(variable) =>
         IR.VarRead(variable)
-      case x: Expression.VarWrite[a] =>
+      case x: Expression.Write[a] =>
         given Value[a] = x.v2
-        IR.VarWrite(x.variable, convertToRefIR(x.value, functionMap, expressionMap))
+        IR.VarWrite(x.focus, convertToRefIR(x.value, functionMap, expressionMap))
       case Expression.ReadBuffer(buffer, index) =>
         IR.ReadBuffer(asBufferRef(buffer), convertToRefIR(index, functionMap, expressionMap))
       case x: Expression.WriteBuffer[a] =>

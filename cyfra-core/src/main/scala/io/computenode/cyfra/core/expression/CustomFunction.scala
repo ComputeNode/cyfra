@@ -14,7 +14,7 @@ object CustomFunction:
 
   def apply[A: Value, B: Value](func: Variable[A] => ExpressionBlock[B]): CustomFunction1[B, A] =
     val arg = LocalVariable[A]()
-    val declare = Expression.VarDeclare(arg)
+    val declare = Expression.VariableDeclare(arg, None)
     val ExpressionBlock(result, block) = func(arg)
     val body = ExpressionBlock(result, block.appended(declare))
     new CustomFunction1(s"custom${nextId() + 1}", List(arg), body)
