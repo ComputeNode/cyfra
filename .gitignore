@@ -38,3 +38,7 @@ examples_output/
 
 # Model weight files
 *.gguf
+.lwjgl/
+
+# AMD Radeon GPU Analyzer
+rga-*/
