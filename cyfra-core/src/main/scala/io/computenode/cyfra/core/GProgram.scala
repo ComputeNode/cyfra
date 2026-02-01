@@ -4,9 +4,9 @@ import io.computenode.cyfra.core.GProgram.*
 import io.computenode.cyfra.core.expression.*
 
 import java.nio.ByteBuffer
-import io.computenode.cyfra.core.binding.GUniform
-import io.computenode.cyfra.core.binding.GBuffer
-import io.computenode.cyfra.core.binding.GBinding
+import io.computenode.cyfra.core.memory.GUniform
+import io.computenode.cyfra.core.memory.GBuffer
+import io.computenode.cyfra.core.memory.GBinding
 import io.computenode.cyfra.core.expression.{ExpressionBlock, Value}
 import izumi.reflect.Tag
 

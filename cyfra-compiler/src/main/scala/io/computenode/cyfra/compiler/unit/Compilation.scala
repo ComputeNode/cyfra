@@ -7,7 +7,7 @@ import scala.collection.mutable
 import io.computenode.cyfra.compiler.CompilationException
 import io.computenode.cyfra.compiler.Spirv.*
 import io.computenode.cyfra.compiler.ir.IR.RefIR
-import io.computenode.cyfra.core.binding.GBinding
+import io.computenode.cyfra.core.memory.GBinding
 import io.computenode.cyfra.utility.Utility.*
 
 import scala.collection.immutable.{AbstractMap, SeqMap, SortedMap}

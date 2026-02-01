@@ -1,6 +1,6 @@
 package io.computenode.cyfra.core
 
-import io.computenode.cyfra.core.binding.{GBinding, GBuffer, GUniform}
+import io.computenode.cyfra.core.memory.{GBinding, GBuffer, GUniform}
 import io.computenode.cyfra.core.expression.Value
 import izumi.reflect.Tag
 

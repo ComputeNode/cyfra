@@ -1,6 +1,6 @@
-package io.computenode.cyfra.core.binding
+package io.computenode.cyfra.core.memory
 
-import io.computenode.cyfra.core.binding.FocusRoot
+import io.computenode.cyfra.core.memory.FocusRoot
 import io.computenode.cyfra.core.expression.Value
 import io.computenode.cyfra.utility.Utility.nextId
 

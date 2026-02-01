@@ -1,4 +1,4 @@
-package io.computenode.cyfra.core.binding
+package io.computenode.cyfra.core.memory
 
 import io.computenode.cyfra.core.expression.Value
 import io.computenode.cyfra.core.expression.types.{IntegerType, Mat, RuntimeArray, Vec}
@@ -128,7 +128,7 @@ object Focus:
                 case _                              => report.errorAndAbort(s"Could not find Value instance for ${elementType.show}")
 
               val focusConstantType = TypeRepr.of[FocusConstant].appliedTo(List(parentType, elementType))
-              val focusConstantCompanion = Ref(Symbol.requiredModule("io.computenode.cyfra.core.binding.FocusConstant"))
+              val focusConstantCompanion = Ref(Symbol.requiredModule("io.computenode.cyfra.core.memory.FocusConstant"))
 
               val newFocus = Apply(
                 Apply(
@@ -152,7 +152,7 @@ object Focus:
                 case success: ImplicitSearchSuccess => success.tree
                 case _                              => report.errorAndAbort(s"Could not find Value instance for ${elementType.show}")
 
-              val focusConstantCompanion = Ref(Symbol.requiredModule("io.computenode.cyfra.core.binding.FocusConstant"))
+              val focusConstantCompanion = Ref(Symbol.requiredModule("io.computenode.cyfra.core.memory.FocusConstant"))
 
               val newFocus = Apply(
                 Apply(
@@ -176,7 +176,7 @@ object Focus:
                 case success: ImplicitSearchSuccess => success.tree
                 case _                              => report.errorAndAbort(s"Could not find Value instance for ${elementType.show}")
 
-              val focusConstantCompanion = Ref(Symbol.requiredModule("io.computenode.cyfra.core.binding.FocusConstant"))
+              val focusConstantCompanion = Ref(Symbol.requiredModule("io.computenode.cyfra.core.memory.FocusConstant"))
 
               val newFocus = Apply(
                 Apply(
@@ -200,7 +200,7 @@ object Focus:
                 case success: ImplicitSearchSuccess => success.tree
                 case _                              => report.errorAndAbort(s"Could not find Value instance for ${elementType.show}")
 
-              val focusDynamicCompanion = Ref(Symbol.requiredModule("io.computenode.cyfra.core.binding.FocusDynamic"))
+              val focusDynamicCompanion = Ref(Symbol.requiredModule("io.computenode.cyfra.core.memory.FocusDynamic"))
 
               // Cast the index expression to IntegerType
               val indexAsIntegerType = indexExpr.asExprOf[IntegerType].asTerm

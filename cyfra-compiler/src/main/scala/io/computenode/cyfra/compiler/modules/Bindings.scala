@@ -5,7 +5,7 @@ import io.computenode.cyfra.compiler.ir.{FunctionIR, IR, IRs}
 import io.computenode.cyfra.compiler.Spirv.{Decoration, IntWord, Op, StorageClass}
 import io.computenode.cyfra.compiler.modules.CompilationModule.{FunctionCompilationModule, StandardCompilationModule}
 import io.computenode.cyfra.compiler.unit.{Compilation, Context, Ctx}
-import io.computenode.cyfra.core.binding.{GBinding, GBuffer, GUniform}
+import io.computenode.cyfra.core.memory.{GBinding, GBuffer, GUniform}
 import io.computenode.cyfra.core.expression.types.*
 import io.computenode.cyfra.core.expression.types.given
 import io.computenode.cyfra.core.expression.{Value, given}

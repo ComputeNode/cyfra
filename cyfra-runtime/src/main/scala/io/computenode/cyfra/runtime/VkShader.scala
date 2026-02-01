@@ -2,7 +2,7 @@ package io.computenode.cyfra.runtime
 
 import io.computenode.cyfra.core.{ExpressionProgram, GProgram, Layout}
 import io.computenode.cyfra.core.GProgram.InitProgramLayout
-import io.computenode.cyfra.core.binding.{GBuffer, GUniform}
+import io.computenode.cyfra.core.memory.{GBuffer, GUniform}
 import io.computenode.cyfra.vulkan.compute.ComputePipeline
 import io.computenode.cyfra.runtime.SpirvProgram.*
 import io.computenode.cyfra.vulkan.compute.ComputePipeline.*

@@ -2,7 +2,7 @@ package io.computenode.cyfra.runtime
 
 import io.computenode.cyfra.core.{Allocation, GCodec, GExecution, GProgram, Layout}
 import io.computenode.cyfra.core.expression.{Expression, Value}
-import io.computenode.cyfra.core.binding.{GBinding, GBuffer, GUniform}
+import io.computenode.cyfra.core.memory.{GBinding, GBuffer, GUniform}
 import io.computenode.cyfra.core.expression.types.*
 import io.computenode.cyfra.core.expression.types.given
 import io.computenode.cyfra.runtime.VkAllocation.getUnderlying

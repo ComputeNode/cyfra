@@ -3,7 +3,7 @@ import io.computenode.cyfra.core.expression.given
 import io.computenode.cyfra.core.expression.ops.*
 import io.computenode.cyfra.core.expression.ops.given
 import io.computenode.cyfra.dsl.Library.*
-import io.computenode.cyfra.core.binding.*
+import io.computenode.cyfra.core.memory.*
 import io.computenode.cyfra.core.expression.JumpTarget.BreakTarget
 import io.computenode.cyfra.core.expression.types.*
 import io.computenode.cyfra.core.expression.types.given

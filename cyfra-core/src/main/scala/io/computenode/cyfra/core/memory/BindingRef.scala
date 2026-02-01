@@ -1,4 +1,4 @@
-package io.computenode.cyfra.core.binding
+package io.computenode.cyfra.core.memory
 
 import io.computenode.cyfra.core.expression.Value
 import izumi.reflect.Tag

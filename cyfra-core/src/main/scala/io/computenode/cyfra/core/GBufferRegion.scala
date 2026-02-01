@@ -4,7 +4,7 @@ import io.computenode.cyfra.core.Allocation
 import io.computenode.cyfra.core.GBufferRegion.MapRegion
 import io.computenode.cyfra.core.GProgram.BufferLengthSpec
 import io.computenode.cyfra.core.expression.Value
-import io.computenode.cyfra.core.binding.GBuffer
+import io.computenode.cyfra.core.memory.GBuffer
 import izumi.reflect.Tag
 
 import scala.util.chaining.given

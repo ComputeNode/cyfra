@@ -1,9 +1,9 @@
-package io.computenode.cyfra.core.binding
+package io.computenode.cyfra.core.memory
 
 import io.computenode.cyfra.core.expression.Value
 import io.computenode.cyfra.core.expression.types.RuntimeArray
 
-sealed trait GBinding[T: Value] extends Variable[T]
+sealed trait GBinding[T: Value] extends FocusRoot[T]
 
 trait GBuffer[T: Value] extends GBinding[T]
 

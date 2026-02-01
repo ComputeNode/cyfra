@@ -12,7 +12,7 @@ import io.computenode.cyfra.core.expression.{
   given,
 }
 import io.computenode.cyfra.core.expression.CustomFunction.CustomFunction1
-import io.computenode.cyfra.core.binding.{GBuffer, GUniform, Variable}
+import io.computenode.cyfra.core.memory.{GBuffer, GUniform, Variable}
 import io.computenode.cyfra.core.expression.JumpTarget.{BreakTarget, ContinueTarget}
 import io.computenode.cyfra.core.expression.Value.irs
 import io.computenode.cyfra.core.expression.types.*

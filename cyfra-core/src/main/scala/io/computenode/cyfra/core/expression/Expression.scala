@@ -1,6 +1,6 @@
 package io.computenode.cyfra.core.expression
 
-import io.computenode.cyfra.core.binding.{GBuffer, GUniform, Var, Variable}
+import io.computenode.cyfra.core.memory.{GBuffer, GUniform, LocalVariable, Variable}
 import io.computenode.cyfra.core.expression.JumpTarget.{BreakTarget, ContinueTarget}
 import io.computenode.cyfra.core.expression.given
 import io.computenode.cyfra.core.expression.types.*
@@ -18,7 +18,7 @@ sealed trait Expression[A: Value]:
 
 object Expression:
   case class Constant[A: Value](value: Any) extends Expression[A]
-  case class VarDeclare[A: Value](variable: Var[A]) extends Expression[Unit]:
+  case class VarDeclare[A: Value](variable: LocalVariable[A]) extends Expression[Unit]:
     def v2: Value[A] = Value[A]
   case class VarRead[A: Value](variable: Variable[A]) extends Expression[A]
   case class VarWrite[A: Value](variable: Variable[A], value: Expression[A]) extends Expression[Unit]:

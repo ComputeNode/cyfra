@@ -1,7 +1,7 @@
 package io.computenode.cyfra.dsl.monad
 
 import io.computenode.cyfra.core.expression.{BuildInFunction, CustomFunction, JumpTarget, Value, given}
-import io.computenode.cyfra.core.binding.{GBuffer, Variable}
+import io.computenode.cyfra.core.memory.{GBuffer, Variable}
 import io.computenode.cyfra.core.expression.JumpTarget.{BreakTarget, ContinueTarget}
 import io.computenode.cyfra.core.expression.types.*
 import io.computenode.cyfra.core.expression.types.given

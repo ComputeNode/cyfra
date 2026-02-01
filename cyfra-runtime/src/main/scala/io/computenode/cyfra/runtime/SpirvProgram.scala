@@ -4,7 +4,7 @@ import io.computenode.cyfra.core.{GProgram, Layout}
 import io.computenode.cyfra.core.GProgram.{InitProgramLayout, ProgramDispatch, WorkDimensions}
 import io.computenode.cyfra.runtime.SpirvProgram.Operation.ReadWrite
 import io.computenode.cyfra.runtime.SpirvProgram.{Binding, ShaderLayout}
-import io.computenode.cyfra.core.binding.GBinding
+import io.computenode.cyfra.core.memory.GBinding
 import io.computenode.cyfra.core.expression.Value
 import izumi.reflect.Tag
 

@@ -1,6 +1,6 @@
 package io.computenode.cyfra.core.expression
 
-import io.computenode.cyfra.core.binding.{Var, Variable}
+import io.computenode.cyfra.core.memory.{LocalVariable, Variable}
 import io.computenode.cyfra.utility.Utility.nextId
 
 class CustomFunction[Res: Value] private[cyfra] (val name: String, val arg: List[Variable[?]], val body: ExpressionBlock[Res]):
@@ -13,7 +13,7 @@ object CustomFunction:
       extends CustomFunction[Res](name, arg, body)
 
   def apply[A: Value, B: Value](func: Variable[A] => ExpressionBlock[B]): CustomFunction1[B, A] =
-    val arg = Var[A]()
+    val arg = LocalVariable[A]()
     val declare = Expression.VarDeclare(arg)
     val ExpressionBlock(result, block) = func(arg)
     val body = ExpressionBlock(result, block.appended(declare))
