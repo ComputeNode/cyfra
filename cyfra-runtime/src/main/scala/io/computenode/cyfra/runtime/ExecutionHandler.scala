@@ -39,6 +39,14 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
 
   private val dsManager: DescriptorSetManager = threadContext.descriptorSetManager
   private val commandPool: CommandPool.Reset = threadContext.commandPool
+  
+  // Cache for interpret results - keyed by (execution identity, layout bindings hash)
+  // This avoids re-traversing the GExecution tree when the same pipeline is called with the same buffers
+  private case class CachedInterpret(
+    resultBindings: Seq[GBinding[?]],  // The result layout bindings
+    shaderCalls: Seq[ShaderCall],       // Pre-resolved shader calls
+  )
+  private val interpretCache = mutable.Map[(Int, Int), CachedInterpret]()
 
   def handle[Params, EL: Layout, RL: Layout](execution: GExecution[Params, EL, RL], params: Params, layout: EL)(using VkAllocation): RL =
     val (result, shaderCalls) = interpret(execution, params, layout)
@@ -77,7 +85,31 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
     externalBindings.foreach(_.execution = Left(pe)) // TODO we assume all accesses are read-write
     result
 
-  private def interpret[Params, EL: Layout, RL: Layout](execution: GExecution[Params, EL, RL], params: Params, layout: EL)(using
+  /** Interpret with caching - avoids tree traversal when same execution + layout is used */
+  private def interpret[Params, EL: Layout, RL: Layout](
+    execution: GExecution[Params, EL, RL], 
+    params: Params, 
+    layout: EL
+  )(using VkAllocation): (RL, Seq[ShaderCall]) =
+    // Cache key: execution identity + layout bindings identity
+    // Same execution object + same buffer objects = same result
+    val layoutBindings = Layout[EL].toBindings(layout)
+    val layoutHash = layoutBindings.map(System.identityHashCode).hashCode()
+    val cacheKey = (System.identityHashCode(execution), layoutHash)
+    
+    interpretCache.get(cacheKey) match
+      case Some(cached) =>
+        // Cache hit - reconstruct result from cached bindings
+        val result = Layout[RL].fromBindings(cached.resultBindings)
+        (result, cached.shaderCalls)
+      case None =>
+        // Cache miss - do full interpretation and cache result
+        val (result, shaderCalls) = interpretUncached(execution, params, layout)
+        val resultBindings = Layout[RL].toBindings(result)
+        interpretCache(cacheKey) = CachedInterpret(resultBindings, shaderCalls)
+        (result, shaderCalls)
+
+  private def interpretUncached[Params, EL: Layout, RL: Layout](execution: GExecution[Params, EL, RL], params: Params, layout: EL)(using
     VkAllocation,
   ): (RL, Seq[ShaderCall]) =
     val bindingsAcc: mutable.Map[GBinding[?], mutable.Buffer[GBinding[?]]] = mutable.Map.empty
