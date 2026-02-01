@@ -4,7 +4,7 @@ import io.computenode.cyfra.core.{ExpressionProgram, GProgram, Layout}
 import io.computenode.cyfra.core.GProgram.{InitProgramLayout, ProgramDispatch, WorkDimensions}
 import io.computenode.cyfra.core.expression.{BuildInFunction, CustomFunction, Expression, ExpressionBlock, JumpTarget, Value, given}
 import io.computenode.cyfra.core.expression.CustomFunction.CustomFunction1
-import io.computenode.cyfra.core.memory.{GBuffer, GUniform, LocalVariable, Variable}
+import io.computenode.cyfra.core.memory.{Focus, GBuffer, GUniform, LocalVariable, Variable}
 import io.computenode.cyfra.core.expression.JumpTarget.{BreakTarget, ContinueTarget}
 import io.computenode.cyfra.core.expression.Value.irs
 import io.computenode.cyfra.core.expression.types.*
@@ -27,41 +27,14 @@ object GIO:
     gio.extend(res.body)
     summon[Value[A]].indirect(res.result)
 
-  def read[T: Value](buffer: GBuffer[T], index: UInt32)(using gio: GIO): T =
-    val idx = index.irs
-    val read = Expression.ReadBuffer(buffer, idx.result)
-    gio.extend(read :: idx.body)
-    Value[T].indirect(read)
-
-  def write[T: Value](buffer: GBuffer[T], index: UInt32, value: T)(using gio: GIO): Unit =
-    val idx = index.irs
-    val v = value.irs
-    val write = Expression.WriteBuffer(buffer, idx.result, v.result)
-    gio.extend(write :: idx.body ++ v.body)
-
-  def read[T: Value](uniform: GUniform[T])(using gio: GIO): T =
-    val read = Expression.ReadUniform(uniform)
+  def read[T: Value](focus: Focus[T])(using gio: GIO): T =
+    val read = Expression.Read(focus)
     gio.add(read)
     Value[T].indirect(read)
 
-  def write[T: Value](uniform: GUniform[T], value: T)(using gio: GIO): Unit =
+  def write[T: Value](focus: Focus[T], value: T)(using gio: GIO): Unit =
     val v = value.irs
-    val write = Expression.WriteUniform(uniform, v.result)
-    gio.extend(write :: v.body)
-
-  def declare[T: Value](shared: Boolean = false)(using gio: GIO): Variable[T] =
-    val variable = LocalVariable[T]()
-    gio.add(Expression.VariableDeclare(variable))
-    variable
-
-  def read[T: Value](variable: Variable[T])(using gio: GIO): T =
-    val read = Expression.Read(variable)
-    gio.add(read)
-    Value[T].indirect(read)
-
-  def write[T: Value](variable: Variable[T], value: T)(using gio: GIO): Unit =
-    val v = value.irs
-    val write = Expression.Write(variable, v.result)
+    val write = Expression.Write(focus, v.result)
     gio.extend(write :: v.body)
 
   def op[Res: Value](func: BuildInFunction.BuildInFunction0[Res])(using gio: GIO): Res =
