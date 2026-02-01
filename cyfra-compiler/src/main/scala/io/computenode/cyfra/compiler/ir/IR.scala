@@ -5,7 +5,7 @@ import io.computenode.cyfra.compiler.ir.IR.RefIR
 import io.computenode.cyfra.compiler.ir.IRs
 import io.computenode.cyfra.compiler.Spirv.Code
 import io.computenode.cyfra.compiler.Spirv.Words
-import io.computenode.cyfra.core.memory.{BufferRef, GBuffer, GUniform, UniformRef, Variable}
+import io.computenode.cyfra.core.memory.{BufferRef, Focus, FocusRoot, GBuffer, GUniform, UniformRef, Variable}
 import io.computenode.cyfra.core.expression.*
 import io.computenode.cyfra.core.expression.given
 import io.computenode.cyfra.core.expression.types.*
@@ -42,16 +42,9 @@ object IR:
   sealed trait RefIR[A: Value] extends IR[A]
 
   case class Constant[A: Value](value: Any) extends RefIR[A]
-  case class VarDeclare[A: Value](variable: Variable[A]) extends RefIR[Unit]
-  case class VarRead[A: Value](variable: Variable[A]) extends RefIR[A]
-  case class VarWrite[A: Value](variable: Variable[A], value: RefIR[A]) extends IR[Unit]:
-    override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[Unit] = this.copy(value = value.replaced)
-  case class ReadBuffer[A: Value](buffer: BufferRef[A], index: RefIR[UInt32]) extends RefIR[A]:
-    override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[A] = this.copy(index = index.replaced)
-  case class WriteBuffer[A: Value](buffer: BufferRef[A], index: RefIR[UInt32], value: RefIR[A]) extends IR[Unit]:
-    override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[Unit] = this.copy(index = index.replaced, value = value.replaced)
-  case class ReadUniform[A: Value](uniform: UniformRef[A]) extends RefIR[A]
-  case class WriteUniform[A: Value](uniform: UniformRef[A], value: RefIR[A]) extends IR[Unit]:
+  case class Declare[A: Value](focus: FocusRoot[A], init: Option[RefIR[A]]) extends RefIR[Unit]
+  case class Read[A: Value](focus: Focus[A]) extends RefIR[A]
+  case class Write[A: Value](focus: Focus[A], value: RefIR[A]) extends IR[Unit]:
     override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[Unit] = this.copy(value = value.replaced)
   case class Operation[A: Value](func: BuildInFunction[A], args: List[RefIR[?]]) extends RefIR[A]:
     override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[A] = this.copy(args = args.map(_.replaced))
@@ -65,6 +58,8 @@ object IR:
     override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[Unit] = this.copy(value = value.replaced)
   case class ConditionalJump[A: Value](cond: RefIR[Bool], target: JumpTarget[A], value: RefIR[A]) extends IR[Unit]:
     override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[Unit] = this.copy(cond = cond.replaced, value = value.replaced)
+  case class Composite[B: Value, A: Value](value: RefIR[B], index: Int) extends RefIR[A]:
+    override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[A] = this.copy(value = value.replaced)
   case class Interface(ref: RefIR[?]) extends RefIR[Unit]:
     override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[Unit] = this.copy(ref = ref.replaced)
   case class SvInst(op: Code, operands: List[Words | RefIR[?]]) extends IR[Unit]:

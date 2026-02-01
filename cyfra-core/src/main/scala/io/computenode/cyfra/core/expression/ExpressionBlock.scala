@@ -4,7 +4,7 @@ import io.computenode.cyfra.core.expression.Expression
 import io.computenode.cyfra.core.expression.given
 import io.computenode.cyfra.core.expression.types.unitZero
 import io.computenode.cyfra.core.expression.types.given
-import io.computenode.cyfra.core.memory.{FocusConstant, FocusDynamic, FocusRoot, GBinding, LocalVariable, Variable}
+import io.computenode.cyfra.core.memory.{FocusConstant, FocusDynamic, FocusRoot, GBinding, GUniform, LocalVariable, Variable}
 import io.computenode.cyfra.utility.cats.Monad
 
 import scala.util.boundary
@@ -18,20 +18,16 @@ case class ExpressionBlock[A](result: Expression[A], body: List[Expression[?]]):
       expr match
         case Expression.Constant(_)                  => vars
         case Expression.VariableDeclare(variable, _) =>
-          if variable.shared then break(false)
           vars + variable.id
         case Expression.Read(focus) =>
-          val id = focus.getRoot match
-            case variable: LocalVariable[?] if !variable.shared => variable.id
-            case _                                              => break(false)
-          if !vars.contains(id) then break(false)
-          vars
+          focus.getRoot match
+            case variable: LocalVariable[?] if vars.contains(variable.id) => vars
+            case uniform: GUniform[?]                                     => vars
+            case _                                                        => break(false)
         case Expression.Write(focus, _) =>
-          val id = focus.getRoot match
-            case variable: LocalVariable[?] if !variable.shared => variable.id
-            case _                                              => break(false)
-          if !vars.contains(id) then break(false)
-          vars
+          focus.getRoot match
+            case variable: LocalVariable[?] if vars.contains(variable.id) => vars
+            case _                                                        => break(false)
         case Expression.BuildInOperation(func, _) =>
           if !func.isPure then break(false)
           vars

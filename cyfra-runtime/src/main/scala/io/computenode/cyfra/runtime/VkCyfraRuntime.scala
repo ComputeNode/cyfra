@@ -35,7 +35,8 @@ class VkCyfraRuntime(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()) ex
   private def compile[Params, L: Layout](program: ExpressionProgram[Params, L]): SpirvProgram[Params, L] =
     val ExpressionProgram(body, layout, dispatch, workgroupSize) = program
     val bindings = Layout[L].toBindings(Layout[L].layoutRef).toList
-    val compiled = compiler.compile(bindings, body(Layout[L].layoutRef), workgroupSize)
+    val config = Compiler.Compute(bindings, workgroupSize)
+    val compiled = compiler.compile(body(Layout[L].layoutRef), config)
 
 //    val outputPath = Paths.get("out.spv")
 //    val channel = FileChannel.open(outputPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)

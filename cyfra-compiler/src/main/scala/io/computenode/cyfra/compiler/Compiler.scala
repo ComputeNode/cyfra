@@ -15,11 +15,10 @@ class Compiler(verbose: "none" | "last" | "all" = "none"):
     List(new Reordering, new StructuredControlFlow, new Variables, new Functions, new Bindings, new Constants, new Algebra, new Finalizer)
   private val emitter = new Emitter()
 
-  def compile(bindings: Seq[GBinding[?]], body: ExpressionBlock[Unit], workgroupSize: WorkDimensions): ByteBuffer =
+  def compile(body: ExpressionBlock[Unit], config: Compiler.Config): ByteBuffer =
     val parsedUnit =
-      val tmp = transformer.compile(body)
-      val meta = tmp.metadata.copy(bindings = bindings, workgroupSize = workgroupSize)
-      tmp.copy(metadata = meta)
+      val parsed = transformer.compile(body)
+      parsed.copy(metadata = parsed.metadata.copy(config = config))
     if verbose == "all" then
       println(s"=== ${transformer.name} ===")
       Compilation.debugPrint(parsedUnit)
@@ -36,3 +35,8 @@ class Compiler(verbose: "none" | "last" | "all" = "none"):
       Compilation.debugPrint(compiledUnit)
 
     emitter.compile(compiledUnit)
+
+object Compiler:
+  sealed trait Config
+
+  case class Compute(bindings: Seq[GBinding[?]], workgroupSize: WorkDimensions)

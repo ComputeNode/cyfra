@@ -36,9 +36,9 @@ object Compilation:
 
     def irInternal(ir: IR[?]): String = ir match
       case IR.Constant(value)                               => s"($value)"
-      case IR.VarDeclare(variable)                          => s"#${variable.id}"
-      case IR.VarRead(variable)                             => s"#${variable.id}"
-      case IR.VarWrite(variable, value)                     => s"#${variable.id} ${map(value.id)}"
+      case IR.Declare(variable)                          => s"#${variable.id}"
+      case IR.Read(variable)                             => s"#${variable.id}"
+      case IR.Write(variable, value)                     => s"#${variable.id} ${map(value.id)}"
       case IR.ReadBuffer(buffer, index)                     => s"@${buffer.layoutOffset} ${map(index.id)}"
       case IR.WriteBuffer(buffer, index, value)             => s"@${buffer.layoutOffset} ${map(index.id)} ${map(value.id)}"
       case IR.ReadUniform(uniform)                          => s"@${uniform.layoutOffset}"

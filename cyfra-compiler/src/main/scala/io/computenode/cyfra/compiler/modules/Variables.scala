@@ -15,16 +15,16 @@ class Variables extends FunctionCompilationModule:
   override def compileFunction(input: IRs[?])(using Ctx): IRs[?] =
     val varDeclarations = mutable.Map.empty[Int, RefIR[Unit]]
     input.flatMapReplace:
-      case IR.VarDeclare(variable) =>
+      case IR.Declare(variable) =>
         val inst = IR.SvRef[Unit](Op.OpVariable, Ctx.getTypePointer(variable.v, StorageClass.Function), List(StorageClass.Function))
         varDeclarations(variable.id) = inst
         IRs(inst)
-      case IR.VarWrite(variable, value) =>
+      case IR.Write(variable, value) =>
         val inst = IR.SvInst(Op.OpStore, List(varDeclarations(variable.id), value))
         IRs(inst)
-      case x: IR.VarRead[a] =>
+      case x: IR.Read[a] =>
         given Value[a] = x.v
-        val IR.VarRead(variable) = x
+        val IR.Read(variable) = x
         val inst = IR.SvRef[a](Op.OpLoad, Ctx.getType(variable.v), List(varDeclarations(variable.id)))
         IRs(inst)
       case x: IR.CallWithVar[a] =>

@@ -11,10 +11,10 @@ import scala.collection.mutable
 
 class Reordering extends FunctionCompilationModule:
   def compileFunction(input: IRs[?])(using Ctx): IRs[?] =
-    val declarations = mutable.Buffer[IR.VarDeclare[?]]()
+    val declarations = mutable.Buffer[IR.Declare[?]]()
 
     val IRs(res, body) = input.flatMapReplace:
-      case x @ IR.VarDeclare(variable) =>
+      case x @ IR.Declare(variable, init) =>
         declarations.append(x)
         IRs.proxy[Unit](x)
       case other => IRs(other)(using other.v)

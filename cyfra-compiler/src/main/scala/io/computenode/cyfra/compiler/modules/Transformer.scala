@@ -73,22 +73,13 @@ class Transformer extends CompilationModule[ExpressionBlock[Unit], Compilation]:
         IR.Constant[A](value)
       case x: Expression.VariableDeclare[a] =>
         given Value[a] = x.v2
-        IR.VarDeclare(x.variable)
-      case Expression.Read(variable) =>
-        IR.VarRead(variable)
+        val init = x.init.map(x => convertToRefIR(x, functionMap, expressionMap))
+        IR.Declare(x.variable, init)
+      case Expression.Read(focus) =>
+        IR.Read(focus)
       case x: Expression.Write[a] =>
         given Value[a] = x.v2
-        IR.VarWrite(x.focus, convertToRefIR(x.value, functionMap, expressionMap))
-      case Expression.ReadBuffer(buffer, index) =>
-        IR.ReadBuffer(asBufferRef(buffer), convertToRefIR(index, functionMap, expressionMap))
-      case x: Expression.WriteBuffer[a] =>
-        given Value[a] = x.v2
-        IR.WriteBuffer(asBufferRef(x.buffer), convertToRefIR(x.index, functionMap, expressionMap), convertToRefIR(x.value, functionMap, expressionMap))
-      case Expression.ReadUniform(uniform) =>
-        IR.ReadUniform(asUniformRef(uniform))
-      case x: Expression.WriteUniform[a] =>
-        given Value[a] = x.v2
-        IR.WriteUniform(asUniformRef(x.uniform), convertToRefIR(x.value, functionMap, expressionMap))
+        IR.Write(x.focus, convertToRefIR(x.value, functionMap, expressionMap))
       case Expression.BuildInOperation(func, args) =>
         IR.Operation(func, args.map(convertToRefIR(_, functionMap, expressionMap)))
       case Expression.CustomCall(func, args) =>
@@ -108,6 +99,8 @@ class Transformer extends CompilationModule[ExpressionBlock[Unit], Compilation]:
       case x: Expression.ConditionalJump[a] =>
         given Value[a] = x.v2
         IR.ConditionalJump(convertToRefIR(x.cond, functionMap, expressionMap), x.target, convertToRefIR(x.value, functionMap, expressionMap))
+      case x: Expression.Composite[a, n] =>
+        IR.Composite(convertToRefIR(x.value, functionMap, expressionMap), x.n)
 
     expressionMap(expr.id) = res
     res
