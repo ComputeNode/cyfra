@@ -22,7 +22,7 @@ import io.computenode.cyfra.runtime.ExecutionHandler.DispatchType.*
 import io.computenode.cyfra.runtime.ExecutionHandler.ExecutionBinding.{BufferBinding, UniformBinding}
 import io.computenode.cyfra.utility.Utility.timed
 import io.computenode.cyfra.vulkan.{VulkanContext, VulkanThreadContext}
-import io.computenode.cyfra.vulkan.command.{CommandPool, Fence}
+import io.computenode.cyfra.vulkan.command.{CommandPool, Fence, Semaphore}
 import io.computenode.cyfra.vulkan.compute.ComputePipeline
 import io.computenode.cyfra.vulkan.core.Queue
 import io.computenode.cyfra.vulkan.memory.{DescriptorPool, DescriptorPoolManager, DescriptorSet, DescriptorSetManager}
@@ -30,7 +30,7 @@ import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import izumi.reflect.Tag
 import org.lwjgl.vulkan.VK10.*
 import org.lwjgl.vulkan.VK13.{VK_ACCESS_2_SHADER_READ_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, vkCmdPipelineBarrier2}
-import org.lwjgl.vulkan.{VK13, VkCommandBuffer, VkCommandBufferBeginInfo, VkDependencyInfo, VkMemoryBarrier2, VkSubmitInfo}
+import org.lwjgl.vulkan.{VkCommandBuffer, VkCommandBufferBeginInfo, VkDependencyInfo, VkMemoryBarrier2, VkSubmitInfo, VkTimelineSemaphoreSubmitInfo}
 
 import scala.collection.mutable
 
@@ -39,6 +39,11 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
 
   private val dsManager: DescriptorSetManager = threadContext.descriptorSetManager
   private val commandPool: CommandPool.Reset = threadContext.commandPool
+  private val queue = commandPool.queue
+  
+  // Timeline semaphore for GPU-GPU synchronization (no CPU blocking between submissions)
+  private val timelineSemaphore = new Semaphore()
+  private var semaphoreValue: Long = 0
   
   // Full execution cache - caches command buffer, descriptor sets, and result
   // Keyed by (execution identity, layout bindings identity hash)
@@ -46,7 +51,7 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
     resultBindings: Seq[GBinding[?]],
     commandBuffer: VkCommandBuffer,
     executeSteps: Seq[ExecutionStep],
-    var lastExecution: Option[PendingExecution],
+    var lastSemaphoreValue: Long, // Track which semaphore value this execution signals
   )
   private val executionCache = mutable.Map[(Int, Int), CachedExecution]()
 
@@ -57,15 +62,13 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
     
     executionCache.get(cacheKey) match
       case Some(cached) =>
-        // Cache hit - wait for previous execution, then resubmit same command buffer
-        cached.lastExecution.foreach(_.block())
+        // Cache hit - submit with timeline semaphore (GPU-GPU sync, no CPU wait)
+        val waitValue = cached.lastSemaphoreValue
+        semaphoreValue += 1
+        val signalValue = semaphoreValue
         
-        val externalBindings = getAllBindings(cached.executeSteps).map(VkAllocation.getUnderlying)
-        val deps = externalBindings.flatMap(_.execution.fold(Seq(_), _.toSeq))
-        val pe = new PendingExecution(cached.commandBuffer, deps, () => ()) // no-op cleanup
-        summon[VkAllocation].addExecution(pe)
-        externalBindings.foreach(_.execution = Left(pe))
-        cached.lastExecution = Some(pe)
+        submitWithSemaphore(cached.commandBuffer, waitValue, signalValue)
+        cached.lastSemaphoreValue = signalValue
         
         Layout[RL].fromBindings(cached.resultBindings)
         
@@ -97,17 +100,44 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
 
         val commandBuffer = recordCommandBuffer(executeSteps)
 
-        val externalBindings = getAllBindings(executeSteps).map(VkAllocation.getUnderlying)
-        val deps = externalBindings.flatMap(_.execution.fold(Seq(_), _.toSeq))
-        val pe = new PendingExecution(commandBuffer, deps, () => ()) // no-op cleanup - resources cached
-        summon[VkAllocation].addExecution(pe)
-        externalBindings.foreach(_.execution = Left(pe))
+        // Submit with timeline semaphore
+        val waitValue = semaphoreValue
+        semaphoreValue += 1
+        val signalValue = semaphoreValue
+        submitWithSemaphore(commandBuffer, waitValue, signalValue)
         
         // Cache the execution
         val resultBindings = Layout[RL].toBindings(result)
-        executionCache(cacheKey) = CachedExecution(resultBindings, commandBuffer, executeSteps, Some(pe))
+        executionCache(cacheKey) = CachedExecution(resultBindings, commandBuffer, executeSteps, signalValue)
         
         result
+  
+  /** Submit command buffer with timeline semaphore wait/signal for GPU-GPU pipelining */
+  private def submitWithSemaphore(commandBuffer: VkCommandBuffer, waitValue: Long, signalValue: Long): Unit = pushStack: stack =>
+    val timelineInfo = VkTimelineSemaphoreSubmitInfo
+      .calloc(stack)
+      .sType$Default()
+      .waitSemaphoreValueCount(1)
+      .pWaitSemaphoreValues(stack.longs(waitValue))
+      .signalSemaphoreValueCount(1)
+      .pSignalSemaphoreValues(stack.longs(signalValue))
+    
+    val submitInfo = VkSubmitInfo
+      .calloc(1, stack)
+      .sType$Default()
+      .pNext(timelineInfo)
+      .waitSemaphoreCount(1)
+      .pWaitSemaphores(stack.longs(timelineSemaphore.get))
+      .pWaitDstStageMask(stack.ints(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT))
+      .pCommandBuffers(stack.pointers(commandBuffer))
+      .pSignalSemaphores(stack.longs(timelineSemaphore.get))
+    
+    check(vkQueueSubmit(queue.get, submitInfo, VK_NULL_HANDLE), "Failed to submit command buffer")
+  
+  /** Wait for all GPU work to complete (call before reading results) */
+  def sync(): Unit =
+    if semaphoreValue > 0 then
+      timelineSemaphore.waitValue(semaphoreValue)
 
   private def interpret[Params, EL: Layout, RL: Layout](
     execution: GExecution[Params, EL, RL], 

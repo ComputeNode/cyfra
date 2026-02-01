@@ -28,7 +28,10 @@ sealed abstract class VkBinding[T <: Value: {Tag, FromExpr}](val buffer: Buffer)
   var execution: Either[PendingExecution, mutable.Buffer[PendingExecution]] = Right(mutable.Buffer.empty)
 
   def materialise(allocation: VkAllocation)(using Device): Unit =
-    val allExecs = execution.fold(Seq(_), _.toSeq) // TODO better handle read only executions
+    // Sync all GPU work via timeline semaphore before reading
+    allocation.executionHandler.sync()
+    // Also handle any pending executions from non-cached path
+    val allExecs = execution.fold(Seq(_), _.toSeq)
     allExecs.filter(_.isPending).pipe(PendingExecution.executeAll(_, allocation))
     allExecs.foreach(_.block())
     PendingExecution.cleanupAll(allExecs)
