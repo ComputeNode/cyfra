@@ -30,13 +30,16 @@ class VkAllocation(val commandPool: CommandPool.Reset, val executionHandler: Exe
   given VkAllocation = this
 
   override def submitLayout[L: Layout](layout: L): Unit =
+    // With timeline semaphores, ExecutionHandler tracks all submissions
+    // Only sync if there are old-style pending executions (from writes)
     val executions = Layout[L]
       .toBindings(layout)
       .flatMap(x => Try(getUnderlying(x)).toOption)
       .flatMap(_.execution.fold(Seq(_), _.toSeq))
       .filter(_.isPending)
 
-    PendingExecution.executeAll(executions, this)
+    if executions.nonEmpty then
+      PendingExecution.executeAll(executions, this)
 
   extension (buffer: GBinding[?])
     def read(bb: ByteBuffer, offset: Int = 0): Unit =

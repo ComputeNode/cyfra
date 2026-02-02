@@ -30,11 +30,6 @@ sealed abstract class VkBinding[T <: Value: {Tag, FromExpr}](val buffer: Buffer)
   def materialise(allocation: VkAllocation)(using Device): Unit =
     // Sync all GPU work via timeline semaphore before reading
     allocation.executionHandler.sync()
-    // Also handle any pending executions from non-cached path
-    val allExecs = execution.fold(Seq(_), _.toSeq)
-    allExecs.filter(_.isPending).pipe(PendingExecution.executeAll(_, allocation))
-    allExecs.foreach(_.block())
-    PendingExecution.cleanupAll(allExecs)
 
 object VkBinding:
   def unapply(binding: GBinding[?]): Option[Buffer] = binding match

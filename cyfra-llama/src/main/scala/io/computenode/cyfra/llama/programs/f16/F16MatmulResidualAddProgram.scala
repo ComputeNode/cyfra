@@ -89,8 +89,8 @@ object F16MatmulResidualAddProgram:
           when(k < inFeaturesDiv4Val):
             val wVec = GIO.read[Vec4[Float16]](layout.weight, weightOffsetVec4Val + outIdx * inFeaturesDiv4Val + k)
             val xVec = GIO.read[Vec4[Float16]](layout.input, batch * inFeaturesDiv4Val + k)
-            val wF32 = vec4(wVec.x.asFloat32, wVec.y.asFloat32, wVec.z.asFloat32, wVec.w.asFloat32)
-            val xF32 = vec4(xVec.x.asFloat32, xVec.y.asFloat32, xVec.z.asFloat32, xVec.w.asFloat32)
+            val wF32 = wVec.asVec4F32
+            val xF32 = xVec.asVec4F32
             sum + wF32.dot(xF32)
           .otherwise(sum)
         )

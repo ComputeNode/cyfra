@@ -401,6 +401,196 @@ object LlamaF16Pipeline:
       )
   end buildF16KVCachedPipeline
 
+  // ============= F16 KV Cached Pipeline (FUSED) =============
+
+  /** Build F16 KV-cached pipeline with FUSED kernels for reduced dispatch count.
+    *
+    * Fused operations:
+    *   - Q/K/V projections: 3 dispatches → 1 (F16FusedQKVMatmulProgram)
+    *   - RoPE Q/K: 2 dispatches → 1 (F16FusedRoPEProgram)
+    *   - KV cache write: 2 dispatches → 1 (F16FusedKVCacheWriteProgram)
+    *   - Gate/Up/SwiGLU: 3 dispatches → 1 (F16FusedGateUpSwiGLUProgram)
+    *
+    * Total savings: 6 dispatches per layer
+    * For 16-layer model: 307 → 211 dispatches per token (31% reduction)
+    */
+  def buildF16KVCachedPipelineFused(
+    config: LlamaConfig,
+    B: Int,
+    T: Int,
+    maxSeqLen: Int,
+  ): GExecution[F16PipelineParams, F16KVCachePipelineLayout, F16KVCachePipelineLayout] =
+    val C = config.hiddenSize
+    val NH = config.numAttentionHeads
+    val NKV = config.numKeyValueHeads
+    val headSize = config.headSize
+    val FFN = config.intermediateSize
+    val V = config.vocabSize
+    val L = config.numHiddenLayers
+    val kvSize = NKV * headSize
+    val eps = config.rmsNormEps.toFloat
+    val theta = config.ropeTheta.toFloat
+    val startPos = maxSeqLen - T
+
+    // Verify dimensions are divisible by 4 for Vec4 optimization
+    require(C % 4 == 0, s"hiddenSize ($C) must be divisible by 4")
+    require(kvSize % 4 == 0, s"kvSize ($kvSize) must be divisible by 4")
+    require(FFN % 4 == 0, s"intermediateSize ($FFN) must be divisible by 4")
+
+    // Embedding
+    val embSizes = F16EmbeddingProgram.Sizes(B * T, C, V)
+    var pipeline = GExecution[F16PipelineParams, F16KVCachePipelineLayout]()
+      .addProgram(F16EmbeddingProgram.forward(embSizes))(
+        _ => embSizes,
+        l => F16EmbeddingProgram.ProgramLayout(l.tokens, l.tokenEmbed, l.hidden),
+      )
+
+    // Process each layer with FUSED kernels
+    for layer <- 0 until L do
+      val normOffset = layer * C
+      val ffnNormOffset = layer * C
+
+      // Vec4 weight offsets (in Vec4 units = elements / 4)
+      val wqOffsetVec4 = layer * C * (C / 4)
+      val wkOffsetVec4 = layer * C * (kvSize / 4)
+      val wvOffsetVec4 = layer * C * (kvSize / 4)
+      val woOffsetVec4 = layer * C * (C / 4)
+      val ffnGateOffsetVec4 = layer * FFN * (C / 4)
+      val ffnUpOffsetVec4 = layer * FFN * (C / 4)
+      val ffnDownOffsetVec4 = layer * C * (FFN / 4)
+
+      val kvCacheLayerOffset = layer * maxSeqLen * kvSize
+
+      val copySizes = F16CopyProgram.Sizes(B * T * C)
+      val attnNormSizes = F16RMSNormProgram.Sizes(B * T, C, eps, normOffset, L * C)
+
+      // FUSED Q/K/V projection (3 → 1 dispatch)
+      val qkvSizes = F16FusedQKVMatmulProgram.Sizes(
+        batchSize = B * T,
+        inFeatures = C,
+        qOutFeatures = C,
+        kvOutFeatures = kvSize,
+        wqOffsetVec4 = wqOffsetVec4,
+        wkOffsetVec4 = wkOffsetVec4,
+        wvOffsetVec4 = wvOffsetVec4,
+        totalWqVec4 = L * C * (C / 4),
+        totalWkVec4 = L * C * (kvSize / 4),
+        totalWvVec4 = L * C * (kvSize / 4),
+      )
+
+      // FUSED RoPE for Q and K (2 → 1 dispatch)
+      val fusedRopeSizes = F16FusedRoPEProgram.Sizes(B, T, NH, NKV, headSize, theta)
+
+      // FUSED KV cache write (2 → 1 dispatch)
+      val fusedKVWriteSizes = F16FusedKVCacheWriteProgram.Sizes(
+        B, T, NKV, headSize, maxSeqLen, layer, startPos, kvCacheLayerOffset, kvCacheLayerOffset, L,
+      )
+
+      val woSizes = F16MatmulVecHybridProgram.Sizes(B * T, C, C, woOffsetVec4, L * C * (C / 4))
+      val resSizes = F16ResidualAddProgram.Sizes(B * T * C)
+      val ffnNormSizes = F16RMSNormProgram.Sizes(B * T, C, eps, ffnNormOffset, L * C)
+
+      // FUSED Gate/Up/SwiGLU (3 → 1 dispatch)
+      val fusedGateUpSizes = F16FusedGateUpSwiGLUProgram.Sizes(
+        batchSize = B * T,
+        inFeatures = C,
+        outFeatures = FFN,
+        gateOffsetVec4 = ffnGateOffsetVec4,
+        upOffsetVec4 = ffnUpOffsetVec4,
+        totalGateVec4 = L * FFN * (C / 4),
+        totalUpVec4 = L * FFN * (C / 4),
+      )
+
+      val downSizes = F16MatmulVecHybridProgram.Sizes(B * T, FFN, C, ffnDownOffsetVec4, L * C * (FFN / 4))
+
+      val attnSizes = F16KVCachedAttention.Sizes(B, T, NH, NKV, headSize, startPos, kvCacheLayerOffset, kvCacheLayerOffset, L, maxSeqLen)
+
+      // Save residual
+      pipeline = pipeline.addProgram(F16CopyProgram.forward(copySizes))(
+        _ => copySizes,
+        l => F16CopyProgram.ProgramLayout(l.hidden, l.residual),
+      )
+
+      // Attention norm
+      pipeline = pipeline.addProgram(F16RMSNormProgram.forward(attnNormSizes))(
+        _ => attnNormSizes,
+        l => F16RMSNormProgram.ProgramLayout(l.hidden, l.attnNorm, l.attnNormOut),
+      )
+
+      // FUSED Q/K/V projections
+      pipeline = pipeline.addProgram(F16FusedQKVMatmulProgram.forward(qkvSizes))(
+        _ => qkvSizes,
+        l => F16FusedQKVMatmulProgram.ProgramLayout(l.wq, l.wk, l.wv, l.attnNormOut, l.q, l.k, l.v),
+      )
+
+      // FUSED RoPE
+      pipeline = pipeline.addProgram(F16FusedRoPEProgram.forward(fusedRopeSizes))(
+        _ => fusedRopeSizes,
+        l => F16FusedRoPEProgram.ProgramLayout(l.q, l.k, l.qRoped, l.kRoped, l.attnParams),
+      )
+
+      // FUSED KV Cache Write
+      pipeline = pipeline.addProgram(F16FusedKVCacheWriteProgram.forward(fusedKVWriteSizes))(
+        _ => fusedKVWriteSizes,
+        l => F16FusedKVCacheWriteProgram.ProgramLayout(l.kRoped, l.v, l.kCache, l.vCache, l.attnParams),
+      )
+
+      // Attention
+      pipeline = pipeline.addProgram(F16KVCachedAttention.forward(attnSizes))(
+        _ => attnSizes,
+        l => F16KVCachedAttention.ProgramLayout(l.qRoped, l.kCache, l.vCache, l.attnOut, l.attnParams),
+      )
+
+      // Output projection + residual
+      pipeline = pipeline
+        .addProgram(F16MatmulVecHybridProgram.forward(woSizes))(
+          _ => woSizes,
+          l => F16MatmulVecHybridProgram.ProgramLayout(l.wo, l.attnOut, l.hidden),
+        )
+        .addProgram(F16ResidualAddProgram.forward(resSizes))(
+          _ => resSizes,
+          l => F16ResidualAddProgram.ProgramLayout(l.residual, l.hidden, l.attnNormOut),
+        )
+
+      // FFN with FUSED Gate/Up/SwiGLU
+      pipeline = pipeline
+        .addProgram(F16CopyProgram.forward(copySizes))(
+          _ => copySizes,
+          l => F16CopyProgram.ProgramLayout(l.attnNormOut, l.residual),
+        )
+        .addProgram(F16RMSNormProgram.forward(ffnNormSizes))(
+          _ => ffnNormSizes,
+          l => F16RMSNormProgram.ProgramLayout(l.attnNormOut, l.ffnNorm, l.ffnNormOut),
+        )
+        .addProgram(F16FusedGateUpSwiGLUProgram.forward(fusedGateUpSizes))(
+          _ => fusedGateUpSizes,
+          l => F16FusedGateUpSwiGLUProgram.ProgramLayout(l.ffnGate, l.ffnUp, l.ffnNormOut, l.ffnHidden),
+        )
+        .addProgram(F16MatmulVecHybridProgram.forward(downSizes))(
+          _ => downSizes,
+          l => F16MatmulVecHybridProgram.ProgramLayout(l.ffnDown, l.ffnHidden, l.ffnOut),
+        )
+        .addProgram(F16ResidualAddProgram.forward(resSizes))(
+          _ => resSizes,
+          l => F16ResidualAddProgram.ProgramLayout(l.residual, l.ffnOut, l.hidden),
+        )
+    end for
+
+    // Final norm and output projection
+    val finalNormSizes = F16RMSNormProgram.Sizes(B * T, C, eps, 0, C)
+    val logitsSizes = F16OutputVec4Program.Sizes(B * T, C, V)
+
+    pipeline
+      .addProgram(F16RMSNormProgram.forward(finalNormSizes))(
+        _ => finalNormSizes,
+        l => F16RMSNormProgram.ProgramLayout(l.hidden, l.outputNorm, l.attnNormOut),
+      )
+      .addProgram(F16OutputVec4Program.forward(logitsSizes))(
+        _ => logitsSizes,
+        l => F16OutputVec4Program.ProgramLayout(l.attnNormOut, l.outputWeight, l.logits),
+      )
+  end buildF16KVCachedPipelineFused
+
   // ============= F16 KV Cached Pipeline Class =============
   
   /** F16 KV-Cached Pipeline for fast incremental inference.
@@ -421,6 +611,7 @@ object LlamaF16Pipeline:
     val config: LlamaConfig,
     maxSeqLen: Int = F16KVCachedAttention.MAX_SEQ_LEN,
     B: Int = 1,
+    useFused: Boolean = true,  // Use fused kernels for reduced dispatch count
   )(using runtime: CyfraRuntime) extends LlamaPipeline:
     require(maxSeqLen <= F16KVCachedAttention.MAX_SEQ_LEN, 
       s"maxSeqLen=$maxSeqLen exceeds F16KVCachedAttention.MAX_SEQ_LEN=${F16KVCachedAttention.MAX_SEQ_LEN}")
@@ -484,7 +675,10 @@ object LlamaF16Pipeline:
     private val pipelineCache = scala.collection.mutable.Map[(Int, Int), GExecution[F16PipelineParams, F16KVCachePipelineLayout, F16KVCachePipelineLayout]]()
     
     private def getOrBuildPipeline(T: Int, seqLen: Int): GExecution[F16PipelineParams, F16KVCachePipelineLayout, F16KVCachePipelineLayout] =
-      pipelineCache.getOrElseUpdate((T, seqLen), buildF16KVCachedPipeline(config, B, T, maxSeqLen))
+      pipelineCache.getOrElseUpdate((T, seqLen), 
+        if useFused then buildF16KVCachedPipelineFused(config, B, T, maxSeqLen)
+        else buildF16KVCachedPipeline(config, B, T, maxSeqLen)
+      )
     
     // Current sequence length (updated after each forward)
     private var currentSeqLen: Int = 0
