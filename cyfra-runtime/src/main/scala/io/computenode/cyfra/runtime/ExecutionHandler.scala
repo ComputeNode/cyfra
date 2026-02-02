@@ -94,9 +94,21 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
 
         val (executeSteps, _) = dispatches.foldLeft((Seq.empty[ExecutionStep], Set.empty[GBinding[?]])):
           case ((steps, dirty), step) =>
-            val bindings = step.layout.flatten.map(_.binding)
-            if bindings.exists(dirty.contains) then (steps.appendedAll(Seq(PipelineBarrier, step)), bindings.toSet)
-            else (steps.appended(step), dirty ++ bindings)
+            // Extract bindings by operation type
+            val allBindingsWithOp = step.layout.flatten
+            val allBindings = allBindingsWithOp.map(_.binding)
+            val writtenBindings = allBindingsWithOp.filter(b => b.operation == Operation.Write || b.operation == Operation.ReadWrite).map(_.binding)
+            
+            // Need barrier if this step accesses any buffer that was written by a previous step
+            // This handles Read-after-Write (RAW) and Write-after-Write (WAW) hazards
+            val needsBarrier = allBindings.exists(dirty.contains)
+            
+            if needsBarrier then 
+              // Reset dirty set to just this step's writes (barrier synchronizes everything)
+              (steps.appendedAll(Seq(PipelineBarrier, step)), writtenBindings.toSet)
+            else 
+              // Add this step's writes to dirty set
+              (steps.appended(step), dirty ++ writtenBindings)
 
         val commandBuffer = recordCommandBuffer(executeSteps)
 

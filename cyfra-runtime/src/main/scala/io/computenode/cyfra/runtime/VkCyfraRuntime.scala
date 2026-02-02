@@ -3,6 +3,7 @@ package io.computenode.cyfra.runtime
 import io.computenode.cyfra.core.GProgram.InitProgramLayout
 import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.core.{Allocation, CyfraRuntime, GExecution, GProgram, GioProgram, SpirvProgram}
+import io.computenode.cyfra.dsl.binding.GBinding
 import io.computenode.cyfra.spirv.compilers.DSLCompiler
 import io.computenode.cyfra.spirvtools.SpirvToolsRunner
 import io.computenode.cyfra.vulkan.VulkanContext
@@ -33,9 +34,12 @@ class VkCyfraRuntime(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()) ex
   private def compile[Params, L: Layout as l](program: GioProgram[Params, L]): SpirvProgram[Params, L] =
     val GioProgram(_, layout, dispatch, workgroupSize) = program
     val bindings = l.toBindings(l.layoutRef).toList
-    val compiled = DSLCompiler.compile(program.body(l.layoutRef), bindings, workgroupSize)
+    val bodyGio = program.body(l.layoutRef)
+    val compiled = DSLCompiler.compile(bodyGio, bindings, workgroupSize)
     val optimizedShaderCode = spirvToolsRunner.processShaderCodeWithSpirvTools(compiled)
-    SpirvProgram((il: InitProgramLayout) ?=> layout(il), dispatch, optimizedShaderCode)
+    // Extract written buffers for smarter barrier insertion
+    val writtenBuffers: Set[GBinding[?]] = DSLCompiler.getWrittenBuffers(List(bodyGio), Set.empty).map(b => b: GBinding[?])
+    SpirvProgram((il: InitProgramLayout) ?=> layout(il), dispatch, optimizedShaderCode, writtenBuffers)
 
   override def withAllocation(f: Allocation => Unit): Unit =
     context.withThreadContext: threadContext =>

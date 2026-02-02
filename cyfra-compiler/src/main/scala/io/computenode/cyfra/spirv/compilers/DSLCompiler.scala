@@ -81,6 +81,32 @@ private[cyfra] object DSLCompiler:
     allScopesCache(root.treeid) = result
     result
 
+  /** Extract all GBuffers that are written to in the GIO program.
+    * Used for smarter barrier insertion - only written buffers cause conflicts.
+    */
+  @tailrec
+  def getWrittenBuffers(pending: List[GIO[?]], acc: Set[GBuffer[?]]): Set[GBuffer[?]] =
+    pending match
+      case Nil => acc
+      case GIO.Pure(_) :: tail =>
+        getWrittenBuffers(tail, acc)
+      case GIO.FlatMap(v, n) :: tail =>
+        getWrittenBuffers(v :: n :: tail, acc)
+      case GIO.Repeat(_, gio, _) :: tail =>
+        getWrittenBuffers(gio :: tail, acc)
+      case GIO.FoldRepeat(_, _, gio, _, _) :: tail =>
+        getWrittenBuffers(gio :: tail, acc)
+      case WriteBuffer(buffer, _, _) :: tail =>
+        getWrittenBuffers(tail, acc + buffer)
+      case WriteShared(_, _, _) :: tail =>
+        getWrittenBuffers(tail, acc) // GShared is workgroup-local, not relevant for dispatch barriers
+      case WriteUniform(_, _) :: tail =>
+        getWrittenBuffers(tail, acc) // Uniforms are typically read-only from GPU perspective
+      case GIO.Printf(_, _*) :: tail =>
+        getWrittenBuffers(tail, acc)
+      case GIO.WorkgroupBarrier :: tail =>
+        getWrittenBuffers(tail, acc)
+
   private def getAllShared(pending: List[GIO[?]], acc: Map[Int, GShared[?]]): Map[Int, GShared[?]] =
     pending match
       case Nil => acc
