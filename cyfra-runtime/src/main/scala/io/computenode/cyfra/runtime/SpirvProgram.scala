@@ -72,9 +72,27 @@ object SpirvProgram:
     dispatch: (L, Params) => ProgramDispatch,
     code: ByteBuffer,
   ): SpirvProgram[Params, L] =
-    val workgroupSize = (128, 1, 1) // TODO  Extract form shader
+    apply(layout, dispatch, code, Set.empty)
+
+  /** Create a SpirvProgram with explicit write tracking for smarter barrier insertion.
+    *
+    * @param writtenBuffers Set of buffers that are written to by this shader.
+    *                       Buffers not in this set are treated as read-only.
+    */
+  def apply[Params, L: Layout](
+    layout: InitProgramLayout ?=> Params => L,
+    dispatch: (L, Params) => ProgramDispatch,
+    code: ByteBuffer,
+    writtenBuffers: Set[GBinding[?]],
+  ): SpirvProgram[Params, L] =
+    val workgroupSize = (128, 1, 1) // TODO  Extract from shader
     val main = "main"
     val f: L => ShaderLayout = { case layout: Product =>
-      layout.productIterator.zipWithIndex.map { case (binding: GBinding[?], i) => Binding(binding, ReadWrite) }.toSeq.pipe(Seq(_))
+      layout.productIterator.zipWithIndex.map { case (binding: GBinding[?], i) =>
+        val op = if writtenBuffers.isEmpty then ReadWrite  // Fallback for legacy code
+                 else if writtenBuffers.contains(binding) then Write
+                 else Read
+        Binding(binding, op)
+      }.toSeq.pipe(Seq(_))
     }
     new SpirvProgram[Params, L]((il: InitProgramLayout) => layout(using il), dispatch, workgroupSize, code, main, f)

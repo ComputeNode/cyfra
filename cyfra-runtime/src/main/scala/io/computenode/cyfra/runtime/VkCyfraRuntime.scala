@@ -45,7 +45,9 @@ class VkCyfraRuntime(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()) ex
 //    println(s"SPIR-V bytecode written to $outputPath")
 
     val optimizedShaderCode = spirvToolsRunner.processShaderCodeWithSpirvTools(compiled)
-    SpirvProgram((il: InitProgramLayout) ?=> layout(il), dispatch, optimizedShaderCode)
+    // Extract written buffers for smarter barrier insertion
+    val writtenBuffers: Set[GBinding[?]] = DSLCompiler.getWrittenBuffers(List(bodyGio), Set.empty).map(b => b: GBinding[?])
+    SpirvProgram((il: InitProgramLayout) ?=> layout(il), dispatch, optimizedShaderCode, writtenBuffers)
 
   override def withAllocation(f: Allocation => Unit): Unit =
     context.withThreadContext: threadContext =>

@@ -13,7 +13,6 @@ import io.computenode.cyfra.dsl.struct.GStruct
   * Output is F32 for softmax numerical stability.
   *
   * Optimized with NUM_ROWS=4: each workgroup computes 4 output rows.
-  * For vocab=32000: 8000 workgroups - balances parallelism vs dispatch overhead.
   *
   * @note Requires `hiddenSize` divisible by 4 for Vec4 alignment.
   */
