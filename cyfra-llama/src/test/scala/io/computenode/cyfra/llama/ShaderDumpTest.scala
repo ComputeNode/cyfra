@@ -150,13 +150,21 @@ class ShaderDumpTest extends FunSuite:
     ))
     dumpProgram("f16_rope", program)
 
-  test("Dump F16 MatmulVec Hybrid shader (Vec4 weights)"):
+  test("Dump F16 MatmulVec Hybrid shader (Vec4 weights, scalar input)"):
     val program = F16MatmulVecHybridProgram.forward(F16MatmulVecHybridProgram.Sizes(
       batchSize = 1,
       inFeatures = 2048,
       outFeatures = 2048
     ))
     dumpProgram("f16_matmul_vec_hybrid", program)
+
+  test("Dump F16 MatmulVec Hybrid shader (Vec4 weights, Vec4 input)"):
+    val program = F16MatmulVecHybridProgram.forwardVec4(F16MatmulVecHybridProgram.Sizes(
+      batchSize = 1,
+      inFeatures = 2048,
+      outFeatures = 2048
+    ))
+    dumpProgram("f16_matmul_vec4_hybrid", program)
 
   test("Dump F16 SwiGLU shader"):
     val program = F16SwiGLUProgram.forward(F16SwiGLUProgram.Sizes(5632))
