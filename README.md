@@ -53,7 +53,7 @@ at [RtRenderer](https://github.com/ComputeNode/cyfra/blob/50aecea132188776021afe
 
 ## Development
 
-To enable validation layers for vulkan, you need to install vulkan SKD. After installing, set the following VM option:
+To enable validation layers for vulkan, you need to install vulkan SDK. After installing, set the following VM option:
 
 ```
 -Dio.computenode.cyfra.vulkan.validation=true
