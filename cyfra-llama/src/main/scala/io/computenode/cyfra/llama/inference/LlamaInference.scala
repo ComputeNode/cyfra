@@ -78,11 +78,6 @@ class LlamaInference(model: LlamaModel, maxT: Int = 1, useQuantized: Boolean = f
     require(f16Weights.isDefined, "F16 KV pipeline requires F16 weights. Check that model uses F16 quantization.")
     f16KVCachedPipeline
 
-  /** Get F16-native KV cached pipeline with option to enable/disable fused kernels. */
-  def getF16KVCachedPipeline(useFused: Boolean): LlamaF16Pipeline.F16KVCachedPipeline =
-    require(f16Weights.isDefined, "F16 KV pipeline requires F16 weights. Check that model uses F16 quantization.")
-    new LlamaF16Pipeline.F16KVCachedPipeline(f16Weights.get, config, maxT, useFused = useFused)
-
   private def loadMixedQuantWeights(): LlamaF32Pipeline.MixedQuantModelWeights =
     Logger.info(s"Loading mixed-quant weights (${config.numHiddenLayers} layers)...")
     val startTime = System.currentTimeMillis()

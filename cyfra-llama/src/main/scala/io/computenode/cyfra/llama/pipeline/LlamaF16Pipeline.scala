@@ -216,190 +216,6 @@ object LlamaF16Pipeline:
 
 
   // ============= F16 KV Cached Pipeline Build =============
-  
-  /** Build F16 KV-cached pipeline with Vec4 optimized matmuls.
-    * 
-    * Uses F16MatmulVecHybridProgram for 4x weight memory bandwidth.
-    */
-  def buildF16KVCachedPipeline(
-    config: LlamaConfig,
-    B: Int,
-    T: Int,
-    maxSeqLen: Int,
-  ): GExecution[F16PipelineParams, F16KVCachePipelineLayout, F16KVCachePipelineLayout] =
-    val C = config.hiddenSize
-    val NH = config.numAttentionHeads
-    val NKV = config.numKeyValueHeads
-    val headSize = config.headSize
-    val FFN = config.intermediateSize
-    val V = config.vocabSize
-    val L = config.numHiddenLayers
-    val kvSize = NKV * headSize
-    val eps = config.rmsNormEps.toFloat
-    val theta = config.ropeTheta.toFloat
-    val startPos = maxSeqLen - T
-    
-    // Verify dimensions are divisible by 4 for Vec4 optimization
-    require(C % 4 == 0, s"hiddenSize ($C) must be divisible by 4")
-    require(kvSize % 4 == 0, s"kvSize ($kvSize) must be divisible by 4")
-    require(FFN % 4 == 0, s"intermediateSize ($FFN) must be divisible by 4")
-
-    // Embedding
-    val embSizes = F16EmbeddingProgram.Sizes(B * T, C, V)
-    var pipeline = GExecution[F16PipelineParams, F16KVCachePipelineLayout]()
-      .addProgram(F16EmbeddingProgram.forward(embSizes))(
-        _ => embSizes,
-        l => F16EmbeddingProgram.ProgramLayout(l.tokens, l.tokenEmbed, l.hidden),
-      )
-
-    // Process each layer with Vec4 optimized matmuls
-    for layer <- 0 until L do
-      val normOffset = layer * C
-      val ffnNormOffset = layer * C
-      
-      // Vec4 weight offsets (in Vec4 units = elements / 4)
-      val wqOffsetVec4 = layer * C * (C / 4)
-      val wkOffsetVec4 = layer * C * (kvSize / 4)
-      val wvOffsetVec4 = layer * C * (kvSize / 4)
-      val woOffsetVec4 = layer * C * (C / 4)
-      val ffnGateOffsetVec4 = layer * FFN * (C / 4)
-      val ffnUpOffsetVec4 = layer * FFN * (C / 4)
-      val ffnDownOffsetVec4 = layer * C * (FFN / 4)
-
-      val kvCacheLayerOffset = layer * maxSeqLen * kvSize
-
-      val copySizeBytes = B * T * C * 2  // Float16 = 2 bytes per element
-      val attnNormSizes = F16RMSNormProgram.Sizes(B * T, C, eps, normOffset, L * C)
-      
-      // Vec4 matmul sizes
-      val qSizes = F16MatmulVecHybridProgram.Sizes(B * T, C, C, wqOffsetVec4, L * C * (C / 4))
-      val kSizes = F16MatmulVecHybridProgram.Sizes(B * T, C, kvSize, wkOffsetVec4, L * C * (kvSize / 4))
-      val vSizes = F16MatmulVecHybridProgram.Sizes(B * T, C, kvSize, wvOffsetVec4, L * C * (kvSize / 4))
-      val woSizes = F16MatmulVecHybridProgram.Sizes(B * T, C, C, woOffsetVec4, L * C * (C / 4))
-      
-      val ropeQSizes = F16RoPEProgram.Sizes(B, T, NH, headSize, theta)
-      val ropeKSizes = F16RoPEProgram.Sizes(B, T, NKV, headSize, theta)
-      val resSizes = F16ResidualAddProgram.Sizes(B * T * C)
-      val ffnNormSizes = F16RMSNormProgram.Sizes(B * T, C, eps, ffnNormOffset, L * C)
-      
-      // FFN Vec4 matmul sizes
-      val gateSizes = F16MatmulVecHybridProgram.Sizes(B * T, C, FFN, ffnGateOffsetVec4, L * FFN * (C / 4))
-      val upSizes = F16MatmulVecHybridProgram.Sizes(B * T, C, FFN, ffnUpOffsetVec4, L * FFN * (C / 4))
-      val swiGluSizes = F16SwiGLUProgram.Sizes(B * T * FFN)
-      val downSizes = F16MatmulVecHybridProgram.Sizes(B * T, FFN, C, ffnDownOffsetVec4, L * C * (FFN / 4))
-
-      // Save residual (using DMA copy instead of compute shader)
-      pipeline = pipeline.addBufferCopy(l => (l.hidden, l.residual), copySizeBytes)
-
-      // Attention norm
-      pipeline = pipeline.addProgram(F16RMSNormProgram.forward(attnNormSizes))(
-        _ => attnNormSizes,
-        l => F16RMSNormProgram.ProgramLayout(l.hidden, l.attnNorm, l.attnNormOut),
-      )
-
-      // Q, K, V projections with Vec4 weights
-      pipeline = pipeline
-        .addProgram(F16MatmulVecHybridProgram.forward(qSizes))(
-          _ => qSizes,
-          l => F16MatmulVecHybridProgram.ProgramLayout(l.wq, l.attnNormOut, l.q),
-        )
-        .addProgram(F16MatmulVecHybridProgram.forward(kSizes))(
-          _ => kSizes,
-          l => F16MatmulVecHybridProgram.ProgramLayout(l.wk, l.attnNormOut, l.k),
-        )
-        .addProgram(F16MatmulVecHybridProgram.forward(vSizes))(
-          _ => vSizes,
-          l => F16MatmulVecHybridProgram.ProgramLayout(l.wv, l.attnNormOut, l.v),
-        )
-
-      // RoPE
-      pipeline = pipeline
-        .addProgram(F16RoPEProgram.forward(ropeQSizes))(
-          _ => ropeQSizes,
-          l => F16RoPEProgram.ProgramLayout(l.q, l.qRoped, l.attnParams),
-        )
-        .addProgram(F16RoPEProgram.forward(ropeKSizes))(
-          _ => ropeKSizes,
-          l => F16RoPEProgram.ProgramLayout(l.k, l.kRoped, l.attnParams),
-        )
-
-      // KV Cache Write
-      val kvWriteKSizes = F16KVCacheWriteK.Sizes(B, T, NKV, headSize, maxSeqLen, layer, startPos, kvCacheLayerOffset, L)
-      val kvWriteVSizes = F16KVCacheWriteV.Sizes(B, T, NKV, headSize, maxSeqLen, layer, startPos, kvCacheLayerOffset, L)
-
-      pipeline = pipeline
-        .addProgram(F16KVCacheWriteK.forward(kvWriteKSizes))(
-          _ => kvWriteKSizes,
-          l => F16KVCacheWriteK.ProgramLayout(l.kRoped, l.kCache, l.attnParams),
-        )
-        .addProgram(F16KVCacheWriteV.forward(kvWriteVSizes))(
-          _ => kvWriteVSizes,
-          l => F16KVCacheWriteV.ProgramLayout(l.v, l.vCache, l.attnParams),
-        )
-
-      // Attention
-      val attnSizes = F16KVCachedAttention.Sizes(B, T, NH, NKV, headSize, startPos, kvCacheLayerOffset, kvCacheLayerOffset, L, maxSeqLen)
-      pipeline = pipeline.addProgram(F16KVCachedAttention.forward(attnSizes))(
-        _ => attnSizes,
-        l => F16KVCachedAttention.ProgramLayout(l.qRoped, l.kCache, l.vCache, l.attnOut, l.attnParams),
-      )
-
-      // Output projection with Vec4 weights
-      pipeline = pipeline
-        .addProgram(F16MatmulVecHybridProgram.forward(woSizes))(
-          _ => woSizes,
-          l => F16MatmulVecHybridProgram.ProgramLayout(l.wo, l.attnOut, l.hidden),
-        )
-        .addProgram(F16ResidualAddProgram.forward(resSizes))(
-          _ => resSizes,
-          l => F16ResidualAddProgram.ProgramLayout(l.residual, l.hidden, l.attnNormOut),
-        )
-
-      // FFN with Vec4 weights
-      pipeline = pipeline
-        .addBufferCopy(l => (l.attnNormOut, l.residual), copySizeBytes)
-        .addProgram(F16RMSNormProgram.forward(ffnNormSizes))(
-          _ => ffnNormSizes,
-          l => F16RMSNormProgram.ProgramLayout(l.attnNormOut, l.ffnNorm, l.ffnNormOut),
-        )
-        .addProgram(F16MatmulVecHybridProgram.forward(gateSizes))(
-          _ => gateSizes,
-          l => F16MatmulVecHybridProgram.ProgramLayout(l.ffnGate, l.ffnNormOut, l.gate),
-        )
-        .addProgram(F16MatmulVecHybridProgram.forward(upSizes))(
-          _ => upSizes,
-          l => F16MatmulVecHybridProgram.ProgramLayout(l.ffnUp, l.ffnNormOut, l.up),
-        )
-        .addProgram(F16SwiGLUProgram.forward(swiGluSizes))(
-          _ => swiGluSizes,
-          l => F16SwiGLUProgram.ProgramLayout(l.gate, l.up, l.ffnHidden),
-        )
-        .addProgram(F16MatmulVecHybridProgram.forward(downSizes))(
-          _ => downSizes,
-          l => F16MatmulVecHybridProgram.ProgramLayout(l.ffnDown, l.ffnHidden, l.ffnOut),
-        )
-        .addProgram(F16ResidualAddProgram.forward(resSizes))(
-          _ => resSizes,
-          l => F16ResidualAddProgram.ProgramLayout(l.residual, l.ffnOut, l.hidden),
-        )
-    end for
-
-    // Final norm and output projection with Vec4 weights
-    val finalNormSizes = F16RMSNormProgram.Sizes(B * T, C, eps, 0, C)
-    val logitsSizes = F16OutputVec4Program.Sizes(B * T, C, V)
-
-    pipeline
-      .addProgram(F16RMSNormProgram.forward(finalNormSizes))(
-        _ => finalNormSizes,
-        l => F16RMSNormProgram.ProgramLayout(l.hidden, l.outputNorm, l.attnNormOut),
-      )
-      .addProgram(F16OutputVec4Program.forward(logitsSizes))(
-        _ => logitsSizes,
-        l => F16OutputVec4Program.ProgramLayout(l.attnNormOut, l.outputWeight, l.logits),
-      )
-  end buildF16KVCachedPipeline
-
-  // ============= F16 KV Cached Pipeline (FUSED) =============
 
   /** Build F16 KV-cached pipeline with FUSED kernels for reduced dispatch count.
     *
@@ -407,12 +223,10 @@ object LlamaF16Pipeline:
     *   - Q/K/V projections: 3 dispatches → 1 (F16FusedQKVMatmulProgram)
     *   - RoPE Q/K: 2 dispatches → 1 (F16FusedRoPEProgram)
     *   - KV cache write: 2 dispatches → 1 (F16FusedKVCacheWriteProgram)
-    *   - Gate/Up/SwiGLU: 3 dispatches → 1 (F16FusedGateUpSwiGLUProgram)
     *
-    * Total savings: 6 dispatches per layer
-    * For 16-layer model: 307 → 211 dispatches per token (31% reduction)
+    * Split attention: Scores → Softmax → Output (matches llama.cpp's pattern)
     */
-  def buildF16KVCachedPipelineFused(
+  def buildF16KVCachedPipeline(
     config: LlamaConfig,
     B: Int,
     T: Int,
@@ -594,7 +408,7 @@ object LlamaF16Pipeline:
         _ => logitsSizes,
         l => F16OutputVec4Program.ProgramLayout(l.attnNormOut, l.outputWeight, l.logits),
       )
-  end buildF16KVCachedPipelineFused
+  end buildF16KVCachedPipeline
 
   // ============= F16 KV Cached Pipeline Class =============
   
@@ -611,15 +425,15 @@ object LlamaF16Pipeline:
     *   - Measures GPU execution time (after read forces sync)
     *   - Reports separate prefill and generate tok/s
     */
+  /** Default max sequence length for KV cache. */
+  val DEFAULT_MAX_SEQ_LEN = 2048
+  
   class F16KVCachedPipeline(
     weights: F16ModelWeights,
     val config: LlamaConfig,
-    maxSeqLen: Int = F16KVCachedAttention.MAX_SEQ_LEN,
+    maxSeqLen: Int = DEFAULT_MAX_SEQ_LEN,
     B: Int = 1,
-    useFused: Boolean = true,  // Use fused kernels for reduced dispatch count
   )(using runtime: CyfraRuntime) extends LlamaPipeline:
-    require(maxSeqLen <= F16KVCachedAttention.MAX_SEQ_LEN, 
-      s"maxSeqLen=$maxSeqLen exceeds F16KVCachedAttention.MAX_SEQ_LEN=${F16KVCachedAttention.MAX_SEQ_LEN}")
     
     private val C = config.hiddenSize
     private val V = config.vocabSize
@@ -680,10 +494,7 @@ object LlamaF16Pipeline:
     private val pipelineCache = scala.collection.mutable.Map[(Int, Int), GExecution[F16PipelineParams, F16KVCachePipelineLayout, F16KVCachePipelineLayout]]()
     
     private def getOrBuildPipeline(T: Int, seqLen: Int): GExecution[F16PipelineParams, F16KVCachePipelineLayout, F16KVCachePipelineLayout] =
-      pipelineCache.getOrElseUpdate((T, seqLen), 
-        if useFused then buildF16KVCachedPipelineFused(config, B, T, maxSeqLen)
-        else buildF16KVCachedPipeline(config, B, T, maxSeqLen)
-      )
+      pipelineCache.getOrElseUpdate((T, seqLen), buildF16KVCachedPipeline(config, B, T, maxSeqLen))
     
     // Current sequence length (updated after each forward)
     private var currentSeqLen: Int = 0
@@ -763,9 +574,11 @@ object LlamaF16Pipeline:
       prefillAttnBuf.putInt(0)         // startPos
       prefillAttnBuf.flip()
       
+      // Initialize decode attention params with FIRST decode step values
+      // This is crucial: cached execution uses these values on first run
       val decodeAttnBuf = ByteBuffer.allocateDirect(8).order(ByteOrder.nativeOrder())
-      decodeAttnBuf.putInt(1)
-      decodeAttnBuf.putInt(0)
+      decodeAttnBuf.putInt(prefillT + 1)  // seqLen for first decode
+      decodeAttnBuf.putInt(prefillT)      // startPos for first decode  
       decodeAttnBuf.flip()
       
       // Timing accumulators
@@ -835,7 +648,9 @@ object LlamaF16Pipeline:
               // Start decode timing
               NVTX.push(s"Decode[$stepIdx]")
               val stepStartNs = System.nanoTime()
+              NVTX.push(s"Execute[$stepIdx]")
               decodePipeline.execute(decodeParams, layout.toDecodeLayout)
+              NVTX.pop()
               
               // Read logits (forces GPU sync)
               layout.decodeLogits.read(decodeLogitsBuf)
