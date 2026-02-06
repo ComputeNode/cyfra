@@ -13,6 +13,7 @@ import io.computenode.cyfra.llama.pipeline.PipelineUtils.*
 import io.computenode.cyfra.llama.programs.*
 import io.computenode.cyfra.llama.programs.f16.*
 import io.computenode.cyfra.llama.util.Logger
+import io.computenode.cyfra.utility.NVTX
 
 import java.nio.{ByteBuffer, ByteOrder}
 
@@ -113,6 +114,7 @@ object LlamaF16Pipeline:
     v: GBuffer[Float16],
     qRoped: GBuffer[Float16],
     kRoped: GBuffer[Float16],
+    attnScores: GBuffer[Float32],  // [B, T, NH, maxSeqLen] - intermediate for split attention
     attnOut: GBuffer[Float16],
     ffnNormOut: GBuffer[Float16],
     gate: GBuffer[Float16],
@@ -156,6 +158,7 @@ object LlamaF16Pipeline:
     prefillV: GBuffer[Float16],
     prefillQRoped: GBuffer[Float16],
     prefillKRoped: GBuffer[Float16],
+    prefillAttnScores: GBuffer[Float32],
     prefillAttnOut: GBuffer[Float16],
     prefillFfnNormOut: GBuffer[Float16],
     prefillGate: GBuffer[Float16],
@@ -175,6 +178,7 @@ object LlamaF16Pipeline:
     decodeV: GBuffer[Float16],
     decodeQRoped: GBuffer[Float16],
     decodeKRoped: GBuffer[Float16],
+    decodeAttnScores: GBuffer[Float32],
     decodeAttnOut: GBuffer[Float16],
     decodeFfnNormOut: GBuffer[Float16],
     decodeGate: GBuffer[Float16],
@@ -192,7 +196,7 @@ object LlamaF16Pipeline:
       kCache = kCache, vCache = vCache,
       hidden = prefillHidden, residual = prefillResidual, attnNormOut = prefillAttnNormOut,
       q = prefillQ, k = prefillK, v = prefillV, qRoped = prefillQRoped, kRoped = prefillKRoped,
-      attnOut = prefillAttnOut, ffnNormOut = prefillFfnNormOut,
+      attnScores = prefillAttnScores, attnOut = prefillAttnOut, ffnNormOut = prefillFfnNormOut,
       gate = prefillGate, up = prefillUp, ffnHidden = prefillFfnHidden, ffnOut = prefillFfnOut,
       logits = prefillLogits, attnParams = prefillAttnParams,
     )
@@ -205,7 +209,7 @@ object LlamaF16Pipeline:
       kCache = kCache, vCache = vCache,
       hidden = decodeHidden, residual = decodeResidual, attnNormOut = decodeAttnNormOut,
       q = decodeQ, k = decodeK, v = decodeV, qRoped = decodeQRoped, kRoped = decodeKRoped,
-      attnOut = decodeAttnOut, ffnNormOut = decodeFfnNormOut,
+      attnScores = decodeAttnScores, attnOut = decodeAttnOut, ffnNormOut = decodeFfnNormOut,
       gate = decodeGate, up = decodeUp, ffnHidden = decodeFfnHidden, ffnOut = decodeFfnOut,
       logits = decodeLogits, attnParams = decodeAttnParams,
     )
@@ -264,7 +268,7 @@ object LlamaF16Pipeline:
 
       val kvCacheLayerOffset = layer * maxSeqLen * kvSize
 
-      val copySizes = F16CopyProgram.Sizes(B * T * C)
+      val copySizeBytes = B * T * C * 2  // Float16 = 2 bytes per element
       val attnNormSizes = F16RMSNormProgram.Sizes(B * T, C, eps, normOffset, L * C)
       
       // Vec4 matmul sizes
@@ -284,11 +288,8 @@ object LlamaF16Pipeline:
       val swiGluSizes = F16SwiGLUProgram.Sizes(B * T * FFN)
       val downSizes = F16MatmulVecHybridProgram.Sizes(B * T, FFN, C, ffnDownOffsetVec4, L * C * (FFN / 4))
 
-      // Save residual
-      pipeline = pipeline.addProgram(F16CopyProgram.forward(copySizes))(
-        _ => copySizes,
-        l => F16CopyProgram.ProgramLayout(l.hidden, l.residual),
-      )
+      // Save residual (using DMA copy instead of compute shader)
+      pipeline = pipeline.addBufferCopy(l => (l.hidden, l.residual), copySizeBytes)
 
       // Attention norm
       pipeline = pipeline.addProgram(F16RMSNormProgram.forward(attnNormSizes))(
@@ -356,10 +357,7 @@ object LlamaF16Pipeline:
 
       // FFN with Vec4 weights
       pipeline = pipeline
-        .addProgram(F16CopyProgram.forward(copySizes))(
-          _ => copySizes,
-          l => F16CopyProgram.ProgramLayout(l.attnNormOut, l.residual),
-        )
+        .addBufferCopy(l => (l.attnNormOut, l.residual), copySizeBytes)
         .addProgram(F16RMSNormProgram.forward(ffnNormSizes))(
           _ => ffnNormSizes,
           l => F16RMSNormProgram.ProgramLayout(l.attnNormOut, l.ffnNorm, l.ffnNormOut),
@@ -461,7 +459,7 @@ object LlamaF16Pipeline:
 
       val kvCacheLayerOffset = layer * maxSeqLen * kvSize
 
-      val copySizes = F16CopyProgram.Sizes(B * T * C)
+      val copySizeBytes = B * T * C * 2  // Float16 = 2 bytes per element
       val attnNormSizes = F16RMSNormProgram.Sizes(B * T, C, eps, normOffset, L * C)
 
       // FUSED Q/K/V projection (3 → 1 dispatch)
@@ -490,26 +488,15 @@ object LlamaF16Pipeline:
       val resSizes = F16ResidualAddProgram.Sizes(B * T * C)
       val ffnNormSizes = F16RMSNormProgram.Sizes(B * T, C, eps, ffnNormOffset, L * C)
 
-      // FUSED Gate/Up/SwiGLU (3 → 1 dispatch)
-      val fusedGateUpSizes = F16FusedGateUpSwiGLUProgram.Sizes(
-        batchSize = B * T,
-        inFeatures = C,
-        outFeatures = FFN,
-        gateOffsetVec4 = ffnGateOffsetVec4,
-        upOffsetVec4 = ffnUpOffsetVec4,
-        totalGateVec4 = L * FFN * (C / 4),
-        totalUpVec4 = L * FFN * (C / 4),
-      )
+      // SEPARATE Gate/Up/SwiGLU (better L2 cache utilization)
+      val gateSizes = F16MatmulVecHybridProgram.Sizes(B * T, C, FFN, ffnGateOffsetVec4, L * FFN * (C / 4))
+      val upSizes = F16MatmulVecHybridProgram.Sizes(B * T, C, FFN, ffnUpOffsetVec4, L * FFN * (C / 4))
+      val swiGluSizes = F16SwiGLUProgram.Sizes(B * T * FFN)
 
       val downSizes = F16MatmulVecHybridProgram.Sizes(B * T, FFN, C, ffnDownOffsetVec4, L * C * (FFN / 4))
 
-      val attnSizes = F16KVCachedAttention.Sizes(B, T, NH, NKV, headSize, startPos, kvCacheLayerOffset, kvCacheLayerOffset, L, maxSeqLen)
-
-      // Save residual
-      pipeline = pipeline.addProgram(F16CopyProgram.forward(copySizes))(
-        _ => copySizes,
-        l => F16CopyProgram.ProgramLayout(l.hidden, l.residual),
-      )
+      // Save residual (using DMA copy instead of compute shader)
+      pipeline = pipeline.addBufferCopy(l => (l.hidden, l.residual), copySizeBytes)
 
       // Attention norm
       pipeline = pipeline.addProgram(F16RMSNormProgram.forward(attnNormSizes))(
@@ -535,11 +522,24 @@ object LlamaF16Pipeline:
         l => F16FusedKVCacheWriteProgram.ProgramLayout(l.kRoped, l.v, l.kCache, l.vCache, l.attnParams),
       )
 
-      // Attention
-      pipeline = pipeline.addProgram(F16KVCachedAttention.forward(attnSizes))(
-        _ => attnSizes,
-        l => F16KVCachedAttention.ProgramLayout(l.qRoped, l.kCache, l.vCache, l.attnOut, l.attnParams),
-      )
+      // SPLIT Attention: Scores → Softmax → Output (matches llama.cpp's pattern)
+      val attnScoresSizes = F16AttentionScoresProgram.Sizes(B, T, NH, NKV, headSize, maxSeqLen, kvCacheLayerOffset, L)
+      val attnSoftmaxSizes = F16AttentionSoftmaxProgram.Sizes(B, T, NH, maxSeqLen)
+      val attnOutputSizes = F16AttentionOutputProgram.Sizes(B, T, NH, NKV, headSize, maxSeqLen, kvCacheLayerOffset, L)
+      
+      pipeline = pipeline
+        .addProgram(F16AttentionScoresProgram.forward(attnScoresSizes))(
+          _ => attnScoresSizes,
+          l => F16AttentionScoresProgram.ProgramLayout(l.qRoped, l.kCache, l.attnScores, l.attnParams),
+        )
+        .addProgram(F16AttentionSoftmaxProgram.forward(attnSoftmaxSizes))(
+          _ => attnSoftmaxSizes,
+          l => F16AttentionSoftmaxProgram.ProgramLayout(l.attnScores, l.attnParams),
+        )
+        .addProgram(F16AttentionOutputProgram.forward(attnOutputSizes))(
+          _ => attnOutputSizes,
+          l => F16AttentionOutputProgram.ProgramLayout(l.attnScores, l.vCache, l.attnOut, l.attnParams),
+        )
 
       // Output projection + residual
       pipeline = pipeline
@@ -552,19 +552,24 @@ object LlamaF16Pipeline:
           l => F16ResidualAddProgram.ProgramLayout(l.residual, l.hidden, l.attnNormOut),
         )
 
-      // FFN with FUSED Gate/Up/SwiGLU
+      // FFN with SEPARATE Gate/Up/SwiGLU (better L2 cache utilization)
       pipeline = pipeline
-        .addProgram(F16CopyProgram.forward(copySizes))(
-          _ => copySizes,
-          l => F16CopyProgram.ProgramLayout(l.attnNormOut, l.residual),
-        )
+        .addBufferCopy(l => (l.attnNormOut, l.residual), copySizeBytes)
         .addProgram(F16RMSNormProgram.forward(ffnNormSizes))(
           _ => ffnNormSizes,
           l => F16RMSNormProgram.ProgramLayout(l.attnNormOut, l.ffnNorm, l.ffnNormOut),
         )
-        .addProgram(F16FusedGateUpSwiGLUProgram.forward(fusedGateUpSizes))(
-          _ => fusedGateUpSizes,
-          l => F16FusedGateUpSwiGLUProgram.ProgramLayout(l.ffnGate, l.ffnUp, l.ffnNormOut, l.ffnHidden),
+        .addProgram(F16MatmulVecHybridProgram.forward(gateSizes))(
+          _ => gateSizes,
+          l => F16MatmulVecHybridProgram.ProgramLayout(l.ffnGate, l.ffnNormOut, l.gate),
+        )
+        .addProgram(F16MatmulVecHybridProgram.forward(upSizes))(
+          _ => upSizes,
+          l => F16MatmulVecHybridProgram.ProgramLayout(l.ffnUp, l.ffnNormOut, l.up),
+        )
+        .addProgram(F16SwiGLUProgram.forward(swiGluSizes))(
+          _ => swiGluSizes,
+          l => F16SwiGLUProgram.ProgramLayout(l.gate, l.up, l.ffnHidden),
         )
         .addProgram(F16MatmulVecHybridProgram.forward(downSizes))(
           _ => downSizes,
@@ -775,6 +780,7 @@ object LlamaF16Pipeline:
         .allocate[F16GenerationLayout]
         .map: layout =>
           // Start timing just before GPU execution
+          NVTX.push(s"Prefill[$prefillT]")
           prefillStartNs = System.nanoTime()
           prefillPipeline.execute(prefillParams, layout.toPrefillLayout)
           layout
@@ -782,6 +788,7 @@ object LlamaF16Pipeline:
           // Read logits (forces GPU sync) - timing checkpoint
           layout.prefillLogits.read(prefillLogitsBuf)
           prefillEndNs = System.nanoTime()
+          NVTX.pop()
           prefillLogitsBuf.rewind()
           copyFromF32Buffer(prefillLogitsBuf, prefillLogitsArr)
           
@@ -826,12 +833,14 @@ object LlamaF16Pipeline:
               layout.decodeAttnParams.asInstanceOf[io.computenode.cyfra.dsl.binding.GBinding[AttentionParams]].write(attnParamsBuf, 0)
               
               // Start decode timing
+              NVTX.push(s"Decode[$stepIdx]")
               val stepStartNs = System.nanoTime()
               decodePipeline.execute(decodeParams, layout.toDecodeLayout)
               
               // Read logits (forces GPU sync)
               layout.decodeLogits.read(decodeLogitsBuf)
               decodeTimeNs += (System.nanoTime() - stepStartNs)
+              NVTX.pop()
               decodeLogitsBuf.rewind()
               copyFromF32Buffer(decodeLogitsBuf, decodeLogitsArr)
               
@@ -886,6 +895,7 @@ object LlamaF16Pipeline:
           prefillV = GBuffer[Float16](B * prefillT * kvSize),
           prefillQRoped = GBuffer[Float16](B * prefillT * C),
           prefillKRoped = GBuffer[Float16](B * prefillT * kvSize),
+          prefillAttnScores = GBuffer[Float32](B * prefillT * NH * maxSeqLen),
           prefillAttnOut = GBuffer[Float16](B * prefillT * C),
           prefillFfnNormOut = GBuffer[Float16](B * prefillT * C),
           prefillGate = GBuffer[Float16](B * prefillT * FFN),
@@ -904,6 +914,7 @@ object LlamaF16Pipeline:
           decodeV = GBuffer[Float16](B * 1 * kvSize),
           decodeQRoped = GBuffer[Float16](B * 1 * C),
           decodeKRoped = GBuffer[Float16](B * 1 * kvSize),
+          decodeAttnScores = GBuffer[Float32](B * 1 * NH * maxSeqLen),
           decodeAttnOut = GBuffer[Float16](B * 1 * C),
           decodeFfnNormOut = GBuffer[Float16](B * 1 * C),
           decodeGate = GBuffer[Float16](B * 1 * FFN),
@@ -1035,6 +1046,7 @@ object LlamaF16Pipeline:
           v = GBuffer[Float16](B * T * kvSize),
           qRoped = GBuffer[Float16](B * T * C),
           kRoped = GBuffer[Float16](B * T * kvSize),
+          attnScores = GBuffer[Float32](B * T * NH * maxSeqLen),
           attnOut = GBuffer[Float16](B * T * C),
           ffnNormOut = GBuffer[Float16](B * T * C),
           gate = GBuffer[Float16](B * T * FFN),

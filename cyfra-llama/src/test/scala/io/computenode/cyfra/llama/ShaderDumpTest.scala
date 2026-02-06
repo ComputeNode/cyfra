@@ -197,6 +197,88 @@ class ShaderDumpTest extends FunSuite:
     ))
     dumpProgram("f16_output_vec4", program)
 
+  test("Dump F16 Copy shader"):
+    val program = F16CopyProgram.forward(F16CopyProgram.Sizes(size = 2048))
+    dumpProgram("f16_copy", program)
+
+  test("Dump F16 KV Cache Write K shader"):
+    val program = F16KVCacheWriteK.forward(F16KVCacheWriteK.Sizes(
+      B = 1,
+      T = 1,
+      NKV = 4,
+      headSize = 64,
+      maxSeqLen = 2048,
+      layer = 0,
+      posOffset = 0,
+      cacheLayerOffset = 0,
+      L = 16,
+    ))
+    dumpProgram("f16_kv_cache_write_k", program)
+
+  test("Dump F16 FusedGateUpSwiGLU shader"):
+    val hiddenSize = 2048
+    val ffnSize = 5632
+    val program = F16FusedGateUpSwiGLUProgram.forward(F16FusedGateUpSwiGLUProgram.Sizes(
+      batchSize = 1,
+      inFeatures = hiddenSize,
+      outFeatures = ffnSize,
+      gateOffsetVec4 = 0,
+      upOffsetVec4 = 0,
+      totalGateVec4 = ffnSize * hiddenSize / 4,
+      totalUpVec4 = ffnSize * hiddenSize / 4,
+    ))
+    dumpProgram("f16_fused_gate_up_swiglu", program)
+
+  // ============ Split Attention Programs ============
+  
+  test("Dump F16 Attention Scores shader"):
+    val program = F16AttentionScoresProgram.forward(F16AttentionScoresProgram.Sizes(
+      B = 1,
+      T = 1,
+      NH = 32,
+      NKV = 8,
+      headSize = 64,
+      maxSeqLen = 2048,
+      kCacheLayerOffset = 0,
+      L = 16,
+    ))
+    dumpProgram("f16_attention_scores", program)
+
+  test("Dump F16 Attention Softmax shader"):
+    val program = F16AttentionSoftmaxProgram.forward(F16AttentionSoftmaxProgram.Sizes(
+      B = 1,
+      T = 1,
+      NH = 32,
+      maxSeqLen = 2048,
+    ))
+    dumpProgram("f16_attention_softmax", program)
+
+  test("Dump F16 Attention Output shader"):
+    val program = F16AttentionOutputProgram.forward(F16AttentionOutputProgram.Sizes(
+      B = 1,
+      T = 1,
+      NH = 32,
+      NKV = 8,
+      headSize = 64,
+      maxSeqLen = 2048,
+      vCacheLayerOffset = 0,
+      L = 16,
+    ))
+    dumpProgram("f16_attention_output", program)
+
+  test("Dump F16 Matmul Strided Vec shader (3D dispatch)"):
+    val program = F16MatmulStridedVecProgram.forward(F16MatmulStridedVecProgram.Sizes(
+      B = 1,             // Batch
+      T = 1,             // Sequence positions
+      gqaRatio = 4,      // Q heads per KV head (32/8)
+      NKV = 8,           // KV heads
+      headSize = 64,     // Head dimension
+      maxSeqLen = 2048,  // Max sequence length
+      vCacheLayerOffset = 0,
+      L = 16,            // Number of layers
+    ))
+    dumpProgram("f16_matmul_strided_vec_3d", program)
+
   private def dumpProgram[P, L: Layout](name: String, program: GProgram[P, L]): Unit =
     program match
       case gioProgram: GioProgram[P, L] =>

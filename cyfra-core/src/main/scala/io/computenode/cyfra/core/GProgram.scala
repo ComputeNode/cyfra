@@ -13,11 +13,13 @@ import izumi.reflect.Tag
 import java.io.FileInputStream
 import java.nio.file.Path
 import scala.util.Using
+import sourcecode.Enclosing
 
 trait GProgram[Params, L: Layout] extends GExecution[Params, L, L]:
   val layout: InitProgramLayout => Params => L
   val dispatch: (L, Params) => ProgramDispatch
   val workgroupSize: WorkDimensions
+  val name: String
   def summonLayout: Layout[L] = Layout[L]
 
 object GProgram:

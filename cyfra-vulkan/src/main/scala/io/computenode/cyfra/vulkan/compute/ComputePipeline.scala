@@ -17,7 +17,7 @@ import scala.util.{Try, Using}
 /** @author
   *   MarconZet Created 14.04.2020
   */
-private[cyfra] class ComputePipeline(shaderCode: ByteBuffer, functionName: String, layoutInfo: LayoutInfo)(using device: Device)
+private[cyfra] class ComputePipeline(shaderCode: ByteBuffer, functionName: String, layoutInfo: LayoutInfo, val name: String = "Shader")(using device: Device)
     extends VulkanObjectHandle:
 
   private val shader: Long = pushStack: stack => // TODO khr_maintenance5
