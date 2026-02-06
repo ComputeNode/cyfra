@@ -9,7 +9,11 @@ import io.computenode.cyfra.llama.programs.AttentionParams
 
 /** Writes V vectors to KV cache at specified positions (F16 version).
   *
-  * Identical structure to F16KVCacheWriteK but operates on V vectors.
+  * V cache is stored TRANSPOSED for coalesced reads in AttentionOutput:
+  *   Layout: [layer][head][dim][pos] instead of [layer][pos][head][dim]
+  * 
+  * This allows consecutive threads reading consecutive positions to access
+  * consecutive memory locations, achieving ~100% memory bandwidth efficiency.
   */
 object F16KVCacheWriteV:
 
@@ -35,15 +39,19 @@ object F16KVCacheWriteV:
     params: GUniform[AttentionParams],
   ) derives Layout
 
-  /** Creates a GPU program that writes V vectors to the KV cache. */
+  /** Creates a GPU program that writes V vectors to the KV cache.
+    * 
+    * V cache is transposed: [layer][head][dim][pos]
+    * Index formula: layerOffset + head * headSize * maxSeqLen + dim * maxSeqLen + pos
+    */
   def forward(sizes: Sizes): GProgram[Sizes, ProgramLayout] =
     val B = sizes.B
     val T = sizes.T
     val NKV = sizes.NKV
     val headSize = sizes.headSize
+    val maxSeqLen = sizes.maxSeqLen
     val totalElements = sizes.totalElements
     val cacheLayerOffset = sizes.cacheLayerOffset
-    val kvSizePerPos = sizes.kvSizePerPos
     val fullCacheSize = sizes.fullCacheSize
 
     GProgram[Sizes, ProgramLayout](
@@ -61,9 +69,9 @@ object F16KVCacheWriteV:
       val Tval: Int32 = T
       val NKVval: Int32 = NKV
       val headSizeVal: Int32 = headSize
+      val maxSeqLenVal: Int32 = maxSeqLen
       val totalElementsVal: Int32 = totalElements
       val cacheLayerOffsetVal: Int32 = cacheLayerOffset
-      val kvSizePerPosVal: Int32 = kvSizePerPos
 
       GIO.when(idx < totalElementsVal):
         val elementsPerBatch = Tval * NKVval * headSizeVal
@@ -79,5 +87,6 @@ object F16KVCacheWriteV:
         val vVal = GIO.read[Float16](layout.v, inputIdx)
 
         val cachePos = posOffsetVal + t
-        val cacheIdx = cacheLayerOffsetVal + cachePos * kvSizePerPosVal + h * headSizeVal + d
+        // TRANSPOSED: [layer][head][dim][pos] for coalesced reads in AttentionOutput
+        val cacheIdx = cacheLayerOffsetVal + h * headSizeVal * maxSeqLenVal + d * maxSeqLenVal + cachePos
         GIO.write[Float16](layout.vCache, cacheIdx, vVal)

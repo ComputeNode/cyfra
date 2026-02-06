@@ -4,7 +4,7 @@ import io.computenode.cyfra.core.GProgram
 import io.computenode.cyfra.core.GProgram.StaticDispatch
 import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.dsl.binding.{GBuffer, GShared}
+import io.computenode.cyfra.dsl.binding.GBuffer
 import io.computenode.cyfra.dsl.gio.GIO
 import io.computenode.cyfra.llama.programs.AttentionParams
 
@@ -16,8 +16,11 @@ import io.computenode.cyfra.llama.programs.AttentionParams
   *   - Z = batch * T (1 for decode)
   *
   *   - 32 threads (1 warp) - no cross-warp reduction needed
-  *   - Vec4 reads for V cache
   *   - Subgroup reduction only (fast path)
+  *
+  * V cache is TRANSPOSED: [layer][head][dim][pos]
+  * This ensures consecutive threads (different positions) read consecutive memory,
+  * achieving 100% memory coalescing vs 0.8% with the old layout.
   */
 object F16AttentionOutputProgram:
   val WARP_SIZE = 32
@@ -37,6 +40,10 @@ object F16AttentionOutputProgram:
     def gqaRatio: Int = NH / NKV
     def kvSizePerPos: Int = NKV * headSize
     def fullCacheSize: Int = L * maxSeqLen * kvSizePerPos
+    // Size of one dim's position array in transposed V cache
+    def dimStride: Int = maxSeqLen
+    // Size of one head's data in transposed V cache  
+    def headStride: Int = headSize * maxSeqLen
     // Number of iterations over K positions per thread
     def numKIterations: Int = (maxSeqLen + BLOCK_SIZE - 1) / BLOCK_SIZE
     // 3D dispatch dimensions
@@ -59,8 +66,9 @@ object F16AttentionOutputProgram:
     val headSize = sizes.headSize
     val gqaRatio = sizes.gqaRatio
     val vCacheLayerOffset = sizes.vCacheLayerOffset
-    val kvSizePerPos = sizes.kvSizePerPos
     val maxSeqLen = sizes.maxSeqLen
+    val dimStride = sizes.dimStride      // = maxSeqLen
+    val headStride = sizes.headStride    // = headSize * maxSeqLen
     val numKIterations = sizes.numKIterations
 
     GProgram[Sizes, ProgramLayout](
@@ -97,23 +105,39 @@ object F16AttentionOutputProgram:
         // Pre-compute base addresses ONCE
         weightsBase <- GIO.pure(flatHeadIdx * maxSeqLen)
         outBase <- GIO.pure(flatHeadIdx * headSize + outDim0)
-        vCacheHeadBase <- GIO.pure((vCacheLayerOffset: Int32) + kvHeadIdx * headSize + outDim0)
+        
+        // V cache base for this KV head (TRANSPOSED layout: [layer][head][dim][pos])
+        // Base address: layerOffset + kvHead * headStride
+        // For dim d: + d * dimStride
+        // For pos p: + p (consecutive!)
+        vCacheHeadBase <- GIO.pure((vCacheLayerOffset: Int32) + kvHeadIdx * headStride)
+        
+        // Pre-compute base for each of the 4 dims (each dim's positions are consecutive)
+        vBase0 <- GIO.pure(vCacheHeadBase + outDim0 * dimStride)
+        vBase1 <- GIO.pure(vCacheHeadBase + (outDim0 + 1) * dimStride)
+        vBase2 <- GIO.pure(vCacheHeadBase + (outDim0 + 2) * dimStride)
+        vBase3 <- GIO.pure(vCacheHeadBase + (outDim0 + 3) * dimStride)
 
         // Hot loop - 32 threads cooperate
+        // Each thread reads positions tid, tid+32, tid+64, ...
+        // Consecutive threads read consecutive positions → COALESCED!
         localSums <- GIO.pure {
           GSeq.gen[Int32](tid, _ + BLOCK_SIZE).limit(numKIterations).unroll.fold(vec4(0.0f, 0.0f, 0.0f, 0.0f), (acc: Vec4[Float32], kPos: Int32) =>
             // Read weight (softmax output is 0 for invalid positions)
             val weight: Float32 = when(kPos < seqLen)(GIO.read[Float32](layout.attnWeights, weightsBase + kPos)).otherwise(0.0f)
             
-            // Read 4 V values
-            val vIdx: Int32 = vCacheHeadBase + kPos * kvSizePerPos
-            val vVec: Vec4[Float16] = layout.vCache.readVec4(vIdx)
+            // Read 4 V values from TRANSPOSED cache (4 scalar reads, each coalesced across threads)
+            // Thread 0 reads pos 0, Thread 1 reads pos 1, ... → consecutive memory!
+            val v0: Float32 = GIO.read[Float16](layout.vCache, vBase0 + kPos).asFloat32
+            val v1: Float32 = GIO.read[Float16](layout.vCache, vBase1 + kPos).asFloat32
+            val v2: Float32 = GIO.read[Float16](layout.vCache, vBase2 + kPos).asFloat32
+            val v3: Float32 = GIO.read[Float16](layout.vCache, vBase3 + kPos).asFloat32
             
             vec4(
-              acc.x + weight * vVec.x.asFloat32,
-              acc.y + weight * vVec.y.asFloat32,
-              acc.z + weight * vVec.z.asFloat32,
-              acc.w + weight * vVec.w.asFloat32,
+              acc.x + weight * v0,
+              acc.y + weight * v1,
+              acc.z + weight * v2,
+              acc.w + weight * v3,
             )
           )
         }

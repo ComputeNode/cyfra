@@ -26,7 +26,9 @@ import scala.util.chaining.*
 object Instance:
   private val ValidationLayer: String = "VK_LAYER_KHRONOS_validation"
   private val ValidationLayersExtensions: Seq[String] =
-    List(VK_EXT_DEBUG_REPORT_EXTENSION_NAME, VK_EXT_DEBUG_UTILS_EXTENSION_NAME, VK_EXT_LAYER_SETTINGS_EXTENSION_NAME)
+    List(VK_EXT_DEBUG_REPORT_EXTENSION_NAME, VK_EXT_LAYER_SETTINGS_EXTENSION_NAME)
+  // Always load debug utils for profiling markers (even without validation)
+  private val AlwaysEnabledExtensions: Seq[String] = List(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)
   private val MoltenVkExtensions: Seq[String] = List(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME)
 
   lazy val (extensions, layers): (Seq[String], Seq[String]) = pushStack: stack =>
@@ -126,6 +128,7 @@ private[cyfra] class Instance(enableValidationLayers: Boolean, enablePrinting: B
       buf.toSet
 
     val extensions = mutable.Buffer.from(Instance.MoltenVkExtensions)
+    extensions.addAll(Instance.AlwaysEnabledExtensions)
     if enableValidationLayers then extensions.addAll(Instance.ValidationLayersExtensions)
 
     val filteredExtensions = extensions.filter(ext =>

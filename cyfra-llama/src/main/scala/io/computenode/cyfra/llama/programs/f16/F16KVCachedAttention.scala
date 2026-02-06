@@ -16,6 +16,9 @@ import io.computenode.cyfra.llama.programs.AttentionParams
   *
   * One workgroup handles one (batch, query_position, head) tuple.
   * Supports grouped-query attention (GQA) where multiple Q heads share K/V heads.
+  *
+  * K cache layout: [layer][pos][head][dim] (standard)
+  * V cache layout: [layer][head][dim][pos] (TRANSPOSED for coalesced reads)
   */
 object F16KVCachedAttention:
   val WARP_SIZE = 32
@@ -38,6 +41,9 @@ object F16KVCachedAttention:
     def numScoreIterations: Int = (maxSeqLen + WARP_SIZE - 1) / WARP_SIZE
     def kvSizePerPos: Int = NKV * headSize
     def fullCacheSize: Int = L * maxSeqLen * kvSizePerPos
+    // Transposed V cache strides: [layer][head][dim][pos]
+    def vHeadStride: Int = headSize * maxSeqLen
+    def vDimStride: Int = maxSeqLen
 
   case class ProgramLayout(
     q: GBuffer[Float16],
@@ -64,6 +70,9 @@ object F16KVCachedAttention:
     val kvSizePerPos = sizes.kvSizePerPos
     val fullCacheSize = sizes.fullCacheSize
     val maxSeqLen = sizes.maxSeqLen
+    // Transposed V cache strides
+    val vHeadStride = sizes.vHeadStride
+    val vDimStride = sizes.vDimStride
 
     GProgram[Sizes, ProgramLayout](
       layout = s => ProgramLayout(
@@ -92,6 +101,8 @@ object F16KVCachedAttention:
       val kCacheLayerOffsetVal: Int32 = kCacheLayerOffset
       val vCacheLayerOffsetVal: Int32 = vCacheLayerOffset
       val kvSizePerPosVal: Int32 = kvSizePerPos
+      val vHeadStrideVal: Int32 = vHeadStride
+      val vDimStrideVal: Int32 = vDimStride
 
       val posPerBatch = Tval * NHval
       val batchIdx = workgroupId / posPerBatch
@@ -147,13 +158,15 @@ object F16KVCachedAttention:
         _ <- GIO.barrier
 
         // Phase 4: Compute weighted sum of V values
+        // V cache TRANSPOSED: [layer][head][dim][pos] - positions are consecutive for coalesced reads
         outDim1 <- GIO.pure(tid)
+        vBase1 <- GIO.pure(vCacheLayerOffsetVal + kvHeadIdx * vHeadStrideVal + outDim1 * vDimStrideVal)
         _ <- GIO.when(outDim1 < headSizeVal):
           val weightedSum1 = GSeq.gen[Int32](0, _ + 1).limit(maxSeqLen).takeWhile(_ < seqLenVal).fold(0.0f, (sum: Float32, kPos: Int32) =>
             val isValid = kPos <= queryPosGlobal
             val weight = scoresShared.read(kPos)
-            val vCacheBase = vCacheLayerOffsetVal + kPos * kvSizePerPosVal + kvHeadIdx * headSizeVal
-            val vVal = GIO.read[Float16](layout.vCache, vCacheBase + outDim1).asFloat32
+            // Transposed V: vBase1 + kPos (consecutive positions!)
+            val vVal = GIO.read[Float16](layout.vCache, vBase1 + kPos).asFloat32
             when(isValid)(sum + weight * vVal).otherwise(sum)
           )
           val outBase = batchIdx * Tval * NHval * headSizeVal + queryPosLocal * NHval * headSizeVal + headIdx * headSizeVal
@@ -161,12 +174,13 @@ object F16KVCachedAttention:
 
         // Handle dimensions beyond WARP_SIZE (for headSize > 32)
         outDim2 <- GIO.pure(tid + WARP_SIZE)
+        vBase2 <- GIO.pure(vCacheLayerOffsetVal + kvHeadIdx * vHeadStrideVal + outDim2 * vDimStrideVal)
         _ <- GIO.when(outDim2 < headSizeVal):
           val weightedSum2 = GSeq.gen[Int32](0, _ + 1).limit(maxSeqLen).takeWhile(_ < seqLenVal).fold(0.0f, (sum: Float32, kPos: Int32) =>
             val isValid = kPos <= queryPosGlobal
             val weight = scoresShared.read(kPos)
-            val vCacheBase = vCacheLayerOffsetVal + kPos * kvSizePerPosVal + kvHeadIdx * headSizeVal
-            val vVal = GIO.read[Float16](layout.vCache, vCacheBase + outDim2).asFloat32
+            // Transposed V: vBase2 + kPos (consecutive positions!)
+            val vVal = GIO.read[Float16](layout.vCache, vBase2 + kPos).asFloat32
             when(isValid)(sum + weight * vVal).otherwise(sum)
           )
           val outBase = batchIdx * Tval * NHval * headSizeVal + queryPosLocal * NHval * headSizeVal + headIdx * headSizeVal
