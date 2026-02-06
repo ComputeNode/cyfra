@@ -23,6 +23,8 @@ import io.computenode.cyfra.llama.programs.AttentionParams
   *   - Processes NUM_ROWS output elements (2 outputs per workgroup)
   *   - 128 threads reduce over the K dimension (seqLen)
   *   - Uses subgroup + shared memory reduction
+  *
+  * V cache layout: [layer][head][dim][pos] (TRANSPOSED for coalesced reads)
   */
 object F16MatmulStridedVecProgram:
   val WARP_SIZE = 32
@@ -52,6 +54,9 @@ object F16MatmulStridedVecProgram:
     def dispatchY: Int = B
     // Z = numKVHeads (each KV head is a separate "slab")
     def dispatchZ: Int = NKV
+    // Transposed V cache strides: [layer][head][dim][pos]
+    def vHeadStride: Int = headSize * maxSeqLen
+    def vDimStride: Int = maxSeqLen
 
   case class ProgramLayout(
     attnWeights: GBuffer[Float32],  // [B, T, NH, maxSeqLen]
@@ -70,10 +75,12 @@ object F16MatmulStridedVecProgram:
     val headSize = sizes.headSize
     val maxSeqLen = sizes.maxSeqLen
     val vCacheLayerOffset = sizes.vCacheLayerOffset
-    val kvSizePerPos = sizes.kvSizePerPos
     val numKIterations = sizes.numKIterations
     val outputsPerKVHead = sizes.outputsPerKVHead
     val numWorkgroupsX = sizes.dispatchX  // For the llama.cpp indexing formula
+    // Transposed V cache strides
+    val vHeadStride = sizes.vHeadStride
+    val vDimStride = sizes.vDimStride
 
     // Shared memory for partial sums from each warp
     val sharedSums = GShared[Vec2[Float32]](NUM_WARPS)
@@ -129,23 +136,22 @@ object F16MatmulStridedVecProgram:
         outIdx0 <- GIO.pure(batchIdx * (T * NH * headSize) + qHead0 * headSize + dim0)
         outIdx1 <- GIO.pure(batchIdx * (T * NH * headSize) + qHead1 * headSize + dim1)
         
-        // V cache base for this layer + KV head
-        // V[k, kvHead, dim] = vCache[layerOffset + k * kvSizePerPos + kvHead * headSize + dim]
-        vBase0 <- GIO.pure((vCacheLayerOffset: Int32) + kvHeadIdx * headSize + dim0)
-        vBase1 <- GIO.pure((vCacheLayerOffset: Int32) + kvHeadIdx * headSize + dim1)
+        // V cache TRANSPOSED: [layer][head][dim][pos]
+        // vIdx = layerOffset + kvHead * vHeadStride + dim * vDimStride + pos
+        vBase0 <- GIO.pure((vCacheLayerOffset: Int32) + kvHeadIdx * vHeadStride + dim0 * vDimStride)
+        vBase1 <- GIO.pure((vCacheLayerOffset: Int32) + kvHeadIdx * vHeadStride + dim1 * vDimStride)
 
         // Hot loop - iterate over K positions (seqLen)
+        // Consecutive threads read consecutive positions → COALESCED!
         localSums <- GIO.pure {
           GSeq.gen[Int32](tid, _ + BLOCK_SIZE).limit(numKIterations).fold(vec2(0.0f, 0.0f), (acc: Vec2[Float32], kPos: Int32) =>
             // Read attention weights for both rows
             val w0: Float32 = when(kPos < seqLen)(GIO.read[Float32](layout.attnWeights, weightsBase0 + kPos)).otherwise(0.0f)
             val w1: Float32 = when(kPos < seqLen)(GIO.read[Float32](layout.attnWeights, weightsBase1 + kPos)).otherwise(0.0f)
             
-            // Read V values
-            val vIdx0: Int32 = vBase0 + kPos * kvSizePerPos
-            val vIdx1: Int32 = vBase1 + kPos * kvSizePerPos
-            val v0: Float32 = GIO.read[Float16](layout.vCache, vIdx0).asFloat32
-            val v1: Float32 = GIO.read[Float16](layout.vCache, vIdx1).asFloat32
+            // Read V values from TRANSPOSED cache (consecutive kPos = consecutive memory)
+            val v0: Float32 = GIO.read[Float16](layout.vCache, vBase0 + kPos).asFloat32
+            val v1: Float32 = GIO.read[Float16](layout.vCache, vBase1 + kPos).asFloat32
             
             vec2(acc.x + w0 * v0, acc.y + w1 * v1)
           )

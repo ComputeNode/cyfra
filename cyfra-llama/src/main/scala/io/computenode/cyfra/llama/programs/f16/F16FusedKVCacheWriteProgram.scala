@@ -11,6 +11,9 @@ import io.computenode.cyfra.llama.programs.AttentionParams
   *
   * Reduces dispatch count by writing both K and V vectors to cache simultaneously.
   * Each invocation copies one element from either K or V input to the cache.
+  * 
+  * K cache layout: [layer][pos][head][dim] (standard for Q·K dot products)
+  * V cache layout: [layer][head][dim][pos] (TRANSPOSED for coalesced AttentionOutput reads)
   */
 object F16FusedKVCacheWriteProgram:
 
@@ -45,6 +48,7 @@ object F16FusedKVCacheWriteProgram:
     val T = sizes.T
     val NKV = sizes.NKV
     val headSize = sizes.headSize
+    val maxSeqLen = sizes.maxSeqLen
     val totalKElements = sizes.totalKElements
     val totalElements = sizes.totalElements
     val kCacheLayerOffset = sizes.kCacheLayerOffset
@@ -69,6 +73,7 @@ object F16FusedKVCacheWriteProgram:
       val Tval: Int32 = T
       val NKVval: Int32 = NKV
       val headSizeVal: Int32 = headSize
+      val maxSeqLenVal: Int32 = maxSeqLen
       val totalKElementsVal: Int32 = totalKElements
       val totalElementsVal: Int32 = totalElements
       val kCacheLayerOffsetVal: Int32 = kCacheLayerOffset
@@ -91,15 +96,18 @@ object F16FusedKVCacheWriteProgram:
         val d = remaining2.mod(headSizeVal)
 
         val cachePos = posOffsetVal + t
-        val cacheOffset: Int32 = cachePos * kvSizePerPosVal + h * headSizeVal + d
+        // K cache: [layer][pos][head][dim] - standard layout
+        val kCacheOffset: Int32 = cachePos * kvSizePerPosVal + h * headSizeVal + d
+        // V cache: [layer][head][dim][pos] - TRANSPOSED for coalesced reads
+        val vCacheOffset: Int32 = h * headSizeVal * maxSeqLenVal + d * maxSeqLenVal + cachePos
 
         for
           _ <- GIO.when(isK):
             val kVal = GIO.read[Float16](layout.k, localIdx)
-            val cacheIdx = kCacheLayerOffsetVal + cacheOffset
+            val cacheIdx = kCacheLayerOffsetVal + kCacheOffset
             GIO.write[Float16](layout.kCache, cacheIdx, kVal)
           _ <- GIO.when(!isK):
             val vVal = GIO.read[Float16](layout.v, localIdx)
-            val cacheIdx = vCacheLayerOffsetVal + cacheOffset
+            val cacheIdx = vCacheLayerOffsetVal + vCacheOffset
             GIO.write[Float16](layout.vCache, cacheIdx, vVal)
         yield GStruct.Empty()

@@ -2,7 +2,7 @@ package io.computenode.cyfra.spirv.compilers
 
 import io.computenode.cyfra.dsl.Expression.E
 import io.computenode.cyfra.dsl.gio.GIO
-import io.computenode.cyfra.dsl.gio.GIO.{CurrentFoldRepeatAcc, CurrentRepeatIndex, FlatMap, FoldRepeat, Printf, Pure, Repeat, WorkgroupBarrier}
+import io.computenode.cyfra.dsl.gio.GIO.{ConditionalWhen, CurrentFoldRepeatAcc, CurrentRepeatIndex, FlatMap, FoldRepeat, Printf, Pure, Repeat, WorkgroupBarrier}
 import io.computenode.cyfra.dsl.binding.{WriteBuffer, WriteShared}
 import io.computenode.cyfra.spirv.Context
 import io.computenode.cyfra.spirv.Opcodes.*
@@ -60,6 +60,9 @@ object GIOCompiler:
           List(ResultRef(scopeId), ResultRef(scopeId), ResultRef(semanticsId)),
         )
         (acc ::: List(barrierInsn), ctx)
+
+      case ConditionalWhen(cond, body) =>
+        compileConditionalWhen(cond, body, ctx, acc)
 
       case WriteShared(buffer, index, value) =>
         val sharedId = buffer.asInstanceOf[io.computenode.cyfra.dsl.binding.GShared.GSharedImpl[?]].sharedId
@@ -293,6 +296,50 @@ object GIOCompiler:
 
     (acc ::: nInsts ::: initInsts ::: invariantInsts ::: preheader ::: header ::: bodyBlk ::: contBlk ::: mergeBlk, finalCtx)
 
+  /** Compiles ConditionalWhen - a proper if-then construct for conditional execution.
+    * Generates OpSelectionMerge + OpBranchConditional instead of a loop.
+    */
+  private def compileConditionalWhen(
+    cond: io.computenode.cyfra.dsl.GBoolean,
+    body: GIO[?],
+    ctx: Context,
+    acc: List[Words],
+  ): (List[Words], Context) =
+    // Compile the condition
+    val (condInsts, ctxWithCond) = ExpressionCompiler.compileBlock(cond.tree, ctx)
+    val condId = ctxWithCond.exprRefs(cond.tree.treeid)
+
+    val baseId = ctxWithCond.nextResultId
+    val headerLabelId = baseId
+    val thenLabelId = baseId + 1
+    val mergeLabelId = baseId + 2
+
+    // Setup context for body compilation
+    val bodyCtx = ctxWithCond.copy(nextResultId = baseId + 3)
+    val (bodyInsts, ctxAfterBody) = compileGio(body, bodyCtx)
+
+    // Header block: branch to header label, then do selection
+    val headerBlock = List(
+      Instruction(Op.OpBranch, List(ResultRef(headerLabelId))),
+      Instruction(Op.OpLabel, List(ResultRef(headerLabelId))),
+      Instruction(Op.OpSelectionMerge, List(ResultRef(mergeLabelId), SelectionControlMask.MaskNone)),
+      Instruction(Op.OpBranchConditional, List(ResultRef(condId), ResultRef(thenLabelId), ResultRef(mergeLabelId))),
+    )
+
+    // Then block: execute body, then branch to merge
+    val thenBlock = List(Instruction(Op.OpLabel, List(ResultRef(thenLabelId)))) :::
+      bodyInsts :::
+      List(Instruction(Op.OpBranch, List(ResultRef(mergeLabelId))))
+
+    // Merge block: continuation point
+    val mergeBlock = List(Instruction(Op.OpLabel, List(ResultRef(mergeLabelId))))
+
+    val finalNextId = math.max(ctxAfterBody.nextResultId, mergeLabelId + 1)
+    // Use ctxWithCond's exprRefs but updated nextResultId - same pattern as compileRepeat
+    val finalCtx = ctxWithCond.copy(nextResultId = finalNextId)
+
+    (acc ::: condInsts ::: headerBlock ::: thenBlock ::: mergeBlock, finalCtx)
+
   /** Finds the CurrentFoldRepeatAcc phantom expression in a GIO tree. */
   private def findFoldRepeatAcc(gio: GIO[?]): Option[CurrentFoldRepeatAcc[?]] =
     def findInExpr(expr: E[?]): Option[CurrentFoldRepeatAcc[?]] =
@@ -301,14 +348,15 @@ object GIOCompiler:
         case _ => expr.exprDependencies.flatMap(findInExpr).headOption
 
     def findInGio(g: GIO[?]): Option[CurrentFoldRepeatAcc[?]] = g match
-      case Pure(v)                => findInExpr(v.tree)
-      case FlatMap(v, n)          => findInGio(v).orElse(findInGio(n))
-      case Repeat(n, body, _)     => findInExpr(n.tree).orElse(findInGio(body))
+      case Pure(v)                     => findInExpr(v.tree)
+      case FlatMap(v, n)               => findInGio(v).orElse(findInGio(n))
+      case Repeat(n, body, _)          => findInExpr(n.tree).orElse(findInGio(body))
       case FoldRepeat(n, init, b, _, _) => findInExpr(n.tree).orElse(findInExpr(init.tree)).orElse(findInGio(b))
-      case WriteBuffer(_, i, v)   => findInExpr(i.tree).orElse(findInExpr(v.tree))
-      case WriteShared(_, i, v)   => findInExpr(i.tree).orElse(findInExpr(v.tree))
-      case Printf(_, args*)       => args.flatMap(a => findInExpr(a.tree)).headOption
-      case WorkgroupBarrier       => None
+      case ConditionalWhen(cond, body) => findInExpr(cond.tree).orElse(findInGio(body))
+      case WriteBuffer(_, i, v)        => findInExpr(i.tree).orElse(findInExpr(v.tree))
+      case WriteShared(_, i, v)        => findInExpr(i.tree).orElse(findInExpr(v.tree))
+      case Printf(_, args*)            => args.flatMap(a => findInExpr(a.tree)).headOption
+      case WorkgroupBarrier            => None
 
     findInGio(gio)
 
@@ -321,14 +369,15 @@ object GIOCompiler:
         expr.exprDependencies.foreach(collectFromExpr)
 
     def collectFromGio(g: GIO[?]): Unit = g match
-      case Pure(v)                     => collectFromExpr(v.tree)
-      case FlatMap(v, n)                  => collectFromGio(v); collectFromGio(n)
-      case Repeat(n, body, _)             => collectFromExpr(n.tree); collectFromGio(body)
-      case FoldRepeat(n, init, body, _, _) => collectFromExpr(n.tree); collectFromExpr(init.tree); collectFromGio(body)
-      case WriteBuffer(_, i, v)        => collectFromExpr(i.tree); collectFromExpr(v.tree)
-      case WriteShared(_, i, v)        => collectFromExpr(i.tree); collectFromExpr(v.tree)
-      case Printf(_, args*)            => args.foreach(a => collectFromExpr(a.tree))
-      case WorkgroupBarrier            => () // No expressions to collect
+      case Pure(v)                          => collectFromExpr(v.tree)
+      case FlatMap(v, n)                    => collectFromGio(v); collectFromGio(n)
+      case Repeat(n, body, _)               => collectFromExpr(n.tree); collectFromGio(body)
+      case FoldRepeat(n, init, body, _, _)  => collectFromExpr(n.tree); collectFromExpr(init.tree); collectFromGio(body)
+      case ConditionalWhen(cond, body)      => collectFromExpr(cond.tree); collectFromGio(body)
+      case WriteBuffer(_, i, v)             => collectFromExpr(i.tree); collectFromExpr(v.tree)
+      case WriteShared(_, i, v)             => collectFromExpr(i.tree); collectFromExpr(v.tree)
+      case Printf(_, args*)                 => args.foreach(a => collectFromExpr(a.tree))
+      case WorkgroupBarrier                 => () // No expressions to collect
 
     collectFromGio(gio)
     result.toMap

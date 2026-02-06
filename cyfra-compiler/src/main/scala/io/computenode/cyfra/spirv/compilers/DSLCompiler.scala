@@ -61,6 +61,9 @@ private[cyfra] object DSLCompiler:
         val nAllExprs = getAllExprsFlattened(n.tree, visitDetached)
         val initAllExprs = getAllExprsFlattened(init.tree, visitDetached)
         getAllExprsFlattened(body :: tail, nAllExprs ::: initAllExprs ::: acc, visitDetached)
+      case GIO.ConditionalWhen(cond, body) :: tail =>
+        val condAllExprs = getAllExprsFlattened(cond.tree, visitDetached)
+        getAllExprsFlattened(body :: tail, condAllExprs ::: acc, visitDetached)
 
   // TODO: Not traverse same fn scopes for each fn call
   private def getAllExprsFlattened(root: E[?], visitDetached: Boolean): List[E[?]] =
@@ -94,6 +97,8 @@ private[cyfra] object DSLCompiler:
         getAllShared(gio :: tail, acc)
       case GIO.FoldRepeat(_, _, gio, _, _) :: tail =>
         getAllShared(gio :: tail, acc)
+      case GIO.ConditionalWhen(_, body) :: tail =>
+        getAllShared(body :: tail, acc)
       case WriteShared(buffer, _, _) :: tail =>
         val impl = buffer.asInstanceOf[GShared.GSharedImpl[?]]
         getAllShared(tail, acc + (impl.sharedId -> buffer))
@@ -148,6 +153,10 @@ private[cyfra] object DSLCompiler:
         getAllStrings(v :: n :: tail, acc)
       case GIO.Repeat(_, gio, _) :: tail =>
         getAllStrings(gio :: tail, acc)
+      case GIO.FoldRepeat(_, _, gio, _, _) :: tail =>
+        getAllStrings(gio :: tail, acc)
+      case GIO.ConditionalWhen(_, body) :: tail =>
+        getAllStrings(body :: tail, acc)
       case GIO.Printf(format, _*) :: tail =>
         getAllStrings(tail, acc + format)
       case _ :: tail => getAllStrings(tail, acc)

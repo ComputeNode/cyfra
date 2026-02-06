@@ -69,23 +69,15 @@ object VkCyfraRuntime:
   private[runtime] def getWrittenBindingIndices(pending: List[GIO[?]], acc: Set[Int]): Set[Int] =
     pending match
       case Nil => acc
-      case GIO.Pure(_) :: tail =>
-        getWrittenBindingIndices(tail, acc)
       case GIO.FlatMap(v, n) :: tail =>
         getWrittenBindingIndices(v :: n :: tail, acc)
       case GIO.Repeat(_, gio, _) :: tail =>
         getWrittenBindingIndices(gio :: tail, acc)
       case GIO.FoldRepeat(_, _, gio, _, _) :: tail =>
         getWrittenBindingIndices(gio :: tail, acc)
+      case GIO.ConditionalWhen(_, body) :: tail =>
+        getWrittenBindingIndices(body :: tail, acc)
       case WriteBuffer(buffer: BufferRef[?], _, _) :: tail =>
         getWrittenBindingIndices(tail, acc + buffer.layoutOffset)
-      case WriteBuffer(_, _, _) :: tail =>
-        getWrittenBindingIndices(tail, acc) // Non-BufferRef buffer, can't track
-      case WriteShared(_, _, _) :: tail =>
-        getWrittenBindingIndices(tail, acc) // GShared is workgroup-local, not relevant for dispatch barriers
-      case WriteUniform(_, _) :: tail =>
-        getWrittenBindingIndices(tail, acc) // Uniforms are typically read-only from GPU perspective
-      case GIO.Printf(_, _*) :: tail =>
-        getWrittenBindingIndices(tail, acc)
-      case GIO.WorkgroupBarrier :: tail =>
+      case _ :: tail =>
         getWrittenBindingIndices(tail, acc)

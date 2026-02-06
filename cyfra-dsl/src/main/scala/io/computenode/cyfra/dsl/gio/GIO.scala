@@ -54,6 +54,12 @@ object GIO:
   case class Printf(format: String, args: Value*) extends GIO[Empty]:
     override def underlying: Empty = Empty()
 
+  /** Conditional execution - executes body only if condition is true.
+    * Compiled to proper if-then structure (OpSelectionMerge + OpBranchConditional).
+    */
+  case class ConditionalWhen(cond: GBoolean, body: GIO[?]) extends GIO[Empty]:
+    override def underlying: Empty = Empty()
+
   /** Memory and execution barrier for workgroup synchronization. */
   case object WorkgroupBarrier extends GIO[Empty]:
     override def underlying: Empty = Empty()
@@ -115,9 +121,7 @@ object GIO:
     Printf(s"|$format", args*)
 
   def when(cond: GBoolean)(thenCode: GIO[?]): GIO[Empty] =
-    val n = When.when(cond)(1: Int32).otherwise(0)
-    repeat(n): _ =>
-      thenCode
+    ConditionalWhen(cond, thenCode)
 
   def read[T <: Value: {FromExpr, Tag}](buffer: GBuffer[T], index: Int32): T =
     fromExpr(ReadBuffer(buffer, index))
