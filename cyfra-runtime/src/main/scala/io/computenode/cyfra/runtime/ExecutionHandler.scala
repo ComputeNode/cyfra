@@ -56,6 +56,7 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
     commandBuffer: VkCommandBuffer,
     executeSteps: Seq[ExecutionStep],
     var lastSemaphoreValue: Long, // Track which semaphore value this execution signals
+    var reuseCount: Int = 0, // Track reuse count for first-use sync
   )
   private val executionCache = mutable.Map[(Int, Int), CachedExecution]()
 
@@ -66,6 +67,12 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
     
     executionCache.get(cacheKey) match
       case Some(cached) =>
+        // On first reuse, sync any pending writes (e.g., uniform buffer updates)
+        // This handles the case where initial uniform values differ from runtime values
+        if cached.reuseCount == 0 then
+          summon[VkAllocation].submitLayout(layout)
+        cached.reuseCount += 1
+        
         // Cache hit - submit with timeline semaphore (GPU-GPU sync, no CPU wait)
         val waitValue = cached.lastSemaphoreValue
         semaphoreValue += 1

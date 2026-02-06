@@ -100,24 +100,30 @@ object Runner:
     val tokens = tokenizer.encode(prompt)
     
     println(s"Benchmark: '$prompt' -> ${config.maxTokens} tokens")
-    println(s"Warmup: ${config.warmupRuns} runs, Benchmark: ${config.benchmarkRuns} runs\n")
+    println(s"Warmup: ${config.warmupRuns} runs, Benchmark: ${config.benchmarkRuns} runs")
+    println(f"Sampling: temperature=${config.temperature}%.2f, top_p=${config.topP}%.2f\n")
     
-    // Greedy argmax sampling
-    def argmax(logits: Array[Float]): Int =
-      var maxIdx = 0
-      var maxVal = logits(0)
-      var i = 1
-      while i < logits.length do
-        if logits(i) > maxVal then
-          maxVal = logits(i)
-          maxIdx = i
-        i += 1
-      maxIdx
+    // Sampling function based on config
+    val sampleFn: Array[Float] => Int = 
+      if config.temperature == 0.0f then
+        // Greedy argmax for temperature=0
+        logits =>
+          var maxIdx = 0
+          var maxVal = logits(0)
+          var i = 1
+          while i < logits.length do
+            if logits(i) > maxVal then
+              maxVal = logits(i)
+              maxIdx = i
+            i += 1
+          maxIdx
+      else
+        logits => topPSample(logits, config.temperature, config.topP)
     
     // Warmup
     print("Warming up: ")
     for i <- 1 to config.warmupRuns do
-      pipeline.generate(tokens, config.maxTokens, argmax, _ => (), Set(tokenizer.eosToken), reportStats = false)
+      pipeline.generate(tokens, config.maxTokens, sampleFn, _ => (), Set(tokenizer.eosToken), reportStats = false)
       print(s"$i ")
       System.out.flush()
     println("done\n")
@@ -125,17 +131,17 @@ object Runner:
     // Benchmark runs
     println("Benchmark runs:")
     
-    val (decoded, stats) = (1 to config.benchmarkRuns).map: i =>
-      val generated = pipeline.generate(tokens, config.maxTokens, argmax, _ => (), Set(tokenizer.eosToken), reportStats = false)
+    val (decoded, stats, lastGenerated) = (1 to config.benchmarkRuns).map: i =>
+      val generated = pipeline.generate(tokens, config.maxTokens, sampleFn, _ => (), Set(tokenizer.eosToken), reportStats = false)
       val decoded = tokenizer.decode(generated)
       val s = pipeline.lastStats.get
       println(f"  Run $i: ${s.generatedTokens} tokens, generate ${s.decodeTokPerSec}%.1f tok/s")
-      (decoded, s)
-    .unzip
+      (decoded, s, generated)
+    .unzip3
     
     val avgDecode = stats.map(_.decodeTokPerSec).sum / stats.length
     val bestDecode = stats.map(_.decodeTokPerSec).max
-    
+
     println()
     println("Last generation:")
     println(decoded.last.toString)

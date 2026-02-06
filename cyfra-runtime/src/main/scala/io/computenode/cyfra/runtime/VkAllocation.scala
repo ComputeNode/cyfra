@@ -25,6 +25,7 @@ import io.computenode.cyfra.dsl.binding.{GBinding, GBuffer, GUniform}
 import io.computenode.cyfra.spirv.compilers.SpirvProgramCompiler.totalStride
 import scala.reflect.ClassTag
 import io.computenode.cyfra.core.GCodec
+import io.computenode.cyfra.utility.NVTX
 
 class VkAllocation(val commandPool: CommandPool.Reset, val executionHandler: ExecutionHandler)(using Allocator, Device) extends Allocation:
   given VkAllocation = this
@@ -47,10 +48,16 @@ class VkAllocation(val commandPool: CommandPool.Reset, val executionHandler: Exe
       buffer match
         case VkBinding(buffer: Buffer.HostBuffer) => buffer.copyTo(bb, offset)
         case binding: VkBinding[?]                =>
+          NVTX.push(s"Materialise[$buffer]")
           binding.materialise(this)
+          NVTX.pop()
+          NVTX.push(s"CopyToStaging[$buffer]")
           val stagingBuffer = getStagingBuffer(size)
           Buffer.copyBuffer(binding.buffer, stagingBuffer, offset, 0, size, commandPool)
+          NVTX.pop()
+          NVTX.push(s"CopyToHost[$buffer]")
           stagingBuffer.copyTo(bb, 0)
+          NVTX.pop()
           stagingBuffer.destroy()
         case _ => throw new IllegalArgumentException(s"Tried to read from non-VkBinding $buffer")
 
@@ -130,6 +137,9 @@ class VkAllocation(val commandPool: CommandPool.Reset, val executionHandler: Exe
 
   def addExecution(pe: PendingExecution): Unit =
     executions += pe
+
+  /** Check if there are any pending (not yet submitted) executions from buffer writes. */
+  def hasPendingWrites: Boolean = executions.exists(_.isPending)
 
   private val bindings = mutable.Buffer[VkUniform[?] | VkBuffer[?]]()
   private[cyfra] def close(): Unit =
