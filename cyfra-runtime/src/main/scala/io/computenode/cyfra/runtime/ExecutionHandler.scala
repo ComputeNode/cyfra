@@ -11,9 +11,12 @@ import io.computenode.cyfra.dsl.binding.{GBinding, GBuffer, GUniform}
 import io.computenode.cyfra.dsl.struct.{GStruct, GStructSchema}
 import io.computenode.cyfra.runtime.ExecutionHandler.{
   BindingLogicError,
+  BufferCopyCall,
+  BufferCopyStep,
   Dispatch,
   DispatchType,
   ExecutionBinding,
+  ExecutionCall,
   ExecutionStep,
   PipelineBarrier,
   ShaderCall,
@@ -29,8 +32,9 @@ import io.computenode.cyfra.vulkan.memory.{DescriptorPool, DescriptorPoolManager
 import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import izumi.reflect.Tag
 import org.lwjgl.vulkan.VK10.*
-import org.lwjgl.vulkan.VK13.{VK_ACCESS_2_SHADER_READ_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, vkCmdPipelineBarrier2}
-import org.lwjgl.vulkan.{VkCommandBuffer, VkCommandBufferBeginInfo, VkDependencyInfo, VkMemoryBarrier2, VkSubmitInfo, VkTimelineSemaphoreSubmitInfo}
+import org.lwjgl.vulkan.VK13.{VK_ACCESS_2_SHADER_READ_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, VK_ACCESS_2_TRANSFER_READ_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_2_TRANSFER_BIT, vkCmdPipelineBarrier2}
+import org.lwjgl.vulkan.EXTDebugUtils.{vkCmdBeginDebugUtilsLabelEXT, vkCmdEndDebugUtilsLabelEXT}
+import org.lwjgl.vulkan.{VkBufferCopy, VkCommandBuffer, VkCommandBufferBeginInfo, VkDebugUtilsLabelEXT, VkDependencyInfo, VkMemoryBarrier2, VkSubmitInfo, VkTimelineSemaphoreSubmitInfo}
 
 import scala.collection.mutable
 
@@ -74,30 +78,33 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
         
       case None =>
         // Cache miss - full execution path
-        val (result, shaderCalls) = interpret(execution, params, layout)
+        val (result, executionCalls) = interpret(execution, params, layout)
 
-        val descriptorSets = shaderCalls.map:
-          case ShaderCall(pipeline, layout, _) =>
-            pipeline.pipelineLayout.sets
+        // Convert ExecutionCalls to ExecutionSteps
+        val initialSteps: Seq[ExecutionStep] = executionCalls.map:
+          case ShaderCall(pipeline, layout, dispatch) =>
+            val sets = pipeline.pipelineLayout.sets
               .map(dsManager.allocate)
               .zip(layout)
               .map:
                 case (set, bindings) =>
                   set.update(bindings.map(x => VkAllocation.getUnderlying(x.binding).buffer))
                   set
-
-        val dispatches: Seq[Dispatch] = shaderCalls
-          .zip(descriptorSets)
-          .map:
-            case (ShaderCall(pipeline, layout, dispatch), sets) =>
               Dispatch(pipeline, layout, sets, dispatch)
+          case BufferCopyCall(src, dst, sizeBytes) =>
+            BufferCopyStep(src, dst, sizeBytes)
 
-        val (executeSteps, _) = dispatches.foldLeft((Seq.empty[ExecutionStep], Set.empty[GBinding[?]])):
-          case ((steps, dirty), step) =>
+        val (executeSteps, _) = initialSteps.zipWithIndex.foldLeft((Seq.empty[ExecutionStep], Set.empty[GBinding[?]])):
+          case ((steps, dirty), (step, idx)) =>
             // Extract bindings by operation type
-            val allBindingsWithOp = step.layout.flatten
-            val allBindings = allBindingsWithOp.map(_.binding)
-            val writtenBindings = allBindingsWithOp.filter(b => b.operation == Operation.Write || b.operation == Operation.ReadWrite).map(_.binding)
+            val (allBindings, writtenBindings) = step match
+              case Dispatch(_, layout, _, _) =>
+                val allBindingsWithOp = layout.flatten
+                (allBindingsWithOp.map(_.binding), allBindingsWithOp.filter(b => b.operation == Operation.Write || b.operation == Operation.ReadWrite).map(_.binding))
+              case BufferCopyStep(src, dst, _) =>
+                (Seq(src, dst), Seq(dst))  // dst is written
+              case PipelineBarrier =>
+                (Seq.empty, Seq.empty)
             
             // Need barrier if this step accesses any buffer that was written by a previous step
             // This handles Read-after-Write (RAW) and Write-after-Write (WAW) hazards
@@ -155,12 +162,12 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
     execution: GExecution[Params, EL, RL], 
     params: Params, 
     layout: EL
-  )(using VkAllocation): (RL, Seq[ShaderCall]) =
+  )(using VkAllocation): (RL, Seq[ExecutionCall]) =
     interpretUncached(execution, params, layout)
 
   private def interpretUncached[Params, EL: Layout, RL: Layout](execution: GExecution[Params, EL, RL], params: Params, layout: EL)(using
     VkAllocation,
-  ): (RL, Seq[ShaderCall]) =
+  ): (RL, Seq[ExecutionCall]) =
     val bindingsAcc: mutable.Map[GBinding[?], mutable.Buffer[GBinding[?]]] = mutable.Map.empty
 
     def mockBindings[L: Layout](layout: L): L =
@@ -176,7 +183,7 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
       mapper.fromBindings(res)
 
     // noinspection TypeParameterShadow
-    def interpretImpl[Params, EL: Layout, RL: Layout](execution: GExecution[Params, EL, RL], params: Params, layout: EL): (RL, Seq[ShaderCall]) =
+    def interpretImpl[Params, EL: Layout, RL: Layout](execution: GExecution[Params, EL, RL], params: Params, layout: EL): (RL, Seq[ExecutionCall]) =
       execution match
         case GExecution.Pure()                           => (layout, Seq.empty)
         case GExecution.Map(innerExec, map, cmap, cmapP) =>
@@ -210,6 +217,10 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
             case GProgram.StaticDispatch(size)            => DispatchType.Direct(size._1, size._2, size._3)
           // noinspection ScalaRedundantCast
           (layout.asInstanceOf[RL], Seq(ShaderCall(shader.underlying, shader.shaderBindings(layout), dispatch)))
+        case bufferCopy: GExecution.BufferCopy[EL] =>
+          val (src, dst) = bufferCopy.getBuffers(layout)
+          // noinspection ScalaRedundantCast
+          (layout.asInstanceOf[RL], Seq(BufferCopyCall(src, dst, bufferCopy.sizeBytes)))
         case _ => ???
 
     val (rl, steps) = interpretImpl(execution, params, mockBindings(layout))
@@ -224,6 +235,8 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
           case x: Direct                => x
           case Indirect(buffer, offset) => Indirect(bingingToVk(buffer), offset)
         ShaderCall(pipeline, nextLayout, nextDispatch)
+      case BufferCopyCall(src, dst, sizeBytes) =>
+        BufferCopyCall(bingingToVk(src), bingingToVk(dst), sizeBytes)
 
     val mapper = Layout[RL]
     val res = mapper.fromBindings(mapper.toBindings(rl).map(bingingToVk.apply))
@@ -275,11 +288,17 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
         val memoryBarrier = VkMemoryBarrier2 // TODO don't synchronise everything
           .calloc(1, stack)
           .sType$Default()
-          .srcStageMask(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT)
-          .srcAccessMask(VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT)
-          .dstStageMask(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT)
-          .dstAccessMask(VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT)
+          .srcStageMask(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_TRANSFER_BIT)
+          .srcAccessMask(VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_2_TRANSFER_READ_BIT | VK_ACCESS_2_TRANSFER_WRITE_BIT)
+          .dstStageMask(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_TRANSFER_BIT)
+          .dstAccessMask(VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_2_TRANSFER_READ_BIT | VK_ACCESS_2_TRANSFER_WRITE_BIT)
 
+        val debugLabel = VkDebugUtilsLabelEXT
+          .calloc(stack)
+          .sType$Default()
+          .pLabelName(stack.UTF8("BARRIER"))
+        vkCmdBeginDebugUtilsLabelEXT(commandBuffer, debugLabel)
+      
         val dependencyInfo = VkDependencyInfo
           .calloc(stack)
           .sType$Default()
@@ -287,7 +306,20 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
 
         vkCmdPipelineBarrier2(commandBuffer, dependencyInfo)
 
+        vkCmdEndDebugUtilsLabelEXT(commandBuffer)
+
       case Dispatch(pipeline, layout, descriptorSets, dispatch) =>
+        // Add debug label for profiling (visible in Nsight Systems)
+        val dispatchSize = dispatch match
+          case Direct(x, y, z)   => s"${x}x${y}x${z}"
+          case Indirect(_, _)    => "indirect"
+        val labelName = s"${pipeline.name}[$dispatchSize]"
+        val debugLabel = VkDebugUtilsLabelEXT
+          .calloc(stack)
+          .sType$Default()
+          .pLabelName(stack.UTF8(labelName))
+        vkCmdBeginDebugUtilsLabelEXT(commandBuffer, debugLabel)
+        
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.get)
 
         val pDescriptorSets = stack.longs(descriptorSets.map(_.get)*)
@@ -296,6 +328,28 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
         dispatch match
           case Direct(x, y, z)          => vkCmdDispatch(commandBuffer, x, y, z)
           case Indirect(buffer, offset) => vkCmdDispatchIndirect(commandBuffer, VkAllocation.getUnderlying(buffer).buffer.get, offset)
+        
+        vkCmdEndDebugUtilsLabelEXT(commandBuffer)
+
+      case BufferCopyStep(src, dst, sizeBytes) =>
+        // Add debug label for profiling
+        val debugLabel = VkDebugUtilsLabelEXT
+          .calloc(stack)
+          .sType$Default()
+          .pLabelName(stack.UTF8(s"BufferCopy[${sizeBytes}B]"))
+        vkCmdBeginDebugUtilsLabelEXT(commandBuffer, debugLabel)
+        
+        val copyRegion = VkBufferCopy
+          .calloc(1, stack)
+          .srcOffset(0)
+          .dstOffset(0)
+          .size(sizeBytes)
+        
+        val srcBuffer = VkAllocation.getUnderlying(src).buffer.get
+        val dstBuffer = VkAllocation.getUnderlying(dst).buffer.get
+        vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, copyRegion)
+        
+        vkCmdEndDebugUtilsLabelEXT(commandBuffer)
 
     check(vkEndCommandBuffer(commandBuffer), "Failed to finish recording command buffer")
     commandBuffer
@@ -303,16 +357,21 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
   private def getAllBindings(steps: Seq[ExecutionStep]): Seq[GBinding[?]] =
     steps
       .flatMap:
-        case Dispatch(_, layout, _, _) => layout.flatten.map(_.binding)
-        case PipelineBarrier           => Seq.empty
+        case Dispatch(_, layout, _, _)      => layout.flatten.map(_.binding)
+        case BufferCopyStep(src, dst, _)    => Seq(src, dst)
+        case PipelineBarrier                => Seq.empty
       .distinct
 
 object ExecutionHandler:
-  case class ShaderCall(pipeline: ComputePipeline, layout: ShaderLayout, dispatch: DispatchType)
+  /** Represents a call to be executed on GPU - either a shader dispatch or buffer copy. */
+  sealed trait ExecutionCall
+  case class ShaderCall(pipeline: ComputePipeline, layout: ShaderLayout, dispatch: DispatchType) extends ExecutionCall
+  case class BufferCopyCall(src: GBinding[?], dst: GBinding[?], sizeBytes: Int) extends ExecutionCall
 
   sealed trait ExecutionStep
   case class Dispatch(pipeline: ComputePipeline, layout: ShaderLayout, descriptorSets: Seq[DescriptorSet], dispatch: DispatchType)
       extends ExecutionStep
+  case class BufferCopyStep(src: GBinding[?], dst: GBinding[?], sizeBytes: Int) extends ExecutionStep
   case object PipelineBarrier extends ExecutionStep
 
   sealed trait DispatchType

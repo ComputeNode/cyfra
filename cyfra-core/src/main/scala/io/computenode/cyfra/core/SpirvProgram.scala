@@ -28,6 +28,7 @@ case class SpirvProgram[Params, L: Layout] private (
   code: ByteBuffer,
   entryPoint: String,
   shaderBindings: L => ShaderLayout,
+  name: String = "SpirvProgram",
 ) extends GProgram[Params, L]:
 
   /** A hash of the shader code, entry point, workgroup size, and layout bindings. Layout and dispatch are not taken into account.
@@ -63,27 +64,29 @@ object SpirvProgram:
     dispatch: (L, Params) => ProgramDispatch,
     code: ByteBuffer,
   ): SpirvProgram[Params, L] =
-    apply(layout, dispatch, code, Set.empty)
+    apply(layout, dispatch, code, Set.empty, "SpirvProgram")
 
   /** Create a SpirvProgram with explicit write tracking for smarter barrier insertion.
     *
-    * @param writtenBuffers Set of buffers that are written to by this shader.
-    *                       Buffers not in this set are treated as read-only.
+    * @param writtenBindingIndices Set of binding indices (layoutOffset) that are written to by this shader.
+    *                              Bindings not in this set are treated as read-only.
+    * @param name Name for profiling/debugging
     */
   def apply[Params, L: Layout](
     layout: InitProgramLayout ?=> Params => L,
     dispatch: (L, Params) => ProgramDispatch,
     code: ByteBuffer,
-    writtenBuffers: Set[GBinding[?]],
+    writtenBindingIndices: Set[Int],
+    name: String,
   ): SpirvProgram[Params, L] =
     val workgroupSize = (128, 1, 1) // TODO  Extract from shader
     val main = "main"
     val f: L => ShaderLayout = { case layout: Product =>
       layout.productIterator.zipWithIndex.map { case (binding: GBinding[?], i) =>
-        val op = if writtenBuffers.isEmpty then ReadWrite  // Fallback for legacy code
-                 else if writtenBuffers.contains(binding) then Write
+        val op = if writtenBindingIndices.isEmpty then ReadWrite  // Fallback for legacy code
+                 else if writtenBindingIndices.contains(i) then Write
                  else Read
         Binding(binding, op)
       }.toSeq.pipe(Seq(_))
     }
-    new SpirvProgram[Params, L]((il: InitProgramLayout) => layout(using il), dispatch, workgroupSize, code, main, f)
+    new SpirvProgram[Params, L]((il: InitProgramLayout) => layout(using il), dispatch, workgroupSize, code, main, f, name)

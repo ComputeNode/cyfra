@@ -20,25 +20,27 @@ object GIOCompiler:
         val (insts, updatedCtx) = ExpressionCompiler.compileBlock(v.tree, ctx)
         (acc ::: insts, updatedCtx)
 
-      case WriteBuffer(buffer, index, value) =>
+      case wb @ WriteBuffer(buffer, index, value) =>
         val (valueInsts, ctxWithValue) = ExpressionCompiler.compileBlock(value.tree, ctx)
         val (indexInsts, ctxWithIndex) = ExpressionCompiler.compileBlock(index.tree, ctxWithValue)
+        // Compile the underlying Empty to register it for FoldRepeat body lookup
+        val (underlyingInsts, ctxWithUnderlying) = ExpressionCompiler.compileBlock(wb.underlying.tree, ctxWithIndex)
         val insns = List(
           Instruction(
             Op.OpAccessChain,
             List(
-              ResultRef(ctxWithIndex.uniformPointerMap(ctxWithIndex.valueTypeMap(buffer.tag.tag))),
-              ResultRef(ctxWithIndex.nextResultId),
-              ResultRef(ctxWithIndex.bufferBlocks(buffer).blockVarRef),
-              ResultRef(ctxWithIndex.constRefs((Int32Tag, 0))),
-              ResultRef(ctxWithIndex.exprRefs(index.tree.treeid)),
+              ResultRef(ctxWithUnderlying.uniformPointerMap(ctxWithUnderlying.valueTypeMap(buffer.tag.tag))),
+              ResultRef(ctxWithUnderlying.nextResultId),
+              ResultRef(ctxWithUnderlying.bufferBlocks(buffer).blockVarRef),
+              ResultRef(ctxWithUnderlying.constRefs((Int32Tag, 0))),
+              ResultRef(ctxWithUnderlying.exprRefs(index.tree.treeid)),
             ),
           ),
-          Instruction(Op.OpStore, List(ResultRef(ctxWithIndex.nextResultId), ResultRef(ctxWithIndex.exprRefs(value.tree.treeid)))),
+          Instruction(Op.OpStore, List(ResultRef(ctxWithUnderlying.nextResultId), ResultRef(ctxWithUnderlying.exprRefs(value.tree.treeid)))),
         )
-        val updatedCtx = ctxWithIndex.copy(nextResultId = ctxWithIndex.nextResultId + 1)
+        val updatedCtx = ctxWithUnderlying.copy(nextResultId = ctxWithUnderlying.nextResultId + 1)
         // valueInsts before indexInsts: value compiled first, may define exprs index uses
-        (acc ::: valueInsts ::: indexInsts ::: insns, updatedCtx)
+        (acc ::: valueInsts ::: indexInsts ::: underlyingInsts ::: insns, updatedCtx)
 
       case FlatMap(v, n) =>
         val (vInsts, ctxAfterV) = compileGio(v, ctx, acc)

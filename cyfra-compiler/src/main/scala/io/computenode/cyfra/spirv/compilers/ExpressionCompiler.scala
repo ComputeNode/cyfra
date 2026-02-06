@@ -463,6 +463,58 @@ private[cyfra] object ExpressionCompiler:
               val updatedContext = ctx.copy(exprRefs = ctx.exprRefs + (expr.treeid -> (ctx.nextResultId + 1)), nextResultId = ctx.nextResultId + 2)
               (instructions, updatedContext)
 
+            case rb: ReadBufferVec4[?] =>
+              // Read 4 consecutive elements and construct a Vec4
+              // This generates: 4x (OpIAdd + OpAccessChain + OpLoad) + OpCompositeConstruct
+              val buffer = rb.buffer
+              val baseIdx = rb.index
+              val elemTypeRef = ctx.valueTypeMap(buffer.tag.tag)
+              val int32TypeRef = ctx.valueTypeMap(summon[Tag[Int32]].tag)
+              val vec4TypeRef = ctx.valueTypeMap(rb.tag.tag)
+              val ptrTypeRef = ctx.uniformPointerMap(elemTypeRef)
+              val blockVarRef = ctx.bufferBlocks(buffer).blockVarRef
+              val const0Ref = ctx.constRefs((Int32Tag, 0))
+              val const1Ref = ctx.constRefs((Int32Tag, 1))
+              val const2Ref = ctx.constRefs((Int32Tag, 2))
+              val const3Ref = ctx.constRefs((Int32Tag, 3))
+              val baseIdxRef = ctx.exprRefs(baseIdx.treeid)
+              
+              var rid = ctx.nextResultId
+              val idx0 = baseIdxRef  // baseIdx + 0
+              val idx1Ref = rid; rid += 1  // baseIdx + 1
+              val idx2Ref = rid; rid += 1  // baseIdx + 2
+              val idx3Ref = rid; rid += 1  // baseIdx + 3
+              val ptr0Ref = rid; rid += 1
+              val ptr1Ref = rid; rid += 1
+              val ptr2Ref = rid; rid += 1
+              val ptr3Ref = rid; rid += 1
+              val val0Ref = rid; rid += 1
+              val val1Ref = rid; rid += 1
+              val val2Ref = rid; rid += 1
+              val val3Ref = rid; rid += 1
+              val resultRef = rid; rid += 1
+              
+              val instructions = List(
+                // Compute indices: baseIdx+1, baseIdx+2, baseIdx+3
+                Instruction(Op.OpIAdd, List(ResultRef(int32TypeRef), ResultRef(idx1Ref), ResultRef(baseIdxRef), ResultRef(const1Ref))),
+                Instruction(Op.OpIAdd, List(ResultRef(int32TypeRef), ResultRef(idx2Ref), ResultRef(baseIdxRef), ResultRef(const2Ref))),
+                Instruction(Op.OpIAdd, List(ResultRef(int32TypeRef), ResultRef(idx3Ref), ResultRef(baseIdxRef), ResultRef(const3Ref))),
+                // Access chain for each element
+                Instruction(Op.OpAccessChain, List(ResultRef(ptrTypeRef), ResultRef(ptr0Ref), ResultRef(blockVarRef), ResultRef(const0Ref), ResultRef(idx0))),
+                Instruction(Op.OpAccessChain, List(ResultRef(ptrTypeRef), ResultRef(ptr1Ref), ResultRef(blockVarRef), ResultRef(const0Ref), ResultRef(idx1Ref))),
+                Instruction(Op.OpAccessChain, List(ResultRef(ptrTypeRef), ResultRef(ptr2Ref), ResultRef(blockVarRef), ResultRef(const0Ref), ResultRef(idx2Ref))),
+                Instruction(Op.OpAccessChain, List(ResultRef(ptrTypeRef), ResultRef(ptr3Ref), ResultRef(blockVarRef), ResultRef(const0Ref), ResultRef(idx3Ref))),
+                // Load each element
+                Instruction(Op.OpLoad, List(ResultRef(elemTypeRef), ResultRef(val0Ref), ResultRef(ptr0Ref))),
+                Instruction(Op.OpLoad, List(ResultRef(elemTypeRef), ResultRef(val1Ref), ResultRef(ptr1Ref))),
+                Instruction(Op.OpLoad, List(ResultRef(elemTypeRef), ResultRef(val2Ref), ResultRef(ptr2Ref))),
+                Instruction(Op.OpLoad, List(ResultRef(elemTypeRef), ResultRef(val3Ref), ResultRef(ptr3Ref))),
+                // Construct Vec4
+                Instruction(Op.OpCompositeConstruct, List(ResultRef(vec4TypeRef), ResultRef(resultRef), ResultRef(val0Ref), ResultRef(val1Ref), ResultRef(val2Ref), ResultRef(val3Ref))),
+              )
+              val updatedContext = ctx.copy(exprRefs = ctx.exprRefs + (expr.treeid -> resultRef), nextResultId = rid)
+              (instructions, updatedContext)
+
             case ReadShared(buffer, i) =>
               val sharedId = buffer.asInstanceOf[GShared.GSharedImpl[?]].sharedId
               val sharedBlock = ctx.sharedVarRefs(sharedId)

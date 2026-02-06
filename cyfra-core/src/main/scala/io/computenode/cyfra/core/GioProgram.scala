@@ -11,4 +11,5 @@ case class GioProgram[Params, L: Layout](
   layout: InitProgramLayout => Params => L,
   dispatch: (L, Params) => ProgramDispatch,
   workgroupSize: WorkDimensions,
+  name: String = "GioProgram",
 ) extends GProgram[Params, L]

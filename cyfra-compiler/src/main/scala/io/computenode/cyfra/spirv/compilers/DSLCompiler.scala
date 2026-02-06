@@ -37,10 +37,12 @@ private[cyfra] object DSLCompiler:
       case GIO.Repeat(n, gio, _) :: tail =>
         val nAllExprs = getAllExprsFlattened(n.tree, visitDetached)
         getAllExprsFlattened(gio :: tail, nAllExprs ::: acc, visitDetached)
-      case WriteBuffer(_, index, value) :: tail =>
-        val indexAllExprs = getAllExprsFlattened(index.tree, visitDetached)
-        val valueAllExprs = getAllExprsFlattened(value.tree, visitDetached)
-        getAllExprsFlattened(tail, indexAllExprs ::: valueAllExprs ::: acc, visitDetached)
+      case (wb: WriteBuffer[?]) :: tail =>
+        val indexAllExprs = getAllExprsFlattened(wb.index.tree, visitDetached)
+        val valueAllExprs = getAllExprsFlattened(wb.value.tree, visitDetached)
+        // Also collect the underlying Empty expression for FoldRepeat body lookup
+        val underlyingAllExprs = getAllExprsFlattened(wb.underlying.tree, visitDetached)
+        getAllExprsFlattened(tail, indexAllExprs ::: valueAllExprs ::: underlyingAllExprs ::: acc, visitDetached)
       case WriteUniform(_, value) :: tail =>
         val valueAllExprs = getAllExprsFlattened(value.tree, visitDetached)
         getAllExprsFlattened(tail, valueAllExprs ::: acc, visitDetached)
@@ -49,10 +51,12 @@ private[cyfra] object DSLCompiler:
         getAllExprsFlattened(tail, argsAllExprs ::: acc, visitDetached)
       case GIO.WorkgroupBarrier :: tail =>
         getAllExprsFlattened(tail, acc, visitDetached)
-      case WriteShared(_, index, value) :: tail =>
-        val indexAllExprs = getAllExprsFlattened(index.tree, visitDetached)
-        val valueAllExprs = getAllExprsFlattened(value.tree, visitDetached)
-        getAllExprsFlattened(tail, indexAllExprs ::: valueAllExprs ::: acc, visitDetached)
+      case (ws: WriteShared[?]) :: tail =>
+        val indexAllExprs = getAllExprsFlattened(ws.index.tree, visitDetached)
+        val valueAllExprs = getAllExprsFlattened(ws.value.tree, visitDetached)
+        // Also collect the underlying Empty expression for FoldRepeat body lookup
+        val underlyingAllExprs = getAllExprsFlattened(ws.underlying.tree, visitDetached)
+        getAllExprsFlattened(tail, indexAllExprs ::: valueAllExprs ::: underlyingAllExprs ::: acc, visitDetached)
       case GIO.FoldRepeat(n, init, body, _, _) :: tail =>
         val nAllExprs = getAllExprsFlattened(n.tree, visitDetached)
         val initAllExprs = getAllExprsFlattened(init.tree, visitDetached)
@@ -80,32 +84,6 @@ private[cyfra] object DSLCompiler:
     val result = root :: getAllScopesExprsAcc(root :: Nil)
     allScopesCache(root.treeid) = result
     result
-
-  /** Extract all GBuffers that are written to in the GIO program.
-    * Used for smarter barrier insertion - only written buffers cause conflicts.
-    */
-  @tailrec
-  def getWrittenBuffers(pending: List[GIO[?]], acc: Set[GBuffer[?]]): Set[GBuffer[?]] =
-    pending match
-      case Nil => acc
-      case GIO.Pure(_) :: tail =>
-        getWrittenBuffers(tail, acc)
-      case GIO.FlatMap(v, n) :: tail =>
-        getWrittenBuffers(v :: n :: tail, acc)
-      case GIO.Repeat(_, gio, _) :: tail =>
-        getWrittenBuffers(gio :: tail, acc)
-      case GIO.FoldRepeat(_, _, gio, _, _) :: tail =>
-        getWrittenBuffers(gio :: tail, acc)
-      case WriteBuffer(buffer, _, _) :: tail =>
-        getWrittenBuffers(tail, acc + buffer)
-      case WriteShared(_, _, _) :: tail =>
-        getWrittenBuffers(tail, acc) // GShared is workgroup-local, not relevant for dispatch barriers
-      case WriteUniform(_, _) :: tail =>
-        getWrittenBuffers(tail, acc) // Uniforms are typically read-only from GPU perspective
-      case GIO.Printf(_, _*) :: tail =>
-        getWrittenBuffers(tail, acc)
-      case GIO.WorkgroupBarrier :: tail =>
-        getWrittenBuffers(tail, acc)
 
   private def getAllShared(pending: List[GIO[?]], acc: Map[Int, GShared[?]]): Map[Int, GShared[?]] =
     pending match

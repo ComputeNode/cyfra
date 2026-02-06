@@ -15,11 +15,13 @@ import izumi.reflect.Tag
 import java.io.FileInputStream
 import java.nio.file.Path
 import scala.util.Using
+import sourcecode.Enclosing
 
 trait GProgram[Params, L: Layout] extends GExecution[Params, L, L]:
   val layout: InitProgramLayout => Params => L
   val dispatch: (L, Params) => ProgramDispatch
   val workgroupSize: WorkDimensions
+  val name: String
   def summonLayout: Layout[L] = Layout[L]
 
 object GProgram:
@@ -33,11 +35,14 @@ object GProgram:
     layout: InitProgramLayout ?=> Params => L,
     dispatch: (L, Params) => ProgramDispatch,
     workgroupSize: WorkDimensions = (128, 1, 1),
-  )(body: L => GIO[?]): GProgram[Params, L] =
-    new GioProgram[Params, L](body, s => layout(using s), dispatch, workgroupSize)
+  )(body: L => GIO[?])(using enclosing: Enclosing): GProgram[Params, L] =
+    // Extract program name from enclosing context (e.g. "pkg.F16RMSNormProgram.forward" -> "F16RMSNormProgram")
+    val programName = enclosing.value.split('.').dropRight(1).lastOption.getOrElse("Program")
+    new GioProgram[Params, L](body, s => layout(using s), dispatch, workgroupSize, programName)
 
-  def static[Params, L: Layout](layout: InitProgramLayout ?=> Params => L, dispatchSize: Params => Int)(body: L => GIO[?]): GProgram[Params, L] =
-    GioProgram.apply(body, s => layout(using s), (l, p) => StaticDispatch((dispatchSize(p) + 127) / 128, 1, 1), (128, 1, 1))
+  def static[Params, L: Layout](layout: InitProgramLayout ?=> Params => L, dispatchSize: Params => Int)(body: L => GIO[?])(using Enclosing): GProgram[Params, L] =
+    val programName = summon[Enclosing].value.split('.').dropRight(1).lastOption.getOrElse("Program")
+    GioProgram.apply(body, s => layout(using s), (l, p) => StaticDispatch((dispatchSize(p) + 127) / 128, 1, 1), (128, 1, 1), programName)
 
   def fromSpirvFile[Params, L: Layout](
     layout: InitProgramLayout ?=> Params => L,

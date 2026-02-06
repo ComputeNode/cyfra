@@ -13,11 +13,12 @@ import izumi.reflect.Tag
 
 import scala.util.{Failure, Success}
 
-case class VkShader[L](underlying: ComputePipeline, shaderBindings: L => ShaderLayout)
+case class VkShader[L](underlying: ComputePipeline, shaderBindings: L => ShaderLayout):
+  def name: String = underlying.name
 
 object VkShader:
-  def apply[P, L: Layout](program: SpirvProgram[P, L])(using Device): VkShader[L] =
-    val SpirvProgram(layout, dispatch, _workgroupSize, code, entryPoint, shaderBindings) = program
+  def apply[P, L: Layout](program: SpirvProgram[P, L], name: String = "Shader")(using Device): VkShader[L] =
+    val SpirvProgram(layout, dispatch, _workgroupSize, code, entryPoint, shaderBindings, _) = program
 
     val shaderLayout = shaderBindings(Layout[L].layoutRef)
     val sets = shaderLayout.map: set =>
@@ -29,5 +30,5 @@ object VkShader:
           DescriptorInfo(kind)
       DescriptorSetInfo(descriptors)
 
-    val pipeline = ComputePipeline(code, entryPoint, LayoutInfo(sets))
+    val pipeline = ComputePipeline(code, entryPoint, LayoutInfo(sets), name)
     VkShader(pipeline, shaderBindings)
