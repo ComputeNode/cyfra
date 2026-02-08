@@ -94,6 +94,9 @@ lazy val tapirSettings = Seq(
 
 lazy val utility = (project in file("cyfra-utility"))
   .settings(commonSettings)
+  .settings(
+    libraryDependencies += "net.java.dev.jna" % "jna" % "5.14.0",
+  )
 
 lazy val spirvTools = (project in file("cyfra-spirv-tools"))
   .settings(commonSettings)
