@@ -4,7 +4,7 @@ import io.computenode.cyfra.llama.gguf.GGUFReader
 import io.computenode.cyfra.llama.inference.LlamaInference
 import io.computenode.cyfra.llama.tokenizer.LlamaTokenizer
 import io.computenode.cyfra.llama.model.LlamaModel
-import io.computenode.cyfra.llama.pipeline.LlamaF32Pipeline
+import io.computenode.cyfra.llama.pipeline.LlamaF16Pipeline
 import io.computenode.cyfra.runtime.VkCyfraRuntime
 import munit.FunSuite
 
@@ -14,11 +14,11 @@ import scala.concurrent.duration.*
 /** Direct benchmark to verify which code path is actually running. */
 class DirectBenchmarkTest extends FunSuite:
   
-  val modelPath = "cyfra-llama/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf"
+  val modelPath = "cyfra-llama/Llama-3.2-1B-Instruct-f16.gguf"
   
   override def munitTimeout: Duration = 10.minutes
   
-  test("Direct KVCachedPipeline.generate benchmark"):
+  test("Direct F16 Pipeline.generate benchmark"):
     assume(Files.exists(Paths.get(modelPath)), s"Model not found: $modelPath")
     
     VkCyfraRuntime.using:
@@ -27,33 +27,21 @@ class DirectBenchmarkTest extends FunSuite:
       
       try
         println("Creating inference...")
-        val inference = new LlamaInference(model, maxT = 2048, useQuantized = true)
-        val kvPipeline = inference.getF32KVCachedPipeline
-        
-        // Simple argmax sampling (greedy, deterministic)
-        def argmax(logits: Array[Float]): Int =
-          var maxIdx = 0
-          var maxVal = logits(0)
-          var i = 1
-          while i < logits.length do
-            if logits(i) > maxVal then
-              maxVal = logits(i)
-              maxIdx = i
-            i += 1
-          maxIdx
+        val inference = new LlamaInference(model, maxT = 2048)
+        val f16Pipeline = inference.getF16Pipeline
         
         val tokenizer = LlamaTokenizer(model.gguf)
         val promptText = "Once upon a time"
         val promptTokens = tokenizer.encode(promptText)
         
         println("\n" + "=" * 60)
-        println("  TinyLlama 1.1B - KV Cache Benchmark (Cyfra GPU)")
+        println("  Llama 3.2 1B F16 - KV Cache Benchmark (Cyfra GPU)")
         println("=" * 60)
         
         // Warmup - 3 generations to ensure everything is compiled and cached
         println("\nWarming up (3 generations)...")
         for i <- 1 to 3 do
-          kvPipeline.generate(promptTokens, 20, argmax)
+          f16Pipeline.generate(promptTokens, 20, temperature = 0.0f)
           println(s"  warmup $i done")
         
         // Benchmark with longer generation
@@ -64,12 +52,12 @@ class DirectBenchmarkTest extends FunSuite:
         // Timed generation with output
         print("Output: ")
         val start = System.nanoTime()
-        val generated = kvPipeline.generate(
+        val generated = f16Pipeline.generate(
           promptTokens = promptTokens,
           maxNewTokens = maxTokens,
-          sampleFn = argmax,
+          temperature = 0.0f, // greedy
           onToken = token => print(tokenizer.decodeToken(token)),
-          stopTokens = Set(2),
+          stopTokens = Set(tokenizer.eosToken, 128009),
         )
         val elapsed = (System.nanoTime() - start) / 1e6
         println("\n")
@@ -83,7 +71,7 @@ class DirectBenchmarkTest extends FunSuite:
         println(s"\n--- Consistency check (5 runs x $maxTokens tokens) ---")
         val times = (1 to 5).map: i =>
           val runStart = System.nanoTime()
-          val tokens = kvPipeline.generate(promptTokens, maxTokens, argmax)
+          val tokens = f16Pipeline.generate(promptTokens, maxTokens, temperature = 0.0f)
           val runElapsed = (System.nanoTime() - runStart) / 1e6
           val runTokPerSec = tokens.length * 1000.0 / runElapsed
           println(f"  Run $i: ${tokens.length} tokens in ${runElapsed.toInt}%5d ms = $runTokPerSec%.1f tok/s")

@@ -8,12 +8,9 @@ import java.nio.{ByteBuffer, ByteOrder}
   *
   * Defines the standard API for KV-cached inference pipelines:
   *   - generate: Efficient generation with prefill + decode in single GPU allocation
-  *   - prefill: Process prompt tokens (legacy API)
-  *   - decode: Generate one token (legacy API)
   *
   * Implementations:
-  *   - LlamaF16Pipeline.F16KVCachedPipeline: F16 precision with Vec4 optimizations
-  *   - LlamaF32Pipeline.F32KVCachedPipeline: F32/quantized precision (Q4_K/Q6_K)
+  *   - LlamaF16Pipeline: F16 precision with Vec4 optimizations
   */
 trait LlamaPipeline:
 
@@ -26,15 +23,17 @@ trait LlamaPipeline:
   /** Last generation statistics. */
   def lastStats: Option[GenerationStats]
 
-  /** Generate tokens with KV cache.
+  /** Generate tokens with KV cache (GPU sampling).
     *
-    * Optimized generation that keeps KV cache on GPU:
+    * Optimized generation that keeps KV cache and sampling on GPU:
     *   - Prefill: Process all prompt tokens at once
     *   - Decode: Generate tokens one at a time, attending to full cache
+    *   - Sample: GPU-accelerated top-p sampling with temperature
     *
     * @param promptTokens Input prompt tokens
     * @param maxNewTokens Maximum tokens to generate
-    * @param sampleFn Sampling function (logits => token)
+    * @param temperature Sampling temperature (0 = greedy)
+    * @param topP Top-p (nucleus) sampling threshold
     * @param onToken Callback for each generated token
     * @param stopTokens Set of tokens that stop generation
     * @param reportStats If true, logs performance stats after generation
@@ -43,23 +42,13 @@ trait LlamaPipeline:
   def generate(
     promptTokens: Array[Int],
     maxNewTokens: Int,
-    sampleFn: Array[Float] => Int,
-    onToken: Int => Unit,
-    stopTokens: Set[Int],
-    reportStats: Boolean,
+    temperature: Float = 0.7f,
+    topP: Float = 0.9f,
+    onToken: Int => Unit = _ => (),
+    stopTokens: Set[Int] = Set.empty,
+    reportStats: Boolean = false,
   ): Array[Int]
 
-  /** Process prompt tokens and return logits for last position.
-    *
-    * @note Legacy API - creates new GPU allocation. Use generate() for efficient inference.
-    */
-  def prefill(tokens: Array[Int]): Array[Float]
-
-  /** Generate next token logits.
-    *
-    * @note Legacy API - creates new GPU allocation. Use generate() for efficient inference.
-    */
-  def decode(token: Int): Array[Float]
 
 /** Performance metrics from generation. */
 case class GenerationStats(

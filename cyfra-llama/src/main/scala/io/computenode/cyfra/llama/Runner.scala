@@ -54,12 +54,10 @@ object Runner:
     VkCyfraRuntime.using:
       val model = LlamaModel.fromGGUF(Paths.get(config.modelPath))
       val tokenizer = LlamaTokenizer(model.gguf)
-      val useQuantized = resolvedType == "f32"
-      val inference = new LlamaInference(model, maxT = 1024, useQuantized = useQuantized)
+      val inference = new LlamaInference(model, maxT = 1024)
       
       val pipeline: LlamaPipeline = resolvedType match
-        case "f16" => inference.getF16KVCachedPipeline
-        case "f32" => inference.getF32KVCachedPipeline
+        case "f16" => inference.getF16Pipeline
         case _ =>
           System.err.println(s"Unknown model type: $resolvedType")
           return
@@ -103,27 +101,15 @@ object Runner:
     println(s"Warmup: ${config.warmupRuns} runs, Benchmark: ${config.benchmarkRuns} runs")
     println(f"Sampling: temperature=${config.temperature}%.2f, top_p=${config.topP}%.2f\n")
     
-    // Sampling function based on config
-    val sampleFn: Array[Float] => Int = 
-      if config.temperature == 0.0f then
-        // Greedy argmax for temperature=0
-        logits =>
-          var maxIdx = 0
-          var maxVal = logits(0)
-          var i = 1
-          while i < logits.length do
-            if logits(i) > maxVal then
-              maxVal = logits(i)
-              maxIdx = i
-            i += 1
-          maxIdx
-      else
-        logits => topPSample(logits, config.temperature, config.topP)
-    
     // Warmup
     print("Warming up: ")
     for i <- 1 to config.warmupRuns do
-      pipeline.generate(tokens, config.maxTokens, sampleFn, _ => (), Set(tokenizer.eosToken), reportStats = false)
+      pipeline.generate(
+        tokens, config.maxTokens,
+        temperature = config.temperature,
+        topP = config.topP,
+        stopTokens = Set(tokenizer.eosToken),
+      )
       print(s"$i ")
       System.out.flush()
     println("done\n")
@@ -132,7 +118,12 @@ object Runner:
     println("Benchmark runs:")
     
     val (decoded, stats, lastGenerated) = (1 to config.benchmarkRuns).map: i =>
-      val generated = pipeline.generate(tokens, config.maxTokens, sampleFn, _ => (), Set(tokenizer.eosToken), reportStats = false)
+      val generated = pipeline.generate(
+        tokens, config.maxTokens,
+        temperature = config.temperature,
+        topP = config.topP,
+        stopTokens = Set(tokenizer.eosToken),
+      )
       val decoded = tokenizer.decode(generated)
       val s = pipeline.lastStats.get
       println(f"  Run $i: ${s.generatedTokens} tokens, generate ${s.decodeTokPerSec}%.1f tok/s")
@@ -153,14 +144,12 @@ object Runner:
     
     if config.batch then
       // Batch mode: print at end
-      val buffer = new StringBuilder()
       val generated = pipeline.generate(
         promptTokens = tokens,
         maxNewTokens = config.maxTokens,
-        sampleFn = logits => topPSample(logits, config.temperature, config.topP),
-        onToken = _ => (),
+        temperature = config.temperature,
+        topP = config.topP,
         stopTokens = Set(tokenizer.eosToken),
-        reportStats = false,
       )
       val decoded = tokenizer.decode(generated)
       println(s"Output: $decoded")
@@ -171,7 +160,8 @@ object Runner:
       val generated = pipeline.generate(
         promptTokens = tokens,
         maxNewTokens = config.maxTokens,
-        sampleFn = logits => topPSample(logits, config.temperature, config.topP),
+        temperature = config.temperature,
+        topP = config.topP,
         onToken = token =>
           val text = tokenizer.decodeToken(token)
           if !text.contains("</s>") && !text.contains("<|") then
@@ -179,7 +169,6 @@ object Runner:
             System.out.flush()
         ,
         stopTokens = Set(tokenizer.eosToken),
-        reportStats = false,
       )
       println()
       pipeline.lastStats match
@@ -259,29 +248,3 @@ object Runner:
       |  runner -m model.gguf --measure -n 128
       |""".stripMargin)
 
-  private def topPSample(logits: Array[Float], temperature: Float, topP: Float): Int =
-    val scaled = logits.map(_ / temperature)
-    val maxLogit = scaled.max
-    val expLogits = scaled.map(x => math.exp(x - maxLogit).toFloat)
-    val sumExp = expLogits.sum
-    val probs = expLogits.map(_ / sumExp)
-    val indexed = probs.zipWithIndex.sortBy(-_._1)
-    
-    var cumSum = 0.0f
-    var cutoffIdx = 0
-    while cutoffIdx < indexed.length && cumSum < topP do
-      cumSum += indexed(cutoffIdx)._1
-      cutoffIdx += 1
-    
-    val topTokens = indexed.take(cutoffIdx)
-    val topSum = topTokens.map(_._1).sum
-    val normalized = topTokens.map(t => (t._1 / topSum, t._2))
-    
-    val r = scala.util.Random.nextFloat()
-    var acc = 0.0f
-    var result = normalized.last._2
-    for (prob, idx) <- normalized do
-      acc += prob
-      if acc >= r && result == normalized.last._2 then
-        result = idx
-    result

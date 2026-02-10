@@ -25,6 +25,8 @@ import com.sun.jna.{Library, Native}
   */
 object NVTX:
 
+  private val enabled: Boolean = System.getProperty("io.computenode.cyfra.nvtx.enabled", "false").toBoolean
+
   private trait NVTXLib extends Library:
     def nvtxRangePushA(message: String): Int
     def nvtxRangePop(): Int
@@ -40,15 +42,15 @@ object NVTX:
 
   /** Push a named range onto the NVTX stack. Must be paired with pop(). */
   def push(name: String): Unit =
-    lib.foreach(_.nvtxRangePushA(name))
+    if enabled then lib.foreach(_.nvtxRangePushA(name))
 
   /** Pop the current range from the NVTX stack. */
   def pop(): Unit =
-    lib.foreach(_.nvtxRangePop())
+    if enabled then lib.foreach(_.nvtxRangePop())
 
   /** Place an instant marker (point in time, not a range). */
   def mark(name: String): Unit =
-    lib.foreach(_.nvtxMarkA(name))
+    if enabled then lib.foreach(_.nvtxMarkA(name))
 
   /** Execute body within a named NVTX range. */
   inline def range[T](name: String)(body: => T): T =
