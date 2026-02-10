@@ -4,23 +4,22 @@ import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.llama.gguf.GGUFReader
 import io.computenode.cyfra.llama.gguf.GGUFReader.{QuantType, TensorInfo}
 import io.computenode.cyfra.llama.model.{LlamaConfig, LlamaModel}
-import io.computenode.cyfra.llama.pipeline.{LlamaF32Pipeline, LlamaF16Pipeline}
+import io.computenode.cyfra.llama.pipeline.LlamaF16Pipeline
 import io.computenode.cyfra.llama.util.Logger
 import io.computenode.cyfra.runtime.VkCyfraRuntime
 
 /** Llama inference engine.
-  * 
+  *
   * Loads weights from GGUF and runs the forward pass on GPU.
-  * 
+  *
   * Supports two pipeline modes:
-  *   - KVCachedPipeline: For quantized (Q4_K/Q6_K) models
-  *   - F16KVCachedPipeline: For F16-native models (like Llama 3.2)
-  * 
+  *   - LlamaF32Pipeline: For quantized (Q4_K/Q6_K) models
+  *   - LlamaF16Pipeline: For F16-native models (like Llama 3.2)
+  *
   * @param model The loaded Llama model
   * @param maxT Maximum sequence length for the pipeline
-  * @param useQuantized If true, load quantized weights for KVCachedPipeline
   */
-class LlamaInference(model: LlamaModel, maxT: Int = 1, useQuantized: Boolean = false)(using runtime: VkCyfraRuntime):
+class LlamaInference(model: LlamaModel, maxT: Int = 1)(using runtime: VkCyfraRuntime):
   val config: LlamaConfig = model.config
   
   private lazy val allWeightsAreF16: Boolean =
@@ -40,81 +39,29 @@ class LlamaInference(model: LlamaModel, maxT: Int = 1, useQuantized: Boolean = f
     val hasQ4K = model.gguf.tensors.exists(_.quantType == QuantType.Q4_K)
     val hasQ6K = model.gguf.tensors.exists(_.quantType == QuantType.Q6_K)
     hasQ4K && hasQ6K
-  
-  // Mixed quantization weights for KVCachedPipeline
-  private lazy val mixedQuantWeights = if useQuantized && hasMixedQuantization then Some(loadMixedQuantWeights()) else None
-  
-  private lazy val f32KVCachedPipeline: LlamaF32Pipeline.F32KVCachedPipeline =
-    require(mixedQuantWeights.isDefined, "Mixed quant weights not loaded. Set useQuantized=true.")
-    new LlamaF32Pipeline.F32KVCachedPipeline(mixedQuantWeights.get, config, maxT)
+
   
   // F16-Native Pipeline for F16 models (KV-cached only)
   private lazy val f16Weights = if allWeightsAreF16 then Some(loadF16Weights()) else None
   
   // F16-Native KV Cached Pipeline with Vec4 optimizations (4x weight bandwidth!)
-  private lazy val f16KVCachedPipeline: LlamaF16Pipeline.F16KVCachedPipeline =
+  private lazy val f16Pipeline: LlamaF16Pipeline =
     require(f16Weights.isDefined, "F16 KV pipeline requires F16 weights.")
-    new LlamaF16Pipeline.F16KVCachedPipeline(f16Weights.get, config, maxT)
-  
-  /** Get the F32 KV-cached pipeline for quantized models.
-    *
-    * Uses Q4_K/Q6_K quantized weights with on-GPU dequantization.
-    */
-  def getF32KVCachedPipeline: LlamaF32Pipeline.F32KVCachedPipeline =
-    require(useQuantized && hasMixedQuantization, "F32 KV cache requires quantized weights.")
-    f32KVCachedPipeline
+    LlamaF16Pipeline(f16Weights.get, config, maxT)
   
   /** Get the F16-native KV cached pipeline for efficient incremental inference.
-    * 
+    *
     * This pipeline uses KV caching for O(1) per-token inference:
     *   - Prefill: Process all prompt tokens at once
     *   - Decode: Process 1 token at a time, attend to full KV cache
-    * 
+    *
     * Uses Vec4-optimized matmuls for 4x weight memory bandwidth.
     * Requires all weights to be F16 quantized.
     * Requires dimensions (C, kvSize, FFN) to be divisible by 4.
     */
-  def getF16KVCachedPipeline: LlamaF16Pipeline.F16KVCachedPipeline =
-    require(f16Weights.isDefined, "F16 KV pipeline requires F16 weights. Check that model uses F16 quantization.")
-    f16KVCachedPipeline
-
-  private def loadMixedQuantWeights(): LlamaF32Pipeline.MixedQuantModelWeights =
-    Logger.info(s"Loading mixed-quant weights (${config.numHiddenLayers} layers)...")
-    val startTime = System.currentTimeMillis()
-    
-    val tokenEmbed = model.gguf.readTensorDequantized(model.getTensor(LlamaModel.TensorNames.tokenEmbed).get)
-    val outputNorm = model.gguf.readTensorDequantized(model.getTensor(LlamaModel.TensorNames.outputNorm).get)
-    val output = model.gguf.readTensorDequantized(model.getTensor(LlamaModel.TensorNames.output).get)
-    
-    def readQuantized(tensor: GGUFReader.TensorInfo): (Array[Int], LlamaF32Pipeline.QuantWeightType) =
-      tensor.quantType match
-        case QuantType.Q4_K => (model.gguf.readTensorQ4KAsUInt32(tensor), LlamaF32Pipeline.Q4K)
-        case QuantType.Q6_K => (model.gguf.readTensorQ6KAsUInt32(tensor), LlamaF32Pipeline.Q6K)
-        case other => throw new IllegalArgumentException(s"Unsupported quantization type: $other")
-    
-    val layers = (0 until config.numHiddenLayers).map: l =>
-      val attnNorm = model.gguf.readTensorDequantized(model.getTensor(LlamaModel.TensorNames.attnNorm(l)).get)
-      val ffnNorm = model.gguf.readTensorDequantized(model.getTensor(LlamaModel.TensorNames.ffnNorm(l)).get)
-      val (wq, wqType) = readQuantized(model.getTensor(LlamaModel.TensorNames.attnQ(l)).get)
-      val (wk, wkType) = readQuantized(model.getTensor(LlamaModel.TensorNames.attnK(l)).get)
-      val (wv, wvType) = readQuantized(model.getTensor(LlamaModel.TensorNames.attnV(l)).get)
-      val (wo, woType) = readQuantized(model.getTensor(LlamaModel.TensorNames.attnOutput(l)).get)
-      val (ffnGate, ffnGateType) = readQuantized(model.getTensor(LlamaModel.TensorNames.ffnGate(l)).get)
-      val (ffnUp, ffnUpType) = readQuantized(model.getTensor(LlamaModel.TensorNames.ffnUp(l)).get)
-      val (ffnDown, ffnDownType) = readQuantized(model.getTensor(LlamaModel.TensorNames.ffnDown(l)).get)
-      LlamaF32Pipeline.MixedQuantLayerWeights(
-        attnNorm = attnNorm, wq = wq, wqType = wqType, wk = wk, wkType = wkType,
-        wv = wv, wvType = wvType, wo = wo, woType = woType, ffnNorm = ffnNorm,
-        ffnGate = ffnGate, ffnGateType = ffnGateType, ffnUp = ffnUp, ffnUpType = ffnUpType,
-        ffnDown = ffnDown, ffnDownType = ffnDownType,
-      )
-    
-    val elapsed = System.currentTimeMillis() - startTime
-    val totalMB = layers.map(l => l.wq.length + l.wk.length + l.wv.length + l.wo.length +
-      l.ffnGate.length + l.ffnUp.length + l.ffnDown.length).sum * 4 / 1024 / 1024
-    Logger.info(s"Mixed-quant weights loaded: ${elapsed}ms, ${totalMB}MB")
-    
-    LlamaF32Pipeline.MixedQuantModelWeights(tokenEmbed, layers, outputNorm, output)
+  def getF16Pipeline: LlamaF16Pipeline =
+    require(f16Weights.isDefined, "F16 pipeline requires F16 weights. Check that model uses F16 quantization.")
+    f16Pipeline
 
   /** Read tensor as F16 bytes, converting F32 to F16 if needed. */
   private def readAsF16Bytes(tensor: TensorInfo): Array[Byte] =
