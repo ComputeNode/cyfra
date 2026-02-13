@@ -61,29 +61,33 @@ object GIOCompiler:
         )
         (acc ::: List(barrierInsn), ctx)
 
-      case ConditionalWhen(cond, body) =>
-        compileConditionalWhen(cond, body, ctx, acc)
+      case cw @ ConditionalWhen(cond, body) =>
+        // Compile the underlying Empty first to register it for FoldRepeat body lookup
+        val (underlyingInsts, ctxWithUnderlying) = ExpressionCompiler.compileBlock(cw.underlying.tree, ctx)
+        compileConditionalWhen(cond, body, ctxWithUnderlying, acc ::: underlyingInsts)
 
-      case WriteShared(buffer, index, value) =>
+      case ws @ WriteShared(buffer, index, value) =>
         val sharedId = buffer.asInstanceOf[io.computenode.cyfra.dsl.binding.GShared.GSharedImpl[?]].sharedId
         val (valueInsts, ctxWithValue) = ExpressionCompiler.compileBlock(value.tree, ctx)
         val (indexInsts, ctxWithIndex) = ExpressionCompiler.compileBlock(index.tree, ctxWithValue)
-        val sharedBlock = ctxWithIndex.sharedVarRefs(sharedId)
+        // Compile the underlying Empty to register it for FoldRepeat body lookup
+        val (underlyingInsts, ctxWithUnderlying) = ExpressionCompiler.compileBlock(ws.underlying.tree, ctxWithIndex)
+        val sharedBlock = ctxWithUnderlying.sharedVarRefs(sharedId)
         val insns = List(
           Instruction(
             Op.OpAccessChain,
             List(
               ResultRef(sharedBlock.pointerTypeRef),
-              ResultRef(ctxWithIndex.nextResultId),
+              ResultRef(ctxWithUnderlying.nextResultId),
               ResultRef(sharedBlock.varRef),
-              ResultRef(ctxWithIndex.exprRefs(index.tree.treeid)),
+              ResultRef(ctxWithUnderlying.exprRefs(index.tree.treeid)),
             ),
           ),
-          Instruction(Op.OpStore, List(ResultRef(ctxWithIndex.nextResultId), ResultRef(ctxWithIndex.exprRefs(value.tree.treeid)))),
+          Instruction(Op.OpStore, List(ResultRef(ctxWithUnderlying.nextResultId), ResultRef(ctxWithUnderlying.exprRefs(value.tree.treeid)))),
         )
-        val updatedCtx = ctxWithIndex.copy(nextResultId = ctxWithIndex.nextResultId + 1)
+        val updatedCtx = ctxWithUnderlying.copy(nextResultId = ctxWithUnderlying.nextResultId + 1)
         // valueInsts before indexInsts: value compiled first, may define exprs index uses
-        (acc ::: valueInsts ::: indexInsts ::: insns, updatedCtx)
+        (acc ::: valueInsts ::: indexInsts ::: underlyingInsts ::: insns, updatedCtx)
 
       case Printf(format, args*) =>
         val (argsInsts, ctxAfterArgs) = args.foldLeft((List.empty[Words], ctx)) { case ((instsAcc, cAcc), arg) =>
