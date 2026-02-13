@@ -5,9 +5,11 @@ import io.computenode.cyfra.compiler.unit.Context
 
 import scala.collection.mutable
 import io.computenode.cyfra.compiler.CompilationException
+import io.computenode.cyfra.compiler.Compiler.Config
 import io.computenode.cyfra.compiler.Spirv.*
 import io.computenode.cyfra.compiler.ir.IR.RefIR
-import io.computenode.cyfra.core.memory.GBinding
+import io.computenode.cyfra.core.expression.types.IntegerType
+import io.computenode.cyfra.core.memory.{BindingRef, Focus, FocusConstant, FocusDynamic, FocusRoot, GBinding, Variable}
 import io.computenode.cyfra.utility.Utility.*
 
 import scala.collection.immutable.{AbstractMap, SeqMap, SortedMap}
@@ -17,10 +19,10 @@ case class Compilation(metadata: Metadata, context: Context, functionBodies: Lis
     context.output ++ functionBodies.flatMap(_.body)
 
 object Compilation:
-  def apply(functions: List[(FunctionIR[?], IRs[?])]): Compilation =
+  def apply(functions: List[(FunctionIR[?], IRs[?])], config: Config): Compilation =
     val (f, fir) = functions.unzip
     val context = Context(Nil, Nil, TypeManager(), ConstantsManager(), Nil)
-    val meta = Metadata(Nil, f, (0, 0, 0))
+    val meta = Metadata(f, config)
     Compilation(meta, context, fir)
 
   def debugPrint(compilation: Compilation): Unit =
@@ -36,21 +38,18 @@ object Compilation:
 
     def irInternal(ir: IR[?]): String = ir match
       case IR.Constant(value)                               => s"($value)"
-      case IR.Declare(variable)                          => s"#${variable.id}"
-      case IR.Read(variable)                             => s"#${variable.id}"
-      case IR.Write(variable, value)                     => s"#${variable.id} ${map(value.id)}"
-      case IR.ReadBuffer(buffer, index)                     => s"@${buffer.layoutOffset} ${map(index.id)}"
-      case IR.WriteBuffer(buffer, index, value)             => s"@${buffer.layoutOffset} ${map(index.id)} ${map(value.id)}"
-      case IR.ReadUniform(uniform)                          => s"@${uniform.layoutOffset}"
-      case IR.WriteUniform(uniform, value)                  => s"@${uniform.layoutOffset} ${map(value.id)}"
+      case IR.Declare(focus, init)                          => s"#${focus.id}"
+      case IR.Read(focus, accessChain)                      => s"#${focus.id} ${accessChain.map(_.id).map(map).mkString(" ")}"
+      case IR.Write(focus, accessChain, value)              => s"#${focus.id} ${accessChain.map(_.id).map(map).mkString(" ")} ${map(value.id)}"
       case IR.Operation(func, args)                         => s"${func.name} ${args.map(_.id).map(map).mkString(" ")}"
       case IR.CallWithVar(func, args)                       => s"${func.name} ${args.map(x => s"#${x.id}").mkString(" ")}"
       case IR.CallWithIR(func, args)                        => s"${func.name} ${args.map(x => map(x.id)).mkString(" ")}"
-      case IR.Branch(cond, ifTrue, ifFalse, break)          => s"${map(cond.id)} ???"
-      case IR.Loop(mainBody, continueBody, break, continue) => "???"
+      case IR.Branch(cond, ifTrue, ifFalse, break)          => s"${map(cond.id)} <if body>"
+      case IR.Loop(mainBody, continueBody, break, continue) => "<loop body>"
       case IR.Jump(target, value)                           => s"${target.id} ${map(value.id)}"
       case IR.ConditionalJump(cond, target, value)          => s"${map(cond.id)} ${target.id} ${map(value.id)}"
       case IR.Interface(ref)                                => s"${map(ref.id)}"
+      case IR.Composite(value, index)                       => ???
       case sv: (IR.SvInst | IR.SvRef[?])                    =>
         val operands = sv match
           case x: IR.SvInst   => x.operands
@@ -92,3 +91,9 @@ object Compilation:
       println("".red)
       println("Some references were not found in the mapping!".red)
       throw CompilationException("Debug print failed due to missing references")
+
+  extension (focus: FocusRoot[?])
+    def id: Int = focus match
+      case binding: BindingRef[?] => binding.layoutOffset
+      case variable: Variable[?]  => variable.id
+      case _                      => ???

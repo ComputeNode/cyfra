@@ -2,6 +2,7 @@ package io.computenode.cyfra.core.memory
 
 import io.computenode.cyfra.core.expression.Value
 import io.computenode.cyfra.core.expression.types.{IntegerType, Mat, RuntimeArray, Vec}
+import io.computenode.cyfra.utility.Utility.nextId
 
 import scala.quoted.{Expr, Quotes, Type}
 

@@ -4,29 +4,38 @@ import io.computenode.cyfra.compiler.ir.IR.RefIR
 import io.computenode.cyfra.core.expression.{Value, given}
 import io.computenode.cyfra.core.expression.types.given
 import io.computenode.cyfra.compiler.ir.{FunctionIR, IR, IRs}
-import io.computenode.cyfra.compiler.modules.CompilationModule.FunctionCompilationModule
-import io.computenode.cyfra.compiler.unit.{Context, Ctx}
+import io.computenode.cyfra.compiler.modules.CompilationModule.{FunctionCompilationModule, StandardCompilationModule}
+import io.computenode.cyfra.compiler.unit.{Compilation, Context, Ctx}
 import io.computenode.cyfra.compiler.Spirv.Op
 import io.computenode.cyfra.compiler.Spirv.StorageClass
 
 import scala.collection.mutable
 
-class Variables extends FunctionCompilationModule:
-  override def compileFunction(input: IRs[?])(using Ctx): IRs[?] =
+class Variables extends StandardCompilationModule:
+  def compile(input: Compilation): Compilation =
+    val (ctx, global) = compileGlobal(input.context)
+    val (newFunctions, context) = Ctx.withCapability(input.context):
+      input.functionBodies.map(compileFunction(_, global))
+    input.copy(context = context, functionBodies = newFunctions)
+
+  private def compileGlobal(input: Context): (Context, Map[Int, RefIR[Unit]]) =
+    ???
+
+  private def compileFunction(input: IRs[?], globalVariables: Map[Int, RefIR[Unit]])(using Ctx): IRs[?] =
     val varDeclarations = mutable.Map.empty[Int, RefIR[Unit]]
     input.flatMapReplace:
-      case IR.Declare(variable) =>
-        val inst = IR.SvRef[Unit](Op.OpVariable, Ctx.getTypePointer(variable.v, StorageClass.Function), List(StorageClass.Function))
-        varDeclarations(variable.id) = inst
-        IRs(inst)
-      case IR.Write(variable, value) =>
-        val inst = IR.SvInst(Op.OpStore, List(varDeclarations(variable.id), value))
-        IRs(inst)
-      case x: IR.Read[a] =>
-        given Value[a] = x.v
-        val IR.Read(variable) = x
-        val inst = IR.SvRef[a](Op.OpLoad, Ctx.getType(variable.v), List(varDeclarations(variable.id)))
-        IRs(inst)
+//      case IR.Declare(variable) =>
+//        val inst = IR.SvRef[Unit](Op.OpVariable, Ctx.getTypePointer(variable.v, StorageClass.Function), List(StorageClass.Function))
+//        varDeclarations(variable.id) = inst
+//        IRs(inst)
+//      case IR.Write(variable, value) =>
+//        val inst = IR.SvInst(Op.OpStore, List(varDeclarations(variable.id), value))
+//        IRs(inst)
+//      case x: IR.Read[a] =>
+//        given Value[a] = x.v
+//        val IR.Read(variable) = x
+//        val inst = IR.SvRef[a](Op.OpLoad, Ctx.getType(variable.v), List(varDeclarations(variable.id)))
+//        IRs(inst)
       case x: IR.CallWithVar[a] =>
         given v: Value[a] = x.v
         val IR.CallWithVar(func, args) = x

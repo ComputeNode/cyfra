@@ -19,12 +19,12 @@ case class ExpressionBlock[A](result: Expression[A], body: List[Expression[?]]):
         case Expression.Constant(_)                  => vars
         case Expression.VariableDeclare(variable, _) =>
           vars + variable.id
-        case Expression.Read(focus) =>
+        case Expression.Read(focus, _) =>
           focus.getRoot match
             case variable: LocalVariable[?] if vars.contains(variable.id) => vars
             case uniform: GUniform[?]                                     => vars
             case _                                                        => break(false)
-        case Expression.Write(focus, _) =>
+        case Expression.Write(focus, _, _) =>
           focus.getRoot match
             case variable: LocalVariable[?] if vars.contains(variable.id) => vars
             case _                                                        => break(false)
@@ -74,8 +74,9 @@ case class ExpressionBlock[A](result: Expression[A], body: List[Expression[?]]):
       val prefix = s"%${x.id} = "
       val suffix = x match
         case Expression.Constant(value)                      => s"const $value"
-        case Expression.Read(variable)                       => s"read $variable"
-        case Expression.Write(variable, value)               => s"write $variable <- %${value.id}"
+        case Expression.VariableDeclare(variable, init)      => s"declare $variable ${init.map(_.id.toString).getOrElse("")}"
+        case Expression.Read(variable, accessChain)          => s"read $variable ${accessChain.map(_.id).mkString("%", " %", "")}"
+        case Expression.Write(variable, accessChain, value)  => s"write $variable ${accessChain.map(_.id).mkString("%", " %", "")} <- %${value.id}"
         case Expression.BuildInOperation(func, args)         => s"$func ${args.map(_.id).mkString("%", " %", "")}"
         case Expression.CustomCall(func, args)               => s"call #${func.id} ${args.map(_.id).mkString("%", " %", "")}"
         case Expression.Branch(cond, ifTrue, ifFalse, break) => s"branch %${cond.id} ? [%${ifTrue._1.id}] : [%${ifFalse._1.id}] -> jt#${break.id}"

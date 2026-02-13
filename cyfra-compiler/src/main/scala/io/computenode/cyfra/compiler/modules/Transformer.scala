@@ -4,6 +4,7 @@ import io.computenode.cyfra.compiler.ir.{FunctionIR, IRs}
 import io.computenode.cyfra.compiler.ir.IR
 import io.computenode.cyfra.compiler.ir.IRs
 import io.computenode.cyfra.compiler.CompilationException
+import io.computenode.cyfra.compiler.Compiler.Config
 import io.computenode.cyfra.core.expression.types.given
 import io.computenode.cyfra.compiler.unit.Compilation
 import io.computenode.cyfra.core.memory.{BufferRef, GBuffer, GUniform, UniformRef, Variable}
@@ -11,16 +12,16 @@ import io.computenode.cyfra.core.expression.{BuildInFunction, CustomFunction, Ex
 
 import scala.collection.mutable
 
-class Transformer extends CompilationModule[ExpressionBlock[Unit], Compilation]:
-  def compile(body: ExpressionBlock[Unit]): Compilation =
-    val main = new CustomFunction("main", List(), body)
+class Transformer extends CompilationModule[(ExpressionBlock[Unit], Config), Compilation]:
+  def compile(body: (ExpressionBlock[Unit], Config)): Compilation =
+    val main = new CustomFunction("main", List(), body._1)
     val functions = extractCustomFunctions(main).reverse
     val functionMap = mutable.Map.empty[CustomFunction[?], FunctionIR[?]]
     val nextFunctions = functions.map: f =>
       val func = convertToFunction(f, functionMap)
       functionMap(f) = func._1
       func
-    Compilation(nextFunctions)
+    Compilation(nextFunctions, body._2)
 
   private def extractCustomFunctions(f: CustomFunction[Unit]): List[CustomFunction[?]] =
     val visited = mutable.Map[CustomFunction[?], 0 | 1 | 2]().withDefaultValue(0)
@@ -75,11 +76,13 @@ class Transformer extends CompilationModule[ExpressionBlock[Unit], Compilation]:
         given Value[a] = x.v2
         val init = x.init.map(x => convertToRefIR(x, functionMap, expressionMap))
         IR.Declare(x.variable, init)
-      case Expression.Read(focus) =>
-        IR.Read(focus)
+      case Expression.Read(focus, accessChain) =>
+        val chain = accessChain.map(x => convertToRefIR(x, functionMap, expressionMap))
+        IR.Read(focus.getRoot, chain)
       case x: Expression.Write[a] =>
         given Value[a] = x.v2
-        IR.Write(x.focus, convertToRefIR(x.value, functionMap, expressionMap))
+        val chain = x.accessChain.map(x => convertToRefIR(x, functionMap, expressionMap))
+        IR.Write(x.focus.getRoot, chain, convertToRefIR(x.value, functionMap, expressionMap))
       case Expression.BuildInOperation(func, args) =>
         IR.Operation(func, args.map(convertToRefIR(_, functionMap, expressionMap)))
       case Expression.CustomCall(func, args) =>
@@ -100,7 +103,8 @@ class Transformer extends CompilationModule[ExpressionBlock[Unit], Compilation]:
         given Value[a] = x.v2
         IR.ConditionalJump(convertToRefIR(x.cond, functionMap, expressionMap), x.target, convertToRefIR(x.value, functionMap, expressionMap))
       case x: Expression.Composite[a, n] =>
-        IR.Composite(convertToRefIR(x.value, functionMap, expressionMap), x.n)
+        given Value[a] = x.v2
+        IR.Composite[a, A](convertToRefIR(x.value, functionMap, expressionMap), x.n)
 
     expressionMap(expr.id) = res
     res

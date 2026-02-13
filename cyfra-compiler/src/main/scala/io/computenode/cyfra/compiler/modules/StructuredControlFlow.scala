@@ -34,6 +34,7 @@ class StructuredControlFlow extends FunctionCompilationModule:
       case x: Branch[a]  =>
         given v: Value[a] = x.v
         val Branch(cond, ifTrue, ifFalse, break) = x
+        // noinspection DuplicatedCode
         val trueLabel = SvRef[Unit](Op.OpLabel, Nil)
         val falseLabel = SvRef[Unit](Op.OpLabel, Nil)
         val mergeLabel = SvRef[Unit](Op.OpLabel, Nil)
@@ -41,7 +42,7 @@ class StructuredControlFlow extends FunctionCompilationModule:
         targets(break) = mergeLabel
         phiMap(break) = mutable.Buffer.empty
 
-        val (IRs(trueRes, trueBody), afterTrueLabel) = compileRec(ifTrue, trueLabel, targets, phiMap)
+        val (IRs(trueRes, trueBody), afterTrueLabel) = compileRec(ifTrue, trueLabel, targets, phiMap) 
         val (IRs(falseRes, falseBody), afterFalseLabel) = compileRec(ifFalse, falseLabel, targets, phiMap)
 
         val trueSkipped = phiMap(break).exists(_._2.id == afterTrueLabel.id)

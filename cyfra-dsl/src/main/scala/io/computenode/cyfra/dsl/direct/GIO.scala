@@ -2,13 +2,14 @@ package io.computenode.cyfra.dsl.direct
 
 import io.computenode.cyfra.core.{ExpressionProgram, GProgram, Layout}
 import io.computenode.cyfra.core.GProgram.{InitProgramLayout, ProgramDispatch, WorkDimensions}
-import io.computenode.cyfra.core.expression.{BuildInFunction, CustomFunction, Expression, ExpressionBlock, JumpTarget, Value, given}
+import io.computenode.cyfra.core.expression.{BuildInFunction, CustomFunction, Expression, ExpressionBlock, ExpressionHolder, JumpTarget, Value, given}
 import io.computenode.cyfra.core.expression.CustomFunction.CustomFunction1
-import io.computenode.cyfra.core.memory.{Focus, GBuffer, GUniform, LocalVariable, Variable}
+import io.computenode.cyfra.core.memory.{Focus, FocusConstant, FocusDynamic, FocusRoot, GBuffer, GUniform, LocalVariable, Variable}
 import io.computenode.cyfra.core.expression.JumpTarget.{BreakTarget, ContinueTarget}
 import io.computenode.cyfra.core.expression.Value.irs
 import io.computenode.cyfra.core.expression.types.*
 import io.computenode.cyfra.core.expression.types.given
+import io.computenode.cyfra.utility.cats.Monad
 
 class GIO:
   private var result: List[Expression[?]] = Nil
@@ -28,14 +29,25 @@ object GIO:
     summon[Value[A]].indirect(res.result)
 
   def read[T: Value](focus: Focus[T])(using gio: GIO): T =
-    val read = Expression.Read(focus)
-    gio.add(read)
+    val accessChain = extractFocusTrail(focus)
+    val read = Expression.Read(focus.getRoot, accessChain.map(_.result))
+    gio.extend(read :: accessChain.flatMap(_.body))
     Value[T].indirect(read)
 
   def write[T: Value](focus: Focus[T], value: T)(using gio: GIO): Unit =
+    val accessChain = extractFocusTrail(focus)
     val v = value.irs
-    val write = Expression.Write(focus, v.result)
-    gio.extend(write :: v.body)
+    val write = Expression.Write(focus.getRoot, accessChain.map(_.result), v.result)
+    gio.extend(write :: accessChain.flatMap(_.body) ::: v.body)
+
+  private def extractFocusTrail(focus: Focus[?]): List[ExpressionBlock[?]] =
+    def extractFocusTrailAcc(focus: Focus[?]): List[ExpressionBlock[?]] =
+      focus match
+        case root: FocusRoot[?]           => Nil
+        case FocusConstant(parent, value) => ExpressionBlock(Expression.Constant[Int32](value)) :: extractFocusTrail(parent)
+        case FocusDynamic(parent, value)  => value.asInstanceOf[ExpressionHolder[?]].block :: extractFocusTrail(parent)
+
+    extractFocusTrailAcc(focus).reverse
 
   def op[Res: Value](func: BuildInFunction.BuildInFunction0[Res])(using gio: GIO): Res =
     val next = Expression.BuildInOperation(func, List())

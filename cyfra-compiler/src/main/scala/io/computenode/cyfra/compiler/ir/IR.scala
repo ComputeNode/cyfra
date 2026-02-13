@@ -42,10 +42,12 @@ object IR:
   sealed trait RefIR[A: Value] extends IR[A]
 
   case class Constant[A: Value](value: Any) extends RefIR[A]
-  case class Declare[A: Value](focus: FocusRoot[A], init: Option[RefIR[A]]) extends RefIR[Unit]
-  case class Read[A: Value](focus: Focus[A]) extends RefIR[A]
-  case class Write[A: Value](focus: Focus[A], value: RefIR[A]) extends IR[Unit]:
-    override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[Unit] = this.copy(value = value.replaced)
+  case class Declare[A: Value](root: FocusRoot[A], init: Option[RefIR[A]]) extends RefIR[Unit]
+  case class Read[A: Value](root: FocusRoot[?], accessChain: List[RefIR[?]]) extends RefIR[A]:
+    override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[A] = this.copy(accessChain = accessChain.map(_.replaced))
+  case class Write[A: Value](root: FocusRoot[?], accessChain: List[RefIR[?]], value: RefIR[A]) extends IR[Unit]:
+    override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[Unit] =
+      this.copy(value = value.replaced, accessChain = accessChain.map(_.replaced))
   case class Operation[A: Value](func: BuildInFunction[A], args: List[RefIR[?]]) extends RefIR[A]:
     override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[A] = this.copy(args = args.map(_.replaced))
   case class CallWithVar[A: Value](func: FunctionIR[A], args: List[Variable[?]]) extends RefIR[A]

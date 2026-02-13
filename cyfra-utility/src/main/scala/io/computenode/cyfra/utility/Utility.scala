@@ -13,7 +13,7 @@ object Utility:
     logger.debug(s"$tag: ${end - start}ms")
     res
 
-  private val aint = AtomicInteger(0)
+  private val aint = AtomicInteger(1000)
   def nextId(): Int = aint.getAndIncrement()
 
   extension (str: String)

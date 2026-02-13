@@ -98,7 +98,7 @@ lazy val spirvTools = (project in file("cyfra-spirv-tools"))
 
 lazy val compiler = (project in file("cyfra-compiler"))
   .settings(commonSettings)
-  .dependsOn(core, utility, spirvTools)
+  .dependsOn(core, utility, spirvTools, dsl % Test)
 
 lazy val vulkan = (project in file("cyfra-vulkan"))
   .settings(commonSettings)

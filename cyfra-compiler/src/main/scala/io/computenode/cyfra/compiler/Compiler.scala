@@ -12,18 +12,16 @@ import java.nio.ByteBuffer
 class Compiler(verbose: "none" | "last" | "all" = "none"):
   private val transformer = new Transformer()
   private val modules: List[StandardCompilationModule] =
-    List(new Reordering, new StructuredControlFlow, new Variables, new Functions, new Bindings, new Constants, new Algebra, new Finalizer)
+    List(new VarDeclarations, new Variables, new StructuredControlFlow, new Functions, /*new Bindings*/ new Constants, new Algebra /*new Finalizer*/ )
   private val emitter = new Emitter()
 
   def compile(body: ExpressionBlock[Unit], config: Compiler.Config): ByteBuffer =
-    val parsedUnit =
-      val parsed = transformer.compile(body)
-      parsed.copy(metadata = parsed.metadata.copy(config = config))
+    val parsed = transformer.compile((body, config))
     if verbose == "all" then
       println(s"=== ${transformer.name} ===")
-      Compilation.debugPrint(parsedUnit)
+      Compilation.debugPrint(parsed)
 
-    val compiledUnit = modules.foldLeft(parsedUnit): (unit, module) =>
+    val compiledUnit = modules.foldLeft(parsed): (unit, module) =>
       val res = module.compile(unit)
       if verbose == "all" then
         println(s"\n=== ${module.name} ===")
@@ -39,4 +37,4 @@ class Compiler(verbose: "none" | "last" | "all" = "none"):
 object Compiler:
   sealed trait Config
 
-  case class Compute(bindings: Seq[GBinding[?]], workgroupSize: WorkDimensions)
+  case class Compute(bindings: Seq[GBinding[?]], workgroupSize: WorkDimensions) extends Config
