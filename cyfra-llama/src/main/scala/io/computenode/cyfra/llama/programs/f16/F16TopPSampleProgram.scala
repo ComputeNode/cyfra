@@ -8,26 +8,23 @@ import io.computenode.cyfra.dsl.binding.GShared
 import io.computenode.cyfra.dsl.gio.GIO
 import io.computenode.cyfra.dsl.struct.{GStruct, GStructSchema}
 
-/** GPU-based Top-P (nucleus) sampling.
+/** GPU-based Top-P (nucleus) sampling with bitonic sort.
   *
   * Uses a multi-phase approach:
   *   1. Softmax: Find max, compute exp values, sum (subgroup reductions)
-  *   2. Local Top: Each thread finds its best candidate
-  *   3. Warp reduction: Each warp finds its best candidate (8 total)
-  *   4. Sort: Simple bubble sort on 8 candidates
-  *   5. Sample: Cumulative sum over sorted candidates, sample at threshold
-  *
-  * For peaked LLM distributions, 8 warp-best candidates typically cover 90%+ probability.
-  * Falls back to argmax if sampling fails.
+  *   2. Local Top: Each thread finds its best candidate among its assigned indices
+  *   3. Bitonic Sort: All 256 thread-local bests sorted in parallel
+  *   4. Sample: Cumulative sum over sorted candidates, sample at threshold
   *
   * Configuration:
-  *   - BLOCK_SIZE = 256 threads (8 warps)
-  *   - NUM_WARPS = 8 candidates for sampling
+  *   - BLOCK_SIZE = 256 threads
+  *   - 256 candidates sorted via bitonic sort
   */
 object F16TopPSampleProgram:
   val WARP_SIZE = 32
   val BLOCK_SIZE = 256
   val NUM_WARPS = BLOCK_SIZE / WARP_SIZE // 8
+  val LOG2_BLOCK_SIZE = 8 // log2(256)
 
   case class Sizes(vocabSize: Int):
     def numIterations: Int = (vocabSize + BLOCK_SIZE - 1) / BLOCK_SIZE
@@ -46,6 +43,17 @@ object F16TopPSampleProgram:
     params: GUniform[SampleParams],
     result: GBuffer[Int32], // Output: single sampled token index
   ) derives Layout
+
+  // Generate all bitonic sort steps at compile time
+  // Each step is (distance, dirBlockSize) - the comparison distance and direction block size
+  private val bitonicSteps: Seq[(Int, Int)] =
+    for
+      stage <- 0 until LOG2_BLOCK_SIZE
+      subStage <- 0 to stage
+    yield
+      val distance = 1 << (stage - subStage)
+      val dirBlockSize = 1 << (stage + 1)
+      (distance, dirBlockSize)
 
   /** Top-p sampling with temperature scaling.
     *
@@ -77,9 +85,9 @@ object F16TopPSampleProgram:
       // Shared memory for reductions
       val sharedMax = GShared[Float32](NUM_WARPS)
       val sharedSum = GShared[Float32](NUM_WARPS)
-      // Store warp-best candidates: 8 probs and 8 indices
-      val sharedProbs = GShared[Float32](NUM_WARPS)
-      val sharedIndices = GShared[Int32](NUM_WARPS)
+      // 256 candidates for bitonic sort
+      val sharedProbs = GShared[Float32](BLOCK_SIZE)
+      val sharedIndices = GShared[Int32](BLOCK_SIZE)
 
       for
         // ========== PHASE 1: SOFTMAX ==========
@@ -103,7 +111,6 @@ object F16TopPSampleProgram:
           when(tid < NUM_WARPS)(sharedMax.read(tid)).otherwise(-1e10f)
         }
         globalMaxWarp0 <- GIO.pure(GIO.subgroupMax(globalMax))
-        // Broadcast global max to all threads via shared memory
         _ <- GIO.when(tid === 0):
           sharedMax.write(0, globalMaxWarp0)
         _ <- GIO.barrier
@@ -134,7 +141,6 @@ object F16TopPSampleProgram:
           when(tid < NUM_WARPS)(sharedSum.read(tid)).otherwise(0.0f)
         }
         globalSumWarp0 <- GIO.pure(GIO.subgroupAdd(globalSum) + 1e-10f)
-        // Broadcast global sum to all threads via shared memory
         _ <- GIO.when(tid === 0):
           sharedSum.write(0, globalSumWarp0)
         _ <- GIO.barrier
@@ -142,7 +148,7 @@ object F16TopPSampleProgram:
         rcpSum <- GIO.pure(1.0f / globalSumReduced)
 
         // ========== PHASE 2: LOCAL TOP CANDIDATE SELECTION ==========
-        // Each thread finds its best candidate (prob, idx) stored as Vec2
+        // Each thread finds its best candidate and writes to shared memory
         localTop <- GIO.pure {
           GSeq.gen[Int32](tid, _ + BLOCK_SIZE).limit(numIterations).fold(
             vec2(-1e10f, -1.0f), // (maxProb, maxIdx)
@@ -155,56 +161,54 @@ object F16TopPSampleProgram:
           )
         }
 
-        // ========== PHASE 3: WARP-LEVEL REDUCTION TO GET TOP 8 ==========
-        // Each warp finds its best candidate using subgroup reductions
-        warpBestProb <- GIO.pure(GIO.subgroupMax(localTop.x))
-
-        // Tolerance-based comparison to handle floating-point precision
-        isWarpBest <- GIO.pure(localTop.x >= warpBestProb - 1e-7f)
-
-        // For threads with best prob, use their index; others use large value
-        // subgroupMin will select the lowest index among ties
-        warpBestIdx <- GIO.pure(when(isWarpBest)(localTop.y).otherwise(1e10f))
-        warpWinnerIdx <- GIO.pure(GIO.subgroupMin(warpBestIdx))
-
-        // Lane 0 of each warp writes the result
-        _ <- GIO.when(laneId === 0):
-          for
-            _ <- sharedProbs.write(warpId, warpBestProb)
-            _ <- sharedIndices.write(warpId, warpWinnerIdx.asInt)
-          yield GStruct.Empty()
+        // Write to shared memory
+        _ <- sharedProbs.write(tid, localTop.x)
+        _ <- sharedIndices.write(tid, localTop.y.asInt)
         _ <- GIO.barrier
 
-        // ========== PHASE 4: SORT 8 CANDIDATES (single thread) ==========
-        // Simple bubble sort for 8 elements - very fast
-        _ <- GIO.when(tid === 0) {
-          GIO.repeat(NUM_WARPS): _ =>
-            GIO.repeat(NUM_WARPS - 1): j =>
-              val jIdx: Int32 = j
-              val jIdxPlus1: Int32 = jIdx + 1
-              // Read all values BEFORE any writes to avoid the swap bug
+        // ========== PHASE 3: BITONIC SORT (descending by probability) ==========
+        // Unrolled at compile time - 36 steps total for 256 elements
+        _ <- bitonicSteps.foldLeft(GIO.pure(GStruct.Empty())) { case (acc, (distance, dirBlockSize)) =>
+          acc.flatMap { _ =>
+            val blockSizeVal = distance * 2
+            val posInBlock: Int32 = tid.mod(blockSizeVal)
+
+            // Only lower half of each block participates
+            GIO.when(posInBlock < distance):
+              val i: Int32 = tid
+              val j: Int32 = tid + distance
+
               for
-                prob0 <- GIO.pure(sharedProbs.read(jIdx))
-                prob1 <- GIO.pure(sharedProbs.read(jIdxPlus1))
-                idx0 <- GIO.pure(sharedIndices.read(jIdx))
-                idx1 <- GIO.pure(sharedIndices.read(jIdxPlus1))
-                // Swap if out of order (descending)
-                _ <- GIO.when(prob0 < prob1):
+                probI <- GIO.pure(sharedProbs.read(i))
+                probJ <- GIO.pure(sharedProbs.read(j))
+                idxI <- GIO.pure(sharedIndices.read(i))
+                idxJ <- GIO.pure(sharedIndices.read(j))
+
+                // Determine sort direction: descending in first half of direction block
+                ascending <- GIO.pure((tid / dirBlockSize).mod(2) === 0)
+
+                // Swap if out of order (we want descending overall, so flip logic)
+                shouldSwap <- GIO.pure(
+                  when(ascending)(probI < probJ).otherwise(probI > probJ)
+                )
+
+                _ <- GIO.when(shouldSwap):
                   for
-                    _ <- sharedProbs.write(jIdx, prob1)
-                    _ <- sharedProbs.write(jIdxPlus1, prob0)
-                    _ <- sharedIndices.write(jIdx, idx1)
-                    _ <- sharedIndices.write(jIdxPlus1, idx0)
+                    _ <- sharedProbs.write(i, probJ)
+                    _ <- sharedProbs.write(j, probI)
+                    _ <- sharedIndices.write(i, idxJ)
+                    _ <- sharedIndices.write(j, idxI)
                   yield GStruct.Empty()
               yield GStruct.Empty()
+            GIO.barrier
+          }
         }
-        _ <- GIO.barrier
 
-        // ========== PHASE 5: CUMULATIVE SUM + SAMPLE ==========
+        // ========== PHASE 4: CUMULATIVE SUM + SAMPLE (single thread) ==========
         _ <- GIO.when(tid === 0) {
           // Compute cumulative sum and sample
           val threshold = randomValue * topP
-          val result = GSeq.gen[Int32](0, _ + 1).limit(NUM_WARPS).fold(
+          val result = GSeq.gen[Int32](0, _ + 1).limit(BLOCK_SIZE).fold(
             vec2(0.0f, -1.0f), // (cumSum, sampledIdx)
             (state: Vec2[Float32], i: Int32) =>
               val cumSum = state.x

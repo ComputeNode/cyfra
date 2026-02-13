@@ -129,6 +129,20 @@ class ShaderDumpTest extends FunSuite:
     ))
     dumpProgram("f16_top_p_sample", program)
 
+  test("Dump F16 Fused Attention shader"):
+    val program = F16FusedAttentionProgram.forward(F16FusedAttentionProgram.Sizes(
+      B = 1,
+      T = 1,
+      NH = 32,
+      NKV = 8,
+      headSize = 64,
+      maxSeqLen = 2048,
+      kCacheLayerOffset = 0,
+      vCacheLayerOffset = 0,
+      L = 16,
+    ))
+    dumpProgram("f16_fused_attention", program)
+
   private def dumpProgram[P, L: Layout](name: String, program: GProgram[P, L]): Unit =
     program match
       case gioProgram: GioProgram[P, L] =>
