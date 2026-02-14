@@ -3,32 +3,20 @@ package io.computenode.cyfra.runtime
 import io.computenode.cyfra.core.GProgram.InitProgramLayout
 import io.computenode.cyfra.core.SpirvProgram.*
 import io.computenode.cyfra.core.binding.{BufferRef, UniformRef}
-import io.computenode.cyfra.core.{GExecution, GProgram}
 import io.computenode.cyfra.core.layout.Layout
+import io.computenode.cyfra.core.{GExecution, GProgram, Provenance}
 import io.computenode.cyfra.dsl.Value
 import io.computenode.cyfra.dsl.Value.FromExpr
 import io.computenode.cyfra.dsl.binding.{GBinding, GBuffer, GUniform}
 import io.computenode.cyfra.dsl.struct.{GStruct, GStructSchema}
-import io.computenode.cyfra.runtime.ExecutionHandler.{
-  BindingLogicError,
-  BufferCopyCall,
-  BufferCopyStep,
-  Dispatch,
-  DispatchType,
-  ExecutionBinding,
-  ExecutionCall,
-  ExecutionStep,
-  PipelineBarrier,
-  ShaderCall,
-}
-import io.computenode.cyfra.runtime.ExecutionHandler.DispatchType.*
-import io.computenode.cyfra.runtime.ExecutionHandler.ExecutionBinding.{BufferBinding, UniformBinding}
+import io.computenode.cyfra.runtime.ExecutionHandler.*
 import io.computenode.cyfra.utility.Utility.timed
+import io.computenode.cyfra.utility.Logger
 import io.computenode.cyfra.vulkan.{VulkanContext, VulkanThreadContext}
 import io.computenode.cyfra.vulkan.command.{CommandPool, Fence, Semaphore}
 import io.computenode.cyfra.vulkan.compute.ComputePipeline
 import io.computenode.cyfra.vulkan.core.Queue
-import io.computenode.cyfra.vulkan.memory.{DescriptorPool, DescriptorPoolManager, DescriptorSet, DescriptorSetManager}
+import io.computenode.cyfra.vulkan.memory.{Allocator, Buffer, DescriptorPool, DescriptorPoolManager, DescriptorSet, DescriptorSetManager}
 import io.computenode.cyfra.vulkan.util.Util.{check, pushStack}
 import izumi.reflect.Tag
 import org.lwjgl.vulkan.VK10.*
@@ -38,6 +26,9 @@ import org.lwjgl.vulkan.{VkBufferCopy, VkCommandBuffer, VkCommandBufferBeginInfo
 
 import scala.collection.mutable
 
+/** Handles execution of GPU programs with smart barrier insertion.
+  * Builds a single command buffer from a DAG of programs and inserts barriers only when needed.
+  */
 class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadContext, context: VulkanContext):
   import context.given
 
@@ -45,244 +36,275 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
   private val commandPool: CommandPool.Reset = threadContext.commandPool
   private val queue = commandPool.queue
   
-  // Timeline semaphore for GPU-GPU synchronization (no CPU blocking between submissions)
+  // Timeline semaphore for GPU-GPU synchronization
   private val timelineSemaphore = new Semaphore()
   private var semaphoreValue: Long = 0
   
-  // Full execution cache - caches command buffer, descriptor sets, and result
-  // Keyed by (execution identity, layout bindings identity hash)
-  private case class CachedExecution(
-    resultBindings: Seq[GBinding[?]],
-    commandBuffer: VkCommandBuffer,
-    executeSteps: Seq[ExecutionStep],
-    var lastSemaphoreValue: Long, // Track which semaphore value this execution signals
-    var reuseCount: Int = 0, // Track reuse count for first-use sync
-  )
-  private val executionCache = mutable.Map[(Int, Int), CachedExecution]()
+  // Cache for prepared executions - key is the set of underlying buffer handles involved
+  private val executionCache = mutable.Map[ExecutionCacheKey, CachedExecution]()
+  // Cache for recorded command buffers
+  private val commandBufferCache = mutable.Map[ExecutionCacheKey, VkCommandBuffer]()
+  // Fast cache for command buffers - key is hash of binding identity hashcodes
+  private val fastCommandBufferCache = mutable.Map[Int, VkCommandBuffer]()
+  
+  // === Main execution entry point ===
 
-  def handle[Params, EL: Layout, RL: Layout](execution: GExecution[Params, EL, RL], params: Params, layout: EL)(using VkAllocation): RL =
-    val layoutBindings = Layout[EL].toBindings(layout)
-    val layoutHash = layoutBindings.map(System.identityHashCode).hashCode()
-    val cacheKey = (System.identityHashCode(execution), layoutHash)
-    
-    executionCache.get(cacheKey) match
-      case Some(cached) =>
-        // On first reuse, sync any pending writes (e.g., uniform buffer updates)
-        // This handles the case where initial uniform values differ from runtime values
-        if cached.reuseCount == 0 then
-          summon[VkAllocation].submitLayout(layout)
-        cached.reuseCount += 1
-        
-        // Cache hit - submit with timeline semaphore (GPU-GPU sync, no CPU wait)
-        val waitValue = cached.lastSemaphoreValue
-        semaphoreValue += 1
-        val signalValue = semaphoreValue
-        
-        submitWithSemaphore(cached.commandBuffer, waitValue, signalValue)
-        cached.lastSemaphoreValue = signalValue
-        
-        Layout[RL].fromBindings(cached.resultBindings)
-        
-      case None =>
-        // Cache miss - full execution path
-        val (result, executionCalls) = interpret(execution, params, layout)
-
-        // Convert ExecutionCalls to ExecutionSteps
-        val initialSteps: Seq[ExecutionStep] = executionCalls.map:
-          case ShaderCall(pipeline, layout, dispatch) =>
-            val sets = pipeline.pipelineLayout.sets
-              .map(dsManager.allocate)
-              .zip(layout)
-              .map:
-                case (set, bindings) =>
-                  set.update(bindings.map(x => VkAllocation.getUnderlying(x.binding).buffer))
-                  set
-              Dispatch(pipeline, layout, sets, dispatch)
-          case BufferCopyCall(src, dst, sizeBytes) =>
-            BufferCopyStep(src, dst, sizeBytes)
-
-        val (executeSteps, _) = initialSteps.zipWithIndex.foldLeft((Seq.empty[ExecutionStep], Set.empty[GBinding[?]])):
-          case ((steps, dirty), (step, idx)) =>
-            // Extract bindings by operation type
-            val (allBindings, writtenBindings) = step match
-              case Dispatch(_, layout, _, _) =>
-                val allBindingsWithOp = layout.flatten
-                (allBindingsWithOp.map(_.binding), allBindingsWithOp.filter(b => b.operation == Operation.Write || b.operation == Operation.ReadWrite).map(_.binding))
-              case BufferCopyStep(src, dst, _) =>
-                (Seq(src, dst), Seq(dst))  // dst is written
-              case PipelineBarrier =>
-                (Seq.empty, Seq.empty)
-            
-            // Need barrier if this step accesses any buffer that was written by a previous step
-            // This handles Read-after-Write (RAW) and Write-after-Write (WAW) hazards
-            val needsBarrier = allBindings.exists(dirty.contains)
-            
-            if needsBarrier then 
-              // Reset dirty set to just this step's writes (barrier synchronizes everything)
-              (steps.appendedAll(Seq(PipelineBarrier, step)), writtenBindings.toSet)
-            else 
-              // Add this step's writes to dirty set
-              (steps.appended(step), dirty ++ writtenBindings)
-
-        val commandBuffer = recordCommandBuffer(executeSteps)
-
-        // Submit with timeline semaphore
+  /** Execute a plan for the given target bindings.
+    * Builds a single command buffer with smart barrier insertion based on data hazards.
+    */
+  /** Fast path: check cache and submit if found, without building execution plan.
+    * Returns true if cache hit, false if cache miss.
+    */
+  def submitIfCached(targetBindings: Seq[GBinding[?]])(using VkAllocation): Boolean =
+    val fastKey = targetBindings.map(b => VkAllocation.getUnderlying(b).buffer.handle).hashCode()
+    fastCommandBufferCache.get(fastKey) match
+      case Some(commandBuffer) =>
         val waitValue = semaphoreValue
         semaphoreValue += 1
-        val signalValue = semaphoreValue
-        submitWithSemaphore(commandBuffer, waitValue, signalValue)
-        
-        // Cache the execution
-        val resultBindings = Layout[RL].toBindings(result)
-        executionCache(cacheKey) = CachedExecution(resultBindings, commandBuffer, executeSteps, signalValue)
-        
-        result
-  
-  /** Submit command buffer with timeline semaphore wait/signal for GPU-GPU pipelining */
-  private def submitWithSemaphore(commandBuffer: VkCommandBuffer, waitValue: Long, signalValue: Long): Unit = pushStack: stack =>
-    val timelineInfo = VkTimelineSemaphoreSubmitInfo
-      .calloc(stack)
-      .sType$Default()
-      .waitSemaphoreValueCount(1)
-      .pWaitSemaphoreValues(stack.longs(waitValue))
-      .signalSemaphoreValueCount(1)
-      .pSignalSemaphoreValues(stack.longs(signalValue))
+        submitWithSemaphore(commandBuffer, waitValue, semaphoreValue)
+        true
+      case None =>
+        println(s"[Cache miss] fastKey=$fastKey, cacheSize=${fastCommandBufferCache.size}, handles=${targetBindings.take(5).map(b => VkAllocation.getUnderlying(b).buffer.handle).mkString(",")}")
+        false
+
+  def executePlan(targetBindings: Seq[GBinding[?]])(using VkAllocation): Unit =
+    // Fast cache key: hash of UNDERLYING buffer handles (not binding identity!)
+    val fastKey = targetBindings.map(b => VkAllocation.getUnderlying(b).buffer.handle).hashCode()
     
-    val submitInfo = VkSubmitInfo
-      .calloc(1, stack)
-      .sType$Default()
-      .pNext(timelineInfo)
-      .waitSemaphoreCount(1)
-      .pWaitSemaphores(stack.longs(timelineSemaphore.get))
-      .pWaitDstStageMask(stack.ints(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT))
-      .pCommandBuffers(stack.pointers(commandBuffer))
-      .pSignalSemaphores(stack.longs(timelineSemaphore.get))
+    // Check if we have a fully cached command buffer
+    fastCommandBufferCache.get(fastKey) match
+      case Some(commandBuffer) =>
+        // Fast path - reuse cached command buffer directly
+        val waitValue = semaphoreValue
+        semaphoreValue += 1
+        submitWithSemaphore(commandBuffer, waitValue, semaphoreValue)
+        return
+      case None =>
+        () // Cache miss
     
-    check(vkQueueSubmit(queue.get, submitInfo, VK_NULL_HANDLE), "Failed to submit command buffer")
+    // Slow path: build everything
+    val plan = buildExecutionPlan(targetBindings)
+    if plan.isEmpty then return
+
+    // Create cache key from the plan structure
+    val cacheKey = createCacheKey(plan)
+    
+    // Get or create cached execution
+    val cached = executionCache.getOrElseUpdate(cacheKey, {
+      // Prepare all dispatches (compile shaders, allocate descriptor sets)
+      val preparedSteps = prepareSteps(plan)
+      // Analyze data hazards and group into waves
+      val waves = buildWaves(preparedSteps)
+      CachedExecution(preparedSteps, waves)
+    })
+            
+    // Get or create cached command buffer
+    val commandBuffer = commandBufferCache.getOrElseUpdate(cacheKey, {
+      recordWavesCommandBuffer(cached.waves)
+    })
+    
+    // Cache by fast key for next time
+    fastCommandBufferCache(fastKey) = commandBuffer
+
+    // Submit once
+    val waitValue = semaphoreValue
+    semaphoreValue += 1
+    val signalValue = semaphoreValue
+    submitWithSemaphore(commandBuffer, waitValue, signalValue)
   
-  /** Wait for all GPU work to complete (call before reading results) */
-  def sync(): Unit =
-    if semaphoreValue > 0 then
-      timelineSemaphore.waitValue(semaphoreValue)
+  /** Create a cache key from the execution plan.
+    * Two plans are equivalent if they have the same programs operating on the same underlying buffers.
+    */
+  private def createCacheKey(plan: Seq[PlanStep])(using VkAllocation): ExecutionCacheKey =
+    val stepKeys = plan.map:
+      case PlanStep.Execute(execution, _, inputs) =>
+        val programKey = execution match
+          case p: GProgram[?, ?] => p.name
+          case _ => execution.hashCode().toString
+        val bufferKeys = inputs.map(b => VkAllocation.getUnderlying(b).buffer.handle)
+        StepKey.ExecuteKey(programKey, bufferKeys)
+      case PlanStep.Copy(source, dest, readIdx, writeIdx, size) =>
+        val srcHandle = VkAllocation.getUnderlying(source).buffer.handle
+        val dstHandle = VkAllocation.getUnderlying(dest).buffer.handle
+        StepKey.CopyKey(srcHandle, dstHandle, readIdx, writeIdx, size)
+    ExecutionCacheKey(stepKeys)
+        
+  // === Provenance DAG traversal ===
 
-  private def interpret[Params, EL: Layout, RL: Layout](
-    execution: GExecution[Params, EL, RL], 
-    params: Params, 
-    layout: EL
-  )(using VkAllocation): (RL, Seq[ExecutionCall]) =
-    interpretUncached(execution, params, layout)
+  /** Build execution plan from provenance DAG.
+    * Traverses provenance to find all ExecutionNodes and orders them topologically.
+    */
+  private def buildExecutionPlan(targetBindings: Seq[GBinding[?]]): Seq[PlanStep] =
+    val visitedBindings = mutable.Set[GBinding[?]]()
+    val visitedPrograms = mutable.Set[GProgram[?, ?]]()
+    val plan = mutable.Buffer[PlanStep]()
 
-  private def interpretUncached[Params, EL: Layout, RL: Layout](execution: GExecution[Params, EL, RL], params: Params, layout: EL)(using
-    VkAllocation,
-  ): (RL, Seq[ExecutionCall]) =
-    val bindingsAcc: mutable.Map[GBinding[?], mutable.Buffer[GBinding[?]]] = mutable.Map.empty
+    def visit(binding: GBinding[?]): Unit =
+      if visitedBindings.contains(binding) then return
+      visitedBindings += binding
 
-    def mockBindings[L: Layout](layout: L): L =
-      val mapper = Layout[L]
-      val res = mapper
-        .toBindings(layout)
-        .map:
-          case x: ExecutionBinding[?] => x
-          case x: GBinding[?]         =>
-            val e = ExecutionBinding(x)(using x.fromExpr, x.tag)
-            bindingsAcc.put(e, mutable.Buffer(x))
-            e
-      mapper.fromBindings(res)
+      binding.provenance match
+        case Provenance.External(_) =>
+          // External bindings are already available
+          ()
 
-    // noinspection TypeParameterShadow
-    def interpretImpl[Params, EL: Layout, RL: Layout](execution: GExecution[Params, EL, RL], params: Params, layout: EL): (RL, Seq[ExecutionCall]) =
-      execution match
-        case GExecution.Pure()                           => (layout, Seq.empty)
-        case GExecution.Map(innerExec, map, cmap, cmapP) =>
-          val pel = innerExec.execLayout
-          val prl = innerExec.resLayout
-          val cParams = cmapP(params)
-          val cLayout = mockBindings(cmap(layout))(using pel)
-          val (prevRl, calls) = interpretImpl(innerExec, cParams, cLayout)(using pel, prl)
-          val nextRl = mockBindings(map(prevRl))
-          (nextRl, calls)
-        case GExecution.FlatMap(execution, f) =>
-          val el = execution.execLayout
-          val (rl, calls) = interpretImpl(execution, params, layout)(using el, execution.resLayout)
-          val nextExecution = f(params, rl)
-          val (rl2, calls2) = interpretImpl(nextExecution, params, layout)(using el, nextExecution.resLayout)
-          (rl2, calls ++ calls2)
-        case program: GProgram[Params, EL] =>
-          given lb: Layout[EL] = program.execLayout
-          val shader =
-            runtime.getOrLoadProgram(program)
-          val layoutInit =
-            val initProgram: InitProgramLayout = summon[VkAllocation].getInitProgramLayout
-            program.layout(initProgram)(params)
-          lb.toBindings(layout)
-            .zip(lb.toBindings(layoutInit))
-            .foreach:
-              case (binding, initBinding) =>
-                bindingsAcc(binding).append(initBinding)
-          val dispatch = program.dispatch(layout, params) match
-            case GProgram.DynamicDispatch(buffer, offset) => DispatchType.Indirect(buffer, offset)
-            case GProgram.StaticDispatch(size)            => DispatchType.Direct(size._1, size._2, size._3)
-          // noinspection ScalaRedundantCast
-          (layout.asInstanceOf[RL], Seq(ShaderCall(shader.underlying, shader.shaderBindings(layout), dispatch)))
-        case bufferCopy: GExecution.BufferCopy[EL] =>
-          val (src, dst) = bufferCopy.getBuffers(layout)
-          // noinspection ScalaRedundantCast
-          (layout.asInstanceOf[RL], Seq(BufferCopyCall(src, dst, bufferCopy.sizeBytes)))
-        case _ => ???
+        case Provenance.ExecutionNode(program, params, inputs, _) =>
+          // First visit all inputs (ensures topological order)
+          inputs.foreach(visit)
 
-    val (rl, steps) = interpretImpl(execution, params, mockBindings(layout))
-    val bingingToVk = bindingsAcc.map(x => (x._1, interpretBinding(x._1, x._2.toSeq)))
+          // Then add this program if not already added
+          if !visitedPrograms.contains(program) then
+            visitedPrograms += program
+            plan += PlanStep.Execute(program, params, inputs)
 
-    val nextSteps = steps.map:
-      case ShaderCall(pipeline, layout, dispatch) =>
-        val nextLayout = layout.map:
-          _.map:
-            case Binding(binding, operation) => Binding(bingingToVk(binding), operation)
-        val nextDispatch = dispatch match
-          case x: Direct                => x
-          case Indirect(buffer, offset) => Indirect(bingingToVk(buffer), offset)
-        ShaderCall(pipeline, nextLayout, nextDispatch)
-      case BufferCopyCall(src, dst, sizeBytes) =>
-        BufferCopyCall(bingingToVk(src), bingingToVk(dst), sizeBytes)
+        case Provenance.Copied(source, readIdx, writeIdx, size) =>
+          visit(source)
+          plan += PlanStep.Copy(source, binding, readIdx, writeIdx, size)
 
-    val mapper = Layout[RL]
-    val res = mapper.fromBindings(mapper.toBindings(rl).map(bingingToVk.apply))
-    (res, nextSteps)
+        case Provenance.Materialized(_, _) =>
+          // Already materialized
+          ()
 
-  private def interpretBinding(binding: GBinding[?], bindings: Seq[GBinding[?]])(using VkAllocation): GBinding[?] =
-    binding match
-      case _: BufferBinding[?] =>
-        val (allocations, sizeSpec) = bindings.partitionMap:
-          case x: VkBuffer[?]                  => Left(x)
-          case x: GProgram.BufferLengthSpec[?] => Right(x)
-          case x                               => throw BindingLogicError(x, "Unsupported buffer type")
-        if allocations.size > 1 then throw BindingLogicError(allocations, "Multiple allocations for buffer")
-        val alloc = allocations.headOption
+        case _ =>
+          ()
 
-        val lengths = sizeSpec.distinctBy(_.length)
-        if lengths.size > 1 then throw BindingLogicError(lengths, "Multiple conflicting lengths for buffer")
-        val length = lengths.headOption
+    targetBindings.foreach(visit)
+    plan.toSeq
 
-        (alloc, length) match
-          case (Some(buffer), Some(sizeSpec)) =>
-            if buffer.length != sizeSpec.length then
-              throw BindingLogicError(Seq(buffer, sizeSpec), s"Buffer length mismatch, ${buffer.length} != ${sizeSpec.length}")
-            buffer
-          case (Some(buffer), None) => buffer
-          case (None, Some(length)) => length.materialise()
-          case (None, None)         => throw new IllegalStateException("Cannot create buffer without size or allocation")
+  // === Step preparation ===
 
-      case _: UniformBinding[?] =>
-        val allocations = bindings.filter:
-          case _: VkUniform[?]               => true
-          case _: GProgram.DynamicUniform[?] => false
-          case _: GUniform.ParamUniform[?]   => false
-          case x                             => throw BindingLogicError(x, "Unsupported binding type")
-        if allocations.size > 1 then throw BindingLogicError(allocations, "Multiple allocations for uniform")
-        allocations.headOption.getOrElse(throw new BindingLogicError(Seq(), "Uniform never allocated"))
-      case x => throw new IllegalArgumentException(s"Binding of type ${x.getClass.getName} should not be here")
+  /** Prepare execution steps - compile shaders, allocate descriptor sets. */
+  private def prepareSteps(plan: Seq[PlanStep])(using VkAllocation): Seq[PreparedStep] =
+    plan.flatMap:
+      case PlanStep.Execute(program, params, inputs) =>
+        Some(prepareProgram(program, params, inputs))
 
-  private def recordCommandBuffer(steps: Seq[ExecutionStep]): VkCommandBuffer = pushStack: stack =>
+      case PlanStep.Copy(source, dest, readIdx, writeIdx, size) =>
+        Some(PreparedStep.CopyStep(source, dest, readIdx, writeIdx, size))
+
+  /** Prepare a program for execution - compile shader, allocate descriptor sets. */
+  private def prepareProgram[Params, L](
+    program: GProgram[Params, L],
+    params: Any,
+    inputs: Seq[GBinding[?]],
+  )(using VkAllocation): PreparedStep.DispatchStep =
+    given Layout[L] = program.summonLayout
+    val pipeline = runtime.getOrLoadProgram(program)
+    val layoutInstance = Layout[L]
+
+    // Reconstruct the layout from inputs
+    val layout = layoutInstance.fromBindings(inputs)
+
+    // Get shader bindings with read/write operations
+    val shaderBindings = pipeline.shaderBindings(layout)
+
+    // Build access map: binding -> operation
+    val accessMap: Map[GBinding[?], Operation] = shaderBindings.flatten.map(b => b.binding -> b.operation).toMap
+
+    // Allocate descriptor sets
+    val descriptorSets = pipeline.underlying.pipelineLayout.sets
+      .map(dsManager.allocate)
+      .zip(shaderBindings)
+      .map { case (set, bindings) =>
+        set.update(bindings.map(b => VkAllocation.getUnderlying(b.binding).buffer))
+        set
+      }
+
+    // Determine dispatch type - use params from provenance, not program.params!
+    val dispatch = program.dispatchSize(layout, params.asInstanceOf[Params]) match
+      case GProgram.DynamicDispatch(buffer, offset) => DispatchType.Indirect(buffer, offset)
+      case GProgram.StaticDispatch(size)            => DispatchType.Direct(size._1, size._2, size._3)
+
+    PreparedStep.DispatchStep(
+      program = program,
+      pipeline = pipeline.underlying,
+      shaderBindings = shaderBindings,
+      descriptorSets = descriptorSets,
+      dispatchType = dispatch,
+      accessMap = accessMap,
+      inputs = inputs,
+    )
+
+  // === Data hazard analysis ===
+
+  /** Build waves of dispatches that can execute without barriers between them. */
+  private def buildWaves(steps: Seq[PreparedStep])(using VkAllocation): Seq[ExecutionWave] =
+    if steps.isEmpty then return Seq.empty
+
+    // Helper to get underlying Vulkan buffer - this is what we track for dependencies
+    // (different GBinding instances can share the same underlying buffer)
+    def getBufferKey(binding: GBinding[?]): Long =
+      VkAllocation.getUnderlying(binding).buffer.handle
+
+    // Track last writer and readers for each UNDERLYING buffer (by handle)
+    val lastWriter = mutable.Map[Long, Int]()      // buffer handle -> step index that wrote
+    val lastReaders = mutable.Map[Long, Set[Int]]() // buffer handle -> step indices that read
+
+    // Build dependency graph: step index -> set of step indices it must wait for
+    val dependencies = mutable.Map[Int, Set[Int]]().withDefaultValue(Set.empty)
+
+    for (step, stepIdx) <- steps.zipWithIndex do
+      val accesses: Map[GBinding[?], Operation] = step match
+        case d: PreparedStep.DispatchStep => d.accessMap
+        case c: PreparedStep.CopyStep     =>
+          // Copy reads from source, writes to dest
+          Map(c.source -> Operation.Read, c.dest -> Operation.Write)
+
+      for (binding, op) <- accesses do
+        val bufferKey = getBufferKey(binding)
+        op match
+          case Operation.Read =>
+            // RAW: if someone wrote, we depend on them
+            lastWriter.get(bufferKey).foreach: writerIdx =>
+              dependencies(stepIdx) = dependencies(stepIdx) + writerIdx
+
+          case Operation.Write =>
+            // RAW: if someone wrote, we depend on them (WAW)
+            lastWriter.get(bufferKey).foreach: writerIdx =>
+              dependencies(stepIdx) = dependencies(stepIdx) + writerIdx
+            // WAR: if someone read, we depend on them
+            lastReaders.get(bufferKey).foreach: readerIdxs =>
+              dependencies(stepIdx) = dependencies(stepIdx) ++ readerIdxs
+
+          case Operation.ReadWrite =>
+            // All hazards possible
+            lastWriter.get(bufferKey).foreach: writerIdx =>
+              dependencies(stepIdx) = dependencies(stepIdx) + writerIdx
+            lastReaders.get(bufferKey).foreach: readerIdxs =>
+              dependencies(stepIdx) = dependencies(stepIdx) ++ readerIdxs
+
+        // Update tracking
+        op match
+          case Operation.Write | Operation.ReadWrite =>
+            lastWriter(bufferKey) = stepIdx
+            lastReaders(bufferKey) = Set.empty
+          case Operation.Read =>
+            lastReaders(bufferKey) = lastReaders.getOrElse(bufferKey, Set.empty) + stepIdx
+
+    // Build waves using greedy algorithm
+    val waves = mutable.Buffer[ExecutionWave]()
+    val completed = mutable.Set[Int]()
+    val remaining = mutable.Set.from(steps.indices)
+
+    while remaining.nonEmpty do
+      // Find all steps whose dependencies are satisfied
+      val ready = remaining.filter: idx =>
+        dependencies(idx).forall(completed.contains)
+
+      if ready.isEmpty then
+        throw new IllegalStateException("Cyclic dependency detected in execution plan")
+
+      // Group ready steps into a wave
+      waves += ExecutionWave(ready.toSeq.sorted.map(steps(_)))
+      completed ++= ready
+      remaining --= ready
+
+    waves.toSeq
+
+  // === Command buffer recording ===
+
+  /** Record all waves into a single command buffer with barriers only between waves. */
+  private def recordWavesCommandBuffer(waves: Seq[ExecutionWave])(using VkAllocation): VkCommandBuffer = pushStack: stack =>
     val commandBuffer = commandPool.createCommandBuffer()
     val commandBufferBeginInfo = VkCommandBufferBeginInfo
       .calloc(stack)
@@ -290,9 +312,26 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
       .flags(0)
 
     check(vkBeginCommandBuffer(commandBuffer, commandBufferBeginInfo), "Failed to begin recording command buffer")
-    steps.foreach:
-      case PipelineBarrier =>
-        val memoryBarrier = VkMemoryBarrier2 // TODO don't synchronise everything
+
+    for (wave, waveIdx) <- waves.zipWithIndex do
+      // Insert barrier BETWEEN waves (not before first)
+      if waveIdx > 0 then
+        recordPipelineBarrier(commandBuffer)
+
+      // Record all steps in this wave
+      for step <- wave.steps do
+        step match
+          case d: PreparedStep.DispatchStep =>
+            recordDispatch(commandBuffer, d)
+          case c: PreparedStep.CopyStep =>
+            recordBufferCopy(commandBuffer, c)
+
+    check(vkEndCommandBuffer(commandBuffer), "Failed to finish recording command buffer")
+    commandBuffer
+
+  /** Record a pipeline barrier. */
+  private def recordPipelineBarrier(commandBuffer: VkCommandBuffer): Unit = pushStack: stack =>
+    val memoryBarrier = VkMemoryBarrier2
           .calloc(1, stack)
           .sType$Default()
           .srcStageMask(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_TRANSFER_BIT)
@@ -312,93 +351,135 @@ class ExecutionHandler(runtime: VkCyfraRuntime, threadContext: VulkanThreadConte
           .pMemoryBarriers(memoryBarrier)
 
         vkCmdPipelineBarrier2(commandBuffer, dependencyInfo)
-
         vkCmdEndDebugUtilsLabelEXT(commandBuffer)
 
-      case Dispatch(pipeline, layout, descriptorSets, dispatch) =>
-        // Add debug label for profiling (visible in Nsight Systems)
-        val dispatchSize = dispatch match
-          case Direct(x, y, z)   => s"${x}x${y}x${z}"
-          case Indirect(_, _)    => "indirect"
-        val labelName = s"${pipeline.name}[$dispatchSize]"
-        val debugLabel = VkDebugUtilsLabelEXT
-          .calloc(stack)
-          .sType$Default()
-          .pLabelName(stack.UTF8(labelName))
-        vkCmdBeginDebugUtilsLabelEXT(commandBuffer, debugLabel)
-        
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.get)
+  /** Record a dispatch. */
+  private def recordDispatch(commandBuffer: VkCommandBuffer, dispatch: PreparedStep.DispatchStep)(using VkAllocation): Unit = pushStack: stack =>
+    val dispatchSizeStr = dispatch.dispatchType match
+      case DispatchType.Direct(x, y, z) => s"${x}x${y}x${z}"
+      case DispatchType.Indirect(_, _)  => "indirect"
+    val labelName = s"${dispatch.pipeline.name}[$dispatchSizeStr]"
 
-        val pDescriptorSets = stack.longs(descriptorSets.map(_.get)*)
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.pipelineLayout.id, 0, pDescriptorSets, null)
+    // Start debug label
+    val debugLabel = VkDebugUtilsLabelEXT
+      .calloc(stack)
+      .sType$Default()
+      .pLabelName(stack.UTF8(labelName))
+    vkCmdBeginDebugUtilsLabelEXT(commandBuffer, debugLabel)
 
-        dispatch match
-          case Direct(x, y, z)          => vkCmdDispatch(commandBuffer, x, y, z)
-          case Indirect(buffer, offset) => vkCmdDispatchIndirect(commandBuffer, VkAllocation.getUnderlying(buffer).buffer.get, offset)
-        
-        vkCmdEndDebugUtilsLabelEXT(commandBuffer)
+    // Bind pipeline and descriptor sets
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, dispatch.pipeline.get)
+    val pDescriptorSets = stack.longs(dispatch.descriptorSets.map(_.get)*)
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, dispatch.pipeline.pipelineLayout.id, 0, pDescriptorSets, null)
 
-      case BufferCopyStep(src, dst, sizeBytes) =>
-        // Add debug label for profiling
-        val debugLabel = VkDebugUtilsLabelEXT
-          .calloc(stack)
-          .sType$Default()
-          .pLabelName(stack.UTF8(s"BufferCopy[${sizeBytes}B]"))
-        vkCmdBeginDebugUtilsLabelEXT(commandBuffer, debugLabel)
-        
-        val copyRegion = VkBufferCopy
-          .calloc(1, stack)
-          .srcOffset(0)
-          .dstOffset(0)
-          .size(sizeBytes)
-        
-        val srcBuffer = VkAllocation.getUnderlying(src).buffer.get
-        val dstBuffer = VkAllocation.getUnderlying(dst).buffer.get
-        vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, copyRegion)
-        
-        vkCmdEndDebugUtilsLabelEXT(commandBuffer)
+    // Dispatch
+    dispatch.dispatchType match
+      case DispatchType.Direct(x, y, z)          => vkCmdDispatch(commandBuffer, x, y, z)
+      case DispatchType.Indirect(buffer, offset) => vkCmdDispatchIndirect(commandBuffer, VkAllocation.getUnderlying(buffer).buffer.get, offset)
 
-    check(vkEndCommandBuffer(commandBuffer), "Failed to finish recording command buffer")
-    commandBuffer
+    // End debug label
+    vkCmdEndDebugUtilsLabelEXT(commandBuffer)
 
-  private def getAllBindings(steps: Seq[ExecutionStep]): Seq[GBinding[?]] =
-    steps
-      .flatMap:
-        case Dispatch(_, layout, _, _)      => layout.flatten.map(_.binding)
-        case BufferCopyStep(src, dst, _)    => Seq(src, dst)
-        case PipelineBarrier                => Seq.empty
-      .distinct
+  /** Record a buffer copy. */
+  private def recordBufferCopy(commandBuffer: VkCommandBuffer, copy: PreparedStep.CopyStep)(using VkAllocation): Unit = pushStack: stack =>
+    val srcBinding = VkAllocation.getUnderlying(copy.source)
+    val dstBinding = VkAllocation.getUnderlying(copy.dest)
+    val sizeBytes = copy.size * srcBinding.sizeOfT
+
+    // Start debug label
+    val debugLabel = VkDebugUtilsLabelEXT
+      .calloc(stack)
+      .sType$Default()
+      .pLabelName(stack.UTF8(s"BufferCopy[${sizeBytes}B]"))
+    vkCmdBeginDebugUtilsLabelEXT(commandBuffer, debugLabel)
+
+    // Copy
+    val copyRegion = VkBufferCopy
+      .calloc(1, stack)
+      .srcOffset(copy.readIdx * srcBinding.sizeOfT)
+      .dstOffset(copy.writeIdx * dstBinding.sizeOfT)
+      .size(sizeBytes)
+    vkCmdCopyBuffer(commandBuffer, srcBinding.buffer.get, dstBinding.buffer.get, copyRegion)
+
+    // End debug label
+    vkCmdEndDebugUtilsLabelEXT(commandBuffer)
+
+  // === Submission ===
+
+  /** Submit command buffer with timeline semaphore for GPU pipelining. */
+  private def submitWithSemaphore(commandBuffer: VkCommandBuffer, waitValue: Long, signalValue: Long): Unit = pushStack: stack =>
+    val timelineInfo = VkTimelineSemaphoreSubmitInfo
+      .calloc(stack)
+      .sType$Default()
+      .waitSemaphoreValueCount(1)
+      .pWaitSemaphoreValues(stack.longs(waitValue))
+      .signalSemaphoreValueCount(1)
+      .pSignalSemaphoreValues(stack.longs(signalValue))
+
+    val submitInfo = VkSubmitInfo
+      .calloc(1, stack)
+      .sType$Default()
+      .pNext(timelineInfo)
+      .waitSemaphoreCount(1)
+      .pWaitSemaphores(stack.longs(timelineSemaphore.get))
+      .pWaitDstStageMask(stack.ints(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT))
+      .pCommandBuffers(stack.pointers(commandBuffer))
+      .pSignalSemaphores(stack.longs(timelineSemaphore.get))
+
+    check(vkQueueSubmit(queue.get, submitInfo, VK_NULL_HANDLE), "Failed to submit command buffer")
+
+  /** Wait for all GPU work to complete. */
+  def sync(): Unit =
+    if semaphoreValue > 0 then timelineSemaphore.waitValue(semaphoreValue)
 
 object ExecutionHandler:
-  /** Represents a call to be executed on GPU - either a shader dispatch or buffer copy. */
-  sealed trait ExecutionCall
-  case class ShaderCall(pipeline: ComputePipeline, layout: ShaderLayout, dispatch: DispatchType) extends ExecutionCall
-  case class BufferCopyCall(src: GBinding[?], dst: GBinding[?], sizeBytes: Int) extends ExecutionCall
 
-  sealed trait ExecutionStep
-  case class Dispatch(pipeline: ComputePipeline, layout: ShaderLayout, descriptorSets: Seq[DescriptorSet], dispatch: DispatchType)
-      extends ExecutionStep
-  case class BufferCopyStep(src: GBinding[?], dst: GBinding[?], sizeBytes: Int) extends ExecutionStep
-  case object PipelineBarrier extends ExecutionStep
+  // === Plan steps (before preparation) ===
+
+  sealed trait PlanStep
+  object PlanStep:
+    case class Execute(program: GProgram[?, ?], params: Any, inputs: Seq[GBinding[?]]) extends PlanStep
+    case class Copy(source: GBinding[?], dest: GBinding[?], readIdx: Int, writeIdx: Int, size: Int) extends PlanStep
+
+  // === Prepared steps (ready for recording) ===
+
+  sealed trait PreparedStep
+  object PreparedStep:
+    case class DispatchStep(
+      program: GProgram[?, ?],
+      pipeline: ComputePipeline,
+      shaderBindings: ShaderLayout,
+      descriptorSets: Seq[DescriptorSet],
+      dispatchType: DispatchType,
+      accessMap: Map[GBinding[?], Operation],
+      inputs: Seq[GBinding[?]],
+    ) extends PreparedStep
+
+    case class CopyStep(
+      source: GBinding[?],
+      dest: GBinding[?],
+      readIdx: Int,
+      writeIdx: Int,
+      size: Int,
+    ) extends PreparedStep
+
+  /** A wave of dispatches that can execute without barriers between them. */
+  case class ExecutionWave(steps: Seq[PreparedStep])
 
   sealed trait DispatchType
   object DispatchType:
     case class Direct(x: Int, y: Int, z: Int) extends DispatchType
     case class Indirect(buffer: GBinding[?], offset: Int) extends DispatchType
 
-  sealed trait ExecutionBinding[T <: Value: {FromExpr, Tag}]
-  object ExecutionBinding:
-    class UniformBinding[T <: GStruct[?]: {FromExpr, Tag, GStructSchema}] extends ExecutionBinding[T] with GUniform[T]
-    class BufferBinding[T <: Value: {FromExpr, Tag}] extends ExecutionBinding[T] with GBuffer[T]
-
-    def apply[T <: Value: {FromExpr as fe, Tag as t}](binding: GBinding[T]): ExecutionBinding[T] & GBinding[T] = binding match
-      // todo types are a mess here
-      case u: GUniform[GStruct[?]] =>
-        new UniformBinding[GStruct[?]](using fe.asInstanceOf[FromExpr[GStruct[?]]], t.asInstanceOf[Tag[GStruct[?]]], u.schema.asInstanceOf)
-          .asInstanceOf[UniformBinding[T]]
-      case _: GBuffer[T] => new BufferBinding()
-
-  case class BindingLogicError(bindings: Seq[GBinding[?]], message: String) extends RuntimeException(s"Error in binding logic for $bindings: $message")
-  object BindingLogicError:
-    def apply(binding: GBinding[?], message: String): BindingLogicError =
-      new BindingLogicError(Seq(binding), message)
+  // === Execution caching ===
+  
+  /** Key for caching prepared executions. */
+  case class ExecutionCacheKey(steps: Seq[StepKey])
+  
+  sealed trait StepKey
+  object StepKey:
+    case class ExecuteKey(programName: String, bufferHandles: Seq[Long]) extends StepKey
+    case class CopyKey(srcHandle: Long, dstHandle: Long, readIdx: Int, writeIdx: Int, size: Int) extends StepKey
+  
+  /** Cached prepared execution. */
+  case class CachedExecution(preparedSteps: Seq[PreparedStep], waves: Seq[ExecutionWave])

@@ -1,6 +1,7 @@
 package io.computenode.cyfra.llama.programs.f16
 
 import io.computenode.cyfra.core.GProgram
+import io.computenode.cyfra.core.GProgram.{*, given}
 import io.computenode.cyfra.core.GProgram.StaticDispatch
 import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.dsl.{*, given}
@@ -53,6 +54,7 @@ object F16FusedQKVMatmulProgram:
   ) derives Layout
 
   def forward(sizes: Sizes): GProgram[Sizes, ProgramLayout] =
+    given Sizes = sizes
     val inFeatures = sizes.inFeatures
     val inFeaturesDiv4 = sizes.inFeaturesDiv4
     val qOutFeatures = sizes.qOutFeatures
@@ -66,13 +68,13 @@ object F16FusedQKVMatmulProgram:
 
     GProgram[Sizes, ProgramLayout](
       layout = s => ProgramLayout(
-        wq = GBuffer[Vec4[Float16]](s.totalWqVec4),
-        wk = GBuffer[Vec4[Float16]](s.totalWkVec4),
-        wv = GBuffer[Vec4[Float16]](s.totalWvVec4),
-        input = GBuffer[Float16](s.batchSize * s.inFeatures),
-        q = GBuffer[Float16](s.totalQOutputs),
-        k = GBuffer[Float16](s.totalKOutputs),
-        v = GBuffer[Float16](s.totalVOutputs),
+        wq = GBuffer.sized[Vec4[Float16]](s.totalWqVec4),
+        wk = GBuffer.sized[Vec4[Float16]](s.totalWkVec4),
+        wv = GBuffer.sized[Vec4[Float16]](s.totalWvVec4),
+        input = GBuffer.sized[Float16](s.batchSize * s.inFeatures),
+        q = GBuffer.sized[Float16](s.totalQOutputs),
+        k = GBuffer.sized[Float16](s.totalKOutputs),
+        v = GBuffer.sized[Float16](s.totalVOutputs),
       ),
       dispatch = (_, s) => StaticDispatch((s.numWorkgroups, 1, 1)),
       workgroupSize = (BLOCK_SIZE, 1, 1),

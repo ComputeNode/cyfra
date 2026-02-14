@@ -1,6 +1,7 @@
 package io.computenode.cyfra.llama.programs.f16
 
 import io.computenode.cyfra.core.GProgram
+import io.computenode.cyfra.core.GProgram.{*, given}
 import io.computenode.cyfra.core.GProgram.StaticDispatch
 import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.dsl.{*, given}
@@ -36,6 +37,7 @@ object F16FusedRoPEProgram:
   ) derives Layout
   
   def forward(sizes: Sizes): GProgram[Sizes, ProgramLayout] =
+    given Sizes = sizes
     val B = sizes.B
     val T = sizes.T
     val numHeadsQ = sizes.numHeadsQ
@@ -48,10 +50,10 @@ object F16FusedRoPEProgram:
 
     GProgram[Sizes, ProgramLayout](
       layout = s => ProgramLayout(
-        qIn = GBuffer[Float16](s.B * s.T * s.numHeadsQ * s.headSize),
-        kIn = GBuffer[Float16](s.B * s.T * s.numHeadsK * s.headSize),
-        qOut = GBuffer[Float16](s.B * s.T * s.numHeadsQ * s.headSize),
-        kOut = GBuffer[Float16](s.B * s.T * s.numHeadsK * s.headSize),
+        qIn = GBuffer.sized[Float16](s.B * s.T * s.numHeadsQ * s.headSize),
+        kIn = GBuffer.sized[Float16](s.B * s.T * s.numHeadsK * s.headSize),
+        qOut = GBuffer.sized[Float16](s.B * s.T * s.numHeadsQ * s.headSize),
+        kOut = GBuffer.sized[Float16](s.B * s.T * s.numHeadsK * s.headSize),
         params = GUniform[AttentionParams](),
       ),
       dispatch = (_, s) => StaticDispatch(((s.totalPairs + BLOCK_SIZE - 1) / BLOCK_SIZE, 1, 1)),

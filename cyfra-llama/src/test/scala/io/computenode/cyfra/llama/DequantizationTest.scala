@@ -17,7 +17,7 @@ class DequantizationTest extends FunSuite:
     val sign = (bits >> 31) & 1
     val exp = (bits >> 23) & 0xFF
     val mant = bits & 0x7FFFFF
-
+    
     if exp == 0 then
       // Zero or denormalized
       (sign << 15).toShort
@@ -41,18 +41,18 @@ class DequantizationTest extends FunSuite:
     // For is < 4: sc = scales[is] & 0x3F, m = scales[is+4] & 0x3F
     // For is >= 4: sc = (scales[is+4] & 0x0F) | ((scales[is-4] >> 6) << 4)
     //              m = ((scales[is+4] >> 4) & 0x0F) | ((scales[is] >> 6) << 4)
-
+    
     val scales = Array[Byte](
       0x3f, 0x3e, 0x3d, 0x3c, // scales[0-3]: values 63, 62, 61, 60
       0x10, 0x20, 0x30, 0x40.toByte, // scales[4-7]: mins for j<4
       0x05, 0x06, 0x07, 0x08, // scales[8-11]: for j>=4 extraction
     )
-
+    
     // Verify CPU extraction for j=0
     val (sc0, m0) = Dequantize.getScaleMinK4(0, scales)
     assertEquals(sc0.toInt, 63, "scale for j=0 should be 63")
     assertEquals(m0.toInt, 16, "min for j=0 should be 16")
-
+    
     // Verify CPU extraction for j=4
     // sc4 = (scales[8] & 0x0F) | ((scales[0] >> 6) << 4)
     // scales[8] = 0x05, scales[0] = 0x3F -> 0x3F >> 6 = 0

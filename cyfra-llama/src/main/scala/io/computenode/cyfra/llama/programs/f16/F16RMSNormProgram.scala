@@ -1,6 +1,7 @@
 package io.computenode.cyfra.llama.programs.f16
 
 import io.computenode.cyfra.core.GProgram
+import io.computenode.cyfra.core.GProgram.{*, given}
 import io.computenode.cyfra.core.GProgram.StaticDispatch
 import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.dsl.{*, given}
@@ -32,6 +33,7 @@ object F16RMSNormProgram:
   ) derives Layout
   
   def forward(sizes: Sizes): GProgram[Sizes, ProgramLayout] =
+    given Sizes = sizes
     val rowSize = sizes.rowSize
     val eps = sizes.eps
     val numIterations = sizes.numIterations
@@ -39,9 +41,9 @@ object F16RMSNormProgram:
     
     GProgram[Sizes, ProgramLayout](
       layout = s => ProgramLayout(
-        input = GBuffer[Float16](s.numRows * s.rowSize),
-        weight = GBuffer[Float16](s.actualWeightSize),
-        output = GBuffer[Float16](s.numRows * s.rowSize),
+        input = GBuffer.sized[Float16](s.numRows * s.rowSize),
+        weight = GBuffer.sized[Float16](s.actualWeightSize),
+        output = GBuffer.sized[Float16](s.numRows * s.rowSize),
       ),
       dispatch = (_, s) => StaticDispatch((s.numRows, 1, 1)),
       workgroupSize = (BLOCK_SIZE, 1, 1),

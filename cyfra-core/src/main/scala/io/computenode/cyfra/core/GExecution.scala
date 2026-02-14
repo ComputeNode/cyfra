@@ -2,78 +2,51 @@ package io.computenode.cyfra.core
 
 import io.computenode.cyfra.core.GExecution.*
 import io.computenode.cyfra.core.layout.*
-import io.computenode.cyfra.dsl.binding.GBuffer
-import io.computenode.cyfra.dsl.gio.GIO
-import io.computenode.cyfra.dsl.struct.{GStruct, GStructSchema}
-import izumi.reflect.Tag
-import GExecution.*
 
-trait GExecution[-Params, ExecLayout: Layout, ResLayout: Layout]:
+/** A GPU execution pipeline. PURE - no side effects during composition.
+  * Params are passed at execution/dispatch time, NOT stored.
+  *
+  * @tparam Params Compile-time parameters (sizes, configuration)
+  * @tparam In The input layout type
+  * @tparam Out The output layout type
+  */
+trait GExecution[Params, In, Out]:
+  /** Transform the output. */
+  def map[Out2](f: Out => Out2): GExecution[Params, In, Out2] =
+    Mapped(this, f)
 
-  def execLayout: Layout[ExecLayout] = Layout[ExecLayout]
-  def resLayout: Layout[ResLayout] = Layout[ResLayout]
+  /** Transform the input (contravariant). */
+  def contramap[In2](f: In2 => In): GExecution[Params, In2, Out] =
+    Contramapped(this, f)
 
-  def flatMap[NRL: Layout, NP <: Params](f: ResLayout => GExecution[NP, ExecLayout, NRL]): GExecution[NP, ExecLayout, NRL] =
-    FlatMap(this, (p, r) => f(r))
-
-  def map[NRL: Layout](f: ResLayout => NRL): GExecution[Params, ExecLayout, NRL] =
-    Map(this, f, identity, identity)
-
-  def contramap[NEL: Layout](f: NEL => ExecLayout): GExecution[Params, NEL, ResLayout] =
-    Map(this, identity, f, identity)
-
-  def contramapParams[NP](f: NP => Params): GExecution[NP, ExecLayout, ResLayout] =
-    Map(this, identity, identity, f)
-
-  def addProgram[ProgramParams, PP <: Params, ProgramLayout: Layout, P <: GProgram[ProgramParams, ProgramLayout]](
-    program: P,
-  )(mapParams: PP => ProgramParams, mapLayout: ExecLayout => ProgramLayout): GExecution[PP, ExecLayout, ResLayout] =
-    val adapted = program.contramapParams(mapParams).contramap(mapLayout)
-    flatMap(r => adapted.map(_ => r))
-
-  /** Add a GPU buffer copy operation (uses vkCmdCopyBuffer - much faster than compute shader).
-    * 
-    * @param getBuffers Function to extract (source, destination) buffers from layout
-    * @param sizeBytes Number of bytes to copy
-    */
-  def addBufferCopy[PP <: Params](
-    getBuffers: ExecLayout => (GBuffer[?], GBuffer[?]),
-    sizeBytes: Int,
-  ): GExecution[PP, ExecLayout, ResLayout] =
-    val copyExec = BufferCopy[ExecLayout](getBuffers, sizeBytes)
-    flatMap(r => copyExec.map(_ => r))
+  /** Transform params. */
+  def contramapParams[P2](f: P2 => Params): GExecution[P2, In, Out] =
+    ParamsMapped(this, f)
 
 object GExecution:
+  /** Identity execution - just passes through the input. */
+  def identity[In]: GExecution[Unit, In, In] =
+    Identity()
 
-  def apply[Params, L: Layout]() =
-    Pure[Params, L]()
+  /** Create an execution from a pure function. */
+  def pure[In, Out](f: In => Out): GExecution[Unit, In, Out] =
+    Identity[In]().map(f)
 
-  def forParams[Params, EL: Layout, RL: Layout](f: Params => GExecution[Params, EL, RL]): GExecution[Params, EL, RL] =
-    FlatMap[Params, EL, EL, RL](Pure[Params, EL](), (params: Params, _: EL) => f(params))
+  // === Case classes for execution structure ===
 
-  case class Pure[Params, L: Layout]() extends GExecution[Params, L, L]
+  private[core] case class Identity[L]() extends GExecution[Unit, L, L]
 
-  case class FlatMap[Params, EL: Layout, RL: Layout, NRL: Layout](execution: GExecution[Params, EL, RL], f: (Params, RL) => GExecution[Params, EL, NRL])
-      extends GExecution[Params, EL, NRL]
+  private[core] case class Mapped[P, I, O, O2](
+    underlying: GExecution[P, I, O],
+    f: O => O2,
+  ) extends GExecution[P, I, O2]
 
-  /** GPU buffer copy using vkCmdCopyBuffer (DMA transfer, much faster than compute shader). */
-  case class BufferCopy[L: Layout](
-    getBuffers: L => (GBuffer[?], GBuffer[?]),
-    sizeBytes: Int,
-  ) extends GExecution[Any, L, L]
+  private[core] case class Contramapped[P, I, I2, O](
+    underlying: GExecution[P, I, O],
+    f: I2 => I,
+  ) extends GExecution[P, I2, O]
 
-  case class Map[P, NP, EL: Layout, NEL: Layout, RL: Layout, NRL: Layout](
-    execution: GExecution[P, EL, RL],
-    mapResult: RL => NRL,
-    contramapLayout: NEL => EL,
-    contramapParams: NP => P,
-  ) extends GExecution[NP, NEL, NRL]:
-
-    override def map[NNRL: Layout](f: NRL => NNRL): GExecution[NP, NEL, NNRL] =
-      Map(execution, mapResult andThen f, contramapLayout, contramapParams)
-
-    override def contramapParams[NNP](f: NNP => NP): GExecution[NNP, NEL, NRL] =
-      Map(execution, mapResult, contramapLayout, f andThen contramapParams)
-
-    override def contramap[NNL: Layout](f: NNL => NEL): GExecution[NP, NNL, NRL] =
-      Map(execution, mapResult, f andThen contramapLayout, contramapParams)
+  private[core] case class ParamsMapped[P, P2, I, O](
+    underlying: GExecution[P, I, O],
+    f: P2 => P,
+  ) extends GExecution[P2, I, O]

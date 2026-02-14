@@ -34,7 +34,9 @@ private[cyfra] class VulkanContext:
   logger.debug("Vulkan context created")
   logger.debug("Running on device: " + physicalDevice.name)
 
-  private val blockingQueue: BlockingQueue[CommandPool.Reset] = new ArrayBlockingQueue(commandPools.length).tap(_.addAll(commandPools.asJava))
+  private val blockingQueue: BlockingQueue[CommandPool.Reset] =
+    new ArrayBlockingQueue(commandPools.length).tap(_.addAll(commandPools.asJava))
+
   def withThreadContext[T](f: VulkanThreadContext => T): T =
     assert(
       VulkanThreadContext.guard.get() == 0,

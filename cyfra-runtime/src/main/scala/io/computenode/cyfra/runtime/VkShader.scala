@@ -18,7 +18,7 @@ case class VkShader[L](underlying: ComputePipeline, shaderBindings: L => ShaderL
 
 object VkShader:
   def apply[P, L: Layout](program: SpirvProgram[P, L], name: String = "Shader")(using Device): VkShader[L] =
-    val SpirvProgram(layout, dispatch, _workgroupSize, code, entryPoint, shaderBindings, _) = program
+    val SpirvProgram(layout, dispatch, workgroupSize, code, entryPoint, shaderBindings, _) = program
 
     val shaderLayout = shaderBindings(Layout[L].layoutRef)
     val sets = shaderLayout.map: set =>

@@ -1,7 +1,6 @@
 package io.computenode.cyfra.foton
 
-import io.computenode.cyfra.core.{CyfraRuntime, GBufferRegion, GCodec, GProgram}
-import io.computenode.cyfra.core.GBufferRegion.*
+import io.computenode.cyfra.core.{Allocation, CyfraRuntime, GCodec, GProgram}
 import io.computenode.cyfra.core.GProgram.StaticDispatch
 import io.computenode.cyfra.foton.GFunction
 import io.computenode.cyfra.foton.GFunction.{GFunctionLayout, GFunctionParams}
@@ -40,23 +39,38 @@ case class GFunction[G <: GStruct[G]: {GStructSchema, Tag}, H <: Value: {Tag, Fr
     val inTypeSize = typeStride(Tag.apply[H])
     val outTypeSize = typeStride(Tag.apply[R])
     val uniformStride = totalStride(summon[GStructSchema[G]])
-    val params = GFunctionParams(size = input.size)
+    given GFunctionParams = GFunctionParams(size = input.size)
 
     val in = BufferUtils.createByteBuffer(inTypeSize * input.size)
     hCodec.toByteBuffer(in, input)
+    in.rewind()
     val out = BufferUtils.createByteBuffer(outTypeSize * input.size)
     val uniform = BufferUtils.createByteBuffer(uniformStride)
     gCodec.toByteBuffer(uniform, Array(g))
+    uniform.rewind()
 
-    GBufferRegion
-      .allocate[GFunctionLayout[G, H, R]]
-      .map: layout =>
-        underlying.execute(params, layout)
-      .runUnsafe(
-        init = GFunctionLayout(in = GBuffer[H](in), out = GBuffer[R](input.size), uniform = GUniform[G](uniform)),
-        onDone = layout => layout.out.read(out),
+    runtime.withAllocation: allocation =>
+      given Allocation = allocation
+
+      // Create input layout
+      val inputLayout = GFunctionLayout(
+        in = allocation.buffer[H]("in", in),
+        out = allocation.buffer[R]("out", input.size),
+        uniform = allocation.uniform[G]("uniform", uniform),
       )
+
+      // Dispatch the program (builds DAG)
+      val params = summon[GFunctionParams]
+      val outputLayout = underlying.dispatch(params, inputLayout)
+
+      // Materialize (executes the DAG)
+      allocation.materialize(outputLayout)
+
+      // Read results
+      outputLayout.out.readTo(out)
+
     val resultArray = Array.ofDim[RS](input.size)
+    out.rewind()
     rCodec.fromByteBuffer(out, resultArray)
 
 object GFunction:
@@ -74,7 +88,7 @@ object GFunction:
       yield Empty()
 
     val program = GProgram.static[GFunctionParams, GFunctionLayout[G, H, R]](
-      layout = (params: GFunctionParams) => GFunctionLayout(GBuffer(params.size), GBuffer(params.size), GUniform()),
+      layout = (params: GFunctionParams) => GFunctionLayout(GBuffer(), GBuffer(), GUniform()),
       dispatchSize = _.size,
     )(body)
 
@@ -90,7 +104,7 @@ object GFunction:
     width: Int,
   )(fn: (G, (Int32, Int32), GArray2D[H]) => R): GFunction[G, H, R] =
     GFunction.forEachIndex[G, H, R]((g: G, index: Int32, a: GBuffer[H]) =>
-      val x: Int32 = index mod width
+      val x: Int32 = index.mod(width)
       val y: Int32 = index / width
       val arr = GArray2D(width, a)
       fn(g, (x, y), arr),

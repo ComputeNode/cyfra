@@ -1,6 +1,7 @@
 package io.computenode.cyfra.llama.programs.f16
 
 import io.computenode.cyfra.core.GProgram
+import io.computenode.cyfra.core.GProgram.{*, given}
 import io.computenode.cyfra.core.GProgram.StaticDispatch
 import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.dsl.{*, given}
@@ -17,11 +18,12 @@ object F16ResidualAddProgram:
   ) derives Layout
   
   def forward(sizes: Sizes): GProgram[Sizes, ProgramLayout] =
+    given Sizes = sizes
     GProgram[Sizes, ProgramLayout](
       layout = s => ProgramLayout(
-        a = GBuffer[Float16](s.size),
-        b = GBuffer[Float16](s.size),
-        output = GBuffer[Float16](s.size),
+        a = GBuffer.sized[Float16](s.size),
+        b = GBuffer.sized[Float16](s.size),
+        output = GBuffer.sized[Float16](s.size),
       ),
       dispatch = (_, s) => StaticDispatch(((s.size + 255) / 256, 1, 1)),
       workgroupSize = (256, 1, 1),

@@ -21,8 +21,9 @@ object Device:
   final val MacOsExtension = VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME
 
 private[cyfra] class Device(instance: Instance, physicalDevice: PhysicalDevice) extends VulkanObject[VkDevice]:
+  private val (queueFamily, queueCount) = physicalDevice.selectComputeQueueFamily
+
   protected val handle: VkDevice = pushStack: stack =>
-    val (queueFamily, queueCount) = physicalDevice.selectComputeQueueFamily
     val pQueueCreateInfo = VkDeviceQueueCreateInfo.calloc(1, stack)
     pQueueCreateInfo
       .get(0)
@@ -67,7 +68,6 @@ private[cyfra] class Device(instance: Instance, physicalDevice: PhysicalDevice) 
     device
 
   def getQueues: Seq[Queue] =
-    val (queueFamily, queueCount) = physicalDevice.selectComputeQueueFamily
     (0 until queueCount).map(new Queue(queueFamily, _, this))
 
   override protected def close(): Unit =

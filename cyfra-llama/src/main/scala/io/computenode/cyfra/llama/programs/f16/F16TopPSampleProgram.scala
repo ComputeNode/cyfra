@@ -1,6 +1,7 @@
 package io.computenode.cyfra.llama.programs.f16
 
 import io.computenode.cyfra.core.GProgram
+import io.computenode.cyfra.core.GProgram.{*, given}
 import io.computenode.cyfra.core.GProgram.StaticDispatch
 import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.dsl.{*, given}
@@ -61,14 +62,15 @@ object F16TopPSampleProgram:
     * @return GProgram that samples a token index from logits
     */
   def forward(sizes: Sizes): GProgram[Sizes, ProgramLayout] =
+    given Sizes = sizes
     val vocabSize = sizes.vocabSize
     val numIterations = sizes.numIterations
 
     GProgram[Sizes, ProgramLayout](
       layout = _ => ProgramLayout(
-        logits = GBuffer[Float32](vocabSize),
+        logits = GBuffer.sized[Float32](vocabSize),
         params = GUniform[SampleParams](),
-        result = GBuffer[Int32](1),
+        result = GBuffer.sized[Int32](1),
       ),
       dispatch = (_, _) => StaticDispatch((1, 1, 1)),
       workgroupSize = (BLOCK_SIZE, 1, 1),

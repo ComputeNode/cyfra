@@ -1,6 +1,7 @@
 package io.computenode.cyfra.llama.programs.f16
 
 import io.computenode.cyfra.core.GProgram
+import io.computenode.cyfra.core.GProgram.{*, given}
 import io.computenode.cyfra.core.GProgram.StaticDispatch
 import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.dsl.{*, given}
@@ -44,6 +45,7 @@ object F16FusedKVCacheWriteProgram:
   ) derives Layout
 
   def forward(sizes: Sizes): GProgram[Sizes, ProgramLayout] =
+    given Sizes = sizes
     val B = sizes.B
     val T = sizes.T
     val NKV = sizes.NKV
@@ -58,10 +60,10 @@ object F16FusedKVCacheWriteProgram:
 
     GProgram[Sizes, ProgramLayout](
       layout = s => ProgramLayout(
-        k = GBuffer[Float16](s.totalKElements),
-        v = GBuffer[Float16](s.totalVElements),
-        kCache = GBuffer[Float16](s.fullCacheSize),
-        vCache = GBuffer[Float16](s.fullCacheSize),
+        k = GBuffer.sized[Float16](s.totalKElements),
+        v = GBuffer.sized[Float16](s.totalVElements),
+        kCache = GBuffer.sized[Float16](s.fullCacheSize),
+        vCache = GBuffer.sized[Float16](s.fullCacheSize),
         params = GUniform[AttentionParams](),
       ),
       dispatch = (_, s) => StaticDispatch(((s.totalElements + 255) / 256, 1, 1)),

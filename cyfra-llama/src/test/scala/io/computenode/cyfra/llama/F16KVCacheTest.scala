@@ -10,7 +10,7 @@ import java.nio.file.{Files, Paths}
 import scala.concurrent.duration.*
 
 /** Tests for F16 KV Cache Pipeline with Vec4-optimized matmuls.
-  *
+  * 
   * This tests LlamaF16Pipeline which provides O(1) per-token inference
   * by maintaining an F16 KV cache on GPU. Uses Vec4 weight loads for 4x bandwidth.
   */
@@ -70,8 +70,8 @@ class F16KVCacheTest extends FunSuite:
         println(s"\n--- Consistency check (5 runs x $maxTokens tokens) ---")
         val gpuTimes = (1 to 5).map: i =>
           f16Pipeline.generate(
-            promptTokens = promptTokens,
-            maxNewTokens = maxTokens,
+            promptTokens = promptTokens, 
+            maxNewTokens = maxTokens, 
             temperature = 0.2f,
             stopTokens = Set(tokenizer.eosToken, 128009),
           )

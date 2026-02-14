@@ -1,8 +1,9 @@
 package io.computenode.cyfra.llama.pipeline
 
-import io.computenode.cyfra.core.{CyfraRuntime, GBufferRegion, GExecution}
+import io.computenode.cyfra.core.{Allocation, CyfraRuntime, GExecution, Provenance}
 import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
 import io.computenode.cyfra.llama.model.LlamaConfig
 import io.computenode.cyfra.llama.pipeline.LlamaF16Pipeline.*
 import io.computenode.cyfra.llama.pipeline.PipelineUtils.*
@@ -44,57 +45,68 @@ case class LlamaF16Pipeline(
 
   Logger.info(s"Uploading F16 weights: $L layers, ${V}×${C} vocab, maxSeqLen=$maxSeqLen")
 
+  // Concatenate layer weights into flat buffers
+  private def concatLayerWeights(extract: F16LayerWeights => Array[Byte]): Array[Byte] =
+    weights.layers.flatMap(l => extract(l).toSeq).toArray
+
   private val tokenEmbedBuf = allocateF16Buffer(V * C)
   copyF16BytesToBuffer(weights.tokenEmbed, tokenEmbedBuf)
   tokenEmbedBuf.rewind()
 
   private val attnNormBuf = allocateF16Buffer(L * C)
+  copyF16BytesToBuffer(concatLayerWeights(_.attnNorm), attnNormBuf)
+  attnNormBuf.rewind()
+
   private val wqBuf = allocateF16Buffer(L * C * C)
+  copyF16BytesToBuffer(concatLayerWeights(_.wq), wqBuf)
+  wqBuf.rewind()
+
   private val wkBuf = allocateF16Buffer(L * C * kvSize)
+  copyF16BytesToBuffer(concatLayerWeights(_.wk), wkBuf)
+  wkBuf.rewind()
+
   private val wvBuf = allocateF16Buffer(L * C * kvSize)
+  copyF16BytesToBuffer(concatLayerWeights(_.wv), wvBuf)
+  wvBuf.rewind()
+
   private val woBuf = allocateF16Buffer(L * C * C)
+  copyF16BytesToBuffer(concatLayerWeights(_.wo), woBuf)
+  woBuf.rewind()
+
   private val ffnNormBuf = allocateF16Buffer(L * C)
-  private val ffnGateBuf = allocateF16Buffer(L * FFN * C)
-  private val ffnUpBuf = allocateF16Buffer(L * FFN * C)
-  private val ffnDownBuf = allocateF16Buffer(L * C * FFN)
+  copyF16BytesToBuffer(concatLayerWeights(_.ffnNorm), ffnNormBuf)
+  ffnNormBuf.rewind()
 
-  for (layer, layerIdx) <- weights.layers.zipWithIndex do
-    copyF16BytesToBuffer(layer.attnNorm, attnNormBuf, layerIdx * C * 2)
-    copyF16BytesToBuffer(layer.wq, wqBuf, layerIdx * C * C * 2)
-    copyF16BytesToBuffer(layer.wk, wkBuf, layerIdx * C * kvSize * 2)
-    copyF16BytesToBuffer(layer.wv, wvBuf, layerIdx * C * kvSize * 2)
-    copyF16BytesToBuffer(layer.wo, woBuf, layerIdx * C * C * 2)
-    copyF16BytesToBuffer(layer.ffnNorm, ffnNormBuf, layerIdx * C * 2)
-    copyF16BytesToBuffer(layer.ffnGate, ffnGateBuf, layerIdx * FFN * C * 2)
-    copyF16BytesToBuffer(layer.ffnUp, ffnUpBuf, layerIdx * FFN * C * 2)
-    copyF16BytesToBuffer(layer.ffnDown, ffnDownBuf, layerIdx * C * FFN * 2)
+  private val ffnGateBuf = allocateF16Buffer(L * C * FFN)
+  copyF16BytesToBuffer(concatLayerWeights(_.ffnGate), ffnGateBuf)
+  ffnGateBuf.rewind()
 
-  attnNormBuf.rewind(); wqBuf.rewind(); wkBuf.rewind(); wvBuf.rewind(); woBuf.rewind()
-  ffnNormBuf.rewind(); ffnGateBuf.rewind(); ffnUpBuf.rewind(); ffnDownBuf.rewind()
+  private val ffnUpBuf = allocateF16Buffer(L * C * FFN)
+  copyF16BytesToBuffer(concatLayerWeights(_.ffnUp), ffnUpBuf)
+  ffnUpBuf.rewind()
+
+  private val ffnDownBuf = allocateF16Buffer(L * FFN * C)
+  copyF16BytesToBuffer(concatLayerWeights(_.ffnDown), ffnDownBuf)
+  ffnDownBuf.rewind()
 
   private val outputNormBuf = allocateF16Buffer(C)
   copyF16BytesToBuffer(weights.outputNorm, outputNormBuf)
   outputNormBuf.rewind()
 
-  private val outputWeightBuf = allocateF16Buffer(V * C)
-  copyF16BytesToBuffer(weights.output, outputWeightBuf)
+  private val outputWeightBuf = allocateF16Buffer(C * V)
+  copyF16BytesToBuffer(weights.outputWeight, outputWeightBuf)
   outputWeightBuf.rewind()
-
-  Logger.info("F16 weights uploaded to GPU")
 
   private val decodeTokenBuf = allocateIntBuffer(B * 1)
   private val decodeLogitsBuf = allocateF32Buffer(B * 1 * V)
-  private val prefillLogitsArr = new Array[Float](V)
+  private val sampledTokenBuf = allocateIntBuffer(B * 1)
+
+  private val random = new scala.util.Random()
+  private val sampleParamsBuf = ByteBuffer.allocateDirect(12).order(ByteOrder.nativeOrder()) // 3 floats
   private val attnParamsBuf = ByteBuffer.allocateDirect(8).order(ByteOrder.nativeOrder())
 
-  // GPU sampling buffers
-  private val sampleParamsBuf = ByteBuffer.allocateDirect(16).order(ByteOrder.nativeOrder()) // std140 aligned
-  private val sampledTokenBuf = allocateIntBuffer(1)
-  private val random = new scala.util.Random()
-
-  // CPU sampling for prefill (can't use decode pipeline for variable-length prefill)
   private def cpuSample(logits: Array[Float], temperature: Float, topP: Float): Int =
-    if temperature < 0.001f then
+    if temperature <= 0f then
       var maxIdx = 0
       var maxVal = logits(0)
       var i = 1
@@ -127,12 +139,10 @@ case class LlamaF16Pipeline(
           result = idx
       result
 
-  private val pipelineCache = scala.collection.mutable.Map[(Int, Int, Boolean), GExecution[PipelineParams, PipelineLayout, PipelineLayout]]()
+  private val pipelineCache = scala.collection.mutable.Map[(Int, Int, Boolean), PipelineLayout => PipelineLayout]()
 
-  private def getOrBuildPipeline(T: Int, seqLen: Int, withSampling: Boolean = false): GExecution[PipelineParams, PipelineLayout, PipelineLayout] =
+  private def getOrBuildPipeline(T: Int, seqLen: Int, withSampling: Boolean = false): PipelineLayout => PipelineLayout =
     pipelineCache.getOrElseUpdate((T, seqLen, withSampling), buildPipeline(config, B, T, maxSeqLen, withSampling))
-
-  // Decode pipeline with GPU sampling appended
 
   private var currentSeqLen: Int = 0
 
@@ -196,143 +206,157 @@ case class LlamaF16Pipeline(
     var decodeTimeNs = 0L
     var shouldStop = false
 
-    val afterPrefill = GBufferRegion
-      .allocate[GenerationLayout]
-      .map: layout =>
-        NVTX.push(s"Prefill[$prefillT]")
-        prefillStartNs = System.nanoTime()
-        prefillPipeline.execute(prefillParams, layout.toPipelineLayout)
-        layout
-      .map: layout =>
-        layout.prefillLogits.read(prefillLogitsBuf)
-        prefillEndNs = System.nanoTime()
+    runtime.withAllocation { allocation =>
+      given Allocation = allocation
+
+      // Create layout with all buffers
+      val layout = GenerationLayout(
+        tokenEmbed = allocation.buffer[Float16](tokenEmbedBuf),
+        attnNorm = allocation.buffer[Float16](attnNormBuf),
+        ffnNorm = allocation.buffer[Float16](ffnNormBuf),
+        outputNorm = allocation.buffer[Float16](outputNormBuf),
+        wq = allocation.buffer[Vec4[Float16]](wqBuf),
+        wk = allocation.buffer[Vec4[Float16]](wkBuf),
+        wv = allocation.buffer[Vec4[Float16]](wvBuf),
+        wo = allocation.buffer[Vec4[Float16]](woBuf),
+        ffnGate = allocation.buffer[Vec4[Float16]](ffnGateBuf),
+        ffnUp = allocation.buffer[Vec4[Float16]](ffnUpBuf),
+        ffnDown = allocation.buffer[Vec4[Float16]](ffnDownBuf),
+        outputWeight = allocation.buffer[Vec4[Float16]](outputWeightBuf),
+        kCache = allocation.buffer[Float16](L * maxSeqLen * kvSize),
+        vCache = allocation.buffer[Float16](L * maxSeqLen * kvSize),
+        prefillTokens = allocation.buffer[Int32](prefillTokensBuf),
+        prefillHidden = allocation.buffer[Float16](B * prefillT * C),
+        prefillResidual = allocation.buffer[Float16](B * prefillT * C),
+        prefillAttnNormOut = allocation.buffer[Float16](B * prefillT * C),
+        prefillQ = allocation.buffer[Float16](B * prefillT * C),
+        prefillK = allocation.buffer[Float16](B * prefillT * kvSize),
+        prefillV = allocation.buffer[Float16](B * prefillT * kvSize),
+        prefillQRoped = allocation.buffer[Float16](B * prefillT * C),
+        prefillKRoped = allocation.buffer[Float16](B * prefillT * kvSize),
+        prefillAttnScores = allocation.buffer[Float32](B * prefillT * NH * maxSeqLen),
+        prefillAttnOut = allocation.buffer[Float16](B * prefillT * C),
+        prefillFfnNormOut = allocation.buffer[Float16](B * prefillT * C),
+        prefillGate = allocation.buffer[Float16](B * prefillT * FFN),
+        prefillUp = allocation.buffer[Float16](B * prefillT * FFN),
+        prefillFfnHidden = allocation.buffer[Float16](B * prefillT * FFN),
+        prefillFfnOut = allocation.buffer[Float16](B * prefillT * C),
+        prefillLogits = allocation.buffer[Float32](prefillLogitsBuf),
+        prefillAttnParams = allocation.uniform[AttentionParams](prefillAttnBuf),
+        decodeToken = allocation.buffer[Int32](decodeTokenBuf),
+        decodeHidden = allocation.buffer[Float16](B * 1 * C),
+        decodeResidual = allocation.buffer[Float16](B * 1 * C),
+        decodeAttnNormOut = allocation.buffer[Float16](B * 1 * C),
+        decodeQ = allocation.buffer[Float16](B * 1 * C),
+        decodeK = allocation.buffer[Float16](B * 1 * kvSize),
+        decodeV = allocation.buffer[Float16](B * 1 * kvSize),
+        decodeQRoped = allocation.buffer[Float16](B * 1 * C),
+        decodeKRoped = allocation.buffer[Float16](B * 1 * kvSize),
+        decodeAttnScores = allocation.buffer[Float32](B * 1 * NH * maxSeqLen),
+        decodeAttnOut = allocation.buffer[Float16](B * 1 * C),
+        decodeFfnNormOut = allocation.buffer[Float16](B * 1 * C),
+        decodeGate = allocation.buffer[Float16](B * 1 * FFN),
+        decodeUp = allocation.buffer[Float16](B * 1 * FFN),
+        decodeFfnHidden = allocation.buffer[Float16](B * 1 * FFN),
+        decodeFfnOut = allocation.buffer[Float16](B * 1 * C),
+        decodeLogits = allocation.buffer[Float32](decodeLogitsBuf),
+        decodeAttnParams = allocation.uniform[AttentionParams](decodeAttnBuf),
+        sampleParams = allocation.uniform[F16TopPSampleProgram.SampleParams](sampleParamsBuf),
+        sampledToken = allocation.buffer[Int32](sampledTokenBuf),
+      )
+
+      // === Prefill phase ===
+      NVTX.push(s"Prefill[$prefillT]")
+      prefillStartNs = System.nanoTime()
+
+      // Run prefill pipeline (builds DAG)
+      val afterPrefill = prefillPipeline(layout.toPipelineLayout)
+
+      // Materialize to execute the prefill
+      val materializedPrefill = allocation.materialize(afterPrefill)
+
+      // Read prefill logits
+      layout.prefillLogits.readTo(prefillLogitsBuf)
+      prefillEndNs = System.nanoTime()
+      NVTX.pop()
+      prefillLogitsBuf.rewind()
+
+      // Extract last position logits for sampling
+      val prefillLogitsArr = new Array[Float](prefillT * V)
+      copyFromF32Buffer(prefillLogitsBuf, prefillLogitsArr)
+      val lastPosLogits = prefillLogitsArr.slice((prefillT - 1) * V, prefillT * V)
+
+      val firstToken = cpuSample(lastPosLogits, temperature, topP)
+      generatedTokens += firstToken
+      onToken(firstToken)
+      currentSeqLen = prefillT
+
+      if stopTokens.contains(firstToken) then shouldStop = true
+      else
+        decodeTokenBuf.clear()
+        decodeTokenBuf.asIntBuffer().put(Array(firstToken))
+        decodeTokenBuf.rewind()
+        layout.decodeToken.writeFrom(decodeTokenBuf)
+
+      // === Decode phase ===
+      var stepIdx = 0
+      while stepIdx < maxNewTokens - 1 && !shouldStop do
+        val seqLen = prefillT + stepIdx + 1
+        val startPos = seqLen - 1
+
+        attnParamsBuf.clear()
+        attnParamsBuf.putInt(seqLen)
+        attnParamsBuf.putInt(startPos)
+        attnParamsBuf.flip()
+        layout.decodeAttnParams.writeFrom(attnParamsBuf)
+
+        // Set sampling params (3 floats: temperature, topP, randomValue)
+        sampleParamsBuf.clear()
+        sampleParamsBuf.putFloat(temperature)
+        sampleParamsBuf.putFloat(topP)
+        sampleParamsBuf.putFloat(random.nextFloat())
+        sampleParamsBuf.rewind()
+        layout.sampleParams.writeFrom(sampleParamsBuf)
+
+        NVTX.push(s"Decode[$stepIdx]")
+        val stepStartNs = System.nanoTime()
+        NVTX.push(s"Execute[$stepIdx]")
+
+        // Try fast path first (skips provenance building)
+        val decodeLayout = layout.toDecodeLayout
+        allocation match
+          case vk: io.computenode.cyfra.runtime.VkAllocation =>
+            if !vk.submitCached(decodeLayout) then
+              // Cache miss - need full pipeline run + materialize
+              val afterDecode = decodePipeline(decodeLayout)
+              allocation.materialize(afterDecode)
+          case _ =>
+            // Fallback for non-VkAllocation
+            val afterDecode = decodePipeline(decodeLayout)
+            allocation.materialize(afterDecode)
+
         NVTX.pop()
-        prefillLogitsBuf.rewind()
 
-        // Extract last position logits for sampling
-        val prefillLogitsArr = new Array[Float](prefillT * V)
-        copyFromF32Buffer(prefillLogitsBuf, prefillLogitsArr)
-        val lastPosLogits = prefillLogitsArr.slice((prefillT - 1) * V, prefillT * V)
+        // Read sampled token from GPU (only 4 bytes!)
+        layout.sampledToken.readTo(sampledTokenBuf)
+        decodeTimeNs += (System.nanoTime() - stepStartNs)
+        NVTX.pop()
+        sampledTokenBuf.rewind()
+        val nextToken = sampledTokenBuf.asIntBuffer().get(0)
+        generatedTokens += nextToken
+        onToken(nextToken)
+        currentSeqLen += 1
 
-        val firstToken = cpuSample(lastPosLogits, temperature, topP)
-        generatedTokens += firstToken
-        onToken(firstToken)
-        currentSeqLen = prefillT
-
-        if stopTokens.contains(firstToken) then shouldStop = true
+        if stopTokens.contains(nextToken) then shouldStop = true
         else
           decodeTokenBuf.clear()
-          decodeTokenBuf.asIntBuffer().put(Array(firstToken))
+          decodeTokenBuf.asIntBuffer().put(Array(nextToken))
           decodeTokenBuf.rewind()
-          layout.decodeToken.write(decodeTokenBuf)
+          layout.decodeToken.writeFrom(decodeTokenBuf)
 
-        layout
-
-    val afterDecode = (0 until maxNewTokens - 1).foldLeft(afterPrefill): (region, stepIdx) =>
-      val seqLen = prefillT + stepIdx + 1
-      val startPos = seqLen - 1
-      val decodeParams = PipelineParams(config, B, 1, startPos)
-
-      region.map: layout =>
-        if shouldStop then layout
-        else
-          attnParamsBuf.clear()
-          attnParamsBuf.putInt(seqLen)
-          attnParamsBuf.putInt(startPos)
-          attnParamsBuf.flip()
-          layout.decodeAttnParams.asInstanceOf[io.computenode.cyfra.dsl.binding.GBinding[AttentionParams]].write(attnParamsBuf, 0)
-
-          // Set sampling params
-          sampleParamsBuf.clear()
-          sampleParamsBuf.putFloat(temperature)
-          sampleParamsBuf.putFloat(topP)
-          sampleParamsBuf.putFloat(random.nextFloat())
-          sampleParamsBuf.putFloat(0.0f)
-          sampleParamsBuf.rewind()
-          layout.sampleParams.asInstanceOf[io.computenode.cyfra.dsl.binding.GBinding[F16TopPSampleProgram.SampleParams]].write(sampleParamsBuf, 0)
-
-          NVTX.push(s"Decode[$stepIdx]")
-          val stepStartNs = System.nanoTime()
-          NVTX.push(s"Execute[$stepIdx]")
-          decodePipeline.execute(decodeParams, layout.toDecodeLayout)
-          NVTX.pop()
-
-          // Read sampled token
-          layout.sampledToken.read(sampledTokenBuf)
-          decodeTimeNs += (System.nanoTime() - stepStartNs)
-          NVTX.pop()
-          sampledTokenBuf.rewind()
-          val nextToken = sampledTokenBuf.asIntBuffer().get(0)
-          generatedTokens += nextToken
-          onToken(nextToken)
-          currentSeqLen += 1
-
-          if stopTokens.contains(nextToken) then shouldStop = true
-          else
-            decodeTokenBuf.clear()
-            decodeTokenBuf.asIntBuffer().put(Array(nextToken))
-            decodeTokenBuf.rewind()
-            layout.decodeToken.write(decodeTokenBuf)
-
-          layout
-
-    afterDecode.runUnsafe(
-      init = GenerationLayout(
-        tokenEmbed = GBuffer[Float16](tokenEmbedBuf),
-        attnNorm = GBuffer[Float16](attnNormBuf),
-        ffnNorm = GBuffer[Float16](ffnNormBuf),
-        outputNorm = GBuffer[Float16](outputNormBuf),
-        wq = GBuffer[Vec4[Float16]](wqBuf),
-        wk = GBuffer[Vec4[Float16]](wkBuf),
-        wv = GBuffer[Vec4[Float16]](wvBuf),
-        wo = GBuffer[Vec4[Float16]](woBuf),
-        ffnGate = GBuffer[Vec4[Float16]](ffnGateBuf),
-        ffnUp = GBuffer[Vec4[Float16]](ffnUpBuf),
-        ffnDown = GBuffer[Vec4[Float16]](ffnDownBuf),
-        outputWeight = GBuffer[Vec4[Float16]](outputWeightBuf),
-        kCache = GBuffer[Float16](L * maxSeqLen * kvSize),
-        vCache = GBuffer[Float16](L * maxSeqLen * kvSize),
-        prefillTokens = GBuffer[Int32](prefillTokensBuf),
-        prefillHidden = GBuffer[Float16](B * prefillT * C),
-        prefillResidual = GBuffer[Float16](B * prefillT * C),
-        prefillAttnNormOut = GBuffer[Float16](B * prefillT * C),
-        prefillQ = GBuffer[Float16](B * prefillT * C),
-        prefillK = GBuffer[Float16](B * prefillT * kvSize),
-        prefillV = GBuffer[Float16](B * prefillT * kvSize),
-        prefillQRoped = GBuffer[Float16](B * prefillT * C),
-        prefillKRoped = GBuffer[Float16](B * prefillT * kvSize),
-        prefillAttnScores = GBuffer[Float32](B * prefillT * NH * maxSeqLen),
-        prefillAttnOut = GBuffer[Float16](B * prefillT * C),
-        prefillFfnNormOut = GBuffer[Float16](B * prefillT * C),
-        prefillGate = GBuffer[Float16](B * prefillT * FFN),
-        prefillUp = GBuffer[Float16](B * prefillT * FFN),
-        prefillFfnHidden = GBuffer[Float16](B * prefillT * FFN),
-        prefillFfnOut = GBuffer[Float16](B * prefillT * C),
-        prefillLogits = GBuffer[Float32](prefillLogitsBuf),
-        prefillAttnParams = GUniform[AttentionParams](prefillAttnBuf),
-        decodeToken = GBuffer[Int32](decodeTokenBuf),
-        decodeHidden = GBuffer[Float16](B * 1 * C),
-        decodeResidual = GBuffer[Float16](B * 1 * C),
-        decodeAttnNormOut = GBuffer[Float16](B * 1 * C),
-        decodeQ = GBuffer[Float16](B * 1 * C),
-        decodeK = GBuffer[Float16](B * 1 * kvSize),
-        decodeV = GBuffer[Float16](B * 1 * kvSize),
-        decodeQRoped = GBuffer[Float16](B * 1 * C),
-        decodeKRoped = GBuffer[Float16](B * 1 * kvSize),
-        decodeAttnScores = GBuffer[Float32](B * 1 * NH * maxSeqLen),
-        decodeAttnOut = GBuffer[Float16](B * 1 * C),
-        decodeFfnNormOut = GBuffer[Float16](B * 1 * C),
-        decodeGate = GBuffer[Float16](B * 1 * FFN),
-        decodeUp = GBuffer[Float16](B * 1 * FFN),
-        decodeFfnHidden = GBuffer[Float16](B * 1 * FFN),
-        decodeFfnOut = GBuffer[Float16](B * 1 * C),
-        decodeLogits = GBuffer[Float32](decodeLogitsBuf),
-        decodeAttnParams = GUniform[AttentionParams](decodeAttnBuf),
-        sampleParams = GUniform[F16TopPSampleProgram.SampleParams](sampleParamsBuf),
-        sampledToken = GBuffer[Int32](sampledTokenBuf),
-      ),
-      onDone = _ => (),
-    )
+        stepIdx += 1
+      end while
+    }
 
     val prefillTimeMs = (prefillEndNs - prefillStartNs) / 1_000_000.0
     val decodeTimeMs = decodeTimeNs / 1_000_000.0
@@ -357,21 +381,6 @@ object LlamaF16Pipeline:
 
   val DefaultMaxSeqLen = 2048
 
-  case class PipelineParams(
-    config: LlamaConfig,
-    B: Int,
-    T: Int,
-    startPos: Int = 0,
-  ):
-    def C: Int = config.hiddenSize
-    def NH: Int = config.numAttentionHeads
-    def NKV: Int = config.numKeyValueHeads
-    def headSize: Int = config.headSize
-    def FFN: Int = config.intermediateSize
-    def V: Int = config.vocabSize
-    def L: Int = config.numHiddenLayers
-    def kvSize: Int = NKV * headSize
-
   case class F16LayerWeights(
     attnNorm: Array[Byte],
     wq: Array[Byte],
@@ -383,16 +392,32 @@ object LlamaF16Pipeline:
     ffnUp: Array[Byte],
     ffnDown: Array[Byte],
   )
-  
+
   case class F16ModelWeights(
     tokenEmbed: Array[Byte],
     layers: Seq[F16LayerWeights],
     outputNorm: Array[Byte],
-    output: Array[Byte],
+    outputWeight: Array[Byte],
   )
 
+  case class PipelineParams(
+    config: LlamaConfig,
+    B: Int,
+    T: Int,
+    startPos: Int = 0,
+  ):
+    def C: Int = config.hiddenSize
+    def NH: Int = config.numAttentionHeads
+    def NKV: Int = config.numKeyValueHeads
+    def headSize: Int = config.headSize
+    def kvSize: Int = NKV * headSize
+    def seqLen: Int = startPos + T
+    def FFN: Int = config.intermediateSize
+    def L: Int = config.numHiddenLayers
+    def V: Int = config.vocabSize
+
+  // Define layouts
   case class PipelineLayout(
-    tokens: GBuffer[Int32],
     tokenEmbed: GBuffer[Float16],
     attnNorm: GBuffer[Float16],
     ffnNorm: GBuffer[Float16],
@@ -407,6 +432,7 @@ object LlamaF16Pipeline:
     outputWeight: GBuffer[Vec4[Float16]],
     kCache: GBuffer[Float16],
     vCache: GBuffer[Float16],
+    tokens: GBuffer[Int32],
     hidden: GBuffer[Float16],
     residual: GBuffer[Float16],
     attnNormOut: GBuffer[Float16],
@@ -429,6 +455,7 @@ object LlamaF16Pipeline:
   ) derives Layout
 
   case class GenerationLayout(
+    // Weights
     tokenEmbed: GBuffer[Float16],
     attnNorm: GBuffer[Float16],
     ffnNorm: GBuffer[Float16],
@@ -441,8 +468,10 @@ object LlamaF16Pipeline:
     ffnUp: GBuffer[Vec4[Float16]],
     ffnDown: GBuffer[Vec4[Float16]],
     outputWeight: GBuffer[Vec4[Float16]],
+    // KV Cache
     kCache: GBuffer[Float16],
     vCache: GBuffer[Float16],
+    // Prefill buffers
     prefillTokens: GBuffer[Int32],
     prefillHidden: GBuffer[Float16],
     prefillResidual: GBuffer[Float16],
@@ -461,6 +490,7 @@ object LlamaF16Pipeline:
     prefillFfnOut: GBuffer[Float16],
     prefillLogits: GBuffer[Float32],
     prefillAttnParams: GUniform[AttentionParams],
+    // Decode buffers
     decodeToken: GBuffer[Int32],
     decodeHidden: GBuffer[Float16],
     decodeResidual: GBuffer[Float16],
@@ -479,44 +509,43 @@ object LlamaF16Pipeline:
     decodeFfnOut: GBuffer[Float16],
     decodeLogits: GBuffer[Float32],
     decodeAttnParams: GUniform[AttentionParams],
-    // Sampling buffers
     sampleParams: GUniform[F16TopPSampleProgram.SampleParams],
     sampledToken: GBuffer[Int32],
   ) derives Layout:
-
     def toPipelineLayout: PipelineLayout = PipelineLayout(
-      tokens = prefillTokens,
-      tokenEmbed = tokenEmbed, attnNorm = attnNorm, ffnNorm = ffnNorm, outputNorm = outputNorm,
-      wq = wq, wk = wk, wv = wv, wo = wo,
-      ffnGate = ffnGate, ffnUp = ffnUp, ffnDown = ffnDown, outputWeight = outputWeight,
-      kCache = kCache, vCache = vCache,
-      hidden = prefillHidden, residual = prefillResidual, attnNormOut = prefillAttnNormOut,
-      q = prefillQ, k = prefillK, v = prefillV, qRoped = prefillQRoped, kRoped = prefillKRoped,
-      attnScores = prefillAttnScores, attnOut = prefillAttnOut, ffnNormOut = prefillFfnNormOut,
-      gate = prefillGate, up = prefillUp, ffnHidden = prefillFfnHidden, ffnOut = prefillFfnOut,
-      logits = prefillLogits, attnParams = prefillAttnParams, sampleParams = sampleParams, sampledToken = sampledToken,
-    )
-    
-    def toDecodeLayout: PipelineLayout = PipelineLayout(
-      tokens = decodeToken,
-      tokenEmbed = tokenEmbed, attnNorm = attnNorm, ffnNorm = ffnNorm, outputNorm = outputNorm,
-      wq = wq, wk = wk, wv = wv, wo = wo,
-      ffnGate = ffnGate, ffnUp = ffnUp, ffnDown = ffnDown, outputWeight = outputWeight,
-      kCache = kCache, vCache = vCache,
-      hidden = decodeHidden, residual = decodeResidual, attnNormOut = decodeAttnNormOut,
-      q = decodeQ, k = decodeK, v = decodeV, qRoped = decodeQRoped, kRoped = decodeKRoped,
-      attnScores = decodeAttnScores, attnOut = decodeAttnOut, ffnNormOut = decodeFfnNormOut,
-      gate = decodeGate, up = decodeUp, ffnHidden = decodeFfnHidden, ffnOut = decodeFfnOut,
-      logits = decodeLogits, attnParams = decodeAttnParams, sampleParams = sampleParams, sampledToken = sampledToken,
+      tokenEmbed, attnNorm, ffnNorm, outputNorm,
+      wq, wk, wv, wo, ffnGate, ffnUp, ffnDown, outputWeight,
+      kCache, vCache,
+      prefillTokens, prefillHidden, prefillResidual, prefillAttnNormOut,
+      prefillQ, prefillK, prefillV, prefillQRoped, prefillKRoped,
+      prefillAttnScores, prefillAttnOut, prefillFfnNormOut,
+      prefillGate, prefillUp, prefillFfnHidden, prefillFfnOut, prefillLogits,
+      prefillAttnParams, sampleParams, sampledToken,
     )
 
-  def buildPipeline(
+    def toDecodeLayout: PipelineLayout = PipelineLayout(
+      tokenEmbed, attnNorm, ffnNorm, outputNorm,
+      wq, wk, wv, wo, ffnGate, ffnUp, ffnDown, outputWeight,
+      kCache, vCache,
+      decodeToken, decodeHidden, decodeResidual, decodeAttnNormOut,
+      decodeQ, decodeK, decodeV, decodeQRoped, decodeKRoped,
+      decodeAttnScores, decodeAttnOut, decodeFfnNormOut,
+      decodeGate, decodeUp, decodeFfnHidden, decodeFfnOut, decodeLogits,
+      decodeAttnParams, sampleParams, sampledToken,
+    )
+
+  /** Run the F16 pipeline by chaining program dispatches.
+    * Each program dispatch builds the provenance DAG.
+    * Returns the layout with all buffers having proper provenance.
+    */
+  def runPipeline(
     config: LlamaConfig,
     B: Int,
     T: Int,
     maxSeqLen: Int,
+    layout: PipelineLayout,
     withSampling: Boolean = false,
-  ): GExecution[PipelineParams, PipelineLayout, PipelineLayout] =
+  ): PipelineLayout =
     val C = config.hiddenSize
     val NH = config.numAttentionHeads
     val NKV = config.numKeyValueHeads
@@ -528,24 +557,36 @@ object LlamaF16Pipeline:
     val eps = config.rmsNormEps.toFloat
     val theta = config.ropeTheta.toFloat
     val startPos = maxSeqLen - T
-    val copySizeBytes = B * T * C * 2
 
-    require(C % 4 == 0, s"hiddenSize ($C) must be divisible by 4")
-    require(kvSize % 4 == 0, s"kvSize ($kvSize) must be divisible by 4")
-    require(FFN % 4 == 0, s"intermediateSize ($FFN) must be divisible by 4")
-
+    // Embedding: tokens -> hidden
     val embSizes = F16EmbeddingProgram.Sizes(B * T, C, V)
-    val finalNormSizes = F16RMSNormProgram.Sizes(B * T, C, eps, 0, C)
-    val logitsSizes = F16OutputVec4Program.Sizes(B * T, C, V)
+    val embLayout = F16EmbeddingProgram.ProgramLayout(layout.tokens, layout.tokenEmbed, layout.hidden)
+    val afterEmb = F16EmbeddingProgram.forward(embSizes).dispatch(embSizes, embLayout)
 
-    val afterEmbedding = GExecution[PipelineParams, PipelineLayout]()
-      .addProgram(F16EmbeddingProgram.forward(embSizes))(
-        _ => embSizes,
-        l => F16EmbeddingProgram.ProgramLayout(l.tokens, l.tokenEmbed, l.hidden),
-      )
+    // Track the current state of buffers
+    var hidden = afterEmb.output
+    var residual = layout.residual
+    var attnNormOut = layout.attnNormOut
+    var q = layout.q
+    var k = layout.k
+    var v = layout.v
+    var qRoped = layout.qRoped
+    var kRoped = layout.kRoped
+    var attnOut = layout.attnOut
+    var ffnNormOut = layout.ffnNormOut
+    var gate = layout.gate
+    var up = layout.up
+    var ffnHidden = layout.ffnHidden
+    var ffnOut = layout.ffnOut
+    var kCache = layout.kCache
+    var vCache = layout.vCache
 
-    val afterLayers = (0 until L).foldLeft(afterEmbedding): (pipeline, layer) =>
+    // Process each layer
+    for layer <- 0 until L do
       val normOffset = layer * C
+      val ffnNormOffset = layer * C
+
+      // Vec4 weight offsets (in Vec4 units = elements / 4)
       val wqOffsetVec4 = layer * C * (C / 4)
       val wkOffsetVec4 = layer * C * (kvSize / 4)
       val wvOffsetVec4 = layer * C * (kvSize / 4)
@@ -553,108 +594,171 @@ object LlamaF16Pipeline:
       val ffnGateOffsetVec4 = layer * FFN * (C / 4)
       val ffnUpOffsetVec4 = layer * FFN * (C / 4)
       val ffnDownOffsetVec4 = layer * C * (FFN / 4)
+
       val kvCacheLayerOffset = layer * maxSeqLen * kvSize
+      val copySizeElements = B * T * C
 
+      // Save residual (copy hidden -> residual) - DMA copy
+      residual = residual.withProvenance(Provenance.Copied(hidden, 0, 0, copySizeElements))
+
+      // Attention norm
       val attnNormSizes = F16RMSNormProgram.Sizes(B * T, C, eps, normOffset, L * C)
-      val qkvSizes = F16FusedQKVMatmulProgram.Sizes(
-        batchSize = B * T, inFeatures = C, qOutFeatures = C, kvOutFeatures = kvSize,
-        wqOffsetVec4 = wqOffsetVec4, wkOffsetVec4 = wkOffsetVec4, wvOffsetVec4 = wvOffsetVec4,
-        totalWqVec4 = L * C * (C / 4), totalWkVec4 = L * C * (kvSize / 4), totalWvVec4 = L * C * (kvSize / 4),
-      )
-      val fusedRopeSizes = F16FusedRoPEProgram.Sizes(B, T, NH, NKV, headSize, theta)
-      val fusedKVWriteSizes = F16FusedKVCacheWriteProgram.Sizes(
-        B, T, NKV, headSize, maxSeqLen, layer, startPos, kvCacheLayerOffset, kvCacheLayerOffset, L,
-      )
-      val attnScoresSizes = F16AttentionScoresProgram.Sizes(B, T, NH, NKV, headSize, maxSeqLen, kvCacheLayerOffset, L)
-      val attnSoftmaxSizes = F16AttentionSoftmaxProgram.Sizes(B, T, NH, maxSeqLen)
-      val attnOutputSizes = F16AttentionOutputProgram.Sizes(B, T, NH, NKV, headSize, maxSeqLen, kvCacheLayerOffset, L)
+      val normLayout = F16RMSNormProgram.ProgramLayout(hidden, layout.attnNorm, attnNormOut)
+      val afterNorm = F16RMSNormProgram.forward(attnNormSizes).dispatch(attnNormSizes, normLayout)
+      attnNormOut = afterNorm.output
+
+      // Q, K, V projections
+      val qSizes = F16MatmulVecHybridProgram.Sizes(B * T, C, C, wqOffsetVec4, L * C * (C / 4))
+      val kSizes = F16MatmulVecHybridProgram.Sizes(B * T, C, kvSize, wkOffsetVec4, L * C * (kvSize / 4))
+      val vSizes = F16MatmulVecHybridProgram.Sizes(B * T, C, kvSize, wvOffsetVec4, L * C * (kvSize / 4))
+
+      val qLayout = F16MatmulVecHybridProgram.ProgramLayout(layout.wq, attnNormOut, q)
+      val afterQ = F16MatmulVecHybridProgram.forward(qSizes).dispatch(qSizes, qLayout)
+      q = afterQ.output
+
+      val kLayout = F16MatmulVecHybridProgram.ProgramLayout(layout.wk, attnNormOut, k)
+      val afterK = F16MatmulVecHybridProgram.forward(kSizes).dispatch(kSizes, kLayout)
+      k = afterK.output
+
+      val vLayout = F16MatmulVecHybridProgram.ProgramLayout(layout.wv, attnNormOut, v)
+      val afterV = F16MatmulVecHybridProgram.forward(vSizes).dispatch(vSizes, vLayout)
+      v = afterV.output
+
+      // Fused RoPE for both Q and K
+      val ropeSizes = F16FusedRoPEProgram.Sizes(B, T, NH, NKV, headSize, theta)
+      val ropeLayout = F16FusedRoPEProgram.ProgramLayout(q, k, qRoped, kRoped, layout.attnParams)
+      val afterRope = F16FusedRoPEProgram.forward(ropeSizes).dispatch(ropeSizes, ropeLayout)
+      qRoped = afterRope.qOut
+      kRoped = afterRope.kOut
+
+      // Fused KV Cache Write - write K and V to cache
+      val kvWriteSizes = F16FusedKVCacheWriteProgram.Sizes(B, T, NKV, headSize, maxSeqLen, layer, startPos, kvCacheLayerOffset, kvCacheLayerOffset, L)
+      val kvWriteLayout = F16FusedKVCacheWriteProgram.ProgramLayout(kRoped, v, kCache, vCache, layout.attnParams)
+      val afterKVWrite = F16FusedKVCacheWriteProgram.forward(kvWriteSizes).dispatch(kvWriteSizes, kvWriteLayout)
+      kCache = afterKVWrite.kCache
+      vCache = afterKVWrite.vCache
+
+      // Attention scores: Q · K^T
+      val scoreSizes = F16AttentionScoresProgram.Sizes(B, T, NH, NKV, headSize, maxSeqLen, kvCacheLayerOffset, L)
+      val scoreLayout = F16AttentionScoresProgram.ProgramLayout(qRoped, kCache, layout.attnScores, layout.attnParams)
+      val afterScores = F16AttentionScoresProgram.forward(scoreSizes).dispatch(scoreSizes, scoreLayout)
+      var attnScores = afterScores.scores
+
+      // Attention softmax (in-place)
+      val softmaxSizes = F16AttentionSoftmaxProgram.Sizes(B, T, NH, maxSeqLen)
+      val softmaxLayout = F16AttentionSoftmaxProgram.ProgramLayout(attnScores, layout.attnParams)
+      val afterSoftmax = F16AttentionSoftmaxProgram.forward(softmaxSizes).dispatch(softmaxSizes, softmaxLayout)
+      attnScores = afterSoftmax.scores
+
+      // Attention output: attn_weights · V
+      val outputSizes = F16AttentionOutputProgram.Sizes(B, T, NH, NKV, headSize, maxSeqLen, kvCacheLayerOffset, L)
+      val outputLayout = F16AttentionOutputProgram.ProgramLayout(attnScores, vCache, attnOut, layout.attnParams)
+      val afterAttnOut = F16AttentionOutputProgram.forward(outputSizes).dispatch(outputSizes, outputLayout)
+      attnOut = afterAttnOut.output
+
+      // Output projection
       val woSizes = F16MatmulVecHybridProgram.Sizes(B * T, C, C, woOffsetVec4, L * C * (C / 4))
+      val woLayout = F16MatmulVecHybridProgram.ProgramLayout(layout.wo, attnOut, hidden)
+      val afterWo = F16MatmulVecHybridProgram.forward(woSizes).dispatch(woSizes, woLayout)
+      hidden = afterWo.output
+
+      // Residual add
       val resSizes = F16ResidualAddProgram.Sizes(B * T * C)
-      val ffnNormSizes = F16RMSNormProgram.Sizes(B * T, C, eps, normOffset, L * C)
+      val resLayout = F16ResidualAddProgram.ProgramLayout(residual, hidden, attnNormOut)
+      val afterRes = F16ResidualAddProgram.forward(resSizes).dispatch(resSizes, resLayout)
+      attnNormOut = afterRes.output
+
+      // FFN - copy attnNormOut -> residual before FFN
+      residual = residual.withProvenance(Provenance.Copied(attnNormOut, 0, 0, copySizeElements))
+
+      val ffnNormSizes = F16RMSNormProgram.Sizes(B * T, C, eps, ffnNormOffset, L * C)
+      val ffnNormLayout = F16RMSNormProgram.ProgramLayout(attnNormOut, layout.ffnNorm, ffnNormOut)
+      val afterFfnNorm = F16RMSNormProgram.forward(ffnNormSizes).dispatch(ffnNormSizes, ffnNormLayout)
+      ffnNormOut = afterFfnNorm.output
+
+      // Gate and Up projections
       val gateSizes = F16MatmulVecHybridProgram.Sizes(B * T, C, FFN, ffnGateOffsetVec4, L * FFN * (C / 4))
+      val gateLayout = F16MatmulVecHybridProgram.ProgramLayout(layout.ffnGate, ffnNormOut, gate)
+      val afterGate = F16MatmulVecHybridProgram.forward(gateSizes).dispatch(gateSizes, gateLayout)
+      gate = afterGate.output
+
       val upSizes = F16MatmulVecHybridProgram.Sizes(B * T, C, FFN, ffnUpOffsetVec4, L * FFN * (C / 4))
+      val upLayout = F16MatmulVecHybridProgram.ProgramLayout(layout.ffnUp, ffnNormOut, up)
+      val afterUp = F16MatmulVecHybridProgram.forward(upSizes).dispatch(upSizes, upLayout)
+      up = afterUp.output
+
+      // SwiGLU
       val swiGluSizes = F16SwiGLUProgram.Sizes(B * T * FFN)
+      val swiGluLayout = F16SwiGLUProgram.ProgramLayout(gate, up, ffnHidden)
+      val afterSwiglu = F16SwiGLUProgram.forward(swiGluSizes).dispatch(swiGluSizes, swiGluLayout)
+      ffnHidden = afterSwiglu.output
+
+      // Down projection
       val downSizes = F16MatmulVecHybridProgram.Sizes(B * T, FFN, C, ffnDownOffsetVec4, L * C * (FFN / 4))
+      val downLayout = F16MatmulVecHybridProgram.ProgramLayout(layout.ffnDown, ffnHidden, ffnOut)
+      val afterDown = F16MatmulVecHybridProgram.forward(downSizes).dispatch(downSizes, downLayout)
+      ffnOut = afterDown.output
 
-      pipeline
-        .addBufferCopy(l => (l.hidden, l.residual), copySizeBytes)
-        .addProgram(F16RMSNormProgram.forward(attnNormSizes))(
-        _ => attnNormSizes,
-        l => F16RMSNormProgram.ProgramLayout(l.hidden, l.attnNorm, l.attnNormOut),
-      )
-        .addProgram(F16FusedQKVMatmulProgram.forward(qkvSizes))(
-        _ => qkvSizes,
-        l => F16FusedQKVMatmulProgram.ProgramLayout(l.wq, l.wk, l.wv, l.attnNormOut, l.q, l.k, l.v),
-      )
-        .addProgram(F16FusedRoPEProgram.forward(fusedRopeSizes))(
-        _ => fusedRopeSizes,
-        l => F16FusedRoPEProgram.ProgramLayout(l.q, l.k, l.qRoped, l.kRoped, l.attnParams),
-      )
-        .addProgram(F16FusedKVCacheWriteProgram.forward(fusedKVWriteSizes))(
-        _ => fusedKVWriteSizes,
-        l => F16FusedKVCacheWriteProgram.ProgramLayout(l.kRoped, l.v, l.kCache, l.vCache, l.attnParams),
-      )
-        .addProgram(F16AttentionScoresProgram.forward(attnScoresSizes))(
-          _ => attnScoresSizes,
-          l => F16AttentionScoresProgram.ProgramLayout(l.qRoped, l.kCache, l.attnScores, l.attnParams),
-        )
-        .addProgram(F16AttentionSoftmaxProgram.forward(attnSoftmaxSizes))(
-          _ => attnSoftmaxSizes,
-          l => F16AttentionSoftmaxProgram.ProgramLayout(l.attnScores, l.attnParams),
-        )
-        .addProgram(F16AttentionOutputProgram.forward(attnOutputSizes))(
-          _ => attnOutputSizes,
-          l => F16AttentionOutputProgram.ProgramLayout(l.attnScores, l.vCache, l.attnOut, l.attnParams),
-        )
-        .addProgram(F16MatmulVecHybridProgram.forward(woSizes))(
-          _ => woSizes,
-          l => F16MatmulVecHybridProgram.ProgramLayout(l.wo, l.attnOut, l.hidden),
-        )
-        .addProgram(F16ResidualAddProgram.forward(resSizes))(
-          _ => resSizes,
-          l => F16ResidualAddProgram.ProgramLayout(l.residual, l.hidden, l.attnNormOut),
-        )
-        .addBufferCopy(l => (l.attnNormOut, l.residual), copySizeBytes)
-        .addProgram(F16RMSNormProgram.forward(ffnNormSizes))(
-          _ => ffnNormSizes,
-          l => F16RMSNormProgram.ProgramLayout(l.attnNormOut, l.ffnNorm, l.ffnNormOut),
-        )
-        .addProgram(F16MatmulVecHybridProgram.forward(gateSizes))(
-          _ => gateSizes,
-          l => F16MatmulVecHybridProgram.ProgramLayout(l.ffnGate, l.ffnNormOut, l.gate),
-        )
-        .addProgram(F16MatmulVecHybridProgram.forward(upSizes))(
-          _ => upSizes,
-          l => F16MatmulVecHybridProgram.ProgramLayout(l.ffnUp, l.ffnNormOut, l.up),
-        )
-        .addProgram(F16SwiGLUProgram.forward(swiGluSizes))(
-          _ => swiGluSizes,
-          l => F16SwiGLUProgram.ProgramLayout(l.gate, l.up, l.ffnHidden),
-        )
-        .addProgram(F16MatmulVecHybridProgram.forward(downSizes))(
-          _ => downSizes,
-          l => F16MatmulVecHybridProgram.ProgramLayout(l.ffnDown, l.ffnHidden, l.ffnOut),
-        )
-        .addProgram(F16ResidualAddProgram.forward(resSizes))(
-          _ => resSizes,
-          l => F16ResidualAddProgram.ProgramLayout(l.residual, l.ffnOut, l.hidden),
-        )
+      // FFN residual add
+      val ffnResLayout = F16ResidualAddProgram.ProgramLayout(residual, ffnOut, hidden)
+      val afterFfnRes = F16ResidualAddProgram.forward(resSizes).dispatch(resSizes, ffnResLayout)
+      hidden = afterFfnRes.output
+    end for
 
-    val afterOutput = afterLayers
-      .addProgram(F16RMSNormProgram.forward(finalNormSizes))(
-        _ => finalNormSizes,
-        l => F16RMSNormProgram.ProgramLayout(l.hidden, l.outputNorm, l.attnNormOut),
-      )
-      .addProgram(F16OutputVec4Program.forward(logitsSizes))(
-        _ => logitsSizes,
-        l => F16OutputVec4Program.ProgramLayout(l.attnNormOut, l.outputWeight, l.logits),
-      )
+    // Final norm and output projection
+    val finalNormSizes = F16RMSNormProgram.Sizes(B * T, C, eps, 0, C)
+    val finalNormLayout = F16RMSNormProgram.ProgramLayout(hidden, layout.outputNorm, attnNormOut)
+    val afterFinalNorm = F16RMSNormProgram.forward(finalNormSizes).dispatch(finalNormSizes, finalNormLayout)
+    attnNormOut = afterFinalNorm.output
 
-    if withSampling then
+    val logitsSizes = F16OutputVec4Program.Sizes(B * T, C, V)
+    val logitsLayout = F16OutputVec4Program.ProgramLayout(attnNormOut, layout.outputWeight, layout.logits)
+    val afterLogits = F16OutputVec4Program.forward(logitsSizes).dispatch(logitsSizes, logitsLayout)
+
+    // Optionally add GPU sampling
+    val finalSampledToken = if withSampling then
       val sampleSizes = F16TopPSampleProgram.Sizes(V)
-      afterOutput.addProgram(F16TopPSampleProgram.forward(sampleSizes))(
-        _ => sampleSizes,
-        l => F16TopPSampleProgram.ProgramLayout(l.logits, l.sampleParams, l.sampledToken),
+      val sampleLayout = F16TopPSampleProgram.ProgramLayout(
+        logits = afterLogits.output,
+        params = layout.sampleParams,
+        result = layout.sampledToken,
       )
+      F16TopPSampleProgram.forward(sampleSizes).dispatch(sampleSizes, sampleLayout).result
     else
-      afterOutput
+      layout.sampledToken
+
+    // Return updated layout with all provenance tracked
+    layout.copy(
+      hidden = hidden,
+      residual = residual,
+      attnNormOut = attnNormOut,
+      q = q,
+      k = k,
+      v = v,
+      qRoped = qRoped,
+      kRoped = kRoped,
+      attnOut = attnOut,
+      ffnNormOut = ffnNormOut,
+      gate = gate,
+      up = up,
+      ffnHidden = ffnHidden,
+      ffnOut = ffnOut,
+      kCache = kCache,
+      vCache = vCache,
+      logits = afterLogits.output,
+      sampledToken = finalSampledToken,
+    )
+
+  /** Build the pipeline for the given configuration.
+    * Returns a GExecution that chains all F16 programs.
+    */
+  def buildPipeline(
+    config: LlamaConfig,
+    B: Int,
+    T: Int,
+    maxSeqLen: Int,
+    withSampling: Boolean = false,
+  ): PipelineLayout => PipelineLayout =
+    layout => runPipeline(config, B, T, maxSeqLen, layout, withSampling)
+
+end LlamaF16Pipeline

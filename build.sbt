@@ -134,7 +134,7 @@ lazy val fluids = (project in file("cyfra-fluids"))
 lazy val analytics = (project in file("cyfra-analytics"))
   .settings(commonSettings, runnerSettings, fs2Settings, tapirSettings)
   .settings(publish / skip := true)
-  .dependsOn(foton, runtime, dsl, utility, fs2interop)
+  .dependsOn(foton, runtime, dsl, utility)
 
 lazy val examples = (project in file("cyfra-examples"))
   .settings(commonSettings, runnerSettings)
@@ -154,17 +154,37 @@ lazy val fs2interop = (project in file("cyfra-fs2"))
 lazy val e2eTest = (project in file("cyfra-e2e-test"))
   .settings(commonSettings, runnerSettings)
   .settings(publish / skip := true)
-  .dependsOn(runtime, fs2interop, foton)
+  .dependsOn(runtime, foton)
 
 lazy val llama = (project in file("cyfra-llama"))
   .settings(commonSettings, runnerSettings)
   .settings(publish / skip := true)
   .dependsOn(runtime, dsl, core, utility)
 
+lazy val executionPoc = (project in file("cyfra-execution-poc"))
+  .settings(
+    moduleName := "cyfra-execution-poc",
+    scalaVersion := "3.6.4",
+    scalacOptions ++= Seq(
+      "-feature",
+      "-deprecation",
+      "-unchecked",
+      "-language:implicitConversions",
+      "-language:experimental.namedTuples",
+    ),
+    libraryDependencies ++= Seq(
+      "org.scalameta" % "munit_3" % "1.0.0" % Test,
+      "org.typelevel" %% "munit-cats-effect" % "2.0.0" % Test,
+      "co.fs2" %% "fs2-core" % "3.12.0",
+    ),
+    publish / skip := true,
+  )
+
 lazy val root = (project in file("."))
   .settings(name := "Cyfra")
   .settings(publish / skip := true)
-  .aggregate(compiler, dsl, foton, core, runtime, vulkan, examples, fs2interop, fluids, analytics, utility, spirvTools, vscode, llama)
+  // NOTE: fluids, fs2interop, and analytics are disabled during the execution model rewrite
+  .aggregate(compiler, dsl, foton, core, runtime, vulkan, examples, utility, spirvTools, vscode, llama)
 
 e2eTest / Test / javaOptions ++= Seq("-Dorg.lwjgl.system.stackSize=1024", "-DuniqueLibraryNames=true")
 

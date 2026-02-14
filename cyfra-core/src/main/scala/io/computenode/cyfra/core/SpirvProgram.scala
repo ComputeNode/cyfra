@@ -21,14 +21,15 @@ import scala.util.Try
 import scala.util.Using
 import scala.util.chaining.*
 
+/** A GProgram loaded from pre-compiled SPIR-V bytecode. */
 case class SpirvProgram[Params, L: Layout] private (
   layout: InitProgramLayout => Params => L,
-  dispatch: (L, Params) => ProgramDispatch,
+  dispatchSize: (L, Params) => ProgramDispatch,
   workgroupSize: WorkDimensions,
   code: ByteBuffer,
   entryPoint: String,
   shaderBindings: L => ShaderLayout,
-  name: String = "SpirvProgram",
+  name: String,
 ) extends GProgram[Params, L]:
 
   /** A hash of the shader code, entry point, workgroup size, and layout bindings. Layout and dispatch are not taken into account.
@@ -79,11 +80,12 @@ object SpirvProgram:
     writtenBindingIndices: Set[Int],
     name: String,
   ): SpirvProgram[Params, L] =
-    val workgroupSize = (128, 1, 1) // TODO  Extract from shader
+    val workgroupSize = (128, 1, 1) // TODO: Extract from shader
     val main = "main"
     val f: L => ShaderLayout = { case layout: Product =>
       layout.productIterator.zipWithIndex.map { case (binding: GBinding[?], i) =>
-        val op = if writtenBindingIndices.isEmpty then ReadWrite  // Fallback for legacy code
+        val op =
+          if writtenBindingIndices.isEmpty then ReadWrite // Fallback for legacy code
                  else if writtenBindingIndices.contains(i) then Write
                  else Read
         Binding(binding, op)

@@ -1,6 +1,7 @@
 package io.computenode.cyfra.llama.programs.f16
 
 import io.computenode.cyfra.core.GProgram
+import io.computenode.cyfra.core.GProgram.{*, given}
 import io.computenode.cyfra.core.GProgram.StaticDispatch
 import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.dsl.{*, given}
@@ -42,6 +43,7 @@ object F16AttentionScoresProgram:
   ) derives Layout
 
   def forward(sizes: Sizes): GProgram[Sizes, ProgramLayout] =
+    given Sizes = sizes
     // All compile-time constants
     val B = sizes.B
     val T = sizes.T
@@ -57,9 +59,9 @@ object F16AttentionScoresProgram:
 
     GProgram[Sizes, ProgramLayout](
       layout = s => ProgramLayout(
-        q = GBuffer[Float16](s.B * s.T * s.NH * s.headSize),
-        kCache = GBuffer[Float16](s.fullCacheSize),
-        scores = GBuffer[Float32](s.B * s.T * s.NH * s.maxSeqLen),
+        q = GBuffer.sized[Float16](s.B * s.T * s.NH * s.headSize),
+        kCache = GBuffer.sized[Float16](s.fullCacheSize),
+        scores = GBuffer.sized[Float32](s.B * s.T * s.NH * s.maxSeqLen),
         params = GUniform[AttentionParams](),
       ),
       dispatch = (_, s) => StaticDispatch((s.B * s.T * s.NH, 1, 1)),

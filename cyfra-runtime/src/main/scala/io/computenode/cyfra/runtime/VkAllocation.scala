@@ -1,8 +1,7 @@
 package io.computenode.cyfra.runtime
 
 import io.computenode.cyfra.core.layout.Layout
-import io.computenode.cyfra.core.{Allocation, GExecution, GProgram}
-import io.computenode.cyfra.core.SpirvProgram
+import io.computenode.cyfra.core.{Allocation, GProgram}
 import io.computenode.cyfra.dsl.*
 import io.computenode.cyfra.runtime.VkAllocation.getUnderlying
 import io.computenode.cyfra.spirv.SpirvTypes.typeStride
@@ -21,35 +20,56 @@ import java.nio.ByteBuffer
 import scala.collection.mutable
 import scala.util.Try
 import scala.util.chaining.*
-import io.computenode.cyfra.dsl.binding.{GBinding, GBuffer, GUniform}
+import io.computenode.cyfra.dsl.binding.{GBinding, GBuffer, GUniform, Provenance as ProvenanceBase}
+import io.computenode.cyfra.core.Provenance
 import io.computenode.cyfra.spirv.compilers.SpirvProgramCompiler.totalStride
 import scala.reflect.ClassTag
 import io.computenode.cyfra.core.GCodec
 import io.computenode.cyfra.utility.NVTX
 
+import java.util.UUID
+
 class VkAllocation(val commandPool: CommandPool.Reset, val executionHandler: ExecutionHandler)(using Allocator, Device) extends Allocation:
   given VkAllocation = this
 
-  override def submitLayout[L: Layout](layout: L): Unit =
-    // With timeline semaphores, ExecutionHandler tracks all submissions
-    // Only sync if there are old-style pending executions (from writes)
-    val executions = Layout[L]
-      .toBindings(layout)
-      .flatMap(x => Try(getUnderlying(x)).toOption)
-      .flatMap(_.execution.fold(Seq(_), _.toSeq))
-      .filter(_.isPending)
+  // === Materialization ===
 
-    if executions.nonEmpty then
-      PendingExecution.executeAll(executions, this)
+  override def materialize[L: Layout](layout: L): L =
+    val layoutInstance = Layout[L]
+    val bindings = layoutInstance.toBindings(layout)
+
+    // Execute the plan via ExecutionHandler (builds DAG, analyzes hazards, single cmd buffer)
+    val executionId = UUID.randomUUID()
+    executionHandler.executePlan(bindings)
+
+    // Sync all GPU work
+    executionHandler.sync()
+
+    // Create materialized bindings
+    val materializedBindings = bindings.zipWithIndex.map { case (binding, idx) =>
+      binding.withProvenance(Provenance.Materialized(executionId, idx))
+    }
+
+    layoutInstance.fromBindings(materializedBindings)
+  
+  /** Fast path: submit cached execution for a layout WITHOUT rebuilding provenance.
+    * Call this instead of dispatch+materialize when you know the buffers haven't changed.
+    * Returns true if cache hit, false if you need to fall back to dispatch+materialize.
+    */
+  def submitCached[L: Layout](layout: L): Boolean =
+    val bindings = Layout[L].toBindings(layout)
+    executionHandler.submitIfCached(bindings)
+
+  // === Buffer operations (renamed) ===
 
   extension (buffer: GBinding[?])
-    def read(bb: ByteBuffer, offset: Int = 0): Unit =
+    def readTo(bb: ByteBuffer, offset: Int = 0): Unit =
       val size = bb.remaining()
       buffer match
         case VkBinding(buffer: Buffer.HostBuffer) => buffer.copyTo(bb, offset)
         case binding: VkBinding[?]                =>
-          NVTX.push(s"Materialise[$buffer]")
-          binding.materialise(this)
+          NVTX.push(s"Sync[$buffer]")
+          executionHandler.sync()
           NVTX.pop()
           NVTX.push(s"CopyToStaging[$buffer]")
           val stagingBuffer = getStagingBuffer(size)
@@ -61,90 +81,102 @@ class VkAllocation(val commandPool: CommandPool.Reset, val executionHandler: Exe
           stagingBuffer.destroy()
         case _ => throw new IllegalArgumentException(s"Tried to read from non-VkBinding $buffer")
 
-    def write(bb: ByteBuffer, offset: Int = 0): Unit =
+    def writeFrom(bb: ByteBuffer, offset: Int = 0): Unit =
       val size = bb.remaining()
       buffer match
         case VkBinding(buffer: Buffer.HostBuffer) => buffer.copyFrom(bb, offset)
         case binding: VkBinding[?]                =>
-          binding.materialise(this)
+          executionHandler.sync()
           val stagingBuffer = getStagingBuffer(size)
           stagingBuffer.copyFrom(bb, 0)
-          val cb = Buffer.copyBufferCommandBuffer(stagingBuffer, binding.buffer, 0, offset, size, commandPool)
-          val cleanup = () =>
-            commandPool.freeCommandBuffer(cb)
+          Buffer.copyBuffer(stagingBuffer, binding.buffer, 0, offset, size, commandPool)
             stagingBuffer.destroy()
-          val pe = new PendingExecution(cb, binding.execution.fold(Seq(_), _.toSeq), cleanup)
-          addExecution(pe)
-          binding.execution = Left(pe)
         case _ => throw new IllegalArgumentException(s"Tried to write to non-VkBinding $buffer")
 
   extension [T <: Value: {Tag, FromExpr}](buffer: GBinding[T])
 
     def writeArray[ST: ClassTag](arr: Array[ST], offset: Int = 0)(using GCodec[T, ST]): Unit =
       val bb = BufferUtils.createByteBuffer(arr.size * typeStride(summon[Tag[T]]))
-      buffer.write(bb, 0)
       GCodec.toByteBuffer[T, ST](bb, arr)
+      bb.rewind()
+      buffer.writeFrom(bb, offset)
 
     def readArray[ST: ClassTag](arr: Array[ST], offset: Int = 0)(using GCodec[T, ST]): Array[ST] =
       val bb = BufferUtils.createByteBuffer(arr.size * typeStride(summon[Tag[T]]))
-      buffer.read(bb, 0)
+      buffer.readTo(bb, offset)
+      bb.rewind()
       GCodec.fromByteBuffer[T, ST](bb, arr)
 
-  extension (buffers: GBuffer.type)
-    def apply[T <: Value: {Tag, FromExpr}](length: Int): GBuffer[T] =
-      VkBuffer[T](length).tap(bindings += _)
+  // === Buffer creation ===
 
-    def apply[ST: ClassTag, T <: Value: {Tag, FromExpr}](scalaArray: Array[ST])(using GCodec[T, ST]): GBuffer[T] =
-      val bb = BufferUtils.createByteBuffer(scalaArray.size * typeStride(summon[Tag[T]]))
-      GCodec.toByteBuffer[T, ST](bb, scalaArray)
-      GBuffer[T](bb)
+  // === Buffer creation methods (implement Allocation trait) ===
 
-    def apply[T <: Value: {Tag, FromExpr}](buff: ByteBuffer): GBuffer[T] =
-      val sizeOfT = typeStride(summon[Tag[T]])
-      val length = buff.capacity() / sizeOfT
-      if buff.capacity() % sizeOfT != 0 then
-        throw new IllegalArgumentException(s"ByteBuffer size ${buff.capacity()} is not a multiple of element size $sizeOfT")
-      GBuffer[T](length).tap(_.write(buff))
+  override def buffer[T <: Value: {Tag, FromExpr}](name: String, length: Int): GBuffer[T] =
+    VkBuffer[T](name, length).tap(bindings += _)
 
-  extension (uniforms: GUniform.type)
-    def apply[T <: GStruct[?]: {Tag, FromExpr, GStructSchema}](buff: ByteBuffer): GUniform[T] =
-      GUniform[T]().tap(_.write(buff))
+  override def buffer[T <: Value: {Tag, FromExpr}](length: Int): GBuffer[T] =
+    buffer[T]("buffer", length)
 
-    def apply[ST: ClassTag, T <: GStruct[?]: {Tag, FromExpr, GStructSchema}](value: ST)(using GCodec[T, ST]): GUniform[T] =
-      val bb = BufferUtils.createByteBuffer(totalStride(summon[GStructSchema[T]]))
-      GCodec.toByteBuffer[T, ST](bb, Array(value))
-      GUniform[T](bb)
+  override def buffer[ST: ClassTag, T <: Value: {Tag, FromExpr}](name: String, scalaArray: Array[ST])(using GCodec[T, ST]): GBuffer[T] =
+    val bb = BufferUtils.createByteBuffer(scalaArray.size * typeStride(summon[Tag[T]]))
+    GCodec.toByteBuffer[T, ST](bb, scalaArray)
+    bb.rewind()
+    val buf = buffer[T](name, scalaArray.length)
+    buf.writeFrom(bb)
+    buf
 
-    def apply[T <: GStruct[?]: {Tag, FromExpr, GStructSchema}](): GUniform[T] =
-      VkUniform[T]().tap(bindings += _)
+  override def buffer[ST: ClassTag, T <: Value: {Tag, FromExpr}](scalaArray: Array[ST])(using GCodec[T, ST]): GBuffer[T] =
+    buffer[ST, T]("buffer", scalaArray)
 
-  extension [Params, EL: Layout, RL: Layout](execution: GExecution[Params, EL, RL])
-    def execute(params: Params, layout: EL): RL =
-      executionHandler.handle(execution, params, layout)
+  override def buffer[T <: Value: {Tag, FromExpr}](name: String, buff: ByteBuffer): GBuffer[T] =
+    val sizeOfT = typeStride(summon[Tag[T]])
+    val length = buff.capacity() / sizeOfT
+    if buff.capacity() % sizeOfT != 0 then throw new IllegalArgumentException(s"ByteBuffer size ${buff.capacity()} is not a multiple of element size $sizeOfT")
+    val buf = buffer[T](name, length)
+    buf.writeFrom(buff)
+    buf
 
-  private def direct[T <: GStruct[?]: {Tag, FromExpr, GStructSchema}](buff: ByteBuffer): GUniform[T] =
-    GUniform[T](buff)
+  override def buffer[T <: Value: {Tag, FromExpr}](buff: ByteBuffer): GBuffer[T] =
+    buffer[T]("buffer", buff)
+
+  override def uniform[T <: GStruct[T]: {Tag, FromExpr, GStructSchema}](name: String, buff: ByteBuffer): GUniform[T] =
+    val u = VkUniform[T](name)
+    bindings += u
+    u.writeFrom(buff)
+    u
+
+  override def uniform[T <: GStruct[T]: {Tag, FromExpr, GStructSchema}](buff: ByteBuffer): GUniform[T] =
+    uniform[T]("uniform", buff)
+
+  override def uniform[ST: ClassTag, T <: GStruct[T]: {Tag, FromExpr, GStructSchema}](name: String, value: ST)(using GCodec[T, ST]): GUniform[T] =
+    val bb = BufferUtils.createByteBuffer(totalStride(summon[GStructSchema[T]]))
+    GCodec.toByteBuffer[T, ST](bb, Array(value))
+    bb.rewind()
+    val u = VkUniform[T](name)
+    bindings += u
+    u.writeFrom(bb)
+    u
+
+  override def uniform[ST: ClassTag, T <: GStruct[T]: {Tag, FromExpr, GStructSchema}](value: ST)(using GCodec[T, ST]): GUniform[T] =
+    uniform[ST, T]("uniform", value)
+
+  override def uniform[T <: GStruct[T]: {Tag, FromExpr, GStructSchema}](name: String): GUniform[T] =
+    VkUniform[T](name).tap(bindings += _)
+
   def getInitProgramLayout: GProgram.InitProgramLayout =
     new GProgram.InitProgramLayout:
-      extension (uniforms: GUniform.type)
-        def apply[T <: GStruct[?]: {Tag, FromExpr, GStructSchema}](value: T): GUniform[T] = pushStack: stack =>
-          val bb = value.productElement(0) match
-            case Int32(tree: ConstInt32) => MemoryUtil.memByteBuffer(stack.ints(tree.value))
-            case _                       => ???
-          direct(bb)
-
-  private val executions = mutable.Buffer[PendingExecution]()
-
-  def addExecution(pe: PendingExecution): Unit =
-    executions += pe
-
-  /** Check if there are any pending (not yet submitted) executions from buffer writes. */
-  def hasPendingWrites: Boolean = executions.exists(_.isPending)
+      override def createUniform[T <: GStruct[?]: {Tag, FromExpr, GStructSchema}](value: T): GUniform[T] = pushStack: stack =>
+        val bb = value.productElement(0) match
+          case Int32(tree: ConstInt32) => MemoryUtil.memByteBuffer(stack.ints(tree.value))
+          case _                       => ???
+        val uniform = VkUniform[T]("param")
+        uniform.writeFrom(bb)
+        uniform
 
   private val bindings = mutable.Buffer[VkUniform[?] | VkBuffer[?]]()
+
   private[cyfra] def close(): Unit =
-    executions.filter(_.isRunning).foreach(_.block())
-    executions.foreach(_.destroy())
+    executionHandler.sync()
     bindings.map(getUnderlying).foreach(_.buffer.destroy())
 
   private def getStagingBuffer(size: Int): Buffer.HostBuffer =

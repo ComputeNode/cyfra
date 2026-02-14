@@ -1,6 +1,7 @@
 package io.computenode.cyfra.llama.programs.f16
 
 import io.computenode.cyfra.core.GProgram
+import io.computenode.cyfra.core.GProgram.{*, given}
 import io.computenode.cyfra.core.GProgram.StaticDispatch
 import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.dsl.{*, given}
@@ -54,6 +55,7 @@ object F16MatmulVecHybridProgram:
   ) derives Layout
 
   def forward(sizes: Sizes): GProgram[Sizes, ProgramLayout] =
+    given Sizes = sizes
     // Compile-time constants (embedded in shader as literals)
     val inFeatures = sizes.inFeatures
     val inFeaturesDiv4 = sizes.inFeaturesDiv4
@@ -64,9 +66,9 @@ object F16MatmulVecHybridProgram:
 
     GProgram[Sizes, ProgramLayout](
       layout = s => ProgramLayout(
-        weight = GBuffer[Vec4[Float16]](s.actualWeightVec4),
-        input = GBuffer[Float16](s.batchSize * s.inFeatures),
-        output = GBuffer[Float16](s.totalOutputs),
+        weight = GBuffer.sized[Vec4[Float16]](s.actualWeightVec4),
+        input = GBuffer.sized[Float16](s.batchSize * s.inFeatures),
+        output = GBuffer.sized[Float16](s.totalOutputs),
       ),
       dispatch = (_, s) => StaticDispatch((s.numWorkgroups, 1, 1)),
       workgroupSize = (BLOCK_SIZE, 1, 1),
@@ -141,6 +143,7 @@ object F16MatmulVecHybridProgram:
 
   /** Optimized forward with Vec4 input reads - 4x fewer memory transactions. */
   def forwardVec4(sizes: Sizes): GProgram[Sizes, ProgramLayoutVec4] =
+    given Sizes = sizes
     val inFeaturesDiv4 = sizes.inFeaturesDiv4
     val outFeatures = sizes.outFeatures
     val weightOffsetVec4 = sizes.weightOffsetVec4
@@ -149,9 +152,9 @@ object F16MatmulVecHybridProgram:
 
     GProgram[Sizes, ProgramLayoutVec4](
       layout = s => ProgramLayoutVec4(
-        weight = GBuffer[Vec4[Float16]](s.actualWeightVec4),
-        input = GBuffer[Vec4[Float16]](s.batchSize * s.inFeaturesDiv4),
-        output = GBuffer[Float16](s.totalOutputs),
+        weight = GBuffer.sized[Vec4[Float16]](s.actualWeightVec4),
+        input = GBuffer.sized[Vec4[Float16]](s.batchSize * s.inFeaturesDiv4),
+        output = GBuffer.sized[Float16](s.totalOutputs),
       ),
       dispatch = (_, s) => StaticDispatch((s.numWorkgroups, 1, 1)),
       workgroupSize = (BLOCK_SIZE, 1, 1),

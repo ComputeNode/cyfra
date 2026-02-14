@@ -1,6 +1,7 @@
 package io.computenode.cyfra.llama.programs.f16
 
 import io.computenode.cyfra.core.GProgram
+import io.computenode.cyfra.core.GProgram.{*, given}
 import io.computenode.cyfra.core.GProgram.StaticDispatch
 import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.dsl.{*, given}
@@ -33,6 +34,7 @@ object F16AttentionSoftmaxProgram:
   ) derives Layout
 
   def forward(sizes: Sizes): GProgram[Sizes, ProgramLayout] =
+    given Sizes = sizes
     val B = sizes.B
     val T = sizes.T
     val NH = sizes.NH
@@ -41,7 +43,7 @@ object F16AttentionSoftmaxProgram:
 
     GProgram[Sizes, ProgramLayout](
       layout = s => ProgramLayout(
-        scores = GBuffer[Float32](s.B * s.T * s.NH * s.maxSeqLen),
+        scores = GBuffer.sized[Float32](s.B * s.T * s.NH * s.maxSeqLen),
         params = GUniform[AttentionParams](),
       ),
       dispatch = (_, s) => StaticDispatch((s.numRows, 1, 1)),
