@@ -10,6 +10,7 @@ import io.computenode.cyfra.compiler.Spirv.{Code, Decoration, IntWord, Op, Stora
 import io.computenode.cyfra.core.memory.{
   BindingRef,
   BufferRef,
+  BuildInVariable,
   FocusRoot,
   GBinding,
   GBuffer,
@@ -23,7 +24,7 @@ import io.computenode.cyfra.utility.FlatList
 
 import scala.collection.mutable
 
-class Variables extends StandardCompilationModule:
+class VariablesDigestion extends StandardCompilationModule:
   def compile(input: Compilation): Compilation =
     val (c1, globalMap) = compileGlobal(input.context)
     val (newFunctions, c2) = Ctx.withCapability(c1):
@@ -31,10 +32,11 @@ class Variables extends StandardCompilationModule:
     input.copy(context = c2, functionBodies = newFunctions)
 
   private def compileGlobal(input: Context): (Context, Map[FocusRoot[?], RefIR[Unit]]) =
-    val ((suffix, decorations, declarations), c1) = Ctx.withCapability(input):
+    val ((suffix, decorations, prefix, declarations), c1) = Ctx.withCapability(input):
       val globalDeclarations = mutable.Map.empty[FocusRoot[?], RefIR[Unit]]
       val decorations = mutable.Buffer.empty[IR.SvInst]
       val hasBlockDecoration = mutable.Set.empty[IR.RefIR[?]]
+      val interface = mutable.Buffer.empty[IR.Interface]
       val res = input.suffix.map:
         case IR.Declare(root, None) =>
           root match
@@ -57,17 +59,28 @@ class Variables extends StandardCompilationModule:
               )
               decorations.appendAll(dec)
               globalDeclarations(root) = variable
+              interface.addOne(IR.Interface(variable))
               variable
             case variable: GlobalVariable[?] =>
               val baseType = Ctx.getType(variable.v)
               val storageClass = rootStorageClass(variable)
               val pointer = Ctx.getTypePointer(variable.v, storageClass)
-              IR.SvRef[Unit](Op.OpVariable, pointer, List(storageClass))
+              val res = IR.SvRef[Unit](Op.OpVariable, pointer, List(storageClass))
+              globalDeclarations(root) = res
+              res
+            case variable: BuildInVariable[?] =>
+              val baseType = Ctx.getType(variable.v)
+              val storageClass = rootStorageClass(variable)
+              val pointer = Ctx.getTypePointer(variable.v, storageClass)
+              val res = IR.SvRef[Unit](Op.OpVariable, pointer, List(storageClass))
+              globalDeclarations(root) = res
+              interface.addOne(IR.Interface(res))
+              res
             case other => ??? // how did it get here?
         case IR.Declare(root, Some(_)) => ??? // impossible, can't have starting values for global variables
         case other                     => other
-      (res, decorations.toList, globalDeclarations.toMap)
-    val c2 = c1.copy(suffix = suffix, decorations = c1.decorations ++ decorations)
+      (res, decorations.toList, interface.toList, globalDeclarations.toMap)
+    val c2 = c1.copy(suffix = suffix, decorations = c1.decorations ++ decorations, prefix = c1.prefix ++ prefix)
     (c2, declarations)
 
   private def rootStorageClass(root: FocusRoot[?]): Code =
@@ -77,9 +90,10 @@ class Variables extends StandardCompilationModule:
           case "private"         => StorageClass.Private
           case "workgroup"       => StorageClass.Workgroup
           case "cross-workgroup" => StorageClass.CrossWorkgroup
-      case _: LocalVariable[?] => StorageClass.Function
-      case _: GUniform[?]      => StorageClass.Uniform
-      case _: GBuffer[?]       => StorageClass.StorageBuffer
+      case _: LocalVariable[?]   => StorageClass.Function
+      case _: BuildInVariable[?] => StorageClass.Input
+      case _: GUniform[?]        => StorageClass.Uniform
+      case _: GBuffer[?]         => StorageClass.StorageBuffer
 
   private def compileFunction(input: IRs[?], globalVariables: Map[FocusRoot[?], RefIR[Unit]])(using Ctx): IRs[?] =
     val varDeclarations = mutable.Map.from[FocusRoot[?], RefIR[Unit]](globalVariables)

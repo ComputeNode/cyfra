@@ -7,11 +7,11 @@ import io.computenode.cyfra.core.expression.types.given
 import io.computenode.cyfra.compiler.modules.CompilationModule.{FunctionCompilationModule, StandardCompilationModule}
 import io.computenode.cyfra.compiler.unit.{Compilation, Ctx}
 import io.computenode.cyfra.compiler.Compiler.Compute
-import io.computenode.cyfra.core.memory.{FocusRoot, GBinding, GlobalVariable, LocalVariable, Variable}
+import io.computenode.cyfra.core.memory.{BuildInVariable, FocusRoot, GBinding, GlobalVariable, LocalVariable, Variable}
 
 import scala.collection.mutable
 
-class VarDeclarations extends StandardCompilationModule:
+class VariablesExtract extends StandardCompilationModule:
   def compile(input: Compilation): Compilation =
     val ((newFunctions, globalVariables), context) = Ctx.withCapability(input.context):
       val (a, b) = input.functionBodies.map(moveLocalVariables).unzip
@@ -24,15 +24,28 @@ class VarDeclarations extends StandardCompilationModule:
     input.copy(context = c1, functionBodies = newFunctions)
 
   private def moveLocalVariables(input: IRs[?])(using Ctx): (IRs[?], Seq[IR[?]]) =
-    val localDeclarations = mutable.Buffer[IR.Declare[?]]()
-    val globalDeclarations = mutable.Buffer[IR.Declare[?]]()
+    val localDeclarations = mutable.Buffer.empty[IR.Declare[?]]
+    val globalDeclarations = mutable.Buffer.empty[IR.Declare[?]]
+    val buildInRoots = mutable.Set.empty[BuildInVariable[?]]
 
     val IRs(res, body) = input.flatMapReplace:
       case x @ IR.Declare(variable, init) =>
         variable match
-          case localVariable: LocalVariable[?]   => localDeclarations.append(x)
-          case globalVariable: GlobalVariable[?] => globalDeclarations.append(x)
+          case _: LocalVariable[?]  => localDeclarations.append(x)
+          case _: GlobalVariable[?] => globalDeclarations.append(x)
         IRs.proxy[Unit](x)
+      case x @ IR.Read(variable: BuildInVariable[?], _) =>
+        buildInRoots.add(variable)
+        IRs(x)(using x.v)
+      case x @ IR.Write(variable: BuildInVariable[?], _, _) =>
+        buildInRoots.add(variable)
+        IRs(x)(using x.v)
       case other => IRs(other)(using other.v)
 
-    (IRs(res, localDeclarations.toList ++ body)(using res.v), globalDeclarations.toSeq)
+    val buildInDeclarations = buildInRoots
+      .map:
+        case root: BuildInVariable[a] =>
+          IR.Declare(root, None)(using root.v)
+      .toSeq
+
+    (IRs(res, localDeclarations.toList ++ body)(using res.v), globalDeclarations.toSeq ++ buildInDeclarations)

@@ -8,6 +8,7 @@ import io.computenode.cyfra.core.expression.types.given
 import io.computenode.cyfra.core.expression.ops.*
 import io.computenode.cyfra.core.expression.ops.given
 import io.computenode.cyfra.core.memory.*
+import io.computenode.cyfra.core.memory.BuildInVariable.GlobalInvocationId
 import io.computenode.cyfra.dsl.direct.GIO
 
 class CompilerTest extends munit.FunSuite:
@@ -23,4 +24,6 @@ class CompilerTest extends munit.FunSuite:
       val i = GIO.read(b1.focus(_.at(0)))
       GIO.write(b1.focus(_.at(1)), i + 10)
       GIO.write(b1.focus(_.at(i)), i * 10)
+      
+      val idx = GIO.read(GlobalInvocationId)
     compiler.compile(exp, config)

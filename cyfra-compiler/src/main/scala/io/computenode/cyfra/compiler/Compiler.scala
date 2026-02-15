@@ -12,7 +12,7 @@ import java.nio.ByteBuffer
 class Compiler(verbose: "none" | "last" | "all" = "none"):
   private val transformer = new Transformer()
   private val modules: List[StandardCompilationModule] =
-    List(new VarDeclarations, new Variables, new StructuredControlFlow, new Functions, new Constants, new Algebra /*new Finalizer*/ )
+    List(new VariablesExtract, new VariablesDigestion, new StructuredControlFlow, new Functions, new Constants, new Algebra, new Finalizer)
   private val emitter = new Emitter()
 
   def compile(body: ExpressionBlock[Unit], config: Compiler.Config): ByteBuffer =
@@ -36,5 +36,4 @@ class Compiler(verbose: "none" | "last" | "all" = "none"):
 
 object Compiler:
   sealed trait Config
-
   case class Compute(bindings: Seq[GBinding[?]], workgroupSize: WorkDimensions) extends Config
