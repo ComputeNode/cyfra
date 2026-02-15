@@ -20,7 +20,7 @@ object Ctx:
     ctx.context = ctx.context.copy(constants = next)
     res.asInstanceOf[RefIR[A]]
 
-  def getType(value: Value[?])(using ctx: Ctx): RefIR[Unit] =
+  def getType(value: Value[?], decorate: Boolean = false)(using ctx: Ctx): RefIR[Unit] =
     val (res, next) = ctx.context.types.getType(value)
     ctx.context = ctx.context.copy(types = next)
     res

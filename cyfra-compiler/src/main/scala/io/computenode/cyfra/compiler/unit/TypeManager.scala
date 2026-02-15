@@ -14,9 +14,9 @@ import izumi.reflect.macrortti.LightTypeTag
 
 import scala.collection.mutable
 
-case class TypeManager(block: List[IR[?]] = Nil, cache: Map[CacheKey, RefIR[Unit]] = Map.empty):
-  def getType(value: Value[?]): (RefIR[Unit], TypeManager) =
-    val next = TypeManager.withType(this, value)
+case class TypeManager(block: List[IR[?]] = Nil, cache: Map[CacheKey, RefIR[Unit]] = Map.empty, decorations: List[IR[?]], decorated: Set[CacheKey]):
+  def getType(value: Value[?], decorate: Boolean = false): (RefIR[Unit], TypeManager) =
+    val next = TypeManager.withType(this, value, decorate)
     val key = Type(value.tag)
     (next.cache(key), next)
 
@@ -43,7 +43,7 @@ object TypeManager:
   case class Pointer(tag: Tag[?], storageClass: Int) extends CacheKey
   case class Function(result: Tag[?], args: List[Tag[?]]) extends CacheKey
 
-  private def withType(manager: TypeManager, value: Value[?]): TypeManager =
+  private def withType(manager: TypeManager, value: Value[?], decorate: Boolean = false): TypeManager =
     val key = Type(value.tag)
     if manager.cache.contains(key) then return manager
 

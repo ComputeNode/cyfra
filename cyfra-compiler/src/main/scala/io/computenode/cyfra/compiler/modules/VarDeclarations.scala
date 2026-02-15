@@ -20,7 +20,7 @@ class VarDeclarations extends StandardCompilationModule:
       case Compute(bindings, _) => bindings
     val shaderInputIR = shaderInput.map:
       case x: FocusRoot[a] => IR.Declare(x, None)(using x.v)
-    val c1 = context.copy(globalVariables = context.globalVariables ++ globalVariables ++ shaderInputIR)
+    val c1 = context.copy(suffix = context.suffix ++ globalVariables ++ shaderInputIR)
     input.copy(context = c1, functionBodies = newFunctions)
 
   private def moveLocalVariables(input: IRs[?])(using Ctx): (IRs[?], Seq[IR[?]]) =

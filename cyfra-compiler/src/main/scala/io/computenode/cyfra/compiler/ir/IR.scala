@@ -69,7 +69,7 @@ object IR:
     override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[Unit] = this.copy(operands = operands.map:
       case r: RefIR[?] => r.replaced
       case w           => w)
-  case class SvRef[A: Value](op: Code, tpe: Option[RefIR[Unit]], operands: List[Words | RefIR[?]]) extends RefIR[A]:
+  case class SvRef[A: Value] (op: Code, tpe: Option[RefIR[Unit]], operands: List[Words | RefIR[?]]) extends RefIR[A]:
     override def name: String = op.mnemo
     override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[A] = this.copy(operands = operands.map:
       case r: RefIR[?] => r.replaced
