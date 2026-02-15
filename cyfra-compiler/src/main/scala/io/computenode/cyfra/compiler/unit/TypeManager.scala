@@ -14,11 +14,17 @@ import izumi.reflect.macrortti.LightTypeTag
 
 import scala.collection.mutable
 
-case class TypeManager(block: List[IR[?]] = Nil, cache: Map[CacheKey, RefIR[Unit]] = Map.empty, decorations: List[IR[?]], decorated: Set[CacheKey]):
+case class TypeManager(
+  block: List[IR[?]] = List.empty,
+  cache: Map[CacheKey, RefIR[Unit]] = Map.empty,
+  decorations: List[IR[?]] = List.empty,
+  decorated: Set[CacheKey] = Set.empty,
+):
   def getType(value: Value[?], decorate: Boolean = false): (RefIR[Unit], TypeManager) =
-    val next = TypeManager.withType(this, value, decorate)
+    val m1 = TypeManager.withType(this, value)
+    val m2 = if decorate then TypeManager.withDecoration(m1, value) else m1
     val key = Type(value.tag)
-    (next.cache(key), next)
+    (m2.cache(key), m2)
 
   def getTypeFunction(returnType: Value[?], parameter: Option[Value[?]]): (RefIR[Unit], TypeManager) =
     val args = parameter.toList
@@ -35,7 +41,7 @@ case class TypeManager(block: List[IR[?]] = Nil, cache: Map[CacheKey, RefIR[Unit
     if cache.contains(key) then this
     else copy(block = ir :: block, cache = cache.updated(key, ir))
 
-  def output: List[IR[?]] = block.reverse
+  def output: List[IR[?]] = decorations.reverse ++ block.reverse
 
 object TypeManager:
   sealed trait CacheKey extends Product
@@ -43,7 +49,7 @@ object TypeManager:
   case class Pointer(tag: Tag[?], storageClass: Int) extends CacheKey
   case class Function(result: Tag[?], args: List[Tag[?]]) extends CacheKey
 
-  private def withType(manager: TypeManager, value: Value[?], decorate: Boolean = false): TypeManager =
+  private def withType(manager: TypeManager, value: Value[?]): TypeManager =
     val key = Type(value.tag)
     if manager.cache.contains(key) then return manager
 
@@ -67,9 +73,10 @@ object TypeManager:
     val (ir, m1) = manager.getType(composite)
 
     val cIR = value.baseTag.get match
-      case t if t <:< TagK[Vec] => SvRef[Unit](Op.OpTypeVector, List(ir, IntWord(rows(t))))
-      case t if t <:< TagK[Mat] => SvRef[Unit](Op.OpTypeMatrix, List(ir, IntWord(columns(t))))
-      case _                    => throw new Exception(s"Unsupported type: ${value.tag}")
+      case t if t <:< TagK[Vec]          => SvRef[Unit](Op.OpTypeVector, List(ir, IntWord(rows(t))))
+      case t if t <:< TagK[Mat]          => SvRef[Unit](Op.OpTypeMatrix, List(ir, IntWord(columns(t))))
+      case t if t =:= TagK[RuntimeArray] => SvRef[Unit](Op.OpTypeRuntimeArray, List(ir))
+      case _                             => throw new Exception(s"Unsupported type: ${value.tag}")
     m1.withIr(key, cIR)
 
   private def withTypePointer(manager: TypeManager, value: Value[?], storageClass: Code): TypeManager =
@@ -91,3 +98,35 @@ object TypeManager:
 
     val funcIR = SvRef[Unit](Op.OpTypeFunction, tpe :: irs.toList)
     m2.copy(block = funcIR :: m2.block, cache = m2.cache.updated(key, funcIR))
+
+  private def withDecoration(manager: TypeManager, value: Value[?]): TypeManager =
+    val key = Type(value.tag)
+    if manager.decorated(key) then return manager
+
+    if value.baseTag.isEmpty then return manager.copy(decorated = manager.decorated + key)
+
+    val tpe = manager.cache(key)
+
+    val base = value.baseTag.get
+
+    val m1 = value.composite.foldLeft(manager): (acc, x) =>
+      withDecoration(acc, x)
+
+    base match
+      case t if t =:= TagK[RuntimeArray] =>
+        val List(element) = value.composite
+        val stride = typeStride(element)
+        val dec = IR.SvInst(Op.OpDecorate, List(tpe, Decoration.ArrayStride, IntWord(stride)))
+        m1.copy(decorations = dec :: m1.decorations, decorated = m1.decorated + key)
+      case t if t =:= Tag[Tuple] =>
+        val dec = mutable.Buffer.empty[IR.SvInst]
+        value.composite.zipWithIndex.foldLeft(0):
+          case (acc, (v, idx)) =>
+            val inst = IR.SvInst(Op.OpDecorate, List(tpe, IntWord(idx), Decoration.Offset, IntWord(acc)))
+            dec.addOne(inst)
+            acc + typeStride(v)
+        m1.copy(decorations = dec.toList ++ m1.decorations, decorated = m1.decorated + key)
+      case t if t <:< TagK[Vec] => m1.copy(decorated = m1.decorated + key)
+      case t if t <:< TagK[Mat] =>
+        val dec = IR.SvInst(Op.OpDecorate, List(tpe, Decoration.RowMajor))
+        m1.copy(decorations = dec :: m1.decorations, decorated = m1.decorated + key)

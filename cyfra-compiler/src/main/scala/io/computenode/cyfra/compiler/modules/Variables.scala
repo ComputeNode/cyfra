@@ -19,6 +19,7 @@ import io.computenode.cyfra.core.memory.{
   UniformRef,
   Variable,
 }
+import io.computenode.cyfra.utility.FlatList
 
 import scala.collection.mutable
 
@@ -33,6 +34,7 @@ class Variables extends StandardCompilationModule:
     val ((suffix, decorations, declarations), c1) = Ctx.withCapability(input):
       val globalDeclarations = mutable.Map.empty[FocusRoot[?], RefIR[Unit]]
       val decorations = mutable.Buffer.empty[IR.SvInst]
+      val hasBlockDecoration = mutable.Set.empty[IR.RefIR[?]]
       val res = input.suffix.map:
         case IR.Declare(root, None) =>
           root match
@@ -43,10 +45,15 @@ class Variables extends StandardCompilationModule:
                 case _: GUniform[?] => StorageClass.Uniform
               val pointer = Ctx.getTypePointer(binding.v, storageClass)
               val variable = IR.SvRef[Unit](Op.OpVariable, pointer, List(storageClass))
-
-              val dec = List(
+              val maybeDec =
+                if hasBlockDecoration(baseType) then None
+                else
+                  hasBlockDecoration.add(baseType)
+                  Some(IR.SvInst(Op.OpDecorate, List(baseType, Decoration.Block)))
+              val dec = FlatList(
                 IR.SvInst(Op.OpDecorate, List(variable, Decoration.Binding, IntWord(binding.layoutOffset))),
                 IR.SvInst(Op.OpDecorate, List(variable, Decoration.DescriptorSet, IntWord(0))),
+                maybeDec,
               )
               decorations.appendAll(dec)
               globalDeclarations(root) = variable
