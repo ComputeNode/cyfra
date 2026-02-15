@@ -24,7 +24,7 @@ object Expression:
   case class VariableDeclare[B: Value](variable: LocalVariable[B], init: Option[Expression[B]]) extends ExpressionUnit[B]
   case class Read[A: Value](focus: FocusRoot[?], accessChain: List[Expression[?]]) extends Expression[A]
   case class Write[B: Value](focus: FocusRoot[?], accessChain: List[Expression[?]], value: Expression[B]) extends ExpressionUnit[B]
-  case class BuildInOperation[A: Value](func: BuildInFunction[A], args: List[Expression[?]]) extends Expression[A]
+  case class BuildInOperation[A: Value](func: BuildInFunction, args: List[Expression[?]]) extends Expression[A]
   case class CustomCall[A: Value](func: CustomFunction[A], args: List[Variable[?]]) extends Expression[A]
   case class Branch[A: Value](cond: Expression[Bool], ifTrue: ExpressionBlock[A], ifFalse: ExpressionBlock[A], break: JumpTarget[A])
       extends Expression[A]

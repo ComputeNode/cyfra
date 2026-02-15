@@ -33,48 +33,41 @@ object Value:
     def baseTag: Option[TagK[?]] = None
     def composite: List[Value[?]] = Nil
 
-  def map[Res: Value as vr](f: BuildInFunction0[Res]): Res =
-    val next = Expression.BuildInOperation(f, Nil)
-    vr.extract(ExpressionBlock(next, List(next)))
+  def map[Res: Value](f: BuildInFunction0): Res =
+    val next = Expression.BuildInOperation[Res](f, Nil)
+    Value[Res].extract(ExpressionBlock(next, List(next)))
 
-  extension [A: Value as v](x: A)
-    def map[Res: Value as vb](f: BuildInFunction1[A, Res]): Res =
-      val arg = v.peel(x)
-      val next = Expression.BuildInOperation(f, List(arg.result))
-      vb.extract(arg.add(next))
+  def map[A1: Value, Res: Value](x1: A1)(f: BuildInFunction1): Res =
+    val arg1 = Value[A1].peel(x1)
+    val next = Expression.BuildInOperation[Res](f, List(arg1.result))
+    Value[Res].extract(arg1.add(next))
 
-    def map[A2: Value as v2, Res: Value as vb](x2: A2)(f: BuildInFunction2[A, A2, Res]): Res =
-      val arg1 = v.peel(x)
-      val arg2 = summon[Value[A2]].peel(x2)
-      val next = Expression.BuildInOperation(f, List(arg1.result, arg2.result))
-      vb.extract(arg1.extend(arg2).add(next))
+  def map[A1: Value, A2: Value, Res: Value](x1: A1, x2: A2)(f: BuildInFunction2): Res =
+    val arg1 = Value[A1].peel(x1)
+    val arg2 = Value[A2].peel(x2)
+    val next = Expression.BuildInOperation[Res](f, List(arg1.result, arg2.result))
+    Value[Res].extract(arg1.extend(arg2).add(next))
 
-    def map[A2: Value as v2, A3: Value as v3, Res: Value as vb](x2: A2, x3: A3)(f: BuildInFunction3[A, A2, A3, Res]): Res =
-      val arg1 = v.peel(x)
-      val arg2 = summon[Value[A2]].peel(x2)
-      val arg3 = summon[Value[A3]].peel(x3)
-      val next = Expression.BuildInOperation(f, List(arg1.result, arg2.result, arg3.result))
-      vb.extract(arg1.extend(arg2).extend(arg3).add(next))
+  def map[A1: Value, A2: Value, A3: Value, Res: Value](x1: A1, x2: A2, x3: A3)(f: BuildInFunction3): Res =
+    val arg1 = Value[A1].peel(x1)
+    val arg2 = Value[A2].peel(x2)
+    val arg3 = Value[A3].peel(x3)
+    val next = Expression.BuildInOperation[Res](f, List(arg1.result, arg2.result, arg3.result))
+    Value[Res].extract(arg1.extend(arg2).extend(arg3).add(next))
 
-    def map[A2: Value as v2, A3: Value as v3, A4: Value as v4, Res: Value as vb](x2: A2, x3: A3, x4: A4)(
-      f: BuildInFunction4[A, A2, A3, A4, Res],
-    ): Res =
-      val arg1 = v.peel(x)
-      val arg2 = summon[Value[A2]].peel(x2)
-      val arg3 = summon[Value[A3]].peel(x3)
-      val arg4 = summon[Value[A4]].peel(x4)
-      val next = Expression.BuildInOperation(f, List(arg1.result, arg2.result, arg3.result, arg4.result))
-      vb.extract(arg1.extend(arg2).extend(arg3).extend(arg4).add(next))
+  def map[A1: Value, A2: Value, A3: Value, A4: Value, Res: Value](x1: A1, x2: A2, x3: A3, x4: A4)(f: BuildInFunction4): Res =
+    val arg1 = Value[A1].peel(x1)
+    val arg2 = Value[A2].peel(x2)
+    val arg3 = Value[A3].peel(x3)
+    val arg4 = Value[A4].peel(x4)
+    val next = Expression.BuildInOperation[Res](f, List(arg1.result, arg2.result, arg3.result, arg4.result))
+    Value[Res].extract(arg1.extend(arg2).extend(arg3).extend(arg4).add(next))
 
-    def irs: ExpressionBlock[A] = v.peel(x)
+  extension [A: Value](x: A) def irs: ExpressionBlock[A] = Value[A].peel(x)
 
   // Derived Value implementation for tuples/products
-  class Derived[T](
-    elemValues: List[Value[?]],
-    theTag: Tag[T],
-    theBaseTag: Option[TagK[?]],
-    extract: (ExpressionBlock[T], Value[T]) => T
-  ) extends Value[T]:
+  class Derived[T](elemValues: List[Value[?]], theTag: Tag[T], theBaseTag: Option[TagK[?]], extract: (ExpressionBlock[T], Value[T]) => T)
+      extends Value[T]:
     protected def extractUnsafe(ir: ExpressionBlock[T]): T = extract(ir, this)
     def tag: Tag[T] = theTag
     def baseTag: Option[TagK[?]] = theBaseTag
@@ -82,10 +75,12 @@ object Value:
 
   // Runtime helper for extraction - used by the macro
   def extractComposite[Parent, T](ir: ExpressionBlock[Parent], parentValue: Value[Parent], elemValue: Value[T], idx: Int): T =
-    val expr = Expression.Composite[Parent & Tuple, idx.type](ir.result.asInstanceOf[Expression[Parent & Tuple]], idx)(using parentValue.asInstanceOf[Value[Parent & Tuple]])
+    val expr = Expression.Composite[Parent & Tuple, idx.type](ir.result.asInstanceOf[Expression[Parent & Tuple]], idx)(using
+      parentValue.asInstanceOf[Value[Parent & Tuple]],
+    )
     elemValue.extract(ir.add(expr.asInstanceOf[Expression[T]]))
 
-  // Helper to get Tuple base tag - avoids compile-time kind issues  
+  // Helper to get Tuple base tag - avoids compile-time kind issues
   private[expression] val tupleBaseTag: Option[TagK[?]] = Some(Tag[Tuple].asInstanceOf[TagK[?]])
 
   // Auto-derivation for tuples and case classes
@@ -97,13 +92,12 @@ object Value:
     val tpe = TypeRepr.of[T]
     val sym = tpe.typeSymbol
 
-    if !sym.flags.is(Flags.Case) then
-      report.errorAndAbort(s"Can only derive Value for case classes and tuples. Found: ${tpe.show}")
+    if !sym.flags.is(Flags.Case) then report.errorAndAbort(s"Can only derive Value for case classes and tuples. Found: ${tpe.show}")
 
     // Get element types from tuple/case class
     val elemTypes: List[TypeRepr] = tpe match
       case AppliedType(_, args) => args
-      case _ => sym.caseFields.map(f => tpe.memberType(f))
+      case _                    => sym.caseFields.map(f => tpe.memberType(f))
 
     // Generate Value lookups for each element
     def lookupValue(elemType: TypeRepr): Expr[Value[?]] =
@@ -125,10 +119,9 @@ object Value:
     // Get baseTag for tuples
     val isTuple = tpe match
       case AppliedType(tycon, _) => tycon.typeSymbol.fullName.startsWith("scala.Tuple")
-      case _ => false
+      case _                     => false
     val baseTagExpr: Expr[Option[TagK[?]]] =
-      if isTuple then '{ Value.tupleBaseTag }
-      else '{ None }
+      if isTuple then '{ Value.tupleBaseTag } else '{ None }
 
     // Generate tuple construction from array
     def constructFromArray(arrExpr: Expr[Array[Any]]): Expr[T] =
@@ -140,7 +133,7 @@ object Value:
 
       val constructor = Select(New(TypeIdent(sym)), sym.primaryConstructor)
       val applied = tpe.typeArgs match
-        case Nil => constructor
+        case Nil      => constructor
         case typeArgs => TypeApply(constructor, typeArgs.map(t => TypeTree.of(using t.asType)))
 
       Apply(applied, args).asExprOf[T]
@@ -160,4 +153,3 @@ object Value:
       }
 
     '{ new Value.Derived[T]($elemValuesExpr, $tagExpr, $baseTagExpr, $extractLambda) }
-
