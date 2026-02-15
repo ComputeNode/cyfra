@@ -8,8 +8,6 @@ import io.computenode.cyfra.core.expression.types.given
 import io.computenode.cyfra.dsl.direct.GIO
 
 object Library:
-  def invocationId: UInt32 = Value.map(BuildInFunction.GlobalInvocationId)
-
   def when[A: Value](cond: Bool)(ifTrue: => A)(ifFalse: => A): A =
     val exp = GIO.reify:
       val tBlock: GIO ?=> A =

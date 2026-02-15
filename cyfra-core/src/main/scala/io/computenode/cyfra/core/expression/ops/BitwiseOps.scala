@@ -17,32 +17,32 @@ trait BitwiseOps[T]
 
 extension [T: {BitwiseOps, Value}](self: T)
   @targetName("shiftRightLogical")
-  infix def >>>(shift: T): T = self.map(shift)(BuildInFunction.ShiftRightLogical)
+  infix def >>>(shift: T): T = Value.map(self, shift)(BuildInFunction.ShiftRightLogical)
 
   @targetName("shiftRightArithmetic")
-  infix def >>(shift: T): T = self.map(shift)(BuildInFunction.ShiftRightArithmetic)
+  infix def >>(shift: T): T = Value.map(self, shift)(BuildInFunction.ShiftRightArithmetic)
 
   @targetName("shiftLeftLogical")
-  infix def <<(shift: T): T = self.map(shift)(BuildInFunction.ShiftLeftLogical)
+  infix def <<(shift: T): T = Value.map(self, shift)(BuildInFunction.ShiftLeftLogical)
 
   @targetName("bitwiseOr")
-  def |(that: T): T = self.map(that)(BuildInFunction.BitwiseOr)
+  def |(that: T): T = Value.map(self, that)(BuildInFunction.BitwiseOr)
 
   @targetName("bitwiseXor")
-  def ^(that: T): T = self.map(that)(BuildInFunction.BitwiseXor)
+  def ^(that: T): T = Value.map(self, that)(BuildInFunction.BitwiseXor)
 
   @targetName("bitwiseAnd")
-  def &(that: T): T = self.map(that)(BuildInFunction.BitwiseAnd)
+  def &(that: T): T = Value.map(self, that)(BuildInFunction.BitwiseAnd)
 
   @targetName("bitwiseNot")
-  def unary_~ : T = self.map(BuildInFunction.BitwiseNot)
+  def unary_~ : T = Value.map(self)(BuildInFunction.BitwiseNot)
 
   def bitFieldInsert[Offset: Value, Count: Value](insert: T, offset: Offset, count: Count): T =
-    self.map[T, Offset, Count, T](insert, offset, count)(BuildInFunction.BitFieldInsert)
+    Value.map[T, T, Offset, Count, T](self, insert, offset, count)(BuildInFunction.BitFieldInsert)
 
   def bitFieldExtract[Offset: Value, Count: Value](offset: Offset, count: Count): T =
-    self.map[Offset, Count, T](offset, count)(BuildInFunction.BitFieldExtract)
+    Value.map[T, Offset, Count, T](self, offset, count)(BuildInFunction.BitFieldExtract)
 
-  def bitReverse: T = self.map(BuildInFunction.BitReverse)
+  def bitReverse: T = Value.map(self)(BuildInFunction.BitReverse)
 
-  def bitCount: T = self.map[T](BuildInFunction.BitCount)
+  def bitCount: T = Value.map(self)(BuildInFunction.BitCount)
