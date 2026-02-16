@@ -4,7 +4,7 @@ import io.computenode.cyfra.core.memory.{Focus, FocusConstant, FocusDynamic, Loc
 import io.computenode.cyfra.core.memory.Focus.*
 import io.computenode.cyfra.core.expression.types.*
 import io.computenode.cyfra.core.expression.types.given
-import izumi.reflect.{Tag, Tag}
+import izumi.reflect.Tag
 
 class FocusTest extends munit.FunSuite:
 
@@ -99,7 +99,7 @@ class FocusTest extends munit.FunSuite:
     val v: LocalVariable[Vec4[Int32]] = new LocalVariable()
 
     val result = List(v.focus(_.x), v.focus(_.y), v.focus(_.z), v.focus(_.w))
-    val expected: List[Focus[Int32]] = (0 until 4).map(x => FocusConstant[Vec3[Int32], Int32](v, x))
+    val expected: List[Focus[Int32]] = (0 until 4).map(x => FocusConstant[Vec4[Int32], Int32](v, x)).toList
 
     result
       .zip(expected)

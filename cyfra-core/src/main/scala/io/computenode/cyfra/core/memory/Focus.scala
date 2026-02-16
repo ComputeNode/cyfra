@@ -1,7 +1,7 @@
 package io.computenode.cyfra.core.memory
 
 import io.computenode.cyfra.core.expression.Value
-import io.computenode.cyfra.core.expression.types.{IntegerType, Mat, RuntimeArray, Vec}
+import io.computenode.cyfra.core.expression.types.{IntegerType, Mat, RuntimeArray, Vec, Vec2, Vec3, Vec4}
 import io.computenode.cyfra.utility.Utility.nextId
 
 import scala.quoted.{Expr, Quotes, Type}
@@ -54,6 +54,23 @@ object Focus:
     def tupleElementIndex(name: String): Option[Int] =
       if name.startsWith("_") then name.drop(1).toIntOption else None
 
+    // Get the vector component index from method name like "x", "y", "z", "w"
+    def vectorComponentIndex(name: String): Option[Int] =
+      name match
+        case "x" => Some(0)
+        case "y" => Some(1)
+        case "z" => Some(2)
+        case "w" => Some(3)
+        case _   => None
+
+    // Check if a type is a Vec type (Vec2, Vec3, or Vec4)
+    def isVecType(tpe: TypeRepr): Boolean =
+      val sym = tpe.typeSymbol
+      val fullName = sym.fullName
+      fullName == "io.computenode.cyfra.core.expression.types.Vec2" ||
+      fullName == "io.computenode.cyfra.core.expression.types.Vec3" ||
+      fullName == "io.computenode.cyfra.core.expression.types.Vec4"
+
     // Recursively collect access steps from the expression tree
     // Returns (steps from outer to inner, the parameter identifier)
     def collectSteps(term: Term): (List[AccessStep], Term) = term match
@@ -64,6 +81,13 @@ object Focus:
       // Tuple element access: expr._N
       case Select(qualifier, name) if tupleElementIndex(name).isDefined =>
         val index = tupleElementIndex(name).get
+        val (innerSteps, param) = collectSteps(qualifier)
+        val step = AccessStep.TupleElement(index, qualifier.tpe.widen, term.tpe.widen)
+        (innerSteps :+ step, param)
+
+      // Vector component access: vec.x, vec.y, vec.z, vec.w
+      case Select(qualifier, fieldName) if isVecType(qualifier.tpe.widen) && vectorComponentIndex(fieldName).isDefined =>
+        val index = vectorComponentIndex(fieldName).get
         val (innerSteps, param) = collectSteps(qualifier)
         val step = AccessStep.TupleElement(index, qualifier.tpe.widen, term.tpe.widen)
         (innerSteps :+ step, param)
