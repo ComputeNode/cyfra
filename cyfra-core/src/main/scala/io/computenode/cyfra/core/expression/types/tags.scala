@@ -2,7 +2,7 @@ package io.computenode.cyfra.core.expression.types
 
 import io.computenode.cyfra.core.expression.Value
 import izumi.reflect.macrortti.LightTypeTag
-import izumi.reflect.{Tag}
+import izumi.reflect.Tag
 
 def typeStride(value: Value[?]): Int =
   val elementSize = value.bottomComposite.tag match
@@ -16,7 +16,7 @@ def typeStride(value: Value[?]): Int =
     case _                       => ???
 
   val numberOfElements = value.baseTag match
-    case None                          => 1
+    case None                         => 1
     case Some(t) if t =:= Tag[Vec2]   => 2
     case Some(t) if t =:= Tag[Vec3]   => 3
     case Some(t) if t =:= Tag[Vec4]   => 4
@@ -29,7 +29,7 @@ def typeStride(value: Value[?]): Int =
     case Some(t) if t =:= Tag[Mat4x2] => 8
     case Some(t) if t =:= Tag[Mat4x3] => 12
     case Some(t) if t =:= Tag[Mat4x4] => 16
-    case _                             => ???
+    case _                            => ???
 
   numberOfElements * elementSize
 
@@ -47,7 +47,7 @@ def rows(tag: Tag[?]): Int =
     case t if t =:= Tag[Mat4x2] => 4
     case t if t =:= Tag[Mat4x3] => 4
     case t if t =:= Tag[Mat4x4] => 4
-    case _                       => ???
+    case _                      => ???
 
 def columns(tag: Tag[?]): Int =
   tag match
@@ -63,4 +63,4 @@ def columns(tag: Tag[?]): Int =
     case t if t =:= Tag[Mat4x2] => 2
     case t if t =:= Tag[Mat4x3] => 3
     case t if t =:= Tag[Mat4x4] => 4
-    case _                       => ???
+    case _                      => ???

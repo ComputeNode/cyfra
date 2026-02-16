@@ -15,8 +15,8 @@ import izumi.reflect.Tag
 class Algebra extends FunctionCompilationModule:
   def compileFunction(input: IRs[?])(using Ctx): IRs[?] =
     input.flatMapReplace:
-      case x: IR.Operation[a]                      => handleOperation[a](x)(using x.v)
-      case other                                   => IRs(other)(using other.v)
+      case x: IR.Operation[a] => handleOperation[a](x)(using x.v)
+      case other              => IRs(other)(using other.v)
 
   private def handleOperation[A: Value](operation: IR.Operation[A])(using Ctx): IRs[A] =
     val IR.Operation(func, args) = operation

@@ -8,5 +8,3 @@ sealed trait BuildInVariable[T: Value] extends Variable[T]
 
 object BuildInVariable:
   case object GlobalInvocationId extends BuildInVariable[Vec3[UInt32]]
-
-

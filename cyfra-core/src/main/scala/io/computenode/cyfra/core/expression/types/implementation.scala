@@ -24,4 +24,4 @@ final class Mat4x2Impl[T <: Scalar: Value](val block: ExpressionBlock[Mat4x2[T]]
 final class Mat4x3Impl[T <: Scalar: Value](val block: ExpressionBlock[Mat4x3[T]]) extends Mat4x3[T] with ExpressionHolder[Mat4x3[T]]
 final class Mat4x4Impl[T <: Scalar: Value](val block: ExpressionBlock[Mat4x4[T]]) extends Mat4x4[T] with ExpressionHolder[Mat4x4[T]]
 
-final class RuntimeArrayImpl[T : Value](val block: ExpressionBlock[RuntimeArray[T]]) extends RuntimeArray[T] with ExpressionHolder[RuntimeArray[T]]
+final class RuntimeArrayImpl[T: Value](val block: ExpressionBlock[RuntimeArray[T]]) extends RuntimeArray[T] with ExpressionHolder[RuntimeArray[T]]

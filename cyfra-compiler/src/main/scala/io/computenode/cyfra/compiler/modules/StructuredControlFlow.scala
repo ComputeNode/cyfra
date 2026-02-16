@@ -42,7 +42,7 @@ class StructuredControlFlow extends FunctionCompilationModule:
         targets(break) = mergeLabel
         phiMap(break) = mutable.Buffer.empty
 
-        val (IRs(trueRes, trueBody), afterTrueLabel) = compileRec(ifTrue, trueLabel, targets, phiMap) 
+        val (IRs(trueRes, trueBody), afterTrueLabel) = compileRec(ifTrue, trueLabel, targets, phiMap)
         val (IRs(falseRes, falseBody), afterFalseLabel) = compileRec(ifFalse, falseLabel, targets, phiMap)
 
         val trueSkipped = phiMap(break).exists(_._2.id == afterTrueLabel.id)

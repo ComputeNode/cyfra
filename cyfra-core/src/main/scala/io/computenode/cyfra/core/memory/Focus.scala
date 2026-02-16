@@ -67,8 +67,7 @@ object Focus:
     def isVecType(tpe: TypeRepr): Boolean =
       val sym = tpe.typeSymbol
       val fullName = sym.fullName
-      fullName == "io.computenode.cyfra.core.expression.types.Vec2" ||
-      fullName == "io.computenode.cyfra.core.expression.types.Vec3" ||
+      fullName == "io.computenode.cyfra.core.expression.types.Vec2" || fullName == "io.computenode.cyfra.core.expression.types.Vec3" ||
       fullName == "io.computenode.cyfra.core.expression.types.Vec4"
 
     // Recursively collect access steps from the expression tree

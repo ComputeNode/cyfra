@@ -3,7 +3,7 @@ package io.computenode.cyfra.core.expression
 import io.computenode.cyfra.core.expression.{Expression, ExpressionBlock}
 import io.computenode.cyfra.core.expression.BuildInFunction.{BuildInFunction0, BuildInFunction1, BuildInFunction2, BuildInFunction3, BuildInFunction4}
 import io.computenode.cyfra.utility.cats.Monad
-import izumi.reflect.{Tag}
+import izumi.reflect.Tag
 
 import scala.annotation.tailrec
 import scala.quoted.{Expr, Quotes, Type, Varargs}

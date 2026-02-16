@@ -76,7 +76,7 @@ object TypeManager:
       case t if t <:< Tag[Vec]          => SvRef[Unit](Op.OpTypeVector, List(ir, IntWord(rows(t))))
       case t if t <:< Tag[Mat]          => SvRef[Unit](Op.OpTypeMatrix, List(ir, IntWord(columns(t))))
       case t if t =:= Tag[RuntimeArray] => SvRef[Unit](Op.OpTypeRuntimeArray, List(ir))
-      case _                             => throw new Exception(s"Unsupported type: ${value.tag}")
+      case _                            => throw new Exception(s"Unsupported type: ${value.tag}")
     m1.withIr(key, cIR)
 
   private def withTypePointer(manager: TypeManager, value: Value[?], storageClass: Code): TypeManager =

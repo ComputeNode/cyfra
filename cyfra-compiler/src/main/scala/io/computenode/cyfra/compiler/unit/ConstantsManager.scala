@@ -10,7 +10,7 @@ import io.computenode.cyfra.utility.Utility.accumulate
 import io.computenode.cyfra.core.expression.given
 import io.computenode.cyfra.core.expression.types.*
 import io.computenode.cyfra.core.expression.types.given
-import izumi.reflect.{Tag}
+import izumi.reflect.Tag
 import izumi.reflect.macrortti.LightTypeTag
 
 case class ConstantsManager(block: List[IR[?]] = Nil, cache: Map[CacheKey, RefIR[?]] = Map.empty):
@@ -33,10 +33,10 @@ object ConstantsManager:
     if manager.cache.contains(key) then return manager
 
     value.baseTag match
-      case None                       => getScalar(manager, types, const, value)._2
+      case None                      => getScalar(manager, types, const, value)._2
       case Some(t) if t <:< Tag[Vec] => getVector(manager, types, const, value)._2
       case Some(t) if t <:< Tag[Mat] => getMatrix(manager, types, const, value)._2
-      case other                      => throw CompilationException(s"Cannot create constant of type: ${value.tag}")
+      case other                     => throw CompilationException(s"Cannot create constant of type: ${value.tag}")
 
   def getMatrix(manager: ConstantsManager, types: TypeManager, const: Any, value: Value[?]): (RefIR[?], ConstantsManager) =
     val key = CacheKey(const, value.tag)
