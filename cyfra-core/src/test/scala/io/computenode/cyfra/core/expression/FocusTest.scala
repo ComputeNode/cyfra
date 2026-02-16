@@ -4,7 +4,7 @@ import io.computenode.cyfra.core.memory.{Focus, FocusConstant, FocusDynamic, Loc
 import io.computenode.cyfra.core.memory.Focus.*
 import io.computenode.cyfra.core.expression.types.*
 import io.computenode.cyfra.core.expression.types.given
-import izumi.reflect.{Tag, TagK}
+import izumi.reflect.{Tag, Tag}
 
 class FocusTest extends munit.FunSuite:
 

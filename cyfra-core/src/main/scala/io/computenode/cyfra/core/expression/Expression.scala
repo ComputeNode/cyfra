@@ -3,6 +3,7 @@ package io.computenode.cyfra.core.expression
 import io.computenode.cyfra.core.memory.{Focus, FocusRoot, GBuffer, GUniform, LocalVariable, Variable}
 import io.computenode.cyfra.core.expression.JumpTarget.{BreakTarget, ContinueTarget}
 import io.computenode.cyfra.core.expression.given
+import io.computenode.cyfra.core.expression.types.Literal.given
 import io.computenode.cyfra.core.expression.types.*
 import io.computenode.cyfra.core.expression.types.given
 import io.computenode.cyfra.core.expression.types.given
@@ -21,6 +22,7 @@ object Expression:
     def v2: Value[B] = Value[B]
 
   case class Constant[A: Value](value: Any) extends Expression[A]
+  case class LiteralArgs(value: List[Int]) extends Expression[Literal]
   case class VariableDeclare[B: Value](variable: LocalVariable[B], init: Option[Expression[B]]) extends ExpressionUnit[B]
   case class Read[A: Value](focus: FocusRoot[?], accessChain: List[Expression[?]]) extends Expression[A]
   case class Write[B: Value](focus: FocusRoot[?], accessChain: List[Expression[?]], value: Expression[B]) extends ExpressionUnit[B]

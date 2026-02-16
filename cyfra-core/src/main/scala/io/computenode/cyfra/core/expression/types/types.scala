@@ -1,6 +1,7 @@
 package io.computenode.cyfra.core.expression.types
 
 import io.computenode.cyfra.core.expression.*
+import io.computenode.cyfra.core.expression.ops.{Vec2Ops, Vec3Ops, Vec4Ops}
 
 sealed trait Scalar
 
@@ -24,9 +25,9 @@ abstract class UInt16 extends UnsignedIntType
 abstract class UInt32 extends UnsignedIntType
 
 sealed trait Vec[T: Value]
-abstract class Vec2[T: Value] extends Vec[T]
-abstract class Vec3[T: Value] extends Vec[T]
-abstract class Vec4[T: Value] extends Vec[T]
+abstract class Vec2[T <: Scalar: Value] extends Vec[T] with Vec2Ops[T, Vec2[T]]
+abstract class Vec3[T <: Scalar: Value] extends Vec[T] with Vec3Ops[T, Vec3[T]]
+abstract class Vec4[T <: Scalar: Value] extends Vec[T] with Vec4Ops[T, Vec4[T]]
 
 sealed trait Mat[T: Value]
 abstract class Mat2x2[T: Value] extends Mat[T]

@@ -9,7 +9,6 @@ import io.computenode.cyfra.compiler.ir.IR.RefIR
 import io.computenode.cyfra.compiler.ir.IRs
 import io.computenode.cyfra.compiler.Spirv.*
 import io.computenode.cyfra.core.expression.{Value, given}
-import io.computenode.cyfra.core.expression.BuildInFunction.GlobalInvocationId
 import io.computenode.cyfra.core.expression.types.*
 import io.computenode.cyfra.core.expression.types.given
 

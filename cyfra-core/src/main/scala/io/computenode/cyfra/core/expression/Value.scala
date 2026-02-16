@@ -3,7 +3,7 @@ package io.computenode.cyfra.core.expression
 import io.computenode.cyfra.core.expression.{Expression, ExpressionBlock}
 import io.computenode.cyfra.core.expression.BuildInFunction.{BuildInFunction0, BuildInFunction1, BuildInFunction2, BuildInFunction3, BuildInFunction4}
 import io.computenode.cyfra.utility.cats.Monad
-import izumi.reflect.{Tag, TagK}
+import izumi.reflect.{Tag}
 
 import scala.annotation.tailrec
 import scala.quoted.{Expr, Quotes, Type, Varargs}
@@ -11,7 +11,7 @@ import scala.quoted.{Expr, Quotes, Type, Varargs}
 trait Value[A]:
   protected def extractUnsafe(ir: ExpressionBlock[A]): A
   def tag: Tag[A]
-  def baseTag: Option[TagK[?]]
+  def baseTag: Option[Tag[?]]
   def composite: List[Value[?]]
 
   final def indirect(ir: Expression[A]): A = extract(ExpressionBlock(ir, List()))
@@ -30,7 +30,7 @@ object Value:
   def apply[A](using v: Value[A]): Value[A] = v
 
   trait Scalar[A] extends Value[A]:
-    def baseTag: Option[TagK[?]] = None
+    def baseTag: Option[Tag[?]] = None
     def composite: List[Value[?]] = Nil
 
   def map[Res: Value](f: BuildInFunction0): Res =
@@ -66,11 +66,11 @@ object Value:
   extension [A: Value](x: A) def irs: ExpressionBlock[A] = Value[A].peel(x)
 
   // Derived Value implementation for tuples/products
-  class Derived[T](elemValues: List[Value[?]], theTag: Tag[T], theBaseTag: Option[TagK[?]], extract: (ExpressionBlock[T], Value[T]) => T)
+  class Derived[T](elemValues: List[Value[?]], theTag: Tag[T], theBaseTag: Option[Tag[?]], extract: (ExpressionBlock[T], Value[T]) => T)
       extends Value[T]:
     protected def extractUnsafe(ir: ExpressionBlock[T]): T = extract(ir, this)
     def tag: Tag[T] = theTag
-    def baseTag: Option[TagK[?]] = theBaseTag
+    def baseTag: Option[Tag[?]] = theBaseTag
     def composite: List[Value[?]] = elemValues
 
   // Runtime helper for extraction - used by the macro
@@ -81,7 +81,7 @@ object Value:
     elemValue.extract(ir.add(expr.asInstanceOf[Expression[T]]))
 
   // Helper to get Tuple base tag - avoids compile-time kind issues
-  private[expression] val tupleBaseTag: Option[TagK[?]] = Some(Tag[Tuple].asInstanceOf[TagK[?]])
+  private[expression] val tupleBaseTag: Option[Tag[?]] = Some(Tag[Tuple].asInstanceOf[Tag[?]])
 
   // Auto-derivation for tuples and case classes
   inline given derived[T]: Value[T] = ${ derivedMacro[T] }
@@ -120,7 +120,7 @@ object Value:
     val isTuple = tpe match
       case AppliedType(tycon, _) => tycon.typeSymbol.fullName.startsWith("scala.Tuple")
       case _                     => false
-    val baseTagExpr: Expr[Option[TagK[?]]] =
+    val baseTagExpr: Expr[Option[Tag[?]]] =
       if isTuple then '{ Value.tupleBaseTag } else '{ None }
 
     // Generate tuple construction from array

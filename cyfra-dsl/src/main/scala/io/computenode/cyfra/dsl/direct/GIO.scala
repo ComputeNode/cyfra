@@ -49,53 +49,47 @@ object GIO:
 
     extractFocusTrailAcc(focus).reverse
 
-  def op[Res: Value](func: BuildInFunction.BuildInFunction0[Res])(using gio: GIO): Res =
-    val next = Expression.BuildInOperation(func, List())
+  def op[Res: Value](func: BuildInFunction.BuildInFunction0)(using gio: GIO): Res =
+    val next = Expression.BuildInOperation[Res](func, List())
     gio.add(next)
-    summon[Value[Res]].indirect(next)
+    Value[Res].indirect(next)
 
-  def op[A: Value, Res: Value](func: BuildInFunction.BuildInFunction1[A, Res], arg: A)(using gio: GIO): Res =
+  def op[A: Value, Res: Value](func: BuildInFunction.BuildInFunction1, arg: A)(using gio: GIO): Res =
     val a = arg.irs
-    val next = Expression.BuildInOperation(func, List(a.result))
+    val next = Expression.BuildInOperation[Res](func, List(a.result))
     gio.extend(next :: a.body)
-    summon[Value[Res]].indirect(next)
+    Value[Res].indirect(next)
 
-  def op[A1: Value, A2: Value, Res: Value](func: BuildInFunction.BuildInFunction2[A1, A2, Res], arg1: A1, arg2: A2)(using gio: GIO): Res =
+  def op[A1: Value, A2: Value, Res: Value](func: BuildInFunction.BuildInFunction2, arg1: A1, arg2: A2)(using gio: GIO): Res =
     val a1 = arg1.irs
     val a2 = arg2.irs
-    val next = Expression.BuildInOperation(func, List(a1.result, a2.result))
+    val next = Expression.BuildInOperation[Res](func, List(a1.result, a2.result))
     gio.extend(next :: a1.body ++ a2.body)
-    summon[Value[Res]].indirect(next)
+    Value[Res].indirect(next)
 
-  def op[A1: Value, A2: Value, A3: Value, Res: Value](func: BuildInFunction.BuildInFunction3[A1, A2, A3, Res], arg1: A1, arg2: A2, arg3: A3)(using
+  def op[A1: Value, A2: Value, A3: Value, Res: Value](func: BuildInFunction.BuildInFunction3, arg1: A1, arg2: A2, arg3: A3)(using gio: GIO): Res =
+    val a1 = arg1.irs
+    val a2 = arg2.irs
+    val a3 = arg3.irs
+    val next = Expression.BuildInOperation[Res](func, List(a1.result, a2.result, a3.result))
+    gio.extend(next :: a1.body ++ a2.body ++ a3.body)
+    Value[Res].indirect(next)
+
+  def op[A1: Value, A2: Value, A3: Value, A4: Value, Res: Value](func: BuildInFunction.BuildInFunction4, arg1: A1, arg2: A2, arg3: A3, arg4: A4)(using
     gio: GIO,
   ): Res =
     val a1 = arg1.irs
     val a2 = arg2.irs
     val a3 = arg3.irs
-    val next = Expression.BuildInOperation(func, List(a1.result, a2.result, a3.result))
-    gio.extend(next :: a1.body ++ a2.body ++ a3.body)
-    summon[Value[Res]].indirect(next)
-
-  def op[A1: Value, A2: Value, A3: Value, A4: Value, Res: Value](
-    func: BuildInFunction.BuildInFunction4[A1, A2, A3, A4, Res],
-    arg1: A1,
-    arg2: A2,
-    arg3: A3,
-    arg4: A4,
-  )(using gio: GIO): Res =
-    val a1 = arg1.irs
-    val a2 = arg2.irs
-    val a3 = arg3.irs
     val a4 = arg4.irs
-    val next = Expression.BuildInOperation(func, List(a1.result, a2.result, a3.result, a4.result))
+    val next = Expression.BuildInOperation[Res](func, List(a1.result, a2.result, a3.result, a4.result))
     gio.extend(next :: a1.body ++ a2.body ++ a3.body ++ a4.body)
-    summon[Value[Res]].indirect(next)
+    Value[Res].indirect(next)
 
   def call[A: Value, Res: Value](func: CustomFunction1[Res, A], arg: Variable[A])(using gio: GIO): Res =
     val next = Expression.CustomCall(func, List(arg))
     gio.add(next)
-    summon[Value[Res]].indirect(next)
+    Value[Res].indirect(next)
 
   def branch[T: Value](cond: Bool, ifTrue: (JumpTarget[T], GIO) ?=> T, ifFalse: (JumpTarget[T], GIO) ?=> T)(using gio: GIO): T =
     val c = cond.irs

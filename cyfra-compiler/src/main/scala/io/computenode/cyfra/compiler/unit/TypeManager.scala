@@ -9,7 +9,7 @@ import io.computenode.cyfra.compiler.unit.TypeManager.*
 import io.computenode.cyfra.core.expression.types.*
 import io.computenode.cyfra.core.expression.types.given
 import io.computenode.cyfra.utility.Utility.accumulate
-import izumi.reflect.{Tag, TagK, TagKK}
+import izumi.reflect.Tag
 import izumi.reflect.macrortti.LightTypeTag
 
 import scala.collection.mutable
@@ -73,9 +73,9 @@ object TypeManager:
     val (ir, m1) = manager.getType(composite)
 
     val cIR = value.baseTag.get match
-      case t if t <:< TagK[Vec]          => SvRef[Unit](Op.OpTypeVector, List(ir, IntWord(rows(t))))
-      case t if t <:< TagK[Mat]          => SvRef[Unit](Op.OpTypeMatrix, List(ir, IntWord(columns(t))))
-      case t if t =:= TagK[RuntimeArray] => SvRef[Unit](Op.OpTypeRuntimeArray, List(ir))
+      case t if t <:< Tag[Vec]          => SvRef[Unit](Op.OpTypeVector, List(ir, IntWord(rows(t))))
+      case t if t <:< Tag[Mat]          => SvRef[Unit](Op.OpTypeMatrix, List(ir, IntWord(columns(t))))
+      case t if t =:= Tag[RuntimeArray] => SvRef[Unit](Op.OpTypeRuntimeArray, List(ir))
       case _                             => throw new Exception(s"Unsupported type: ${value.tag}")
     m1.withIr(key, cIR)
 
@@ -113,7 +113,7 @@ object TypeManager:
       withDecoration(acc, x)
 
     base match
-      case t if t =:= TagK[RuntimeArray] =>
+      case t if t =:= Tag[RuntimeArray] =>
         val List(element) = value.composite
         val stride = typeStride(element)
         val dec = IR.SvInst(Op.OpDecorate, List(tpe, Decoration.ArrayStride, IntWord(stride)))
@@ -126,7 +126,7 @@ object TypeManager:
             dec.addOne(inst)
             acc + typeStride(v)
         m1.copy(decorations = dec.toList ++ m1.decorations, decorated = m1.decorated + key)
-      case t if t <:< TagK[Vec] => m1.copy(decorated = m1.decorated + key)
-      case t if t <:< TagK[Mat] =>
-        val dec = IR.SvInst(Op.OpDecorate, List(tpe, Decoration.RowMajor))
+      case t if t <:< Tag[Vec] => m1.copy(decorated = m1.decorated + key)
+      case t if t <:< Tag[Mat] =>
+        val dec = IR.SvInst(Op.OpDecorate, List(tpe, Decoration.ColMajor))
         m1.copy(decorations = dec :: m1.decorations, decorated = m1.decorated + key)

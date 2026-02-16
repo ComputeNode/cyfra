@@ -74,3 +74,7 @@ object BuildInFunction:
 
   // Select
   case object Select extends BuildInFunction3(true)
+
+  // Composite
+  case object CompositeExtract extends BuildInFunction2(true)
+  case object CompositeInsert extends BuildInFunction3(true)

@@ -15,7 +15,6 @@ import izumi.reflect.Tag
 class Algebra extends FunctionCompilationModule:
   def compileFunction(input: IRs[?])(using Ctx): IRs[?] =
     input.flatMapReplace:
-      case x @ IR.Operation(GlobalInvocationId, _) => IRs(x)(using x.v)
       case x: IR.Operation[a]                      => handleOperation[a](x)(using x.v)
       case other                                   => IRs(other)(using other.v)
 
@@ -32,7 +31,7 @@ class Algebra extends FunctionCompilationModule:
     val tpe = Ctx.getType(Value[A])
     IRs(IR.SvRef[A](opCode, tpe, args))
 
-  private def findFloat(func: BuildInFunction[?]): Code =
+  private def findFloat(func: BuildInFunction): Code =
     func match
       case Add => Op.OpFAdd
       case Sub => Op.OpFSub
@@ -66,7 +65,7 @@ class Algebra extends FunctionCompilationModule:
 
       case other => throw CompilationException(s"$func for Float type not found")
 
-  private def findBoolean(func: BuildInFunction[?]): Code =
+  private def findBoolean(func: BuildInFunction): Code =
     func match
       case LogicalAny      => Op.OpAny
       case LogicalAll      => Op.OpAll
@@ -79,7 +78,7 @@ class Algebra extends FunctionCompilationModule:
       case Select => Op.OpSelect // This code need more research
       case other  => throw CompilationException(s"$func for Bool type not found")
 
-  private def findInteger(func: BuildInFunction[?], signed: Boolean): Code =
+  private def findInteger(func: BuildInFunction, signed: Boolean): Code =
     func match
       case Add => Op.OpIAdd
       case Sub => Op.OpISub
@@ -100,7 +99,7 @@ class Algebra extends FunctionCompilationModule:
       case NotEqual => Op.OpINotEqual
       case other    => if signed then findSignedInteger(other) else findUnsignedInteger(other)
 
-  private def findSignedInteger(func: BuildInFunction[?]): Code =
+  private def findSignedInteger(func: BuildInFunction): Code =
     func match
       case Div => Op.OpSDiv
       case Mod => Op.OpSMod
@@ -117,7 +116,7 @@ class Algebra extends FunctionCompilationModule:
 
       case other => throw CompilationException(s"$func for SInt type not found")
 
-  private def findUnsignedInteger(func: BuildInFunction[?]): Code =
+  private def findUnsignedInteger(func: BuildInFunction): Code =
     func match
       case Div => Op.OpUDiv
       case Mod => Op.OpUMod
