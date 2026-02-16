@@ -94,3 +94,14 @@ class FocusTest extends munit.FunSuite:
     val expected: Focus[Float32] = FocusConstant[Point, Float32](FocusConstant[RuntimeArray[Point], Point](v, 5), 2)
 
     assertEquals(result, expected)
+
+  test("focus on vector component"):
+    val v: LocalVariable[Vec4[Int32]] = new LocalVariable()
+
+    val result = List(v.focus(_.x), v.focus(_.y), v.focus(_.z), v.focus(_.w))
+    val expected: List[Focus[Int32]] = (0 until 4).map(x => FocusConstant[Vec3[Int32], Int32](v, x))
+
+    result
+      .zip(expected)
+      .foreach: (r, e) =>
+        assertEquals(r, e)
