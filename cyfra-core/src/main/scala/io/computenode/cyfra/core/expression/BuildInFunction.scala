@@ -78,3 +78,5 @@ object BuildInFunction:
   // Composite
   case object CompositeExtract extends BuildInFunction2(true)
   case object CompositeInsert extends BuildInFunction3(true)
+
+  case object VectorShuffle extends BuildInFunction3(true)
