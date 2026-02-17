@@ -6,5 +6,5 @@ import io.computenode.cyfra.core.expression.{BuildInFunction, Value}
 
 trait Vec1Ops[T <: Scalar: Value, CC: Value]:
   self: CC =>
-  def x: T = Value.map[CC, Literal, T](self, Literal(0))(BuildInFunction.CompositeExtract)
-  def xx: Vec2[T] = Value.map[CC, CC, Literal, Vec2[T]](self, self, Literal(0, 0))(BuildInFunction.VectorShuffle)
+  def x: T = Value.map(BuildInFunction.CompositeExtract)[CC, Literal, T](self, Literal(0))
+  def xx: Vec2[T] = Value.map(BuildInFunction.VectorShuffle)[CC, CC, Literal, Vec2[T]](self, self, Literal(0, 0))

@@ -17,6 +17,6 @@ trait NegativeElementOps[T]
 
 extension [T: {NegativeElementOps, Value}](self: T)
   @targetName("neg")
-  def unary_- : T = Value.map(self)(BuildInFunction.Neg)
+  def unary_- : T = Value.map(BuildInFunction.Neg)(self)
   @targetName("rem")
-  infix def rem(that: T): T = Value.map(self, that)(BuildInFunction.Rem)
+  infix def rem(that: T): T = Value.map(BuildInFunction.Rem)(self, that)

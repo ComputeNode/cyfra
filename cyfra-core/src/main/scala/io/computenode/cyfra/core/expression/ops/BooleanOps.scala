@@ -39,13 +39,13 @@ trait BooleanOps[T]
 
 extension [T: {BooleanOps, Value}](self: T)
   @targetName("logicalOr")
-  def ||(that: T): T = Value.map(self, that)(BuildInFunction.LogicalOr)
+  def ||(that: T): T = Value.map(BuildInFunction.LogicalOr)(self, that)
 
   @targetName("logicalAnd")
-  def &&(that: T): T = Value.map(self, that)(BuildInFunction.LogicalAnd)
+  def &&(that: T): T = Value.map(BuildInFunction.LogicalAnd)(self, that)
 
   @targetName("logicalNot")
-  def unary_! : T = Value.map(self)(BuildInFunction.LogicalNot)
+  def unary_! : T = Value.map(BuildInFunction.LogicalNot)(self)
 
 //  @targetName("logicalEqual")
 //  def ===(that: T): T = self.map(that)(BuildInFunction.LogicalEqual)
@@ -54,9 +54,9 @@ extension [T: {BooleanOps, Value}](self: T)
 //  def !==(that: T): T = self.map(that)(BuildInFunction.LogicalNotEqual)
 
 extension [V <: Vec[Bool]: Value](self: V)
-  def any: Bool = Value.map(self)(BuildInFunction.LogicalAny)
+  def any: Bool = Value.map(BuildInFunction.LogicalAny)(self)
 
-  def all: Bool = Value.map(self)(BuildInFunction.LogicalAll)
+  def all: Bool = Value.map(BuildInFunction.LogicalAll)(self)
 
 // Floating-point checks
 given [T <: FloatType: Value]: FloatCheckOps[T] with {}
@@ -67,15 +67,15 @@ given [T <: FloatType: Value]: FloatCheckOps[Vec4[T]] with {}
 trait FloatCheckOps[T]
 
 extension [T: {FloatCheckOps, Value}](self: T)
-  def isNan: Bool = Value.map(self)(BuildInFunction.IsNan)
+  def isNan: Bool = Value.map(BuildInFunction.IsNan)(self)
 
-  def isInf: Bool = Value.map(self)(BuildInFunction.IsInf)
+  def isInf: Bool = Value.map(BuildInFunction.IsInf)(self)
 
-  def isFinite: Bool = Value.map(self)(BuildInFunction.IsFinite)
+  def isFinite: Bool = Value.map(BuildInFunction.IsFinite)(self)
 
-  def isNormal: Bool = Value.map(self)(BuildInFunction.IsNormal)
+  def isNormal: Bool = Value.map(BuildInFunction.IsNormal)(self)
 
-  def signBitSet: Bool = Value.map(self)(BuildInFunction.SignBitSet)
+  def signBitSet: Bool = Value.map(BuildInFunction.SignBitSet)(self)
 
 // Unified comparisons (works for floats, signed ints, and unsigned ints)
 // Type detection happens later in the program, floats use ordered operations
@@ -88,24 +88,24 @@ trait ComparisonOps[T]
 
 extension [T: {ComparisonOps, Value}](self: T)
   @targetName("equal")
-  def ===(that: T): Bool = Value.map(self, that)(BuildInFunction.Equal)
+  def ===(that: T): Bool = Value.map(BuildInFunction.Equal)(self, that)
 
   @targetName("notEqual")
-  def !==(that: T): Bool = Value.map(self, that)(BuildInFunction.NotEqual)
+  def !==(that: T): Bool = Value.map(BuildInFunction.NotEqual)(self, that)
 
   @targetName("lessThan")
-  def <(that: T): Bool = Value.map(self, that)(BuildInFunction.LessThan)
+  def <(that: T): Bool = Value.map(BuildInFunction.LessThan)(self, that)
 
   @targetName("greaterThan")
-  def >(that: T): Bool = Value.map(self, that)(BuildInFunction.GreaterThan)
+  def >(that: T): Bool = Value.map(BuildInFunction.GreaterThan)(self, that)
 
   @targetName("lessThanEqual")
-  def <=(that: T): Bool = Value.map(self, that)(BuildInFunction.LessThanEqual)
+  def <=(that: T): Bool = Value.map(BuildInFunction.LessThanEqual)(self, that)
 
   @targetName("greaterThanEqual")
-  def >=(that: T): Bool = Value.map(self, that)(BuildInFunction.GreaterThanEqual)
+  def >=(that: T): Bool = Value.map(BuildInFunction.GreaterThanEqual)(self, that)
 
 // Select operation
-extension [T: Value](cond: Bool) def select(obj1: T, obj2: T): T = Value.map(cond, obj1, obj2)(BuildInFunction.Select)
+extension [T: Value](cond: Bool) def select(obj1: T, obj2: T): T = Value.map(BuildInFunction.Select)(cond, obj1, obj2)
 
-extension [V <: Vec[Bool]: Value, T <: Vec[?]: Value](cond: V) def select(obj1: T, obj2: T): T = Value.map(cond, obj1, obj2)(BuildInFunction.Select)
+extension [V <: Vec[Bool]: Value, T <: Vec[?]: Value](cond: V) def select(obj1: T, obj2: T): T = Value.map(BuildInFunction.Select)(cond, obj1, obj2)
