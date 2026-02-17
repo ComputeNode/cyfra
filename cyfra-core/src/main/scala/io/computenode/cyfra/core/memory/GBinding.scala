@@ -2,6 +2,7 @@ package io.computenode.cyfra.core.memory
 
 import io.computenode.cyfra.core.expression.Value
 import io.computenode.cyfra.core.expression.types.RuntimeArray
+import izumi.reflect.Tag
 
 sealed trait GBinding[T: Value] extends FocusRoot[T]
 

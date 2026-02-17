@@ -28,5 +28,5 @@ class CompilerTest extends munit.FunSuite:
       GIO.write(b1.focus(_.at(idx)), v * 10)
 
       val i = GIO.read(GlobalInvocationId)
-      GIO.write(u1, i.yyy)
+//      GIO.write(u1, i.yzx)
     compiler.compile(exp, config)
