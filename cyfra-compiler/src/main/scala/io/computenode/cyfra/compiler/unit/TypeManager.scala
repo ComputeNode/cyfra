@@ -53,9 +53,9 @@ object TypeManager:
     val key = Type(value.tag)
     if manager.cache.contains(key) then return manager
 
-    val cOpt = value.composite
+    val composites = value.composite
 
-    if cOpt.isEmpty then
+    if composites.isEmpty then
       val ir = value.tag match
         case t if t =:= Tag[Unit]    => SvRef[Unit](Op.OpTypeVoid, Nil)
         case t if t =:= Tag[Bool]    => SvRef[Unit](Op.OpTypeBool, Nil)
@@ -68,14 +68,17 @@ object TypeManager:
         case _                       => throw new Exception(s"Unsupported type: ${value.tag}")
       return manager.withIr(key, ir)
 
-    val composite = cOpt.head
-
-    val (ir, m1) = manager.getType(composite)
+    val irs = mutable.Buffer.empty[RefIR[Unit]]
+    val m1 = composites.foldLeft(manager): (acc, c) =>
+      val (r, next) = acc.getType(c)
+      irs.addOne(r)
+      next
 
     val cIR = value.baseTag.get match
-      case t if t <:< Tag[Vec]          => SvRef[Unit](Op.OpTypeVector, List(ir, IntWord(rows(t))))
-      case t if t <:< Tag[Mat]          => SvRef[Unit](Op.OpTypeMatrix, List(ir, IntWord(columns(t))))
-      case t if t =:= Tag[RuntimeArray] => SvRef[Unit](Op.OpTypeRuntimeArray, List(ir))
+      case t if t <:< Tag[Vec]          => SvRef[Unit](Op.OpTypeVector, List(irs.head, IntWord(rows(t))))
+      case t if t <:< Tag[Mat]          => SvRef[Unit](Op.OpTypeMatrix, List(irs.head, IntWord(columns(t))))
+      case t if t =:= Tag[RuntimeArray] => SvRef[Unit](Op.OpTypeRuntimeArray, List(irs.head))
+      case t if t <:< Tag[Tuple]        => SvRef[Unit](Op.OpTypeStruct, irs.toList)
       case _                            => throw new Exception(s"Unsupported type: ${value.tag}")
     m1.withIr(key, cIR)
 
@@ -118,7 +121,7 @@ object TypeManager:
         val stride = typeStride(element)
         val dec = IR.SvInst(Op.OpDecorate, List(tpe, Decoration.ArrayStride, IntWord(stride)))
         m1.copy(decorations = dec :: m1.decorations, decorated = m1.decorated + key)
-      case t if t =:= Tag[Tuple] =>
+      case t if t <:< Tag[Tuple] =>
         val dec = mutable.Buffer.empty[IR.SvInst]
         value.composite.zipWithIndex.foldLeft(0):
           case (acc, (v, idx)) =>

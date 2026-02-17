@@ -109,14 +109,6 @@ class Transformer extends CompilationModule[(ExpressionBlock[Unit], Config), Com
     expressionMap(expr.id) = res
     res
 
-  def asBufferRef[A](buffer: GBuffer[A]): BufferRef[A] = buffer match
-    case x: BufferRef[A] => x
-    case _               => throw new CompilationException(s"Expected BufferRef but got: $buffer")
-
-  def asUniformRef[A](uniform: GUniform[A]): UniformRef[A] = uniform match
-    case x: UniformRef[A] => x
-    case _                => throw new CompilationException(s"Expected UniformRef but got: $uniform")
-
   private def convertToRefIR[A](
     expr: Expression[A],
     functionMap: collection.Map[CustomFunction[?], FunctionIR[?]],

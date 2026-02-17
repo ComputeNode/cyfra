@@ -14,7 +14,7 @@ import io.computenode.cyfra.dsl.direct.GIO
 class CompilerTest extends munit.FunSuite:
   val compiler = new Compiler("all")
 
-  private case class TestLayout(in1: GBuffer[RuntimeArray[Int32]], in2: GUniform[Vec3[UInt32]]) derives Layout
+  private case class TestLayout(in1: GBuffer[Tuple1[RuntimeArray[Int32]]], in2: GUniform[Tuple1[Vec3[UInt32]]]) derives Layout
 
   test("compile simple case"):
     val ref = Layout[TestLayout].layoutRef
@@ -22,10 +22,10 @@ class CompilerTest extends munit.FunSuite:
 
     val TestLayout(b1, u1) = ref
     val exp = GIO.reify:
-      val v = GIO.read(b1.focus(_.at(0)))
+      val v = GIO.read(b1.focus(_._1.at(0)))
       val idx = GIO.read(GlobalInvocationId.focus(_.x))
-      GIO.write(b1.focus(_.at(1)), v + 10)
-      GIO.write(b1.focus(_.at(idx)), v * 10)
+      GIO.write(b1.focus(_._1.at(1)), v + 10)
+      GIO.write(b1.focus(_._1.at(idx)), v * 10)
 
       val i = GIO.read(GlobalInvocationId)
 //      GIO.write(u1, i.yzx)

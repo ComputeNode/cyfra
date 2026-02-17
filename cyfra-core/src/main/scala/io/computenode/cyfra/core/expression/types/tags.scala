@@ -5,6 +5,8 @@ import izumi.reflect.macrortti.LightTypeTag
 import izumi.reflect.Tag
 
 def typeStride(value: Value[?]): Int =
+  if value.baseTag.exists(_ <:< Tag[Tuple]) then return value.composite.map(typeStride).sum
+
   val elementSize = value.bottomComposite.tag match
     case t if t =:= Tag[Bool]    => throw new IllegalArgumentException("Boolean type has no size")
     case t if t =:= Tag[Float16] => 2
@@ -16,20 +18,21 @@ def typeStride(value: Value[?]): Int =
     case _                       => ???
 
   val numberOfElements = value.baseTag match
-    case None                         => 1
-    case Some(t) if t =:= Tag[Vec2]   => 2
-    case Some(t) if t =:= Tag[Vec3]   => 3
-    case Some(t) if t =:= Tag[Vec4]   => 4
-    case Some(t) if t =:= Tag[Mat2x2] => 4
-    case Some(t) if t =:= Tag[Mat2x3] => 6
-    case Some(t) if t =:= Tag[Mat2x4] => 8
-    case Some(t) if t =:= Tag[Mat3x2] => 6
-    case Some(t) if t =:= Tag[Mat3x3] => 9
-    case Some(t) if t =:= Tag[Mat3x4] => 12
-    case Some(t) if t =:= Tag[Mat4x2] => 8
-    case Some(t) if t =:= Tag[Mat4x3] => 12
-    case Some(t) if t =:= Tag[Mat4x4] => 16
-    case _                            => ???
+    case None                               => 1
+    case Some(t) if t =:= Tag[Vec2]         => 2
+    case Some(t) if t =:= Tag[Vec3]         => 3
+    case Some(t) if t =:= Tag[Vec4]         => 4
+    case Some(t) if t =:= Tag[Mat2x2]       => 4
+    case Some(t) if t =:= Tag[Mat2x3]       => 6
+    case Some(t) if t =:= Tag[Mat2x4]       => 8
+    case Some(t) if t =:= Tag[Mat3x2]       => 6
+    case Some(t) if t =:= Tag[Mat3x3]       => 9
+    case Some(t) if t =:= Tag[Mat3x4]       => 12
+    case Some(t) if t =:= Tag[Mat4x2]       => 8
+    case Some(t) if t =:= Tag[Mat4x3]       => 12
+    case Some(t) if t =:= Tag[Mat4x4]       => 16
+    case Some(t) if t =:= Tag[RuntimeArray] => return Int.MaxValue
+    case _                                  => ???
 
   numberOfElements * elementSize
 
