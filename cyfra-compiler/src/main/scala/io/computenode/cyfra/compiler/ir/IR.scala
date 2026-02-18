@@ -10,6 +10,7 @@ import io.computenode.cyfra.core.expression.*
 import io.computenode.cyfra.core.expression.given
 import io.computenode.cyfra.core.expression.types.*
 import io.computenode.cyfra.core.expression.types.given
+import io.computenode.cyfra.core.expression.types.Literal.given
 import io.computenode.cyfra.utility.Utility.nextId
 
 import scala.collection
@@ -42,6 +43,7 @@ object IR:
   sealed trait RefIR[A: Value] extends IR[A]
 
   case class Constant[A: Value](value: Any) extends RefIR[A]
+  case class ConstantArgs(value: List[Int]) extends RefIR[Literal]
   case class Declare[A: Value](root: FocusRoot[A], init: Option[RefIR[A]]) extends RefIR[Unit]
   case class Read[A: Value](root: FocusRoot[?], accessChain: List[RefIR[?]]) extends RefIR[A]:
     override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[A] = this.copy(accessChain = accessChain.map(_.replaced))

@@ -43,7 +43,7 @@ abstract class Mat4x4[T: Value] extends Mat[T]
 abstract class RuntimeArray[T: Value]
 
 private def const[A: Value](value: Any): A =
-  summon[Value[A]].extract(ExpressionBlock(Expression.Constant[A](value)))
+  Value[A].extract(ExpressionBlock(Expression.Constant[A](value)))
 
 object Float16:
   def apply(value: Float): Float16 = const(value)

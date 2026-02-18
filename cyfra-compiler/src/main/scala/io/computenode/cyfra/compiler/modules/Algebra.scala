@@ -22,14 +22,19 @@ class Algebra extends FunctionCompilationModule:
     val IR.Operation(func, args) = operation
     val argBaseValue = args.head.v.bottomComposite
     val opCode = argBaseValue.tag match
-      case t if t <:< Tag[FloatType]       => findFloat(func)
-      case t if t <:< Tag[SignedIntType]   => findInteger(func, true)
-      case t if t <:< Tag[UnsignedIntType] => findInteger(func, false)
-      case t if t =:= Tag[Bool]            => findBoolean(func)
-      case t if t =:= Tag[Unit]            => return IRs(operation) // skip invocation id
+      case _ if findComposite.isDefinedAt(func) => findComposite(func)
+      case t if t <:< Tag[FloatType]            => findFloat(func)
+      case t if t <:< Tag[SignedIntType]        => findInteger(func, true)
+      case t if t <:< Tag[UnsignedIntType]      => findInteger(func, false)
+      case t if t =:= Tag[Bool]                 => findBoolean(func)
 
     val tpe = Ctx.getType(Value[A])
     IRs(IR.SvRef[A](opCode, tpe, args))
+
+  private val findComposite: PartialFunction[BuildInFunction, Code] =
+    case CompositeExtract => Op.OpCompositeExtract
+    case CompositeInsert  => Op.OpCompositeInsert
+    case VectorShuffle    => Op.OpVectorShuffle
 
   private def findFloat(func: BuildInFunction): Code =
     func match

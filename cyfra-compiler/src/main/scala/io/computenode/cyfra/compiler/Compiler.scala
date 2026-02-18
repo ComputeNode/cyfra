@@ -12,7 +12,16 @@ import java.nio.ByteBuffer
 class Compiler(verbose: "none" | "last" | "all" = "none"):
   private val transformer = new Transformer()
   private val modules: List[StandardCompilationModule] =
-    List(new VariablesExtract, new VariablesDigestion, new StructuredControlFlow, new Functions, new Constants, new Algebra, new Finalizer)
+    List(
+      new VariablesExtract,
+      new VariablesDigestion,
+      new StructuredControlFlow,
+      new Functions,
+      new Constants,
+      new Algebra,
+      new ConstantArgs,
+      new Finalizer,
+    )
   private val emitter = new Emitter()
 
   def compile(body: ExpressionBlock[Unit], config: Compiler.Config): ByteBuffer =

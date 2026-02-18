@@ -38,6 +38,7 @@ object Compilation:
 
     def irInternal(ir: IR[?]): String = ir match
       case IR.Constant(value)                               => s"($value)"
+      case IR.ConstantArgs(value)                            => s"${value.mkString(", ")}"
       case IR.Declare(focus, init)                          => s"#${focus.id}"
       case IR.Read(focus, accessChain)                      => s"#${focus.id} ${accessChain.map(_.id).map(map).mkString(" ")}"
       case IR.Write(focus, accessChain, value)              => s"#${focus.id} ${accessChain.map(_.id).map(map).mkString(" ")} ${map(value.id)}"

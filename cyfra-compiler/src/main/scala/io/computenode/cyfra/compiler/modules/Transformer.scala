@@ -18,7 +18,7 @@ class Transformer extends CompilationModule[(ExpressionBlock[Unit], Config), Com
     val functions = extractCustomFunctions(main).reverse
     val functionMap = mutable.Map.empty[CustomFunction[?], FunctionIR[?]]
     val nextFunctions = functions.map: f =>
-      val func = convertToFunction(f, functionMap)
+      val func = convertToFunction(f, functionMap)(using f.v)
       functionMap(f) = func._1
       func
     Compilation(nextFunctions, body._2)
@@ -41,18 +41,17 @@ class Transformer extends CompilationModule[(ExpressionBlock[Unit], Config), Com
 
     rec(f)
 
-  private def convertToFunction(f: CustomFunction[?], functionMap: collection.Map[CustomFunction[?], FunctionIR[?]]): (FunctionIR[?], IRs[?]) =
-    f match
-      case f: CustomFunction[a] =>
-        given Value[a] = f.v
-        (FunctionIR(f.name, f.arg), convertToIRs(f.body, functionMap, mutable.Map.empty))
+  private def convertToFunction[A: Value](
+    f: CustomFunction[A],
+    functionMap: collection.Map[CustomFunction[?], FunctionIR[?]],
+  ): (FunctionIR[A], IRs[A]) =
+    (FunctionIR(f.name, f.arg), convertToIRs(f.body, functionMap, mutable.Map.empty))
 
-  private def convertToIRs[A](
+  private def convertToIRs[A: Value](
     block: ExpressionBlock[A],
     functionMap: collection.Map[CustomFunction[?], FunctionIR[?]],
     expressionMap: mutable.Map[Int, IR[?]],
   ): IRs[A] =
-    given Value[A] = block.result.v
     var result: Option[IR[A]] = None
     val body = block.body.reverse
       .distinctBy(_.id)
@@ -72,6 +71,8 @@ class Transformer extends CompilationModule[(ExpressionBlock[Unit], Config), Com
     val res: IR[A] = expr match
       case Expression.Constant(value) =>
         IR.Constant[A](value)
+      case Expression.LiteralArgs(value) =>
+        IR.ConstantArgs(value)
       case x: Expression.VariableDeclare[a] =>
         given Value[a] = x.v2
         val init = x.init.map(x => convertToRefIR(x, functionMap, expressionMap))

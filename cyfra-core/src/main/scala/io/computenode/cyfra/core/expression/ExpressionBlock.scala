@@ -17,6 +17,7 @@ case class ExpressionBlock[A](result: Expression[A], body: List[Expression[?]]):
     body.foldRight(externalVarsIDs): (expr, vars) =>
       expr match
         case Expression.Constant(_)                  => vars
+        case Expression.LiteralArgs(_)                  => vars
         case Expression.VariableDeclare(variable, _) =>
           vars + variable.id
         case Expression.Read(focus, _) =>
