@@ -46,7 +46,7 @@ case class ExpressionBlock[A](result: Expression[A], body: List[Expression[?]]):
           vars
         case Expression.Jump(_, _)               => vars
         case Expression.ConditionalJump(_, _, _) => vars
-        case Expression.TupleExtract(_, _)          => vars
+        case Expression.Extract(_, _)          => vars
     true
 
   def add[B](that: Expression[B]): ExpressionBlock[B] =
@@ -86,7 +86,7 @@ case class ExpressionBlock[A](result: Expression[A], body: List[Expression[?]]):
           s"loop body[%${mainBody._1.id}] cont[%${continueBody._1.id}] break#${break.id} continue#${continue.id}"
         case Expression.Jump(target, value)                  => s"jump jt#${target.id} <- %${value.id}"
         case Expression.ConditionalJump(cond, target, value) => s"cjump %${cond.id} ? jt#${target.id} <- %${value.id}"
-        case Expression.TupleExtract(value, n)                  => s"comp ${value.id} $n"
+        case Expression.Extract(value, n)                  => s"comp ${value.id} $n"
       Some(prefix + suffix)
     .flatten
 

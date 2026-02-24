@@ -34,7 +34,7 @@ object Expression:
       extends Expression[Unit]
   case class Jump[B: Value](target: JumpTarget[B], value: Expression[B]) extends ExpressionUnit[B]
   case class ConditionalJump[B: Value](cond: Expression[Bool], target: JumpTarget[B], value: Expression[B]) extends ExpressionUnit[B]
-  case class TupleExtract[B <: Tuple: Value, N <: Int](value: Expression[B], n: N)
-      extends Expression[Elem[B, N]](using value.v.composite(n).asInstanceOf[Value[Elem[B, N]]]):
+  case class Extract[B: Value, A: Value](value: Expression[B], n: Int) extends Expression[A]:
     def v2: Value[B] = Value[B]
-  case class TupleCombine[A <: Tuple: Value](composites: List[Expression[?]]) extends Expression[A]
+  case class Combine[A: Value](composites: List[Expression[?]]) extends Expression[A]
+  case class Insert[A: Value, I: Value](original: A, replacement: I, n: Int) extends Expression[A]

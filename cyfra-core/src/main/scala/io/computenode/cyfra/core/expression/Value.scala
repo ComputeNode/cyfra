@@ -85,7 +85,7 @@ object Value:
         val eb = vl.asInstanceOf[Value[Any]].peel(x)
         (eb.result, eb.body)
       .unzip
-    val res = Expression.TupleCombine[A](args)
+    val res = Expression.Combine[A](args)
     ExpressionBlock(res, res :: bodies.flatten)
 
   private def tupleAsConstant[A <: Tuple: Value](tuple: A): Option[Expression.Constant[A]] = boundary:
@@ -113,9 +113,7 @@ object Value:
 
   // Runtime helper for extraction - used by the macro
   def extractComposite[Parent, T](ir: ExpressionBlock[Parent], parentValue: Value[Parent], elemValue: Value[T], idx: Int): T =
-    val expr = Expression.TupleExtract[Parent & Tuple, idx.type](ir.result.asInstanceOf[Expression[Parent & Tuple]], idx)(using
-      parentValue.asInstanceOf[Value[Parent & Tuple]],
-    )
+    val expr = Expression.Extract[Parent, T](ir.result, idx)(using parentValue, elemValue)
     elemValue.extract(ir.add(expr.asInstanceOf[Expression[T]]))
 
   // Helper to get Tuple base tag - avoids compile-time kind issues
