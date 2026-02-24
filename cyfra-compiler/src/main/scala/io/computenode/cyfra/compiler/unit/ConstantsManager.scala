@@ -33,12 +33,31 @@ object ConstantsManager:
     if manager.cache.contains(key) then return manager
 
     value.baseTag match
-      case None                      => getScalar(manager, types, const, value)._2
-      case Some(t) if t <:< Tag[Vec] => getVector(manager, types, const, value)._2
-      case Some(t) if t <:< Tag[Mat] => getMatrix(manager, types, const, value)._2
-      case other                     => throw CompilationException(s"Cannot create constant of type: ${value.tag}")
+      case None                        => getScalar(manager, types, const, value)._2
+      case Some(t) if t <:< Tag[Vec]   => getVector(manager, types, const, value)._2
+      case Some(t) if t <:< Tag[Mat]   => getMatrix(manager, types, const, value)._2
+      case Some(t) if t <:< Tag[Tuple] => getTuple(manager, types, const, value)._2
+      case other                       => throw CompilationException(s"Cannot create constant of type: ${value.tag}")
 
-  def getMatrix(manager: ConstantsManager, types: TypeManager, const: Any, value: Value[?]): (RefIR[?], ConstantsManager) =
+  def getTuple(manager: ConstantsManager, types: TypeManager, const: Any, value: Value[?]): (RefIR[?], ConstantsManager) =
+    val key = CacheKey(const, value.tag)
+    if manager.cache.contains(key) then return (manager.cache(key), manager)
+
+    val constants = const.asInstanceOf[Product].productIterator.toSeq
+
+    val (members, m1) = value.composite
+      .zip(constants)
+      .accumulate(manager):
+        case (acc, (v, c)) =>
+          val r = acc.get(types, c, v)
+          (r._2, r._1)
+
+    val tpe = types.getType(value)._1
+    val ir = IR.SvRef(Op.OpConstantComposite, tpe, members.toList)(using value)
+
+    (ir, m1.withIr(key, ir))
+
+  private def getMatrix(manager: ConstantsManager, types: TypeManager, const: Any, value: Value[?]): (RefIR[?], ConstantsManager) =
     val key = CacheKey(const, value.tag)
     if manager.cache.contains(key) then return (manager.cache(key), manager)
 
@@ -53,7 +72,7 @@ object ConstantsManager:
 
     (ir, m1.withIr(key, ir))
 
-  def getVector(manager: ConstantsManager, types: TypeManager, const: Any, value: Value[?]): (RefIR[?], ConstantsManager) =
+  private def getVector(manager: ConstantsManager, types: TypeManager, const: Any, value: Value[?]): (RefIR[?], ConstantsManager) =
     val key = CacheKey(const, value.tag)
     if manager.cache.contains(key) then return (manager.cache(key), manager)
 
@@ -68,7 +87,7 @@ object ConstantsManager:
 
     (ir, m1.withIr(key, ir))
 
-  def getScalar(manager: ConstantsManager, types: TypeManager, const: Any, value: Value[?]): (RefIR[?], ConstantsManager) =
+  private def getScalar(manager: ConstantsManager, types: TypeManager, const: Any, value: Value[?]): (RefIR[?], ConstantsManager) =
     val key = CacheKey(const, value.tag)
     if manager.cache.contains(key) then return (manager.cache(key), manager)
 

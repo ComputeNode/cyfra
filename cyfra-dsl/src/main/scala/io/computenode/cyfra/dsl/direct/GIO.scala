@@ -26,7 +26,18 @@ object GIO:
 
   def reflect[A: Value](res: ExpressionBlock[A])(using gio: GIO): A =
     gio.extend(res.body)
-    summon[Value[A]].indirect(res.result)
+    Value[A].indirect(res.result)
+
+  def declare[T: Value](init: Option[T] = None)(using gio: GIO): LocalVariable[T] =
+    val v = LocalVariable[T]()
+    val exp = init match
+      case Some(value) =>
+        val irs = value.irs
+        gio.extend(irs.body)
+        Some(irs.result)
+      case None => None
+    gio.add(Expression.VariableDeclare(v, exp))
+    v
 
   def read[T: Value](focus: Focus[T])(using gio: GIO): T =
     val accessChain = extractFocusTrail(focus)

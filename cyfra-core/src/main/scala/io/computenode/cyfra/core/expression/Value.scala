@@ -2,11 +2,14 @@ package io.computenode.cyfra.core.expression
 
 import io.computenode.cyfra.core.expression.{Expression, ExpressionBlock}
 import io.computenode.cyfra.core.expression.BuildInFunction.{BuildInFunction0, BuildInFunction1, BuildInFunction2, BuildInFunction3, BuildInFunction4}
+import io.computenode.cyfra.core.expression.types.unitZero
 import io.computenode.cyfra.utility.cats.Monad
 import izumi.reflect.Tag
 
 import scala.annotation.tailrec
 import scala.quoted.{Expr, Quotes, Type, Varargs}
+import scala.util.boundary
+import scala.util.boundary.break
 
 trait Value[A]:
   protected def extractUnsafe(ir: ExpressionBlock[A]): A
@@ -18,8 +21,10 @@ trait Value[A]:
   final def extract(block: ExpressionBlock[A]): A =
     if !block.isPure then throw RuntimeException("Cannot embed impure expression")
     extractUnsafe(block)
-  final def peel(x: A): ExpressionBlock[A] =
-    summon[Monad[ExpressionBlock]].pure(x)
+  final def peel(x: A): ExpressionBlock[A] = x match
+    case t: Tuple => Value.tupleAsExpression(t)(using this)
+    case x        => ExpressionBlock.pure(x)
+
   @tailrec
   final def bottomComposite: Value[?] =
     composite match
@@ -65,6 +70,39 @@ object Value:
 
   extension [A: Value](x: A) def irs: ExpressionBlock[A] = Value[A].peel(x)
 
+  private def tupleAsExpression[A: Value as v](tuple: A): ExpressionBlock[A] =
+    tupleAsExpressionInternal(tuple.asInstanceOf[Tuple])(using Value[A].asInstanceOf[Value[Tuple]]).asInstanceOf[ExpressionBlock[A]]
+
+  private def tupleAsExpressionInternal[A <: Tuple: Value as v](tuple: A): ExpressionBlock[A] =
+    tupleAsConstant(tuple) match
+      case Some(value) => return ExpressionBlock(value)
+      case None        => ()
+
+    val (args, bodies) = tuple.productIterator
+      .zip(v.composite)
+      .toList
+      .map: (x, vl) =>
+        val eb = vl.asInstanceOf[Value[Any]].peel(x)
+        (eb.result, eb.body)
+      .unzip
+    val res = Expression.TupleCombine[A](args)
+    ExpressionBlock(res, res :: bodies.flatten)
+
+  private def tupleAsConstant[A <: Tuple: Value](tuple: A): Option[Expression.Constant[A]] = boundary:
+    val constants = tuple.productIterator
+      .zip(Value[A].composite)
+      .map:
+        case (h: ExpressionHolder[a], v) =>
+          h.block.result match
+            case x: Expression.Constant[?] => x
+            case _                         => break(None)
+        case (t: Tuple, v: Value[Tuple]) => tupleAsConstant(t)(using v).getOrElse(break(None))
+        case _: Unit                     => unitZero
+        case _: Any                      => break(None)
+
+    val t = Tuple.fromArray(constants.map(_.value).toArray)
+    Some(Expression.Constant[A](t))
+
   // Derived Value implementation for tuples/products
   class Derived[T](elemValues: List[Value[?]], theTag: Tag[T], theBaseTag: Option[Tag[?]], extract: (ExpressionBlock[T], Value[T]) => T)
       extends Value[T]:
@@ -75,7 +113,7 @@ object Value:
 
   // Runtime helper for extraction - used by the macro
   def extractComposite[Parent, T](ir: ExpressionBlock[Parent], parentValue: Value[Parent], elemValue: Value[T], idx: Int): T =
-    val expr = Expression.Composite[Parent & Tuple, idx.type](ir.result.asInstanceOf[Expression[Parent & Tuple]], idx)(using
+    val expr = Expression.TupleExtract[Parent & Tuple, idx.type](ir.result.asInstanceOf[Expression[Parent & Tuple]], idx)(using
       parentValue.asInstanceOf[Value[Parent & Tuple]],
     )
     elemValue.extract(ir.add(expr.asInstanceOf[Expression[T]]))

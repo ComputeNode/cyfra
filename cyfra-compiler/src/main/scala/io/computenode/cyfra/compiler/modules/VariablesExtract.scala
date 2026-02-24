@@ -30,10 +30,21 @@ class VariablesExtract extends StandardCompilationModule:
 
     val IRs(res, body) = input.flatMapReplace:
       case x @ IR.Declare(variable, init) =>
+
+        var write: Option[IR[?]] = None
+        val nextInit = init.flatMap:
+          case c @ IR.Constant(value) =>
+            Some(Ctx.getConstant(value)(using c.v))
+          case other =>
+            write = Some(IR.Write(variable, Nil, other)(using other.v))
+            None
+        val next = IR.Declare(variable, nextInit)(using variable.v)
+
         variable match
-          case _: LocalVariable[?]  => localDeclarations.append(x)
-          case _: GlobalVariable[?] => globalDeclarations.append(x)
-        IRs.proxy[Unit](x)
+          case _: LocalVariable[?]  => localDeclarations.append(next)
+          case _: GlobalVariable[?] => globalDeclarations.append(next)
+
+        IRs(next, write.toList)
       case x @ IR.Read(variable: BuildInVariable[?], _) =>
         buildInRoots.add(variable)
         IRs(x)(using x.v)
