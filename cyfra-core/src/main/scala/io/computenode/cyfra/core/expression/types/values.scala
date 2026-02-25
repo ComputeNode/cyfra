@@ -44,89 +44,89 @@ given [T <: Scalar: Value]: Value[Vec2[T]] with
   protected def extractUnsafe(ir: ExpressionBlock[Vec2[T]]): Vec2[T] = new Vec2Impl[T](ir)
   given Tag[T] = Value[T].tag
   def tag: Tag[Vec2[T]] = Tag[Vec2[T]]
-  def composite: List[Value[?]] = List(Value[T])
+  def composites: List[Value[?]] = List(Value[T])
   def baseTag: Option[Tag[?]] = Some(Tag[Vec2].asInstanceOf[Tag[?]])
 
 given [T <: Scalar: Value]: Value[Vec3[T]] with
   protected def extractUnsafe(ir: ExpressionBlock[Vec3[T]]): Vec3[T] = new Vec3Impl[T](ir)
   given Tag[T] = Value[T].tag
   def tag: Tag[Vec3[T]] = Tag[Vec3[T]]
-  def composite: List[Value[?]] = List(Value[T])
+  def composites: List[Value[?]] = List(Value[T])
   def baseTag: Option[Tag[?]] = Some(Tag[Vec3].asInstanceOf[Tag[?]])
 
 given [T <: Scalar: Value]: Value[Vec4[T]] with
   protected def extractUnsafe(ir: ExpressionBlock[Vec4[T]]): Vec4[T] = new Vec4Impl[T](ir)
   given Tag[T] = Value[T].tag
   def tag: Tag[Vec4[T]] = Tag[Vec4[T]]
-  def composite: List[Value[?]] = List(Value[T])
+  def composites: List[Value[?]] = List(Value[T])
   def baseTag: Option[Tag[?]] = Some(Tag[Vec4].asInstanceOf[Tag[?]])
 
 given [T <: Scalar: Value]: Value[Mat2x2[T]] with
   protected def extractUnsafe(ir: ExpressionBlock[Mat2x2[T]]): Mat2x2[T] = new Mat2x2Impl[T](ir)
   given Tag[T] = Value[T].tag
   def tag: Tag[Mat2x2[T]] = Tag[Mat2x2[T]]
-  def composite: List[Value[?]] = List(Value[Vec2[T]])
+  def composites: List[Value[?]] = List(Value[Vec2[T]])
   def baseTag: Option[Tag[?]] = Some(Tag[Mat2x2].asInstanceOf[Tag[?]])
 
 given [T <: Scalar: Value]: Value[Mat2x3[T]] with
   protected def extractUnsafe(ir: ExpressionBlock[Mat2x3[T]]): Mat2x3[T] = new Mat2x3Impl[T](ir)
   given Tag[T] = Value[T].tag
   def tag: Tag[Mat2x3[T]] = Tag[Mat2x3[T]]
-  def composite: List[Value[?]] = List(Value[Vec3[T]])
+  def composites: List[Value[?]] = List(Value[Vec3[T]])
   def baseTag: Option[Tag[?]] = Some(Tag[Mat2x3].asInstanceOf[Tag[?]])
 
 given [T <: Scalar: Value]: Value[Mat2x4[T]] with
   protected def extractUnsafe(ir: ExpressionBlock[Mat2x4[T]]): Mat2x4[T] = new Mat2x4Impl[T](ir)
   given Tag[T] = Value[T].tag
   def tag: Tag[Mat2x4[T]] = Tag[Mat2x4[T]]
-  def composite: List[Value[?]] = List(Value[Vec4[T]])
+  def composites: List[Value[?]] = List(Value[Vec4[T]])
   def baseTag: Option[Tag[?]] = Some(Tag[Mat2x4].asInstanceOf[Tag[?]])
 
 given [T <: Scalar: Value]: Value[Mat3x2[T]] with
   protected def extractUnsafe(ir: ExpressionBlock[Mat3x2[T]]): Mat3x2[T] = new Mat3x2Impl[T](ir)
   given Tag[T] = Value[T].tag
   def tag: Tag[Mat3x2[T]] = Tag[Mat3x2[T]]
-  def composite: List[Value[?]] = List(Value[Vec2[T]])
+  def composites: List[Value[?]] = List(Value[Vec2[T]])
   def baseTag: Option[Tag[?]] = Some(Tag[Mat3x2].asInstanceOf[Tag[?]])
 
 given [T <: Scalar: Value]: Value[Mat3x3[T]] with
   protected def extractUnsafe(ir: ExpressionBlock[Mat3x3[T]]): Mat3x3[T] = new Mat3x3Impl[T](ir)
   given Tag[T] = Value[T].tag
   def tag: Tag[Mat3x3[T]] = Tag[Mat3x3[T]]
-  def composite: List[Value[?]] = List(Value[Vec3[T]])
+  def composites: List[Value[?]] = List(Value[Vec3[T]])
   def baseTag: Option[Tag[?]] = Some(Tag[Mat3x3].asInstanceOf[Tag[?]])
 
 given [T <: Scalar: Value]: Value[Mat3x4[T]] with
   protected def extractUnsafe(ir: ExpressionBlock[Mat3x4[T]]): Mat3x4[T] = new Mat3x4Impl[T](ir)
   given Tag[T] = Value[T].tag
   def tag: Tag[Mat3x4[T]] = Tag[Mat3x4[T]]
-  def composite: List[Value[?]] = List(Value[Vec4[T]])
+  def composites: List[Value[?]] = List(Value[Vec4[T]])
   def baseTag: Option[Tag[?]] = Some(Tag[Mat3x4].asInstanceOf[Tag[?]])
 
 given [T <: Scalar: Value]: Value[Mat4x2[T]] with
   protected def extractUnsafe(ir: ExpressionBlock[Mat4x2[T]]): Mat4x2[T] = new Mat4x2Impl[T](ir)
   given Tag[T] = Value[T].tag
   def tag: Tag[Mat4x2[T]] = Tag[Mat4x2[T]]
-  def composite: List[Value[?]] = List(Value[Vec2[T]])
+  def composites: List[Value[?]] = List(Value[Vec2[T]])
   def baseTag: Option[Tag[?]] = Some(Tag[Mat4x2].asInstanceOf[Tag[?]])
 
 given [T <: Scalar: Value]: Value[Mat4x3[T]] with
   protected def extractUnsafe(ir: ExpressionBlock[Mat4x3[T]]): Mat4x3[T] = new Mat4x3Impl[T](ir)
   given Tag[T] = Value[T].tag
   def tag: Tag[Mat4x3[T]] = Tag[Mat4x3[T]]
-  def composite: List[Value[?]] = List(Value[Vec3[T]])
+  def composites: List[Value[?]] = List(Value[Vec3[T]])
   def baseTag: Option[Tag[?]] = Some(Tag[Mat4x3].asInstanceOf[Tag[?]])
 
 given [T <: Scalar: Value]: Value[Mat4x4[T]] with
   protected def extractUnsafe(ir: ExpressionBlock[Mat4x4[T]]): Mat4x4[T] = new Mat4x4Impl[T](ir)
   given Tag[T] = Value[T].tag
   def tag: Tag[Mat4x4[T]] = Tag[Mat4x4[T]]
-  def composite: List[Value[?]] = List(Value[Vec4[T]])
+  def composites: List[Value[?]] = List(Value[Vec4[T]])
   def baseTag: Option[Tag[?]] = Some(Tag[Mat4x4].asInstanceOf[Tag[?]])
 
 given [T: Value]: Value[RuntimeArray[T]] with
   protected def extractUnsafe(ir: ExpressionBlock[RuntimeArray[T]]): RuntimeArray[T] = new RuntimeArrayImpl[T](ir)
   given Tag[T] = Value[T].tag
   def tag: Tag[RuntimeArray[T]] = Tag[RuntimeArray[T]]
-  def composite: List[Value[?]] = List(Value[T])
+  def composites: List[Value[?]] = List(Value[T])
   def baseTag: Option[Tag[?]] = Some(Tag[RuntimeArray].asInstanceOf[Tag[?]])

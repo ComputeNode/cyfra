@@ -105,7 +105,7 @@ class Transformer extends CompilationModule[(ExpressionBlock[Unit], Config), Com
         IR.ConditionalJump(convertToRefIR(x.cond, functionMap, expressionMap), x.target, convertToRefIR(x.value, functionMap, expressionMap))
       case x: Expression.Extract[a, n] =>
         given Value[a] = x.v2
-        IR.Composite[a, A](convertToRefIR(x.value, functionMap, expressionMap), x.n)
+        IR.Composite[a, A](convertToRefIR(x.value, functionMap, expressionMap), x.i)
 
     expressionMap(expr.id) = res
     res

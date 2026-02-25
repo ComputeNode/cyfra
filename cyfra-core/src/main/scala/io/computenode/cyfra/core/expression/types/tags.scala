@@ -5,7 +5,7 @@ import izumi.reflect.macrortti.LightTypeTag
 import izumi.reflect.Tag
 
 def typeStride(value: Value[?]): Int =
-  if value.baseTag.exists(_ <:< Tag[Tuple]) then return value.composite.map(typeStride).sum
+  if value.baseTag.exists(_ <:< Tag[Tuple]) then return value.composites.map(typeStride).sum
 
   val elementSize = value.bottomComposite.tag match
     case t if t =:= Tag[Bool]    => throw new IllegalArgumentException("Boolean type has no size")

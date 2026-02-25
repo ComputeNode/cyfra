@@ -16,7 +16,7 @@ class FocusTest extends munit.FunSuite:
     assertEquals(v.bottomComposite, v)
     assert(v.baseTag.get =:= Tag[Tuple])
 
-    val composites = v.composite.map(_.tag)
+    val composites = v.composites.map(_.tag)
     assertEquals(composites.size, 3)
     val List(t1, t2, t3) = composites
     assert(t1 =:= Tag[Int32])

@@ -2,7 +2,7 @@ package io.computenode.cyfra.core.expression
 
 import io.computenode.cyfra.core.expression.{Expression, ExpressionBlock}
 import io.computenode.cyfra.core.expression.BuildInFunction.{BuildInFunction0, BuildInFunction1, BuildInFunction2, BuildInFunction3, BuildInFunction4}
-import io.computenode.cyfra.core.expression.types.unitZero
+import io.computenode.cyfra.core.expression.types.{Composite, unitZero}
 import io.computenode.cyfra.utility.cats.Monad
 import izumi.reflect.Tag
 
@@ -15,7 +15,7 @@ trait Value[A]:
   protected def extractUnsafe(ir: ExpressionBlock[A]): A
   def tag: Tag[A]
   def baseTag: Option[Tag[?]]
-  def composite: List[Value[?]]
+  def composites: List[Value[?]]
 
   final def indirect(ir: Expression[A]): A = extract(ExpressionBlock(ir, List()))
   final def extract(block: ExpressionBlock[A]): A =
@@ -27,7 +27,7 @@ trait Value[A]:
 
   @tailrec
   final def bottomComposite: Value[?] =
-    composite match
+    composites match
       case List(c) => c.bottomComposite
       case _       => this
 
@@ -36,7 +36,7 @@ object Value:
 
   trait Scalar[A] extends Value[A]:
     def baseTag: Option[Tag[?]] = None
-    def composite: List[Value[?]] = Nil
+    def composites: List[Value[?]] = Nil
 
   def map[Res: Value](f: BuildInFunction0)(): Res =
     val next = Expression.BuildInOperation[Res](f, Nil)
@@ -79,7 +79,7 @@ object Value:
       case None        => ()
 
     val (args, bodies) = tuple.productIterator
-      .zip(v.composite)
+      .zip(v.composites)
       .toList
       .map: (x, vl) =>
         val eb = vl.asInstanceOf[Value[Any]].peel(x)
@@ -90,7 +90,7 @@ object Value:
 
   private def tupleAsConstant[A <: Tuple: Value](tuple: A): Option[Expression.Constant[A]] = boundary:
     val constants = tuple.productIterator
-      .zip(Value[A].composite)
+      .zip(Value[A].composites)
       .map:
         case (h: ExpressionHolder[a], v) =>
           h.block.result match
@@ -109,7 +109,7 @@ object Value:
     protected def extractUnsafe(ir: ExpressionBlock[T]): T = extract(ir, this)
     def tag: Tag[T] = theTag
     def baseTag: Option[Tag[?]] = theBaseTag
-    def composite: List[Value[?]] = elemValues
+    def composites: List[Value[?]] = elemValues
 
   // Runtime helper for extraction - used by the macro
   def extractComposite[Parent, T](ir: ExpressionBlock[Parent], parentValue: Value[Parent], elemValue: Value[T], idx: Int): T =

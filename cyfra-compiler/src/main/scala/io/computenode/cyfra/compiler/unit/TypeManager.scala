@@ -53,7 +53,7 @@ object TypeManager:
     val key = Type(value.tag)
     if manager.cache.contains(key) then return manager
 
-    val composites = value.composite
+    val composites = value.composites
 
     if composites.isEmpty then
       val ir = value.tag match
@@ -112,18 +112,18 @@ object TypeManager:
 
     val base = value.baseTag.get
 
-    val m1 = value.composite.foldLeft(manager): (acc, x) =>
+    val m1 = value.composites.foldLeft(manager): (acc, x) =>
       withDecoration(acc, x)
 
     base match
       case t if t =:= Tag[RuntimeArray] =>
-        val List(element) = value.composite
+        val List(element) = value.composites
         val stride = typeStride(element)
         val dec = IR.SvInst(Op.OpDecorate, List(tpe, Decoration.ArrayStride, IntWord(stride)))
         m1.copy(decorations = dec :: m1.decorations, decorated = m1.decorated + key)
       case t if t <:< Tag[Tuple] =>
         val dec = mutable.Buffer.empty[IR.SvInst]
-        value.composite.zipWithIndex.foldLeft(0):
+        value.composites.zipWithIndex.foldLeft(0):
           case (acc, (v, idx)) =>
             val inst = IR.SvInst(Op.OpDecorate, List(tpe, IntWord(idx), Decoration.Offset, IntWord(acc)))
             dec.addOne(inst)
