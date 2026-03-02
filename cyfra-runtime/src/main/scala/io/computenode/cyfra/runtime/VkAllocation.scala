@@ -14,7 +14,7 @@ import io.computenode.cyfra.vulkan.core.Device
 import izumi.reflect.Tag
 import org.lwjgl.BufferUtils
 import org.lwjgl.system.MemoryUtil
-import org.lwjgl.vulkan.{VK10, VkCommandBuffer, VkCommandBufferBeginInfo, VkDependencyInfo, VkMemoryBarrier2}
+import org.lwjgl.vulkan.{VK10, VkCommandBuffer, VkCommandBufferBeginInfo, VkDependencyInfo, VkMemoryBarrier2, VkQueue}
 import org.lwjgl.vulkan.VK13.*
 import org.lwjgl.vulkan.VK10.*
 import java.nio.ByteBuffer
@@ -187,3 +187,20 @@ object VkAllocation:
     buffer match
       case buffer: VkBinding[?] => buffer
       case _                    => throw new IllegalArgumentException(s"Tried to get underlying of non-VkBinding $buffer")
+  
+  /** Get the underlying Vulkan buffer handle for interop purposes */
+  def getVulkanBufferHandle(buffer: GBinding[?]): Long =
+    getUnderlying(buffer).buffer.get
+
+/** Interop helpers for accessing Vulkan internals */
+object VkInterop:
+  /** Get Vulkan buffer handle from a GBinding */
+  def getBufferHandle(buffer: GBinding[?]): Long =
+    VkAllocation.getUnderlying(buffer).buffer.get
+  
+  /** Get queue and command pool from allocation for GPU copies */
+  def getQueueAndCommandPool(allocation: Allocation): (VkQueue, Long) =
+    allocation match
+      case vkAlloc: VkAllocation =>
+        (vkAlloc.commandPool.queue.get, vkAlloc.commandPool.get)
+      case _ => throw new IllegalArgumentException("Not a VkAllocation")

@@ -18,6 +18,10 @@ import scala.collection.mutable
 class VkCyfraRuntime(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()) extends CyfraRuntime:
   private val context = new VulkanContext()
   import context.given
+  
+  /** Access to Vulkan device for interop */
+  def vulkanDevice: org.lwjgl.vulkan.VkDevice = context.device.get
+  def vulkanPhysicalDevice: org.lwjgl.vulkan.VkPhysicalDevice = context.device.physicalDevice.get
 
   private val gProgramCache = mutable.Map[GProgram[?, ?], SpirvProgram[?, ?]]()
   private val shaderCache = mutable.Map[(Long, Long), VkShader[?]]()

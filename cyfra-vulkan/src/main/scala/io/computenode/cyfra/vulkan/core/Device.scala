@@ -6,6 +6,10 @@ import io.computenode.cyfra.vulkan.util.{VulkanObject, VulkanObjectHandle}
 import org.lwjgl.vulkan.*
 import org.lwjgl.vulkan.KHRPortabilitySubset.VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME
 import org.lwjgl.vulkan.KHRSynchronization2.VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME
+import org.lwjgl.vulkan.KHRExternalMemory.VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME
+import org.lwjgl.vulkan.KHRExternalMemoryWin32.VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME
+import org.lwjgl.vulkan.KHRExternalSemaphore.VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME
+import org.lwjgl.vulkan.KHRExternalSemaphoreWin32.VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME
 import org.lwjgl.vulkan.VK10.*
 import org.lwjgl.vulkan.VK11.*
 import org.lwjgl.vulkan.VK12.*
@@ -19,8 +23,16 @@ import scala.jdk.CollectionConverters.given
 
 object Device:
   final val MacOsExtension = VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME
+  
+  /** Extensions for Vulkan-OpenGL interop (enabled if available) */
+  final val InteropExtensions: Seq[String] = Seq(
+    VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME,
+    VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME,
+    VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME,
+    VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME,
+  )
 
-private[cyfra] class Device(instance: Instance, physicalDevice: PhysicalDevice) extends VulkanObject[VkDevice]:
+private[cyfra] class Device(instance: Instance, private[cyfra] val physicalDevice: PhysicalDevice) extends VulkanObject[VkDevice]:
   protected val handle: VkDevice = pushStack: stack =>
     val (queueFamily, queueCount) = physicalDevice.selectComputeQueueFamily
     val pQueueCreateInfo = VkDeviceQueueCreateInfo.calloc(1, stack)
@@ -32,7 +44,7 @@ private[cyfra] class Device(instance: Instance, physicalDevice: PhysicalDevice) 
       .queueFamilyIndex(queueFamily)
       .pQueuePriorities(stack.callocFloat(queueCount))
 
-    val extensions = Seq(MacOsExtension).filter(physicalDevice.deviceExtensionsSet)
+    val extensions = (Seq(MacOsExtension) ++ Device.InteropExtensions).filter(physicalDevice.deviceExtensionsSet)
     val ppExtensionNames = stack.callocPointer(extensions.length)
     extensions.foreach(extension => ppExtensionNames.put(stack.ASCII(extension)))
     ppExtensionNames.flip()

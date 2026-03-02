@@ -161,10 +161,24 @@ lazy val llama = (project in file("cyfra-llama"))
   .settings(publish / skip := true)
   .dependsOn(runtime, dsl, core, utility)
 
+lazy val fotonVizSettings = Seq(
+  libraryDependencies ++= Seq(
+    "org.lwjgl" % "lwjgl-glfw" % lwjglVersion,
+    "org.lwjgl" % "lwjgl-glfw" % lwjglVersion classifier lwjglNatives,
+    "org.lwjgl" % "lwjgl-opengl" % lwjglVersion,
+    "org.lwjgl" % "lwjgl-opengl" % lwjglVersion classifier lwjglNatives,
+  ),
+)
+
+lazy val fotonViz = (project in file("cyfra-foton-viz"))
+  .settings(commonSettings, runnerSettings, fotonVizSettings)
+  .settings(publish / skip := true)
+  .dependsOn(foton, runtime, dsl, core, utility)
+
 lazy val root = (project in file("."))
   .settings(name := "Cyfra")
   .settings(publish / skip := true)
-  .aggregate(compiler, dsl, foton, core, runtime, vulkan, examples, fs2interop, fluids, analytics, utility, spirvTools, vscode, llama)
+  .aggregate(compiler, dsl, foton, core, runtime, vulkan, examples, fs2interop, fluids, analytics, utility, spirvTools, vscode, llama, fotonViz)
 
 e2eTest / Test / javaOptions ++= Seq("-Dorg.lwjgl.system.stackSize=1024", "-DuniqueLibraryNames=true")
 
