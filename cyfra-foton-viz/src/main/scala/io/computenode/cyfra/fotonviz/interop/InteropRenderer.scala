@@ -5,6 +5,7 @@ import org.lwjgl.glfw.GLFWErrorCallback
 import org.lwjgl.opengl.GL
 import org.lwjgl.opengl.GL11.*
 import org.lwjgl.opengl.GL13.{glActiveTexture, GL_TEXTURE0}
+import org.lwjgl.opengl.GL30.{GL_RGBA16F, GL_HALF_FLOAT}
 import org.lwjgl.opengl.GL15.*
 import org.lwjgl.opengl.GL20.*
 import org.lwjgl.opengl.GL21.GL_PIXEL_UNPACK_BUFFER
@@ -57,18 +58,19 @@ class InteropRenderer(val width: Int, val height: Int, title: String) extends Au
     glBindTexture(GL_TEXTURE_2D, texture)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL)
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA, GL_HALF_FLOAT, NULL)
 
     glfwShowWindow(windowHandle)
 
   def initSharedBuffer(vkDevice: VkDevice, vkPhysicalDevice: VkPhysicalDevice): SharedBuffer =
-    sharedBuffer = SharedBuffer(width * height * 4, vkDevice, vkPhysicalDevice)
+    // 8 bytes per pixel: RGBA16F = 4 channels × 2 bytes (Float16)
+    sharedBuffer = SharedBuffer(width * height * 8, vkDevice, vkPhysicalDevice)
     sharedBuffer
 
   def render(): Unit =
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, sharedBuffer.glBufferHandle)
     glBindTexture(GL_TEXTURE_2D, texture)
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, 0L)
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_HALF_FLOAT, 0L)
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0)
 
     glClear(GL_COLOR_BUFFER_BIT)
