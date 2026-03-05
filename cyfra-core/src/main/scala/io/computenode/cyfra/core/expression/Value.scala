@@ -2,7 +2,7 @@ package io.computenode.cyfra.core.expression
 
 import io.computenode.cyfra.core.expression.{Expression, ExpressionBlock}
 import io.computenode.cyfra.core.expression.BuildInFunction.{BuildInFunction0, BuildInFunction1, BuildInFunction2, BuildInFunction3, BuildInFunction4}
-import io.computenode.cyfra.core.expression.types.{Composite, unitZero}
+import io.computenode.cyfra.core.expression.types.unitZero
 import io.computenode.cyfra.utility.cats.Monad
 import izumi.reflect.Tag
 

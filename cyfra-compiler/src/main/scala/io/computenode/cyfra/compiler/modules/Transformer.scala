@@ -61,6 +61,7 @@ class Transformer extends CompilationModule[(ExpressionBlock[Unit], Config), Com
         res
     IRs(result.get, body)
 
+
   private def convertToIR[A](
     expr: Expression[A],
     functionMap: collection.Map[CustomFunction[?], FunctionIR[?]],
@@ -103,9 +104,14 @@ class Transformer extends CompilationModule[(ExpressionBlock[Unit], Config), Com
       case x: Expression.ConditionalJump[a] =>
         given Value[a] = x.v2
         IR.ConditionalJump(convertToRefIR(x.cond, functionMap, expressionMap), x.target, convertToRefIR(x.value, functionMap, expressionMap))
-      case x: Expression.Extract[a, n] =>
+      case x: Expression.Extract[a, A] =>
         given Value[a] = x.v2
-        IR.Composite[a, A](convertToRefIR(x.value, functionMap, expressionMap), x.i)
+        IR.CompositeExtract[a, A](convertToRefIR(x.value, functionMap, expressionMap), x.i)
+      case x: Expression.Insert[A, a] =>
+        given Value[a] = x.v2
+        val original = convertToRefIR(x.original, functionMap, expressionMap)
+        val replacement = convertToRefIR(x.replacement, functionMap, expressionMap)
+        IR.CompositeInsert[A, a](original, replacement, x.i)
 
     expressionMap(expr.id) = res
     res

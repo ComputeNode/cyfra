@@ -38,7 +38,7 @@ object Compilation:
 
     def irInternal(ir: IR[?]): String = ir match
       case IR.Constant(value)                               => s"($value)"
-      case IR.ConstantArgs(value)                            => s"${value.mkString(", ")}"
+      case IR.ConstantArgs(value)                           => s"${value.mkString(", ")}"
       case IR.Declare(focus, init)                          => s"#${focus.id}"
       case IR.Read(focus, accessChain)                      => s"#${focus.id} ${accessChain.map(_.id).map(map).mkString(" ")}"
       case IR.Write(focus, accessChain, value)              => s"#${focus.id} ${accessChain.map(_.id).map(map).mkString(" ")} ${map(value.id)}"
@@ -50,7 +50,8 @@ object Compilation:
       case IR.Jump(target, value)                           => s"${target.id} ${map(value.id)}"
       case IR.ConditionalJump(cond, target, value)          => s"${map(cond.id)} ${target.id} ${map(value.id)}"
       case IR.Interface(ref)                                => s"${map(ref.id)}"
-      case IR.Composite(value, index)                       => ???
+      case IR.CompositeExtract(value, index)                => s"${map(value.id)} $index"
+      case IR.CompositeInsert(original, replacement, index) => s"${map(original.id)} ${map(replacement.id)} $index"
       case sv: (IR.SvInst | IR.SvRef[?])                    =>
         val operands = sv match
           case x: IR.SvInst   => x.operands

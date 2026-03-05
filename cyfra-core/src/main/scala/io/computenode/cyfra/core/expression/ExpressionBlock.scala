@@ -46,7 +46,8 @@ case class ExpressionBlock[A](result: Expression[A], body: List[Expression[?]]):
           vars
         case Expression.Jump(_, _)               => vars
         case Expression.ConditionalJump(_, _, _) => vars
-        case Expression.Extract(_, _)          => vars
+        case Expression.Extract(_, _)            => vars
+        case Expression.Insert(_, _, _)          => vars
     true
 
   def add[B](that: Expression[B]): ExpressionBlock[B] =
@@ -86,7 +87,7 @@ case class ExpressionBlock[A](result: Expression[A], body: List[Expression[?]]):
           s"loop body[%${mainBody._1.id}] cont[%${continueBody._1.id}] break#${break.id} continue#${continue.id}"
         case Expression.Jump(target, value)                  => s"jump jt#${target.id} <- %${value.id}"
         case Expression.ConditionalJump(cond, target, value) => s"cjump %${cond.id} ? jt#${target.id} <- %${value.id}"
-        case Expression.Extract(value, n)                  => s"comp ${value.id} $n"
+        case Expression.Extract(value, n)                    => s"comp ${value.id} $n"
       Some(prefix + suffix)
     .flatten
 
@@ -107,7 +108,40 @@ object ExpressionBlock:
       ExpressionBlock(zero, List(zero))
     case x: Any => ExpressionBlock[Any](Expression.Constant[Any](x), Nil).asInstanceOf[ExpressionBlock[A]]
 
-
   given Monad[ExpressionBlock] with
     def flatMap[A, B](fa: ExpressionBlock[A])(f: A => ExpressionBlock[B]): ExpressionBlock[B] = ExpressionBlock.flatMap(fa)(f)
     def pure[A](x: A): ExpressionBlock[A] = ExpressionBlock.pure(x)
+
+  private def optimise[A: Value](result: ExpressionBlock[A]): ExpressionBlock[A] =
+    val distinct = result.body.distinctBy(_.id)
+
+    val visited = mutable.Set.empty[Int]
+
+    def visit(current: Expression[?]): Unit =
+      if visited(current.id) then return
+
+      visited.add(current.id)
+      current match
+        case Expression.VariableDeclare(_, Some(x))  => visit(x)
+        case Expression.Write(_, accessChain, value) =>
+          accessChain.foreach(visit)
+          visit(value)
+        case Expression.Jump(_, value)                  => visit(value)
+        case Expression.ConditionalJump(cond, _, value) =>
+          visit(value)
+          visit(cond)
+        case Expression.Read(_, accessChain)             => accessChain.foreach(visit)
+        case Expression.BuildInOperation(_, args)        => args.foreach(visit)
+        case Expression.Branch(cond, ifTrue, ifFalse, _) =>
+          visit(cond)
+          visit(ifTrue.result)
+          visit(ifFalse.result)
+        case Expression.Extract(value, _)                => visit(value)
+        case Expression.Combine(composites)              => composites.foreach(visit)
+        case Expression.Insert(original, replacement, _) =>
+          visit(original)
+          visit(replacement)
+        case _ => ()
+
+
+    ???

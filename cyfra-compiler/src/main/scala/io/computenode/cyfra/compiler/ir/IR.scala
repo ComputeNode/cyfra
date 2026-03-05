@@ -62,8 +62,11 @@ object IR:
     override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[Unit] = this.copy(value = value.replaced)
   case class ConditionalJump[A: Value](cond: RefIR[Bool], target: JumpTarget[A], value: RefIR[A]) extends IR[Unit]:
     override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[Unit] = this.copy(cond = cond.replaced, value = value.replaced)
-  case class Composite[B: Value, A: Value](value: RefIR[B], index: Int) extends RefIR[A]:
+  case class CompositeExtract[B: Value, A: Value](value: RefIR[B], index: Int) extends RefIR[A]:
     override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[A] = this.copy(value = value.replaced)
+  case class CompositeInsert[A: Value, In: Value](original: RefIR[A], replacement: RefIR[In], index: Int) extends RefIR[A]:
+    override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[A] =
+      this.copy(original = original.replaced, replacement = replacement.replaced)
   case class Interface(ref: RefIR[?]) extends RefIR[Unit]:
     override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[Unit] = this.copy(ref = ref.replaced)
   case class SvInst(op: Code, operands: List[Words | RefIR[?]]) extends IR[Unit]:

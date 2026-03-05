@@ -10,6 +10,8 @@ import io.computenode.cyfra.core.expression.ops.given
 import io.computenode.cyfra.core.memory.*
 import io.computenode.cyfra.core.memory.BuildInVariable.GlobalInvocationId
 import io.computenode.cyfra.dsl.direct.GIO
+import io.computenode.cyfra.spirvtools.SpirvValidator
+import io.computenode.cyfra.spirvtools.SpirvValidator.Enable
 
 class CompilerTest extends munit.FunSuite:
   val compiler = new Compiler("all")
@@ -33,7 +35,8 @@ class CompilerTest extends munit.FunSuite:
       val x = i.x
       val v2 = i.z(x)
       GIO.write(u1, v2.yzx)
-    compiler.compile(exp, config)
+    val code = compiler.compile(exp, config)
+    SpirvValidator.validateSpirv(code, Enable(throwOnFail = true))
 
   case class EmptyLayout()
   given Layout[EmptyLayout]:
