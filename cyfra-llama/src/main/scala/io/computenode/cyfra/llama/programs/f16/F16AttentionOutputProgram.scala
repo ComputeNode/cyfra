@@ -4,7 +4,7 @@ import io.computenode.cyfra.core.GProgram
 import io.computenode.cyfra.core.GProgram.StaticDispatch
 import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.dsl.binding.GBuffer
+import io.computenode.cyfra.dsl.binding.{GBuffer, GShared}
 import io.computenode.cyfra.dsl.gio.GIO
 import io.computenode.cyfra.llama.programs.AttentionParams
 
@@ -24,8 +24,9 @@ import io.computenode.cyfra.llama.programs.AttentionParams
   */
 object F16AttentionOutputProgram:
   val WARP_SIZE = 32
+  val NUM_WARPS = 4  // Use 4 warps (128 threads) for more parallelism
   val NUM_DIMS = 4   // Process 4 output dimensions per workgroup (Vec4)
-  val BLOCK_SIZE = WARP_SIZE  // 32 threads - single warp
+  val BLOCK_SIZE = WARP_SIZE * NUM_WARPS  // 128 threads
 
   case class Sizes(
     B: Int,
@@ -83,6 +84,8 @@ object F16AttentionOutputProgram:
       workgroupSize = (BLOCK_SIZE, 1, 1),
     ): layout =>
       val tid: Int32 = GIO.localInvocationId.x
+      val warpId: Int32 = tid / WARP_SIZE
+      val laneId: Int32 = tid.mod(WARP_SIZE)
 
       // 3D workgroup IDs - NO DIVISIONS FOR DISPATCH!
       val dimQuadIdx: Int32 = GIO.workgroupId.x
@@ -91,6 +94,9 @@ object F16AttentionOutputProgram:
 
       val runtimeParams = layout.params.read
       val seqLen: Int32 = runtimeParams.seqLen
+      
+      // Shared memory for cross-warp reduction (4 warps × 4 dims)
+      val sharedSums = GShared[Vec4[Float32]](NUM_WARPS)
 
       for
         // KV head from Q head - only ONE division (gqaRatio is compile-time)
@@ -118,8 +124,8 @@ object F16AttentionOutputProgram:
         vBase2 <- GIO.pure(vCacheHeadBase + (outDim0 + 2) * dimStride)
         vBase3 <- GIO.pure(vCacheHeadBase + (outDim0 + 3) * dimStride)
 
-        // Hot loop - 32 threads cooperate
-        // Each thread reads positions tid, tid+32, tid+64, ...
+        // Hot loop - 128 threads cooperate (4 warps)
+        // Each thread reads positions tid, tid+128, tid+256, ...
         // Consecutive threads read consecutive positions → COALESCED!
         localSums <- GIO.pure {
           GSeq.gen[Int32](tid, _ + BLOCK_SIZE).limit(numKIterations).unroll.fold(vec4(0.0f, 0.0f, 0.0f, 0.0f), (acc: Vec4[Float32], kPos: Int32) =>
@@ -142,17 +148,33 @@ object F16AttentionOutputProgram:
           )
         }
 
-        // Subgroup reduction - single warp means subgroupAdd gives final result
-        total <- GIO.pure(vec4(
+        // First: subgroup reduction within each warp
+        warpSum <- GIO.pure(vec4(
           GIO.subgroupAdd(localSums.x),
           GIO.subgroupAdd(localSums.y),
           GIO.subgroupAdd(localSums.z),
           GIO.subgroupAdd(localSums.w),
         ))
         
-        // Thread 0 writes all 4 output values
+        // Lane 0 of each warp writes to shared memory
+        _ <- GIO.when(laneId === 0):
+          sharedSums.write(warpId, warpSum)
+        
+        _ <- GIO.barrier
+        
+        // Thread 0 reads all warp sums and writes final result
         _ <- GIO.when(tid === 0):
           for
+            sum0 <- GIO.pure(sharedSums.read(0))
+            sum1 <- GIO.pure(sharedSums.read(1))
+            sum2 <- GIO.pure(sharedSums.read(2))
+            sum3 <- GIO.pure(sharedSums.read(3))
+            total <- GIO.pure(vec4(
+              sum0.x + sum1.x + sum2.x + sum3.x,
+              sum0.y + sum1.y + sum2.y + sum3.y,
+              sum0.z + sum1.z + sum2.z + sum3.z,
+              sum0.w + sum1.w + sum2.w + sum3.w,
+            ))
             _ <- GIO.write[Float16](layout.output, outBase, total.x.asFloat16)
             _ <- GIO.write[Float16](layout.output, outBase + 1, total.y.asFloat16)
             _ <- GIO.write[Float16](layout.output, outBase + 2, total.z.asFloat16)
