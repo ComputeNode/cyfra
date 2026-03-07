@@ -25,7 +25,7 @@ import com.sun.jna.{Library, Native}
   */
 object NVTX:
 
-  private val enabled: Boolean = System.getProperty("io.computenode.cyfra.nvtx.enabled", "false").toBoolean
+  private val enabled: Boolean = System.getProperty("io.computenode.cyfra.nvtx.enabled", "true").toBoolean
 
   private trait NVTXLib extends Library:
     def nvtxRangePushA(message: String): Int
