@@ -49,15 +49,20 @@ class SdfRunner[C <: GStruct[C]: GStructSchema: ClassTag: Tag](
   /** Layout for SDF rendering: RGBA16F pixels + config uniform. */
   case class SdfLayout(pixels: GBuffer[Vec4[Float16]], config: GUniform[C]) derives Layout
 
+  /** Type for post-process programs that operate on the same layout. */
+  type PostProcess = GProgram[Int, SdfLayout]
+
   /**
    * Run the visualization.
    *
    * @param program      The GPU render program
    * @param makeConfig   Function to create config from frame context
+   * @param postProcess  Sequence of post-processing programs to run after rendering
    */
   def run(
     program: GProgram[Int, SdfLayout],
     makeConfig: FrameContext => C,
+    postProcess: Seq[PostProcess] = Seq.empty,
   ): Unit =
     println(s"=== $title === (${width}x$height)")
     val renderer = InteropRenderer(width, height, title)
@@ -94,6 +99,8 @@ class SdfRunner[C <: GStruct[C]: GStructSchema: ClassTag: Tag](
           updateConfig(defaultCtx)
           allocation.submitLayout(layout)
           program.execute(width * height, layout)
+          // Run post-processing during warmup too
+          postProcess.foreach(_.execute(width * height, layout))
 
         val (vkQueue, commandPool) = VkInterop.getQueueAndCommandPool(allocation)
         val startTime = System.nanoTime()
@@ -108,6 +115,10 @@ class SdfRunner[C <: GStruct[C]: GStructSchema: ClassTag: Tag](
 
           updateConfig(ctx)
           program.execute(width * height, layout)
+
+          // Run post-processing programs in sequence
+          postProcess.foreach(_.execute(width * height, layout))
+
           allocation.submitLayout(layout)
           sharedBuffer.copyFrom(VkInterop.getBufferHandle(layout.pixels), vkQueue, commandPool)
           renderer.render()

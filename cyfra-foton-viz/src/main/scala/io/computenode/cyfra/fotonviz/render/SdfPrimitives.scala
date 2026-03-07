@@ -2,8 +2,16 @@ package io.computenode.cyfra.fotonviz.render
 
 import io.computenode.cyfra.dsl.{*, given}
 
-/** SDF primitive shapes. */
+/**
+ * SDF primitive shapes.
+ *
+ * Each primitive has two versions:
+ * - Raw version returning Float32 (distance only)
+ * - Material version returning SdfResult (distance + material)
+ */
 object SdfPrimitives:
+
+  // ==== Raw Primitives (Float32) ====
 
   /** Sphere centered at origin. */
   def sphere(p: Vec3[Float32], radius: Float32): Float32 =
@@ -39,3 +47,35 @@ object SdfPrimitives:
     val d = sqrt(p.x * p.x + p.z * p.z) - radius
     val h = abs(p.y) - halfHeight
     min(max(d, h), 0.0f) + sqrt(max(d, 0.0f) * max(d, 0.0f) + max(h, 0.0f) * max(h, 0.0f))
+
+  // ==== Primitives with Material (SdfResult) ====
+
+  /** Sphere with material. */
+  def sphereMat(p: Vec3[Float32], radius: Float32, materialId: Int32): SdfResult =
+    SdfResult(sphere(p, radius), materialId)
+
+  /** Sphere at center with material. */
+  def sphereAtMat(p: Vec3[Float32], center: Vec3[Float32], radius: Float32, materialId: Int32): SdfResult =
+    SdfResult(sphereAt(p, center, radius), materialId)
+
+  /** Box with material. */
+  def boxMat(p: Vec3[Float32], halfSize: Vec3[Float32], materialId: Int32): SdfResult =
+    SdfResult(box(p, halfSize), materialId)
+
+  /** Plane with material. */
+  def planeYMat(p: Vec3[Float32], height: Float32, materialId: Int32): SdfResult =
+    SdfResult(planeY(p, height), materialId)
+
+  /** Torus with material. */
+  def torusMat(p: Vec3[Float32], majorRadius: Float32, minorRadius: Float32, materialId: Int32): SdfResult =
+    SdfResult(torus(p, majorRadius, minorRadius), materialId)
+
+  /** Cylinder with material. */
+  def cylinderYMat(p: Vec3[Float32], radius: Float32, halfHeight: Float32, materialId: Int32): SdfResult =
+    SdfResult(cylinderY(p, radius, halfHeight), materialId)
+
+  // ==== Convenience: Wrap distance with material ====
+
+  /** Wrap any distance with a material ID. */
+  def withMaterial(distance: Float32, materialId: Int32): SdfResult =
+    SdfResult(distance, materialId)
