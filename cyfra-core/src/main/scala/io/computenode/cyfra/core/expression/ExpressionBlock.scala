@@ -112,9 +112,14 @@ object ExpressionBlock:
     def flatMap[A, B](fa: ExpressionBlock[A])(f: A => ExpressionBlock[B]): ExpressionBlock[B] = ExpressionBlock.flatMap(fa)(f)
     def pure[A](x: A): ExpressionBlock[A] = ExpressionBlock.pure(x)
 
-  private def optimise[A: Value](result: ExpressionBlock[A]): ExpressionBlock[A] =
-    val distinct = result.body.distinctBy(_.id)
+  def optimise[A: Value](result: ExpressionBlock[A]): ExpressionBlock[A] =
+    val distinct = ExpressionBlock(result.result, result.body.reverse.distinctBy(_.id))
+    val active = getActive(distinct)
+    filterActive(distinct, active)
 
+  private def filterActive[A: Value](block: ExpressionBlock[A], active: Set[Int]): ExpressionBlock[A] = block
+
+  private def getActive(block: ExpressionBlock[?]): Set[Int] =
     val visited = mutable.Set.empty[Int]
 
     def visit(current: Expression[?]): Unit =
@@ -136,6 +141,11 @@ object ExpressionBlock:
           visit(cond)
           visit(ifTrue.result)
           visit(ifFalse.result)
+          visitBlock(ifTrue)
+          visitBlock(ifFalse)
+        case Expression.Loop(mainBody, continueBody, _, _) =>
+          visitBlock(mainBody)
+          visitBlock(continueBody)
         case Expression.Extract(value, _)                => visit(value)
         case Expression.Combine(composites)              => composites.foreach(visit)
         case Expression.Insert(original, replacement, _) =>
@@ -143,5 +153,17 @@ object ExpressionBlock:
           visit(replacement)
         case _ => ()
 
+    def visitBlock(block: ExpressionBlock[?]): Unit =
+      block.body.foreach:
+        case x: Expression.VariableDeclare[?]                    => visit(x)
+        case x: Expression.Write[?]                              => visit(x)
+        case x: Expression.BuildInOperation[?] if !x.func.isPure => visit(x)
+        case x: Expression.CustomCall[?] if !x.func.isPure       => visit(x)
+        case x: Expression.Branch[?]                             => visit(x)
+        case x: Expression.Loop                                  => visit(x)
+        case x: Expression.Jump[?]                               => visit(x)
+        case x: Expression.ConditionalJump[?]                    => visit(x)
+        case _                                                   => ()
 
-    ???
+    visitBlock(block)
+    visited.toSet
