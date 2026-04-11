@@ -45,7 +45,8 @@ class Transformer extends CompilationModule[(ExpressionBlock[Unit], Config), Com
     f: CustomFunction[A],
     functionMap: collection.Map[CustomFunction[?], FunctionIR[?]],
   ): (FunctionIR[A], IRs[A]) =
-    (FunctionIR(f.name, f.arg), convertToIRs(f.body, functionMap, mutable.Map.empty))
+    val body = ExpressionBlock.optimise(f.body)
+    (FunctionIR(f.name, f.arg), convertToIRs(body, functionMap, mutable.Map.empty))
 
   private def convertToIRs[A: Value](
     block: ExpressionBlock[A],
@@ -60,7 +61,6 @@ class Transformer extends CompilationModule[(ExpressionBlock[Unit], Config), Com
         if expr == block.result then result = Some(res.asInstanceOf[IR[A]])
         res
     IRs(result.get, body)
-
 
   private def convertToIR[A](
     expr: Expression[A],
@@ -106,12 +106,12 @@ class Transformer extends CompilationModule[(ExpressionBlock[Unit], Config), Com
         IR.ConditionalJump(convertToRefIR(x.cond, functionMap, expressionMap), x.target, convertToRefIR(x.value, functionMap, expressionMap))
       case x: Expression.Extract[a, A] =>
         given Value[a] = x.v2
-        IR.CompositeExtract[a, A](convertToRefIR(x.value, functionMap, expressionMap), x.i)
+        IR.CompositeExtract[a, A](convertToRefIR(x.value, functionMap, expressionMap), x.index)
       case x: Expression.Insert[A, a] =>
         given Value[a] = x.v2
         val original = convertToRefIR(x.original, functionMap, expressionMap)
         val replacement = convertToRefIR(x.replacement, functionMap, expressionMap)
-        IR.CompositeInsert[A, a](original, replacement, x.i)
+        IR.CompositeInsert[A, a](original, replacement, x.index)
 
     expressionMap(expr.id) = res
     res

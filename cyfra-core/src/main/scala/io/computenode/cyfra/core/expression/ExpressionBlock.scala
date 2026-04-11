@@ -112,12 +112,16 @@ object ExpressionBlock:
     def flatMap[A, B](fa: ExpressionBlock[A])(f: A => ExpressionBlock[B]): ExpressionBlock[B] = ExpressionBlock.flatMap(fa)(f)
     def pure[A](x: A): ExpressionBlock[A] = ExpressionBlock.pure(x)
 
-  def optimise[A: Value](result: ExpressionBlock[A]): ExpressionBlock[A] =
-    val distinct = ExpressionBlock(result.result, result.body.reverse.distinctBy(_.id))
+  def optimise[A: Value](block: ExpressionBlock[A]): ExpressionBlock[A] =
+    val combined = simplifyExtractCombine(block)
+    val distinct = ExpressionBlock(combined.result, combined.body.reverse.distinctBy(_.id).reverse)
     val active = getActive(distinct)
-    filterActive(distinct, active)
+    filterNotActive(distinct, active)
 
-  private def filterActive[A: Value](block: ExpressionBlock[A], active: Set[Int]): ExpressionBlock[A] = block
+  private def simplifyExtractCombine[A: Value](block: ExpressionBlock[A]): ExpressionBlock[A] =
+    block
+
+  private def filterNotActive[A: Value](block: ExpressionBlock[A], active: Set[Int]): ExpressionBlock[A] = block // TODO filter
 
   private def getActive(block: ExpressionBlock[?]): Set[Int] =
     val visited = mutable.Set.empty[Int]
