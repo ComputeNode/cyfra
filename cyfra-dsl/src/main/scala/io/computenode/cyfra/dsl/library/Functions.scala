@@ -13,26 +13,33 @@ object Functions:
 
   case object Sin extends FunctionName
   def sin(v: Float32)(using Source): Float32 = Float32(ExtFunctionCall(Sin, List(v)))
+  def sin(v: Float16)(using Source): Float16 = Float16(ExtFunctionCall(Sin, List(v)))
 
   case object Cos extends FunctionName
   def cos(v: Float32)(using Source): Float32 = Float32(ExtFunctionCall(Cos, List(v)))
+  def cos(v: Float16)(using Source): Float16 = Float16(ExtFunctionCall(Cos, List(v)))
   def cos[V <: Vec[Float32]: {Tag, FromExpr}](v: V)(using Source): V =
     summon[FromExpr[V]].fromExpr(ExtFunctionCall(Cos, List(v)))
 
   case object Tan extends FunctionName
   def tan(v: Float32)(using Source): Float32 = Float32(ExtFunctionCall(Tan, List(v)))
+  def tan(v: Float16)(using Source): Float16 = Float16(ExtFunctionCall(Tan, List(v)))
 
   case object Acos extends FunctionName
   def acos(v: Float32)(using Source): Float32 = Float32(ExtFunctionCall(Acos, List(v)))
+  def acos(v: Float16)(using Source): Float16 = Float16(ExtFunctionCall(Acos, List(v)))
 
   case object Asin extends FunctionName
   def asin(v: Float32)(using Source): Float32 = Float32(ExtFunctionCall(Asin, List(v)))
+  def asin(v: Float16)(using Source): Float16 = Float16(ExtFunctionCall(Asin, List(v)))
 
   case object Atan extends FunctionName
   def atan(v: Float32)(using Source): Float32 = Float32(ExtFunctionCall(Atan, List(v)))
+  def atan(v: Float16)(using Source): Float16 = Float16(ExtFunctionCall(Atan, List(v)))
 
   case object Atan2 extends FunctionName
   def atan2(y: Float32, x: Float32)(using Source): Float32 = Float32(ExtFunctionCall(Atan2, List(y, x)))
+  def atan2(y: Float16, x: Float16)(using Source): Float16 = Float16(ExtFunctionCall(Atan2, List(y, x)))
 
   case object Len2 extends FunctionName
   def length[T <: Scalar: Tag](v: Vec2[T])(using Source): Float32 = Float32(ExtFunctionCall(Len2, List(v)))
@@ -43,14 +50,18 @@ object Functions:
   case object Pow extends FunctionName
   def pow(v: Float32, p: Float32)(using Source): Float32 =
     Float32(ExtFunctionCall(Pow, List(v, p)))
+  def pow(v: Float16, p: Float16)(using Source): Float16 =
+    Float16(ExtFunctionCall(Pow, List(v, p)))
   def pow[V <: Vec[?]: {Tag, FromExpr}](v: V, p: V)(using Source): V =
     summon[FromExpr[V]].fromExpr(ExtFunctionCall(Pow, List(v, p)))
 
   case object Smoothstep extends FunctionName
   def smoothstep(edge0: Float32, edge1: Float32, x: Float32)(using Source): Float32 = Float32(ExtFunctionCall(Smoothstep, List(edge0, edge1, x)))
+  def smoothstep(edge0: Float16, edge1: Float16, x: Float16)(using Source): Float16 = Float16(ExtFunctionCall(Smoothstep, List(edge0, edge1, x)))
 
   case object Sqrt extends FunctionName
   def sqrt(v: Float32)(using Source): Float32 = Float32(ExtFunctionCall(Sqrt, List(v)))
+  def sqrt(v: Float16)(using Source): Float16 = Float16(ExtFunctionCall(Sqrt, List(v)))
 
   case object Cross extends FunctionName
   def cross[T <: Scalar: Tag](v1: Vec3[T], v2: Vec3[T])(using Source): Vec3[T] = Vec3(ExtFunctionCall(Cross, List(v1, v2)))
@@ -61,12 +72,14 @@ object Functions:
 
   case object Exp extends FunctionName
   def exp(f: Float32)(using Source): Float32 = Float32(ExtFunctionCall(Exp, List(f)))
+  def exp(f: Float16)(using Source): Float16 = Float16(ExtFunctionCall(Exp, List(f)))
   def exp[V <: Vec[Float32]: {Tag, FromExpr}](v: V)(using Source): V =
     summon[FromExpr[V]].fromExpr(ExtFunctionCall(Exp, List(v)))
 
   case object Max extends FunctionName
   def max(f1: Float32, f2: Float32)(using Source): Float32 = Float32(ExtFunctionCall(Max, List(f1, f2)))
   def max(f1: Float32, f2: Float32, fx: Float32*)(using Source): Float32 = fx.foldLeft(max(f1, f2))((a, b) => max(a, b))
+  def max(f1: Float16, f2: Float16)(using Source): Float16 = Float16(ExtFunctionCall(Max, List(f1, f2)))
   def max[V <: Vec[Float32]: {Tag, FromExpr}](v1: V, v2: V)(using Source): V =
     summon[FromExpr[V]].fromExpr(ExtFunctionCall(Max, List(v1, v2)))
   def max[V <: Vec[Float32]: {Tag, FromExpr}](v1: V, v2: V, vx: V*)(using Source): V =
@@ -75,6 +88,7 @@ object Functions:
   case object Min extends FunctionName
   def min(f1: Float32, f2: Float32)(using Source): Float32 = Float32(ExtFunctionCall(Min, List(f1, f2)))
   def min(f1: Float32, f2: Float32, fx: Float32*)(using Source): Float32 = fx.foldLeft(min(f1, f2))((a, b) => min(a, b))
+  def min(f1: Float16, f2: Float16)(using Source): Float16 = Float16(ExtFunctionCall(Min, List(f1, f2)))
   def min[V <: Vec[Float32]: {Tag, FromExpr}](v1: V, v2: V)(using Source): V =
     summon[FromExpr[V]].fromExpr(ExtFunctionCall(Min, List(v1, v2)))
   def min[V <: Vec[Float32]: {Tag, FromExpr}](v1: V, v2: V, vx: V*)(using Source): V =
@@ -83,6 +97,7 @@ object Functions:
   // todo add F/U/S to all functions that need it
   case object Abs extends FunctionName
   def abs(f: Float32)(using Source): Float32 = Float32(ExtFunctionCall(Abs, List(f)))
+  def abs(f: Float16)(using Source): Float16 = Float16(ExtFunctionCall(Abs, List(f)))
   def abs[V <: Vec[Float32]: {Tag, FromExpr}](v: V)(using Source): V =
     summon[FromExpr[V]].fromExpr(ExtFunctionCall(Abs, List(v)))
 

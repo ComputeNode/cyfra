@@ -31,6 +31,18 @@ trait GExecution[-Params, ExecLayout: Layout, ResLayout: Layout]:
     val adapted = program.contramapParams(mapParams).contramap(mapLayout)
     flatMap(r => adapted.map(_ => r))
 
+  /** Add a GPU buffer copy operation (uses vkCmdCopyBuffer - much faster than compute shader).
+    * 
+    * @param getBuffers Function to extract (source, destination) buffers from layout
+    * @param sizeBytes Number of bytes to copy
+    */
+  def addBufferCopy[PP <: Params](
+    getBuffers: ExecLayout => (GBuffer[?], GBuffer[?]),
+    sizeBytes: Int,
+  ): GExecution[PP, ExecLayout, ResLayout] =
+    val copyExec = BufferCopy[ExecLayout](getBuffers, sizeBytes)
+    flatMap(r => copyExec.map(_ => r))
+
 object GExecution:
 
   def apply[Params, L: Layout]() =
@@ -43,6 +55,12 @@ object GExecution:
 
   case class FlatMap[Params, EL: Layout, RL: Layout, NRL: Layout](execution: GExecution[Params, EL, RL], f: (Params, RL) => GExecution[Params, EL, NRL])
       extends GExecution[Params, EL, NRL]
+
+  /** GPU buffer copy using vkCmdCopyBuffer (DMA transfer, much faster than compute shader). */
+  case class BufferCopy[L: Layout](
+    getBuffers: L => (GBuffer[?], GBuffer[?]),
+    sizeBytes: Int,
+  ) extends GExecution[Any, L, L]
 
   case class Map[P, NP, EL: Layout, NEL: Layout, RL: Layout, NRL: Layout](
     execution: GExecution[P, EL, RL],

@@ -2,7 +2,7 @@ package io.computenode.cyfra.core
 
 import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.core.GProgram.{InitProgramLayout, ProgramDispatch, WorkDimensions}
-import io.computenode.cyfra.core.SpirvProgram.Operation.ReadWrite
+import io.computenode.cyfra.core.SpirvProgram.Operation.{Read, ReadWrite, Write}
 import io.computenode.cyfra.core.SpirvProgram.{Binding, ShaderLayout}
 import io.computenode.cyfra.dsl.Value
 import io.computenode.cyfra.dsl.Value.{FromExpr, GBoolean}
@@ -28,6 +28,7 @@ case class SpirvProgram[Params, L: Layout] private (
   code: ByteBuffer,
   entryPoint: String,
   shaderBindings: L => ShaderLayout,
+  name: String = "SpirvProgram",
 ) extends GProgram[Params, L]:
 
   /** A hash of the shader code, entry point, workgroup size, and layout bindings. Layout and dispatch are not taken into account.
@@ -63,9 +64,29 @@ object SpirvProgram:
     dispatch: (L, Params) => ProgramDispatch,
     code: ByteBuffer,
   ): SpirvProgram[Params, L] =
-    val workgroupSize = (128, 1, 1) // TODO  Extract form shader
+    apply(layout, dispatch, code, Set.empty, "SpirvProgram")
+
+  /** Create a SpirvProgram with explicit write tracking for smarter barrier insertion.
+    *
+    * @param writtenBindingIndices Set of binding indices (layoutOffset) that are written to by this shader.
+    *                              Bindings not in this set are treated as read-only.
+    * @param name Name for profiling/debugging
+    */
+  def apply[Params, L: Layout](
+    layout: InitProgramLayout ?=> Params => L,
+    dispatch: (L, Params) => ProgramDispatch,
+    code: ByteBuffer,
+    writtenBindingIndices: Set[Int],
+    name: String,
+  ): SpirvProgram[Params, L] =
+    val workgroupSize = (128, 1, 1) // TODO  Extract from shader
     val main = "main"
     val f: L => ShaderLayout = { case layout: Product =>
-      layout.productIterator.zipWithIndex.map { case (binding: GBinding[?], i) => Binding(binding, ReadWrite) }.toSeq.pipe(Seq(_))
+      layout.productIterator.zipWithIndex.map { case (binding: GBinding[?], i) =>
+        val op = if writtenBindingIndices.isEmpty then ReadWrite  // Fallback for legacy code
+                 else if writtenBindingIndices.contains(i) then Write
+                 else Read
+        Binding(binding, op)
+      }.toSeq.pipe(Seq(_))
     }
-    new SpirvProgram[Params, L]((il: InitProgramLayout) => layout(using il), dispatch, workgroupSize, code, main, f)
+    new SpirvProgram[Params, L]((il: InitProgramLayout) => layout(using il), dispatch, workgroupSize, code, main, f, name)

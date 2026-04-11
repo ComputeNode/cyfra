@@ -24,6 +24,16 @@ object Value:
   sealed trait Scalar extends Value
 
   trait FloatType extends Scalar
+  
+  /** 16-bit floating point (half precision) - supported in Vulkan for memory bandwidth savings */
+  case class Float16(tree: E[Float16])(using val source: Source) extends FloatType
+  given FromExpr[Float16] with
+    def fromExpr(f: E[Float16])(using Source) = Float16(f)
+  
+  /** Factory method for creating Float16 constants */
+  object Float16:
+    def apply(value: Float)(using Source): Float16 = Float16(Expression.ConstFloat16(value))
+  
   case class Float32(tree: E[Float32])(using val source: Source) extends FloatType
   given FromExpr[Float32] with
     def fromExpr(f: E[Float32])(using Source) = Float32(f)

@@ -119,6 +119,10 @@ object VectorAlgebra:
     inline def xyz(using Source): Vec3[T] = Vec3(ComposeVec3(x, y, z))
     inline def rgb(using Source): Vec3[T] = xyz
 
+  /** Convert Vec4[Float16] to Vec4[Float32] for higher precision operations. */
+  extension (v4f16: Vec4[Float16])
+    inline def asVec4F32(using Source): Vec4[Float32] = Vec4(ConvertVec4F16ToF32(v4f16))
+
   given (using Source): Conversion[(Int, Int), Vec2[Int32]] = { case (x, y) =>
     Vec2(ComposeVec2(Int32(ConstInt32(x)), Int32(ConstInt32(y))))
   }

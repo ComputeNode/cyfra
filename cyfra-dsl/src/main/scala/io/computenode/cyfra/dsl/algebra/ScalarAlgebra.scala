@@ -1,6 +1,6 @@
 package io.computenode.cyfra.dsl.algebra
 
-import io.computenode.cyfra.dsl.Expression.ConstFloat32
+import io.computenode.cyfra.dsl.Expression.{ConstFloat16, ConstFloat32}
 import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.dsl.Expression.*
 import io.computenode.cyfra.dsl.library.Functions.abs
@@ -22,6 +22,7 @@ object ScalarAlgebra:
 
   trait BasicScalarIntAlgebra[T <: Scalar: {FromExpr, Tag}] extends BasicScalarAlgebra[T] with BitwiseOperable[T]
 
+  given BasicScalarAlgebra[Float16] = new BasicScalarAlgebra[Float16] {}
   given BasicScalarAlgebra[Float32] = new BasicScalarAlgebra[Float32] {}
   given BasicScalarIntAlgebra[Int32] = new BasicScalarIntAlgebra[Int32] {}
   given BasicScalarIntAlgebra[UInt32] = new BasicScalarIntAlgebra[UInt32] {}
@@ -92,16 +93,27 @@ object ScalarAlgebra:
 
   given Epsilon = Epsilon(0.00001f)
 
+  extension (f16: Float16)
+    inline def asFloat32(using Source): Float32 = Float32(ToFloat32(f16))
+    inline def asInt(using Source): Int32 = f16.asFloat32.asInt
+
   extension (f32: Float32)
+    inline def asFloat16(using Source): Float16 = Float16(ToFloat16(f32))
+    
+  extension (f32: Float32)
+    /** Convert Float32 to Float16 constant for DSL usage */
+    inline def toF16(using Source): Float16 = Float16(ToFloat16(f32))
     inline def asInt(using Source): Int32 = Int32(ToInt32(f32))
     inline def =~=(other: Float32)(using epsilon: Epsilon): GBoolean =
       abs(f32 - other) < epsilon.eps
 
   extension (i32: Int32)
+    inline def asFloat16(using Source): Float16 = Float16(ToFloat16(i32))
     inline def asFloat(using Source): Float32 = Float32(ToFloat32(i32))
     inline def unsigned(using Source): UInt32 = UInt32(ToUInt32(i32))
-
+    
   extension (u32: UInt32)
+    inline def asFloat16(using Source): Float16 = Float16(ToFloat16(u32))
     inline def asFloat(using Source): Float32 = Float32(ToFloat32(u32))
     inline def signed(using Source): Int32 = Int32(ToInt32(u32))
 

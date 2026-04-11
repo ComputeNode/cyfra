@@ -1,14 +1,18 @@
 package io.computenode.cyfra.runtime
 
 import io.computenode.cyfra.core.GProgram.InitProgramLayout
+import io.computenode.cyfra.core.binding.BufferRef
 import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.core.{Allocation, CyfraRuntime, GExecution, GProgram, GioProgram, SpirvProgram}
+import io.computenode.cyfra.dsl.binding.{WriteBuffer, WriteShared, WriteUniform}
+import io.computenode.cyfra.dsl.gio.GIO
 import io.computenode.cyfra.spirv.compilers.DSLCompiler
 import io.computenode.cyfra.spirvtools.SpirvToolsRunner
 import io.computenode.cyfra.vulkan.VulkanContext
 import io.computenode.cyfra.vulkan.compute.ComputePipeline
 
 import java.security.MessageDigest
+import scala.annotation.tailrec
 import scala.collection.mutable
 
 class VkCyfraRuntime(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()) extends CyfraRuntime:
@@ -28,14 +32,17 @@ class VkCyfraRuntime(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()) ex
       case _                          => throw new IllegalArgumentException(s"Unsupported program type: ${program.getClass.getName}")
 
     gProgramCache.update(program, spirvProgram)
-    shaderCache.getOrElseUpdate(spirvProgram.shaderHash, VkShader(spirvProgram)).asInstanceOf[VkShader[L]]
+    shaderCache.getOrElseUpdate(spirvProgram.shaderHash, VkShader(spirvProgram, program.name)).asInstanceOf[VkShader[L]]
 
   private def compile[Params, L: Layout as l](program: GioProgram[Params, L]): SpirvProgram[Params, L] =
-    val GioProgram(_, layout, dispatch, _) = program
+    val GioProgram(_, layout, dispatch, workgroupSize, programName) = program
     val bindings = l.toBindings(l.layoutRef).toList
-    val compiled = DSLCompiler.compile(program.body(l.layoutRef), bindings)
+    val bodyGio = program.body(l.layoutRef)
+    val compiled = DSLCompiler.compile(bodyGio, bindings, workgroupSize)
     val optimizedShaderCode = spirvToolsRunner.processShaderCodeWithSpirvTools(compiled)
-    SpirvProgram((il: InitProgramLayout) ?=> layout(il), dispatch, optimizedShaderCode)
+    // Extract written binding indices for smarter barrier insertion
+    val writtenBindingIndices: Set[Int] = VkCyfraRuntime.getWrittenBindingIndices(List(bodyGio), Set.empty)
+    SpirvProgram((il: InitProgramLayout) ?=> layout(il), dispatch, optimizedShaderCode, writtenBindingIndices, programName)
 
   override def withAllocation(f: Allocation => Unit): Unit =
     context.withThreadContext: threadContext =>
@@ -49,7 +56,28 @@ class VkCyfraRuntime(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()) ex
     context.destroy()
 
 object VkCyfraRuntime:
-  def using[T](f: VkCyfraRuntime ?=> T): T =
-    val runtime = new VkCyfraRuntime()
+  def using[T](f: VkCyfraRuntime ?=> T)(using spirvTools: SpirvToolsRunner = SpirvToolsRunner()): T =
+    val runtime = new VkCyfraRuntime(spirvTools)
     try f(using runtime)
     finally runtime.close()
+
+  /** Extract binding indices of all GBuffers that are written to in the GIO program.
+    * Used for smarter barrier insertion - only written buffers cause conflicts.
+    * Returns Set of layoutOffset values (binding indices).
+    */
+  @tailrec
+  private[runtime] def getWrittenBindingIndices(pending: List[GIO[?]], acc: Set[Int]): Set[Int] =
+    pending match
+      case Nil => acc
+      case GIO.FlatMap(v, n) :: tail =>
+        getWrittenBindingIndices(v :: n :: tail, acc)
+      case GIO.Repeat(_, gio, _) :: tail =>
+        getWrittenBindingIndices(gio :: tail, acc)
+      case GIO.FoldRepeat(_, _, gio, _, _) :: tail =>
+        getWrittenBindingIndices(gio :: tail, acc)
+      case GIO.ConditionalWhen(_, body) :: tail =>
+        getWrittenBindingIndices(body :: tail, acc)
+      case WriteBuffer(buffer: BufferRef[?], _, _) :: tail =>
+        getWrittenBindingIndices(tail, acc + buffer.layoutOffset)
+      case _ :: tail =>
+        getWrittenBindingIndices(tail, acc)
