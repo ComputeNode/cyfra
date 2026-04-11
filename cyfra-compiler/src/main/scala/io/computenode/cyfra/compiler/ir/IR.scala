@@ -42,6 +42,7 @@ sealed trait IR[A: Value] extends Product:
 object IR:
   sealed trait RefIR[A: Value] extends IR[A]
 
+  // Genesis IRs, there is a homomorphism between them and expression
   case class Constant[A: Value](value: Any) extends RefIR[A]
   case class ConstantArgs(value: List[Int]) extends RefIR[Literal]
   case class Declare[A: Value](root: FocusRoot[A], init: Option[RefIR[A]]) extends RefIR[Unit]
@@ -53,8 +54,6 @@ object IR:
   case class Operation[A: Value](func: BuildInFunction, args: List[RefIR[?]]) extends RefIR[A]:
     override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[A] = this.copy(args = args.map(_.replaced))
   case class CallWithVar[A: Value](func: FunctionIR[A], args: List[Variable[?]]) extends RefIR[A]
-  case class CallWithIR[A: Value](func: FunctionIR[A], args: List[RefIR[?]]) extends RefIR[A]:
-    override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[A] = this.copy(args = args.map(_.replaced))
   case class Branch[T: Value](cond: RefIR[Bool], ifTrue: IRs[T], ifFalse: IRs[T], break: JumpTarget[T]) extends RefIR[T]:
     override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[T] = this.copy(cond = cond.replaced)
   case class Loop(mainBody: IRs[Unit], continueBody: IRs[Unit], break: JumpTarget[Unit], continue: JumpTarget[Unit]) extends IR[Unit]
@@ -62,13 +61,22 @@ object IR:
     override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[Unit] = this.copy(value = value.replaced)
   case class ConditionalJump[A: Value](cond: RefIR[Bool], target: JumpTarget[A], value: RefIR[A]) extends IR[Unit]:
     override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[Unit] = this.copy(cond = cond.replaced, value = value.replaced)
-  case class CompositeExtract[B: Value, A: Value](value: RefIR[B], index: Int) extends RefIR[A]:
+  case class CompositeExtract[B: Value, A: Value](value: RefIR[B], accessChain: List[Int]) extends RefIR[A]:
     override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[A] = this.copy(value = value.replaced)
-  case class CompositeInsert[A: Value, In: Value](original: RefIR[A], replacement: RefIR[In], index: Int) extends RefIR[A]:
+  case class CompositeInsert[A: Value, In: Value](original: RefIR[A], replacement: RefIR[In], accessChain: List[Int]) extends RefIR[A]:
     override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[A] =
       this.copy(original = original.replaced, replacement = replacement.replaced)
+  case class CompositeCombine[A: Value](values: List[RefIR[?]]) extends RefIR[A]:
+    override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[A] =
+      this.copy(values = values.map(_.replaced))
+
+  // Intermediate IRs, used for passing information around phases
+  case class CallWithIR[A: Value](func: FunctionIR[A], args: List[RefIR[?]]) extends RefIR[A]:
+    override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[A] = this.copy(args = args.map(_.replaced))
   case class Interface(ref: RefIR[?]) extends RefIR[Unit]:
     override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[Unit] = this.copy(ref = ref.replaced)
+
+  // Terminal IRs, used
   case class SvInst(op: Code, operands: List[Words | RefIR[?]]) extends IR[Unit]:
     override def name: String = op.mnemo
     override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[Unit] = this.copy(operands = operands.map:

@@ -106,12 +106,14 @@ class Transformer extends CompilationModule[(ExpressionBlock[Unit], Config), Com
         IR.ConditionalJump(convertToRefIR(x.cond, functionMap, expressionMap), x.target, convertToRefIR(x.value, functionMap, expressionMap))
       case x: Expression.Extract[a, A] =>
         given Value[a] = x.v2
-        IR.CompositeExtract[a, A](convertToRefIR(x.value, functionMap, expressionMap), x.index)
+        IR.CompositeExtract[a, A](convertToRefIR(x.value, functionMap, expressionMap), List(x.index))
       case x: Expression.Insert[A, a] =>
         given Value[a] = x.v2
         val original = convertToRefIR(x.original, functionMap, expressionMap)
         val replacement = convertToRefIR(x.replacement, functionMap, expressionMap)
-        IR.CompositeInsert[A, a](original, replacement, x.index)
+        IR.CompositeInsert[A, a](original, replacement, List(x.index))
+      case Expression.Combine(composites) =>
+        IR.CompositeCombine(composites.map(convertToRefIR(_, functionMap, expressionMap)))
 
     expressionMap(expr.id) = res
     res
