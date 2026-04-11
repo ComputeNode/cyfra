@@ -108,7 +108,7 @@ class VariablesDigestion extends StandardCompilationModule:
       case IR.Write(root, accessChain, value) =>
         val sc = rootStorageClass(root)
         val pointer = Ctx.getTypePointer(value.v, sc)
-        val ac = IR.SvRef[Unit](Op.OpAccessChain, pointer, varDeclarations(root) :: accessChain ::: value :: Nil)
+        val ac = IR.SvRef[Unit](Op.OpAccessChain, pointer, varDeclarations(root) :: accessChain)
         val inst = IR.SvInst(Op.OpStore, List(ac, value))
         IRs(inst, List(ac, inst))
       case x: IR.Read[a] if x.accessChain.isEmpty =>
@@ -122,7 +122,7 @@ class VariablesDigestion extends StandardCompilationModule:
         val sc = rootStorageClass(root)
         val pointer = Ctx.getTypePointer(x.v, sc)
         val ac = IR.SvRef[Unit](Op.OpAccessChain, pointer, varDeclarations(root) :: accessChain)
-        val inst = IR.SvRef[a](Op.OpLoad, Ctx.getType(x.v), List(varDeclarations(root)))
+        val inst = IR.SvRef[a](Op.OpLoad, Ctx.getType(x.v), List(ac))
         IRs(inst, List(ac, inst))
       case x: IR.CallWithVar[a] =>
         given v: Value[a] = x.v

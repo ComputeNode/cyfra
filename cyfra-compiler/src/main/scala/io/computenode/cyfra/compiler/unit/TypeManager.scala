@@ -125,7 +125,7 @@ object TypeManager:
         val dec = mutable.Buffer.empty[IR.SvInst]
         value.composites.zipWithIndex.foldLeft(0):
           case (acc, (v, idx)) =>
-            val inst = IR.SvInst(Op.OpDecorate, List(tpe, IntWord(idx), Decoration.Offset, IntWord(acc)))
+            val inst = IR.SvInst(Op.OpMemberDecorate, List(tpe, IntWord(idx), Decoration.Offset, IntWord(acc)))
             dec.addOne(inst)
             acc + typeStride(v)
         m1.copy(decorations = dec.toList ++ m1.decorations, decorated = m1.decorated + key)

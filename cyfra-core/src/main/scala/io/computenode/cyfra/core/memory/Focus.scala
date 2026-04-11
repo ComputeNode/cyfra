@@ -79,7 +79,7 @@ object Focus:
 
       // Tuple element access: expr._N
       case Select(qualifier, name) if tupleElementIndex(name).isDefined =>
-        val index = tupleElementIndex(name).get
+        val index = tupleElementIndex(name).get - 1  // convert 1-based Scala _N to 0-based SPIR-V member index
         val (innerSteps, param) = collectSteps(qualifier)
         val step = AccessStep.TupleElement(index, qualifier.tpe.widen, term.tpe.widen)
         (innerSteps :+ step, param)
@@ -100,8 +100,8 @@ object Focus:
           val fieldIndex = fields.indexWhere(_.name == fieldName)
           if fieldIndex >= 0 then
             val (innerSteps, param) = collectSteps(qualifier)
-            // Case class fields are 1-indexed like tuples for consistency with FocusConstant
-            val step = AccessStep.CaseClassField(fieldName, fieldIndex + 1, qualType, term.tpe.widen)
+            // Case class fields use 0-based SPIR-V struct member indices (fieldIndex from indexWhere is already 0-based)
+            val step = AccessStep.CaseClassField(fieldName, fieldIndex, qualType, term.tpe.widen)
             (innerSteps :+ step, param)
           else report.errorAndAbort(s"Field '$fieldName' not found in case class ${qualType.show}")
         else report.errorAndAbort(s"Cannot access field '$fieldName' on non-case-class type ${qualType.show}")
