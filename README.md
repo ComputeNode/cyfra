@@ -14,6 +14,44 @@ Included Foton library provides a clean and fun way to animate functions and ray
 
 ## Examples
 
+### Simple example
+
+```scala
+//> using scala "3.6.4"
+//> using dep "io.computenode::cyfra-foton:0.1.0-RC1"
+
+import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.foton.GFunction
+import io.computenode.cyfra.runtime.VkCyfraRuntime
+
+@main
+def multiplyByTwo(): Unit =
+  VkCyfraRuntime.using:
+    val input = (0 until 256).map(_.toFloat).toArray
+
+    val doubleIt: GFunction[GStruct.Empty, Float32, Float32] = GFunction: x =>
+      x * 2.0f
+
+    val result: Array[Float] = doubleIt.run(input)
+
+    println(s"Output: ${result.take(10).mkString(", ")}...")
+```
+
+Run it with:
+```
+scala filename.scala
+```
+<details>
+<summary>Running on macOS</summary>
+  On macOS, you may need to add extra dependencies:
+  
+  ```scala
+  //> using dep "org.lwjgl:lwjgl:3.4.0,classifier=natives-macos-arm64"
+  //> using dep "org.lwjgl:lwjgl-vulkan:3.4.0,classifier=natives-macos-arm64"
+  //> using dep "org.lwjgl:lwjgl-vma:3.4.0,classifier=natives-macos-arm64"
+  ```
+</details>
+
 ### Ray traced animation
 
 ![output](https://github.com/user-attachments/assets/3eac9f7f-72df-4a5d-b768-9117d651c78d)
