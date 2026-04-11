@@ -4,7 +4,7 @@ import io.computenode.cyfra.core.expression.*
 import io.computenode.cyfra.core.expression.types.*
 import io.computenode.cyfra.core.expression.types.given
 
-abstract class BuildInFunction(val isPure: Boolean):
+abstract class BuildInFunction(val isPure: Boolean): // TODO split pure and none pure versions, change name ot Operation
   def name: String = this.getClass.getSimpleName.replace("$", "")
   override def toString: String = s"builtin $name"
 
