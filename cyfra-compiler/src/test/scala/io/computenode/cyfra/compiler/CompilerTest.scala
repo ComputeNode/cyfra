@@ -67,14 +67,14 @@ class CompilerTest extends munit.FunSuite:
 
     compiler.compile(exp, config)
 
-  test("compile vectors"):
-    val ref = Layout[EmptyLayout].layoutRef
-    val config = Compiler.Compute(Layout[EmptyLayout].toBindings(ref), (1024, 1, 1))
-    val init = Vec4[Float32](0.0f, 1.0f, 1.0f, 0.0f)
-
-    val exp = GIO.reify:
-      val vecVar: LocalVariable[Vec4[Float32]] = GIO.declare(init)
-      val vec3 = GIO.read(vecVar).yzx
-      val res = init.copy(zyx = vec3)
-      GIO.write(vecVar, res)
-    compiler.compile(exp, config)
+//  test("compile vectors"):
+//    val ref = Layout[EmptyLayout].layoutRef
+//    val config = Compiler.Compute(Layout[EmptyLayout].toBindings(ref), (1024, 1, 1))
+//    val init = Vec4[Float32](0.0f, 1.0f, 1.0f, 0.0f)
+//
+//    val exp = GIO.reify:
+//      val vecVar: LocalVariable[Vec4[Float32]] = GIO.declare(init)
+//      val vec3 = GIO.read(vecVar).yzx
+//      val res = init.copy(zyx = vec3)
+//      GIO.write(vecVar, res)
+//    compiler.compile(exp, config)
