@@ -5,6 +5,7 @@ import io.computenode.cyfra.compiler.ir.IR
 import io.computenode.cyfra.compiler.ir.IRs
 import io.computenode.cyfra.compiler.CompilationException
 import io.computenode.cyfra.compiler.Compiler.Config
+import io.computenode.cyfra.compiler.ir.IR.RefIR
 import io.computenode.cyfra.core.expression.types.given
 import io.computenode.cyfra.compiler.unit.Compilation
 import io.computenode.cyfra.core.memory.{BufferRef, GBuffer, GUniform, UniformRef, Variable}
@@ -112,8 +113,7 @@ class Transformer extends CompilationModule[(ExpressionBlock[Unit], Config), Com
         val original = convertToRefIR(x.original, functionMap, expressionMap)
         val replacement = convertToRefIR(x.replacement, functionMap, expressionMap)
         IR.CompositeInsert[A, a](original, replacement, List(x.index))
-      case Expression.Combine(composites) =>
-        IR.CompositeCombine(composites.map(convertToRefIR(_, functionMap, expressionMap)))
+      case x: Expression.Combine[A] => simplifyCombine(x, functionMap, expressionMap)
 
     expressionMap(expr.id) = res
     res
@@ -126,3 +126,10 @@ class Transformer extends CompilationModule[(ExpressionBlock[Unit], Config), Com
     convertToIR(expr, functionMap, expressionMap) match
       case ref: IR.RefIR[A] => ref
       case _                => throw new CompilationException(s"Expected a convertable to RefIR but got: $expr")
+
+  private def simplifyCombine[A: Value](
+    combine: Expression.Combine[A],
+    functionMap: collection.Map[CustomFunction[?], FunctionIR[?]],
+    expressionMap: mutable.Map[Int, IR[?]],
+  ): RefIR[A] =
+    IR.CompositeCombine(combine.composites.map(convertToRefIR(_, functionMap, expressionMap))) // TODO replace with more sophisticated algorithm

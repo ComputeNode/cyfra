@@ -52,6 +52,7 @@ object Compilation:
       case IR.Interface(ref)                                => s"${map(ref.id)}"
       case IR.CompositeExtract(value, index)                => s"${map(value.id)} $index"
       case IR.CompositeInsert(original, replacement, index) => s"${map(original.id)} ${map(replacement.id)} $index"
+      case IR.CompositeCombine(values)                      => s"${values.map(_.id).map(map).mkString(" ")}"
       case sv: (IR.SvInst | IR.SvRef[?])                    =>
         val operands = sv match
           case x: IR.SvInst   => x.operands

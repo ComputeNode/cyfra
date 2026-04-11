@@ -56,13 +56,13 @@ class CompilerTest extends munit.FunSuite:
       val variable: LocalVariable[Struct] = GIO.declare(Some(init))
       val variableInner = variable.focus(_._2)
 
-//      val x1 = GIO.read(variableInner).copy(_2 = UInt32(5))
-//      GIO.write(variableInner, x1)
-//
-//      val x2 = GIO.read(variable).copy(_3 = UInt32(5))
-//      GIO.write(variable, x2)
-//
-//      val x3: Struct = GIO.read(variable).copy(_1 = 10, _3 = UInt32(12))
-//      GIO.write(variable, x3)
+      val x1 = GIO.read(variableInner).copy(_2 = UInt32(5))
+      GIO.write(variableInner, x1)
+
+      val x2 = GIO.read(variable).copy(_3 = UInt32(5))
+      GIO.write(variable, x2)
+
+      val x3: Struct = GIO.read(variable).copy(_1 = 10, _3 = UInt32(12))
+      GIO.write(variable, x3)
 
     compiler.compile(exp, config)

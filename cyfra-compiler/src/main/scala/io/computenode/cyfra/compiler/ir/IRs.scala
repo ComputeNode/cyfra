@@ -22,9 +22,9 @@ case class IRs[A: Value](result: IR[A], body: List[IR[?]]):
       case x => IRs(x)(using x.v)
     (next, removed.toList)
 
-  def flatMapReplace(f: IR[?] => IRs[?]): IRs[A] = flatMapReplace()(f)
+  def flatMapReplace(f: IR[?] => IRs[?]): IRs[A] = flatMapReplace(true)(f)
 
-  def flatMapReplace(enterControlFlow: Boolean = true)(f: IR[?] => IRs[?]): IRs[A] =
+  def flatMapReplace(enterControlFlow: Boolean)(f: IR[?] => IRs[?]): IRs[A] =
     flatMapReplaceImpl(f, mutable.Map.empty, enterControlFlow)
 
   private def flatMapReplaceImpl(f: IR[?] => IRs[?], replacements: mutable.Map[Int, RefIR[?]], enterControlFlow: Boolean): IRs[A] =

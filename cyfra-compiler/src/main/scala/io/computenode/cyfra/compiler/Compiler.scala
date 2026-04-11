@@ -17,6 +17,7 @@ class Compiler(verbose: "none" | "last" | "all" = "none"):
       new VariablesDigestion,
       new StructuredControlFlow,
       new Functions,
+      new CompositeManipulator,
       new Constants,
       new Algebra,
       new ConstantArgs,
