@@ -27,9 +27,9 @@ object TestingStuff:
   case class EmitProgramUniform(emitN: UInt32)
 
   case class EmitProgramLayout(
-    in: GBuffer[RuntimeArray[UInt32]],
-    out: GBuffer[RuntimeArray[UInt32]],
-    args: GUniform[EmitProgramUniform] = GUniform.fromParams, // todo will be different in the future
+                                in: GBuffer[GArray[UInt32]],
+                                out: GBuffer[GArray[UInt32]],
+                                args: GUniform[EmitProgramUniform] = GUniform.fromParams, // todo will be different in the future
   )
 
   val emitProgram = GioProgram[EmitProgramParams, EmitProgramLayout](
@@ -66,9 +66,9 @@ object TestingStuff:
   case class FilterProgramUniform(filter: UInt32)
 
   case class FilterProgramLayout(
-    in: GBuffer[RuntimeArray[UInt32]],
-    out: GBuffer[RuntimeArray[UInt32]],
-    params: GUniform[FilterProgramUniform] = GUniform.fromParams,
+                                  in: GBuffer[GArray[UInt32]],
+                                  out: GBuffer[GArray[UInt32]],
+                                  params: GUniform[FilterProgramUniform] = GUniform.fromParams,
   )
 
   val filterProgram = GioProgram[FilterProgramParams, FilterProgramLayout](
@@ -87,9 +87,9 @@ object TestingStuff:
   case class EmitFilterParams(inSize: Int, emitN: Int, filterValue: Int)
 
   case class EmitFilterLayout(
-    inBuffer: GBuffer[RuntimeArray[UInt32]],
-    emitBuffer: GBuffer[RuntimeArray[UInt32]],
-    filterBuffer: GBuffer[RuntimeArray[UInt32]],
+                               inBuffer: GBuffer[GArray[UInt32]],
+                               emitBuffer: GBuffer[GArray[UInt32]],
+                               filterBuffer: GBuffer[GArray[UInt32]],
   )
 
   case class EmitFilterResult(out: GBuffer[UInt32])

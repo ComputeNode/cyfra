@@ -1,7 +1,7 @@
 package io.computenode.cyfra.core.memory
 
 import io.computenode.cyfra.core.expression.Value
-import io.computenode.cyfra.core.expression.types.{IntegerType, Mat, RuntimeArray, Vec, Vec2, Vec3, Vec4}
+import io.computenode.cyfra.core.expression.types.{IntegerType, Mat, GArray, Vec, Vec2, Vec3, Vec4}
 import io.computenode.cyfra.utility.Utility.nextId
 
 import scala.quoted.{Expr, Quotes, Type}
@@ -21,7 +21,7 @@ case class FocusDynamic[Parent: Value, T: Value](parent: Focus[Parent], value: I
 
 object Focus:
   trait FocusContext:
-    extension [To: Value](from: RuntimeArray[To])
+    extension [To: Value](from: GArray[To])
       def at(index: Int): To = scala.sys.error("method can only be used inside focus lambda")
 
       def at[I <: IntegerType: Value](index: I): To = scala.sys.error("method can only be used inside focus lambda")
@@ -190,7 +190,7 @@ object Focus:
               buildFocusExpr(rest, newFocus, elementType)
 
             case AccessStep.ArrayConstant(index, elementType) =>
-              val parentType = TypeRepr.of[RuntimeArray].appliedTo(elementType)
+              val parentType = TypeRepr.of[GArray].appliedTo(elementType)
               val parentTypeTree = TypeTree.of(using parentType.asType)
               val elementTypeTree = TypeTree.of(using elementType.asType)
 
@@ -214,7 +214,7 @@ object Focus:
               buildFocusExpr(rest, newFocus, elementType)
 
             case AccessStep.ArrayDynamic(indexExpr, indexType, elementType) =>
-              val parentType = TypeRepr.of[RuntimeArray].appliedTo(elementType)
+              val parentType = TypeRepr.of[GArray].appliedTo(elementType)
               val parentTypeTree = TypeTree.of(using parentType.asType)
               val elementTypeTree = TypeTree.of(using elementType.asType)
 

@@ -70,6 +70,16 @@ object Value:
 
   extension [A: Value](x: A) def irs: ExpressionBlock[A] = Value[A].peel(x)
 
+  def surroundWithTuple[A](value: Value[A]): Value[Tuple1[A]] =
+    given Tag[A] = value.tag
+    val tuple1Tag: Tag[Tuple1[A]] = summon[Tag[Tuple1[A]]]
+    new Value.Derived[Tuple1[A]](
+      elemValues = List(value),
+      theTag = tuple1Tag,
+      theBaseTag = tupleBaseTag,
+      extract = (ir, self) => Tuple1(Value.extractComposite[Tuple1[A], A](ir, self, value, 0))
+    )
+
   private def tupleAsExpression[A: Value as v](tuple: A): ExpressionBlock[A] =
     tupleAsExpressionInternal(tuple.asInstanceOf[Tuple])(using Value[A].asInstanceOf[Value[Tuple]]).asInstanceOf[ExpressionBlock[A]]
 

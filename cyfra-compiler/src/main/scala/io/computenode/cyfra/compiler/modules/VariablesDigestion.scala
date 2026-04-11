@@ -1,25 +1,13 @@
 package io.computenode.cyfra.compiler.modules
 
+import io.computenode.cyfra.compiler.Spirv.*
 import io.computenode.cyfra.compiler.ir.IR.RefIR
-import io.computenode.cyfra.core.expression.{Value, given}
-import io.computenode.cyfra.core.expression.types.given
-import io.computenode.cyfra.compiler.ir.{FunctionIR, IR, IRs}
-import io.computenode.cyfra.compiler.modules.CompilationModule.{FunctionCompilationModule, StandardCompilationModule}
+import io.computenode.cyfra.compiler.ir.{IR, IRs}
+import io.computenode.cyfra.compiler.modules.CompilationModule.StandardCompilationModule
 import io.computenode.cyfra.compiler.unit.{Compilation, Context, Ctx}
-import io.computenode.cyfra.compiler.Spirv.{Code, Decoration, IntWord, Op, StorageClass}
-import io.computenode.cyfra.core.memory.{
-  BindingRef,
-  BufferRef,
-  BuildInVariable,
-  FocusRoot,
-  GBinding,
-  GBuffer,
-  GUniform,
-  GlobalVariable,
-  LocalVariable,
-  UniformRef,
-  Variable,
-}
+import io.computenode.cyfra.core.expression.Value
+import io.computenode.cyfra.core.expression.types.{UInt32, given}
+import io.computenode.cyfra.core.memory.*
 import io.computenode.cyfra.utility.FlatList
 
 import scala.collection.mutable
@@ -41,11 +29,12 @@ class VariablesDigestion extends StandardCompilationModule:
         case IR.Declare(root, None) =>
           root match
             case binding: BindingRef[?] =>
-              val baseType = Ctx.getType(binding.v, decorate = true)
+              val tupleValue = Value.surroundWithTuple(binding.v)
+              val baseType = Ctx.getType(tupleValue, decorate = true)
               val storageClass = binding match
                 case _: GBuffer[?]  => StorageClass.StorageBuffer
                 case _: GUniform[?] => StorageClass.Uniform
-              val pointer = Ctx.getTypePointer(binding.v, storageClass)
+              val pointer = Ctx.getTypePointer(tupleValue, storageClass)
               val variable = IR.SvRef[Unit](Op.OpVariable, pointer, List(storageClass))
               val maybeDec =
                 if hasBlockDecoration(baseType) then None
@@ -102,23 +91,25 @@ class VariablesDigestion extends StandardCompilationModule:
         val inst = IR.SvRef[Unit](Op.OpVariable, Ctx.getTypePointer(variable.v, StorageClass.Function), StorageClass.Function :: maybeInit.toList)
         varDeclarations(variable) = inst
         IRs(inst)
-      case IR.Write(variable, Nil, value) =>
+      case IR.Write(variable, Nil, value) if !variable.isInstanceOf[GBinding[?]] =>
         val inst = IR.SvInst(Op.OpStore, List(varDeclarations(variable), value))
         IRs(inst)
-      case IR.Write(root, accessChain, value) =>
+      case IR.Write(root, accessChainRaw, value) =>
+        val accessChain = if root.isInstanceOf[GBinding[?]] then Ctx.getConstant[UInt32](0) :: accessChainRaw else accessChainRaw
         val sc = rootStorageClass(root)
         val pointer = Ctx.getTypePointer(value.v, sc)
         val ac = IR.SvRef[Unit](Op.OpAccessChain, pointer, varDeclarations(root) :: accessChain)
         val inst = IR.SvInst(Op.OpStore, List(ac, value))
         IRs(inst, List(ac, inst))
-      case x: IR.Read[a] if x.accessChain.isEmpty =>
+      case x: IR.Read[a] if x.accessChain.isEmpty && !x.root.isInstanceOf[GBinding[?]] =>
         given Value[a] = x.v
         val IR.Read(root, _) = x
         val inst = IR.SvRef[a](Op.OpLoad, Ctx.getType(x.v), List(varDeclarations(root)))
         IRs(inst)
       case x: IR.Read[a] =>
         given Value[a] = x.v
-        val IR.Read(root, accessChain) = x
+        val IR.Read(root, accessChainRaw) = x
+        val accessChain = if root.isInstanceOf[GBinding[?]] then Ctx.getConstant[UInt32](0) :: accessChainRaw else accessChainRaw
         val sc = rootStorageClass(root)
         val pointer = Ctx.getTypePointer(x.v, sc)
         val ac = IR.SvRef[Unit](Op.OpAccessChain, pointer, varDeclarations(root) :: accessChain)

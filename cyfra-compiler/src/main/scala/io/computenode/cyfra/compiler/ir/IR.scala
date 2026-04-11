@@ -1,16 +1,11 @@
 package io.computenode.cyfra.compiler.ir
 
-import io.computenode.cyfra.compiler.ir.IR
+import io.computenode.cyfra.compiler.Spirv.{Code, Words}
 import io.computenode.cyfra.compiler.ir.IR.RefIR
-import io.computenode.cyfra.compiler.ir.IRs
-import io.computenode.cyfra.compiler.Spirv.Code
-import io.computenode.cyfra.compiler.Spirv.Words
-import io.computenode.cyfra.core.memory.{BufferRef, Focus, FocusRoot, GBuffer, GUniform, UniformRef, Variable}
 import io.computenode.cyfra.core.expression.*
-import io.computenode.cyfra.core.expression.given
-import io.computenode.cyfra.core.expression.types.*
-import io.computenode.cyfra.core.expression.types.given
 import io.computenode.cyfra.core.expression.types.Literal.given
+import io.computenode.cyfra.core.expression.types.{*, given}
+import io.computenode.cyfra.core.memory.{FocusRoot, Variable}
 import io.computenode.cyfra.utility.Utility.nextId
 
 import scala.collection

@@ -31,7 +31,7 @@ def typeStride(value: Value[?]): Int =
     case Some(t) if t =:= Tag[Mat4x2]       => 8
     case Some(t) if t =:= Tag[Mat4x3]       => 12
     case Some(t) if t =:= Tag[Mat4x4]       => 16
-    case Some(t) if t =:= Tag[RuntimeArray] => return Int.MaxValue
+    case Some(t) if t =:= Tag[GArray] => return Int.MaxValue
     case _                                  => ???
 
   numberOfElements * elementSize

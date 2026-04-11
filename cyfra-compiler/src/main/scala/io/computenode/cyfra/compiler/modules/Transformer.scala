@@ -1,15 +1,12 @@
 package io.computenode.cyfra.compiler.modules
 
-import io.computenode.cyfra.compiler.ir.{FunctionIR, IRs}
-import io.computenode.cyfra.compiler.ir.IR
-import io.computenode.cyfra.compiler.ir.IRs
 import io.computenode.cyfra.compiler.CompilationException
 import io.computenode.cyfra.compiler.Compiler.Config
 import io.computenode.cyfra.compiler.ir.IR.RefIR
-import io.computenode.cyfra.core.expression.types.given
+import io.computenode.cyfra.compiler.ir.{FunctionIR, IR, IRs}
 import io.computenode.cyfra.compiler.unit.Compilation
-import io.computenode.cyfra.core.memory.{BufferRef, GBuffer, GUniform, UniformRef, Variable}
-import io.computenode.cyfra.core.expression.{BuildInFunction, CustomFunction, Expression, ExpressionBlock, Value, given}
+import io.computenode.cyfra.core.expression.types.given
+import io.computenode.cyfra.core.expression.{CustomFunction, Expression, ExpressionBlock, Value}
 
 import scala.collection.mutable
 

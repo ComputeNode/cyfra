@@ -77,7 +77,7 @@ object TypeManager:
     val cIR = value.baseTag.get match
       case t if t <:< Tag[Vec]          => SvRef[Unit](Op.OpTypeVector, List(irs.head, IntWord(rows(t))))
       case t if t <:< Tag[Mat]          => SvRef[Unit](Op.OpTypeMatrix, List(irs.head, IntWord(columns(t))))
-      case t if t =:= Tag[RuntimeArray] => SvRef[Unit](Op.OpTypeRuntimeArray, List(irs.head))
+      case t if t =:= Tag[GArray] => SvRef[Unit](Op.OpTypeRuntimeArray, List(irs.head))
       case t if t <:< Tag[Tuple]        => SvRef[Unit](Op.OpTypeStruct, irs.toList)
       case _                            => throw new Exception(s"Unsupported type: ${value.tag}")
     m1.withIr(key, cIR)
@@ -116,7 +116,7 @@ object TypeManager:
       withDecoration(acc, x)
 
     base match
-      case t if t =:= Tag[RuntimeArray] =>
+      case t if t =:= Tag[GArray] =>
         val List(element) = value.composites
         val stride = typeStride(element)
         val dec = IR.SvInst(Op.OpDecorate, List(tpe, Decoration.ArrayStride, IntWord(stride)))

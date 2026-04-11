@@ -1,18 +1,12 @@
 package io.computenode.cyfra.compiler.unit
 
-import io.computenode.cyfra.compiler.ir.{FunctionIR, IR, IRs}
-import io.computenode.cyfra.compiler.unit.Context
-
-import scala.collection.mutable
 import io.computenode.cyfra.compiler.CompilationException
 import io.computenode.cyfra.compiler.Compiler.Config
 import io.computenode.cyfra.compiler.Spirv.*
 import io.computenode.cyfra.compiler.ir.IR.RefIR
-import io.computenode.cyfra.core.expression.types.IntegerType
-import io.computenode.cyfra.core.memory.{BindingRef, BuildInVariable, Focus, FocusConstant, FocusDynamic, FocusRoot, GBinding, Variable}
+import io.computenode.cyfra.compiler.ir.{FunctionIR, IR, IRs}
+import io.computenode.cyfra.core.memory.{BindingRef, FocusRoot, Variable}
 import io.computenode.cyfra.utility.Utility.*
-
-import scala.collection.immutable.{AbstractMap, SeqMap, SortedMap}
 
 case class Compilation(metadata: Metadata, context: Context, functionBodies: List[IRs[?]]):
   def output: List[IR[?]] =
