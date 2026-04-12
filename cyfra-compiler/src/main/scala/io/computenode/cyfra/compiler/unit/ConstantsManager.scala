@@ -28,7 +28,7 @@ case class ConstantsManager(block: List[IR[?]] = Nil, cache: Map[CacheKey, RefIR
 object ConstantsManager:
   case class CacheKey(const: Any, tag: Tag[?])
 
-  def withConstant(manager: ConstantsManager, types: TypeManager, const: Any, value: Value[?]): ConstantsManager =
+  private def withConstant(manager: ConstantsManager, types: TypeManager, const: Any, value: Value[?]): ConstantsManager =
     val key = CacheKey(const, value.tag)
     if manager.cache.contains(key) then return manager
 
@@ -39,7 +39,7 @@ object ConstantsManager:
       case Some(t) if t <:< Tag[Tuple] => getTuple(manager, types, const, value)._2
       case other                       => throw CompilationException(s"Cannot create constant of type: ${value.tag}")
 
-  def getTuple(manager: ConstantsManager, types: TypeManager, const: Any, value: Value[?]): (RefIR[?], ConstantsManager) =
+  private def getTuple(manager: ConstantsManager, types: TypeManager, const: Any, value: Value[?]): (RefIR[?], ConstantsManager) =
     val key = CacheKey(const, value.tag)
     if manager.cache.contains(key) then return (manager.cache(key), manager)
 
@@ -104,6 +104,6 @@ object ConstantsManager:
 
     (ir, manager.withIr(key, ir))
 
-  def floatToIntWord(f: Float): IntWord =
+  private def floatToIntWord(f: Float): IntWord =
     val bits = java.lang.Float.floatToRawIntBits(f)
     IntWord(bits)
