@@ -2,7 +2,7 @@ package io.computenode.cyfra.dsl.direct
 
 import io.computenode.cyfra.core.{ExpressionProgram, GProgram, Layout}
 import io.computenode.cyfra.core.GProgram.{InitProgramLayout, ProgramDispatch, WorkDimensions}
-import io.computenode.cyfra.core.expression.{BuildInFunction, CustomFunction, Expression, ExpressionBlock, ExpressionHolder, JumpTarget, Value, given}
+import io.computenode.cyfra.core.expression.{Operator, CustomFunction, Expression, ExpressionBlock, ExpressionHolder, JumpTarget, Value, given}
 import io.computenode.cyfra.core.expression.CustomFunction.CustomFunction1
 import io.computenode.cyfra.core.memory.{Focus, FocusConstant, FocusDynamic, FocusRoot, GBuffer, GUniform, LocalVariable, Variable}
 import io.computenode.cyfra.core.expression.JumpTarget.{BreakTarget, ContinueTarget}
@@ -60,40 +60,40 @@ object GIO:
 
     extractFocusTrailAcc(focus).reverse
 
-  def op[Res: Value](func: BuildInFunction.BuildInFunction0)(using gio: GIO): Res =
-    val next = Expression.BuildInOperation[Res](func, List())
+  def op[Res: Value](func: Operator.Operator0)(using gio: GIO): Res =
+    val next = Expression.Operation[Res](func, List())
     gio.add(next)
     Value[Res].indirect(next)
 
-  def op[A: Value, Res: Value](func: BuildInFunction.BuildInFunction1, arg: A)(using gio: GIO): Res =
+  def op[A: Value, Res: Value](func: Operator.Operator1, arg: A)(using gio: GIO): Res =
     val a = arg.irs
-    val next = Expression.BuildInOperation[Res](func, List(a.result))
+    val next = Expression.Operation[Res](func, List(a.result))
     gio.extend(next :: a.body)
     Value[Res].indirect(next)
 
-  def op[A1: Value, A2: Value, Res: Value](func: BuildInFunction.BuildInFunction2, arg1: A1, arg2: A2)(using gio: GIO): Res =
+  def op[A1: Value, A2: Value, Res: Value](func: Operator.Operator2, arg1: A1, arg2: A2)(using gio: GIO): Res =
     val a1 = arg1.irs
     val a2 = arg2.irs
-    val next = Expression.BuildInOperation[Res](func, List(a1.result, a2.result))
+    val next = Expression.Operation[Res](func, List(a1.result, a2.result))
     gio.extend(next :: a1.body ++ a2.body)
     Value[Res].indirect(next)
 
-  def op[A1: Value, A2: Value, A3: Value, Res: Value](func: BuildInFunction.BuildInFunction3, arg1: A1, arg2: A2, arg3: A3)(using gio: GIO): Res =
+  def op[A1: Value, A2: Value, A3: Value, Res: Value](func: Operator.Operator3, arg1: A1, arg2: A2, arg3: A3)(using gio: GIO): Res =
     val a1 = arg1.irs
     val a2 = arg2.irs
     val a3 = arg3.irs
-    val next = Expression.BuildInOperation[Res](func, List(a1.result, a2.result, a3.result))
+    val next = Expression.Operation[Res](func, List(a1.result, a2.result, a3.result))
     gio.extend(next :: a1.body ++ a2.body ++ a3.body)
     Value[Res].indirect(next)
 
-  def op[A1: Value, A2: Value, A3: Value, A4: Value, Res: Value](func: BuildInFunction.BuildInFunction4, arg1: A1, arg2: A2, arg3: A3, arg4: A4)(using
-    gio: GIO,
+  def op[A1: Value, A2: Value, A3: Value, A4: Value, Res: Value](func: Operator.Operator4, arg1: A1, arg2: A2, arg3: A3, arg4: A4)(using
+                                                                                                                                   gio: GIO,
   ): Res =
     val a1 = arg1.irs
     val a2 = arg2.irs
     val a3 = arg3.irs
     val a4 = arg4.irs
-    val next = Expression.BuildInOperation[Res](func, List(a1.result, a2.result, a3.result, a4.result))
+    val next = Expression.Operation[Res](func, List(a1.result, a2.result, a3.result, a4.result))
     gio.extend(next :: a1.body ++ a2.body ++ a3.body ++ a4.body)
     Value[Res].indirect(next)
 

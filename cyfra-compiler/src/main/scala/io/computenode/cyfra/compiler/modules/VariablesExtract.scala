@@ -5,14 +5,14 @@ import io.computenode.cyfra.compiler.ir.IR
 import io.computenode.cyfra.core.expression.given
 import io.computenode.cyfra.core.expression.types.given
 import io.computenode.cyfra.compiler.modules.CompilationModule.{FunctionCompilationModule, StandardCompilationModule}
-import io.computenode.cyfra.compiler.unit.{Compilation, Ctx}
+import io.computenode.cyfra.compiler.unit.{CompilationUnit, Ctx}
 import io.computenode.cyfra.compiler.Compiler.Compute
 import io.computenode.cyfra.core.memory.{BuildInVariable, FocusRoot, GBinding, GlobalVariable, LocalVariable, Variable}
 
 import scala.collection.mutable
 
 class VariablesExtract extends StandardCompilationModule:
-  def compile(input: Compilation): Compilation =
+  def compile(input: CompilationUnit): CompilationUnit =
     val ((newFunctions, globalVariables), context) = Ctx.withCapability(input.context):
       val (a, b) = input.functionBodies.map(moveLocalVariables).unzip
       (a, b.flatten)

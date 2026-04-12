@@ -4,7 +4,7 @@ import io.computenode.cyfra.core.expression.*
 import io.computenode.cyfra.core.expression.Value.map
 import io.computenode.cyfra.core.expression.types.*
 import io.computenode.cyfra.core.expression.types.given
-import io.computenode.cyfra.core.expression.{BuildInFunction, Value}
+import io.computenode.cyfra.core.expression.{Operator, Value}
 
 import scala.annotation.targetName
 
@@ -17,182 +17,182 @@ trait NumericalOps[T]
 
 extension [T: {NumericalOps, Value}](self: T)
   @targetName("add")
-  def +(that: T): T = Value.map(BuildInFunction.Add)(self, that)
+  def +(that: T): T = Value.map(Operator.Add)(self, that)
   @targetName("sub")
-  def -(that: T): T = Value.map(BuildInFunction.Sub)(self, that)
+  def -(that: T): T = Value.map(Operator.Sub)(self, that)
   @targetName("mul")
-  def *(that: T): T = Value.map(BuildInFunction.Mul)(self, that)
+  def *(that: T): T = Value.map(Operator.Mul)(self, that)
   @targetName("div")
-  def /(that: T): T = Value.map(BuildInFunction.Div)(self, that)
+  def /(that: T): T = Value.map(Operator.Div)(self, that)
   @targetName("mod")
-  def %(that: T): T = Value.map(BuildInFunction.Mod)(self, that)
+  def %(that: T): T = Value.map(Operator.Mod)(self, that)
 
 // Vector * Scalar
 extension [T <: FloatType: Value, V <: Vec[T]: Value](vec: V)
   @targetName("vectorTimesScalar")
-  def *(scalar: T): V = Value.map(BuildInFunction.VectorTimesScalar)(vec, scalar)
+  def *(scalar: T): V = Value.map(Operator.VectorTimesScalar)(vec, scalar)
 
 extension [T <: FloatType: Value, V <: Vec[T]: Value](scalar: T)
   @targetName("scalarTimesVector")
-  def *(vec: V): V = Value.map(BuildInFunction.VectorTimesScalar)(vec, scalar)
+  def *(vec: V): V = Value.map(Operator.VectorTimesScalar)(vec, scalar)
 
 // Matrix * Scalar
 extension [T <: FloatType: Value, M <: Mat[T]: Value](mat: M)
   @targetName("matrixTimesScalar")
-  def *(scalar: T): M = Value.map(BuildInFunction.MatrixTimesScalar)(mat, scalar)
+  def *(scalar: T): M = Value.map(Operator.MatrixTimesScalar)(mat, scalar)
 
 extension [T <: FloatType: Value, M <: Mat[T]: Value](scalar: T)
   @targetName("scalarTimesMatrix")
-  def *(mat: M): M = Value.map(BuildInFunction.MatrixTimesScalar)(mat, scalar)
+  def *(mat: M): M = Value.map(Operator.MatrixTimesScalar)(mat, scalar)
 
 // Dot product: Vec * Vec -> Scalar
 extension [T <: FloatType: Value, V <: Vec[T]: Value](v1: V)
   @targetName("dotProduct")
-  infix def dot(v2: V): T = Value.map(BuildInFunction.Dot)[V, V, T](v1, v2)
+  infix def dot(v2: V): T = Value.map(Operator.Dot)[V, V, T](v1, v2)
 
 // Vector * Matrix/Vector operations
 extension [T <: FloatType: Value](
   vec: Vec2[T]
 )(using Value[Mat2x2[T]], Value[Vec2[T]], Value[Mat2x3[T]], Value[Vec3[T]], Value[Mat2x4[T]], Value[Vec4[T]])
   @targetName("vec2TimesMat2x2")
-  def *(mat: Mat2x2[T]): Vec2[T] = Value.map(BuildInFunction.VectorTimesMatrix)[Vec2[T], Mat2x2[T], Vec2[T]](vec, mat)
+  def *(mat: Mat2x2[T]): Vec2[T] = Value.map(Operator.VectorTimesMatrix)[Vec2[T], Mat2x2[T], Vec2[T]](vec, mat)
   @targetName("vec2TimesMat2x3")
-  def *(mat: Mat2x3[T]): Vec3[T] = Value.map(BuildInFunction.VectorTimesMatrix)[Vec2[T], Mat2x3[T], Vec3[T]](vec, mat)
+  def *(mat: Mat2x3[T]): Vec3[T] = Value.map(Operator.VectorTimesMatrix)[Vec2[T], Mat2x3[T], Vec3[T]](vec, mat)
   @targetName("vec2TimesMat2x4")
-  def *(mat: Mat2x4[T]): Vec4[T] = Value.map(BuildInFunction.VectorTimesMatrix)[Vec2[T], Mat2x4[T], Vec4[T]](vec, mat)
+  def *(mat: Mat2x4[T]): Vec4[T] = Value.map(Operator.VectorTimesMatrix)[Vec2[T], Mat2x4[T], Vec4[T]](vec, mat)
 
 extension [T <: FloatType: Value](
   vec: Vec3[T]
 )(using Value[Mat3x2[T]], Value[Vec2[T]], Value[Mat3x3[T]], Value[Vec3[T]], Value[Mat3x4[T]], Value[Vec4[T]])
   @targetName("vec3TimesMat3x2")
-  def *(mat: Mat3x2[T]): Vec2[T] = Value.map(BuildInFunction.VectorTimesMatrix)[Vec3[T], Mat3x2[T], Vec2[T]](vec, mat)
+  def *(mat: Mat3x2[T]): Vec2[T] = Value.map(Operator.VectorTimesMatrix)[Vec3[T], Mat3x2[T], Vec2[T]](vec, mat)
   @targetName("vec3TimesMat3x3")
-  def *(mat: Mat3x3[T]): Vec3[T] = Value.map(BuildInFunction.VectorTimesMatrix)[Vec3[T], Mat3x3[T], Vec3[T]](vec, mat)
+  def *(mat: Mat3x3[T]): Vec3[T] = Value.map(Operator.VectorTimesMatrix)[Vec3[T], Mat3x3[T], Vec3[T]](vec, mat)
   @targetName("vec3TimesMat3x4")
-  def *(mat: Mat3x4[T]): Vec4[T] = Value.map(BuildInFunction.VectorTimesMatrix)[Vec3[T], Mat3x4[T], Vec4[T]](vec, mat)
+  def *(mat: Mat3x4[T]): Vec4[T] = Value.map(Operator.VectorTimesMatrix)[Vec3[T], Mat3x4[T], Vec4[T]](vec, mat)
 
 extension [T <: FloatType: Value](
   vec: Vec4[T]
 )(using Value[Mat4x2[T]], Value[Vec2[T]], Value[Mat4x3[T]], Value[Vec3[T]], Value[Mat4x4[T]], Value[Vec4[T]])
   @targetName("vec4TimesMat4x2")
-  def *(mat: Mat4x2[T]): Vec2[T] = Value.map(BuildInFunction.VectorTimesMatrix)[Vec4[T], Mat4x2[T], Vec2[T]](vec, mat)
+  def *(mat: Mat4x2[T]): Vec2[T] = Value.map(Operator.VectorTimesMatrix)[Vec4[T], Mat4x2[T], Vec2[T]](vec, mat)
   @targetName("vec4TimesMat4x3")
-  def *(mat: Mat4x3[T]): Vec3[T] = Value.map(BuildInFunction.VectorTimesMatrix)[Vec4[T], Mat4x3[T], Vec3[T]](vec, mat)
+  def *(mat: Mat4x3[T]): Vec3[T] = Value.map(Operator.VectorTimesMatrix)[Vec4[T], Mat4x3[T], Vec3[T]](vec, mat)
   @targetName("vec4TimesMat4x4")
-  def *(mat: Mat4x4[T]): Vec4[T] = Value.map(BuildInFunction.VectorTimesMatrix)[Vec4[T], Mat4x4[T], Vec4[T]](vec, mat)
+  def *(mat: Mat4x4[T]): Vec4[T] = Value.map(Operator.VectorTimesMatrix)[Vec4[T], Mat4x4[T], Vec4[T]](vec, mat)
 
 // Matrix * Matrix/Vector operations
 extension [T <: FloatType: Value](left: Mat2x2[T])(using Value[Mat2x2[T]], Value[Mat2x3[T]], Value[Mat2x4[T]], Value[Vec2[T]])
   @targetName("mat2x2TimesVec2")
-  def *(vec: Vec2[T]): Vec2[T] = Value.map(BuildInFunction.MatrixTimesVector)[Mat2x2[T], Vec2[T], Vec2[T]](left, vec)
+  def *(vec: Vec2[T]): Vec2[T] = Value.map(Operator.MatrixTimesVector)[Mat2x2[T], Vec2[T], Vec2[T]](left, vec)
   @targetName("mat2x2TimesMat2x2")
-  def *(right: Mat2x2[T]): Mat2x2[T] = Value.map(BuildInFunction.MatrixTimesMatrix)[Mat2x2[T], Mat2x2[T], Mat2x2[T]](left, right)
+  def *(right: Mat2x2[T]): Mat2x2[T] = Value.map(Operator.MatrixTimesMatrix)[Mat2x2[T], Mat2x2[T], Mat2x2[T]](left, right)
   @targetName("mat2x2TimesMat2x3")
-  def *(right: Mat2x3[T]): Mat2x3[T] = Value.map(BuildInFunction.MatrixTimesMatrix)[Mat2x2[T], Mat2x3[T], Mat2x3[T]](left, right)
+  def *(right: Mat2x3[T]): Mat2x3[T] = Value.map(Operator.MatrixTimesMatrix)[Mat2x2[T], Mat2x3[T], Mat2x3[T]](left, right)
   @targetName("mat2x2TimesMat2x4")
-  def *(right: Mat2x4[T]): Mat2x4[T] = Value.map(BuildInFunction.MatrixTimesMatrix)[Mat2x2[T], Mat2x4[T], Mat2x4[T]](left, right)
+  def *(right: Mat2x4[T]): Mat2x4[T] = Value.map(Operator.MatrixTimesMatrix)[Mat2x2[T], Mat2x4[T], Mat2x4[T]](left, right)
 
 extension [T <: FloatType: Value](
   left: Mat2x3[T]
 )(using Value[Mat2x3[T]], Value[Mat3x2[T]], Value[Mat2x2[T]], Value[Mat3x3[T]], Value[Mat3x4[T]], Value[Mat2x4[T]], Value[Vec2[T]], Value[Vec3[T]])
   @targetName("mat2x3TimesVec3")
-  def *(vec: Vec3[T]): Vec2[T] = Value.map(BuildInFunction.MatrixTimesVector)[Mat2x3[T], Vec3[T], Vec2[T]](left, vec)
+  def *(vec: Vec3[T]): Vec2[T] = Value.map(Operator.MatrixTimesVector)[Mat2x3[T], Vec3[T], Vec2[T]](left, vec)
   @targetName("mat2x3TimesMat3x2")
-  def *(right: Mat3x2[T]): Mat2x2[T] = Value.map(BuildInFunction.MatrixTimesMatrix)[Mat2x3[T], Mat3x2[T], Mat2x2[T]](left, right)
+  def *(right: Mat3x2[T]): Mat2x2[T] = Value.map(Operator.MatrixTimesMatrix)[Mat2x3[T], Mat3x2[T], Mat2x2[T]](left, right)
   @targetName("mat2x3TimesMat3x3")
-  def *(right: Mat3x3[T]): Mat2x3[T] = Value.map(BuildInFunction.MatrixTimesMatrix)[Mat2x3[T], Mat3x3[T], Mat2x3[T]](left, right)
+  def *(right: Mat3x3[T]): Mat2x3[T] = Value.map(Operator.MatrixTimesMatrix)[Mat2x3[T], Mat3x3[T], Mat2x3[T]](left, right)
   @targetName("mat2x3TimesMat3x4")
-  def *(right: Mat3x4[T]): Mat2x4[T] = Value.map(BuildInFunction.MatrixTimesMatrix)[Mat2x3[T], Mat3x4[T], Mat2x4[T]](left, right)
+  def *(right: Mat3x4[T]): Mat2x4[T] = Value.map(Operator.MatrixTimesMatrix)[Mat2x3[T], Mat3x4[T], Mat2x4[T]](left, right)
 
 extension [T <: FloatType: Value](
   left: Mat2x4[T]
 )(using Value[Mat2x4[T]], Value[Mat4x2[T]], Value[Mat2x2[T]], Value[Mat4x3[T]], Value[Mat2x3[T]], Value[Mat4x4[T]], Value[Vec2[T]], Value[Vec4[T]])
   @targetName("mat2x4TimesVec4")
-  def *(vec: Vec4[T]): Vec2[T] = Value.map(BuildInFunction.MatrixTimesVector)[Mat2x4[T], Vec4[T], Vec2[T]](left, vec)
+  def *(vec: Vec4[T]): Vec2[T] = Value.map(Operator.MatrixTimesVector)[Mat2x4[T], Vec4[T], Vec2[T]](left, vec)
   @targetName("mat2x4TimesMat4x2")
-  def *(right: Mat4x2[T]): Mat2x2[T] = Value.map(BuildInFunction.MatrixTimesMatrix)[Mat2x4[T], Mat4x2[T], Mat2x2[T]](left, right)
+  def *(right: Mat4x2[T]): Mat2x2[T] = Value.map(Operator.MatrixTimesMatrix)[Mat2x4[T], Mat4x2[T], Mat2x2[T]](left, right)
   @targetName("mat2x4TimesMat4x3")
-  def *(right: Mat4x3[T]): Mat2x3[T] = Value.map(BuildInFunction.MatrixTimesMatrix)[Mat2x4[T], Mat4x3[T], Mat2x3[T]](left, right)
+  def *(right: Mat4x3[T]): Mat2x3[T] = Value.map(Operator.MatrixTimesMatrix)[Mat2x4[T], Mat4x3[T], Mat2x3[T]](left, right)
   @targetName("mat2x4TimesMat4x4")
-  def *(right: Mat4x4[T]): Mat2x4[T] = Value.map(BuildInFunction.MatrixTimesMatrix)[Mat2x4[T], Mat4x4[T], Mat2x4[T]](left, right)
+  def *(right: Mat4x4[T]): Mat2x4[T] = Value.map(Operator.MatrixTimesMatrix)[Mat2x4[T], Mat4x4[T], Mat2x4[T]](left, right)
 
 extension [T <: FloatType: Value](
   left: Mat3x2[T]
 )(using Value[Mat3x2[T]], Value[Mat2x2[T]], Value[Mat2x3[T]], Value[Mat3x3[T]], Value[Mat2x4[T]], Value[Mat3x4[T]], Value[Vec2[T]], Value[Vec3[T]])
   @targetName("mat3x2TimesVec2")
-  def *(vec: Vec2[T]): Vec3[T] = Value.map(BuildInFunction.MatrixTimesVector)[Mat3x2[T], Vec2[T], Vec3[T]](left, vec)
+  def *(vec: Vec2[T]): Vec3[T] = Value.map(Operator.MatrixTimesVector)[Mat3x2[T], Vec2[T], Vec3[T]](left, vec)
   @targetName("mat3x2TimesMat2x2")
-  def *(right: Mat2x2[T]): Mat3x2[T] = Value.map(BuildInFunction.MatrixTimesMatrix)[Mat3x2[T], Mat2x2[T], Mat3x2[T]](left, right)
+  def *(right: Mat2x2[T]): Mat3x2[T] = Value.map(Operator.MatrixTimesMatrix)[Mat3x2[T], Mat2x2[T], Mat3x2[T]](left, right)
   @targetName("mat3x2TimesMat2x3")
-  def *(right: Mat2x3[T]): Mat3x3[T] = Value.map(BuildInFunction.MatrixTimesMatrix)[Mat3x2[T], Mat2x3[T], Mat3x3[T]](left, right)
+  def *(right: Mat2x3[T]): Mat3x3[T] = Value.map(Operator.MatrixTimesMatrix)[Mat3x2[T], Mat2x3[T], Mat3x3[T]](left, right)
   @targetName("mat3x2TimesMat2x4")
-  def *(right: Mat2x4[T]): Mat3x4[T] = Value.map(BuildInFunction.MatrixTimesMatrix)[Mat3x2[T], Mat2x4[T], Mat3x4[T]](left, right)
+  def *(right: Mat2x4[T]): Mat3x4[T] = Value.map(Operator.MatrixTimesMatrix)[Mat3x2[T], Mat2x4[T], Mat3x4[T]](left, right)
 
 extension [T <: FloatType: Value](left: Mat3x3[T])(using Value[Mat3x3[T]], Value[Mat3x2[T]], Value[Mat3x4[T]], Value[Vec3[T]])
   @targetName("mat3x3TimesVec3")
-  def *(vec: Vec3[T]): Vec3[T] = Value.map(BuildInFunction.MatrixTimesVector)[Mat3x3[T], Vec3[T], Vec3[T]](left, vec)
+  def *(vec: Vec3[T]): Vec3[T] = Value.map(Operator.MatrixTimesVector)[Mat3x3[T], Vec3[T], Vec3[T]](left, vec)
   @targetName("mat3x3TimesMat3x2")
-  def *(right: Mat3x2[T]): Mat3x2[T] = Value.map(BuildInFunction.MatrixTimesMatrix)[Mat3x3[T], Mat3x2[T], Mat3x2[T]](left, right)
+  def *(right: Mat3x2[T]): Mat3x2[T] = Value.map(Operator.MatrixTimesMatrix)[Mat3x3[T], Mat3x2[T], Mat3x2[T]](left, right)
   @targetName("mat3x3TimesMat3x3")
-  def *(right: Mat3x3[T]): Mat3x3[T] = Value.map(BuildInFunction.MatrixTimesMatrix)[Mat3x3[T], Mat3x3[T], Mat3x3[T]](left, right)
+  def *(right: Mat3x3[T]): Mat3x3[T] = Value.map(Operator.MatrixTimesMatrix)[Mat3x3[T], Mat3x3[T], Mat3x3[T]](left, right)
   @targetName("mat3x3TimesMat3x4")
-  def *(right: Mat3x4[T]): Mat3x4[T] = Value.map(BuildInFunction.MatrixTimesMatrix)[Mat3x3[T], Mat3x4[T], Mat3x4[T]](left, right)
+  def *(right: Mat3x4[T]): Mat3x4[T] = Value.map(Operator.MatrixTimesMatrix)[Mat3x3[T], Mat3x4[T], Mat3x4[T]](left, right)
 
 extension [T <: FloatType: Value](
   left: Mat3x4[T]
 )(using Value[Mat3x4[T]], Value[Mat4x2[T]], Value[Mat3x2[T]], Value[Mat4x3[T]], Value[Mat3x3[T]], Value[Mat4x4[T]], Value[Vec3[T]], Value[Vec4[T]])
   @targetName("mat3x4TimesVec4")
-  def *(vec: Vec4[T]): Vec3[T] = Value.map(BuildInFunction.MatrixTimesVector)[Mat3x4[T], Vec4[T], Vec3[T]](left, vec)
+  def *(vec: Vec4[T]): Vec3[T] = Value.map(Operator.MatrixTimesVector)[Mat3x4[T], Vec4[T], Vec3[T]](left, vec)
   @targetName("mat3x4TimesMat4x2")
-  def *(right: Mat4x2[T]): Mat3x2[T] = Value.map(BuildInFunction.MatrixTimesMatrix)[Mat3x4[T], Mat4x2[T], Mat3x2[T]](left, right)
+  def *(right: Mat4x2[T]): Mat3x2[T] = Value.map(Operator.MatrixTimesMatrix)[Mat3x4[T], Mat4x2[T], Mat3x2[T]](left, right)
   @targetName("mat3x4TimesMat4x3")
-  def *(right: Mat4x3[T]): Mat3x3[T] = Value.map(BuildInFunction.MatrixTimesMatrix)[Mat3x4[T], Mat4x3[T], Mat3x3[T]](left, right)
+  def *(right: Mat4x3[T]): Mat3x3[T] = Value.map(Operator.MatrixTimesMatrix)[Mat3x4[T], Mat4x3[T], Mat3x3[T]](left, right)
   @targetName("mat3x4TimesMat4x4")
-  def *(right: Mat4x4[T]): Mat3x4[T] = Value.map(BuildInFunction.MatrixTimesMatrix)[Mat3x4[T], Mat4x4[T], Mat3x4[T]](left, right)
+  def *(right: Mat4x4[T]): Mat3x4[T] = Value.map(Operator.MatrixTimesMatrix)[Mat3x4[T], Mat4x4[T], Mat3x4[T]](left, right)
 
 extension [T <: FloatType: Value](
   left: Mat4x2[T]
 )(using Value[Mat4x2[T]], Value[Mat2x2[T]], Value[Mat2x3[T]], Value[Mat4x3[T]], Value[Mat2x4[T]], Value[Mat4x4[T]], Value[Vec2[T]], Value[Vec4[T]])
   @targetName("mat4x2TimesVec2")
-  def *(vec: Vec2[T]): Vec4[T] = Value.map(BuildInFunction.MatrixTimesVector)[Mat4x2[T], Vec2[T], Vec4[T]](left, vec)
+  def *(vec: Vec2[T]): Vec4[T] = Value.map(Operator.MatrixTimesVector)[Mat4x2[T], Vec2[T], Vec4[T]](left, vec)
   @targetName("mat4x2TimesMat2x2")
-  def *(right: Mat2x2[T]): Mat4x2[T] = Value.map(BuildInFunction.MatrixTimesMatrix)[Mat4x2[T], Mat2x2[T], Mat4x2[T]](left, right)
+  def *(right: Mat2x2[T]): Mat4x2[T] = Value.map(Operator.MatrixTimesMatrix)[Mat4x2[T], Mat2x2[T], Mat4x2[T]](left, right)
   @targetName("mat4x2TimesMat2x3")
-  def *(right: Mat2x3[T]): Mat4x3[T] = Value.map(BuildInFunction.MatrixTimesMatrix)[Mat4x2[T], Mat2x3[T], Mat4x3[T]](left, right)
+  def *(right: Mat2x3[T]): Mat4x3[T] = Value.map(Operator.MatrixTimesMatrix)[Mat4x2[T], Mat2x3[T], Mat4x3[T]](left, right)
   @targetName("mat4x2TimesMat2x4")
-  def *(right: Mat2x4[T]): Mat4x4[T] = Value.map(BuildInFunction.MatrixTimesMatrix)[Mat4x2[T], Mat2x4[T], Mat4x4[T]](left, right)
+  def *(right: Mat2x4[T]): Mat4x4[T] = Value.map(Operator.MatrixTimesMatrix)[Mat4x2[T], Mat2x4[T], Mat4x4[T]](left, right)
 
 extension [T <: FloatType: Value](
   left: Mat4x3[T]
 )(using Value[Mat4x3[T]], Value[Mat3x2[T]], Value[Mat4x2[T]], Value[Mat3x3[T]], Value[Mat3x4[T]], Value[Mat4x4[T]], Value[Vec3[T]], Value[Vec4[T]])
   @targetName("mat4x3TimesVec3")
-  def *(vec: Vec3[T]): Vec4[T] = Value.map(BuildInFunction.MatrixTimesVector)[Mat4x3[T], Vec3[T], Vec4[T]](left, vec)
+  def *(vec: Vec3[T]): Vec4[T] = Value.map(Operator.MatrixTimesVector)[Mat4x3[T], Vec3[T], Vec4[T]](left, vec)
   @targetName("mat4x3TimesMat3x2")
-  def *(right: Mat3x2[T]): Mat4x2[T] = Value.map(BuildInFunction.MatrixTimesMatrix)[Mat4x3[T], Mat3x2[T], Mat4x2[T]](left, right)
+  def *(right: Mat3x2[T]): Mat4x2[T] = Value.map(Operator.MatrixTimesMatrix)[Mat4x3[T], Mat3x2[T], Mat4x2[T]](left, right)
   @targetName("mat4x3TimesMat3x3")
-  def *(right: Mat3x3[T]): Mat4x3[T] = Value.map(BuildInFunction.MatrixTimesMatrix)[Mat4x3[T], Mat3x3[T], Mat4x3[T]](left, right)
+  def *(right: Mat3x3[T]): Mat4x3[T] = Value.map(Operator.MatrixTimesMatrix)[Mat4x3[T], Mat3x3[T], Mat4x3[T]](left, right)
   @targetName("mat4x3TimesMat3x4")
-  def *(right: Mat3x4[T]): Mat4x4[T] = Value.map(BuildInFunction.MatrixTimesMatrix)[Mat4x3[T], Mat3x4[T], Mat4x4[T]](left, right)
+  def *(right: Mat3x4[T]): Mat4x4[T] = Value.map(Operator.MatrixTimesMatrix)[Mat4x3[T], Mat3x4[T], Mat4x4[T]](left, right)
 
 extension [T <: FloatType: Value](left: Mat4x4[T])(using Value[Mat4x4[T]], Value[Mat4x2[T]], Value[Mat4x3[T]], Value[Vec4[T]])
   @targetName("mat4x4TimesVec4")
-  def *(vec: Vec4[T]): Vec4[T] = Value.map(BuildInFunction.MatrixTimesVector)[Mat4x4[T], Vec4[T], Vec4[T]](left, vec)
+  def *(vec: Vec4[T]): Vec4[T] = Value.map(Operator.MatrixTimesVector)[Mat4x4[T], Vec4[T], Vec4[T]](left, vec)
   @targetName("mat4x4TimesMat4x2")
-  def *(right: Mat4x2[T]): Mat4x2[T] = Value.map(BuildInFunction.MatrixTimesMatrix)[Mat4x4[T], Mat4x2[T], Mat4x2[T]](left, right)
+  def *(right: Mat4x2[T]): Mat4x2[T] = Value.map(Operator.MatrixTimesMatrix)[Mat4x4[T], Mat4x2[T], Mat4x2[T]](left, right)
   @targetName("mat4x4TimesMat4x3")
-  def *(right: Mat4x3[T]): Mat4x3[T] = Value.map(BuildInFunction.MatrixTimesMatrix)[Mat4x4[T], Mat4x3[T], Mat4x3[T]](left, right)
+  def *(right: Mat4x3[T]): Mat4x3[T] = Value.map(Operator.MatrixTimesMatrix)[Mat4x4[T], Mat4x3[T], Mat4x3[T]](left, right)
   @targetName("mat4x4TimesMat4x4")
-  def *(right: Mat4x4[T]): Mat4x4[T] = Value.map(BuildInFunction.MatrixTimesMatrix)[Mat4x4[T], Mat4x4[T], Mat4x4[T]](left, right)
+  def *(right: Mat4x4[T]): Mat4x4[T] = Value.map(Operator.MatrixTimesMatrix)[Mat4x4[T], Mat4x4[T], Mat4x4[T]](left, right)
 
 // Outer product: Vec * Vec -> Matrix
 extension [T <: FloatType: Value](v1: Vec2[T])(using Value[Vec2[T]], Value[Mat2x2[T]])
   @targetName("outerProductVec2")
-  infix def outer(v2: Vec2[T]): Mat2x2[T] = Value.map(BuildInFunction.OuterProduct)[Vec2[T], Vec2[T], Mat2x2[T]](v1, v2)
+  infix def outer(v2: Vec2[T]): Mat2x2[T] = Value.map(Operator.OuterProduct)[Vec2[T], Vec2[T], Mat2x2[T]](v1, v2)
 
 extension [T <: FloatType: Value](v1: Vec3[T])(using Value[Vec3[T]], Value[Mat3x3[T]])
   @targetName("outerProductVec3")
-  infix def outer(v2: Vec3[T]): Mat3x3[T] = Value.map(BuildInFunction.OuterProduct)[Vec3[T], Vec3[T], Mat3x3[T]](v1, v2)
+  infix def outer(v2: Vec3[T]): Mat3x3[T] = Value.map(Operator.OuterProduct)[Vec3[T], Vec3[T], Mat3x3[T]](v1, v2)
 
 extension [T <: FloatType: Value](v1: Vec4[T])(using Value[Vec4[T]], Value[Mat4x4[T]])
   @targetName("outerProductVec4")
-  infix def outer(v2: Vec4[T]): Mat4x4[T] = Value.map(BuildInFunction.OuterProduct)[Vec4[T], Vec4[T], Mat4x4[T]](v1, v2)
+  infix def outer(v2: Vec4[T]): Mat4x4[T] = Value.map(Operator.OuterProduct)[Vec4[T], Vec4[T], Mat4x4[T]](v1, v2)

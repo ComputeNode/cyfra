@@ -2,7 +2,7 @@ package io.computenode.cyfra.compiler.modules
 
 import io.computenode.cyfra.compiler.Compiler
 import io.computenode.cyfra.compiler.modules.CompilationModule.StandardCompilationModule
-import io.computenode.cyfra.compiler.unit.Compilation
+import io.computenode.cyfra.compiler.unit.CompilationUnit
 import io.computenode.cyfra.compiler.unit.Ctx
 import io.computenode.cyfra.compiler.ir.IR
 import io.computenode.cyfra.compiler.ir.IR.RefIR
@@ -13,7 +13,7 @@ import io.computenode.cyfra.core.expression.types.*
 import io.computenode.cyfra.core.expression.types.given
 
 class Finalizer extends StandardCompilationModule:
-  def compile(input: Compilation): Compilation =
+  def compile(input: CompilationUnit): CompilationUnit =
     val main = input.functionBodies.last.body.head.asInstanceOf[RefIR[?]]
     val (prevPrefix, inputs) = input.context.prefix.partitionMap:
       case IR.Interface(ref) => Right(ref)

@@ -3,7 +3,7 @@ package io.computenode.cyfra.compiler.modules
 import io.computenode.cyfra.compiler.ir.IR.RefIR
 import io.computenode.cyfra.compiler.ir.{FunctionIR, IR, IRs}
 import io.computenode.cyfra.compiler.modules.CompilationModule.StandardCompilationModule
-import io.computenode.cyfra.compiler.unit.{Compilation, Context, Ctx}
+import io.computenode.cyfra.compiler.unit.{CompilationUnit, Context, Ctx}
 import io.computenode.cyfra.compiler.Spirv.Op
 import io.computenode.cyfra.compiler.Spirv.FunctionControlMask
 import io.computenode.cyfra.core.expression.{Value, given}
@@ -15,7 +15,7 @@ import scala.collection.mutable
 import scala.collection
 
 class Functions extends StandardCompilationModule:
-  override def compile(input: Compilation): Compilation =
+  override def compile(input: CompilationUnit): CompilationUnit =
     val (newFunctions, context) = Ctx.withCapability(input.context):
       val mapRes = mutable.Buffer.empty[IRs[?]]
       input.functionBodies

@@ -30,9 +30,7 @@ case class ExpressionBlock[A](result: Expression[A], body: List[Expression[?]]):
           focus.getRoot match
             case variable: LocalVariable[?] if vars.contains(variable.id) => vars
             case _                                                        => break(false)
-        case Expression.BuildInOperation(func, _) =>
-          if !func.isPure then break(false)
-          vars
+        case Expression.Operation(_, _)     => vars
         case Expression.CustomCall(func, _) =>
           if !func.isPure then break(false)
           vars
@@ -58,12 +56,15 @@ case class ExpressionBlock[A](result: Expression[A], body: List[Expression[?]]):
 
   def traverse[T](f: Expression[?] => Option[T], enterFunctions: Boolean = false): List[Option[T]] =
     body.flatMap:
-      case x @ Expression.Loop(mainBody, continueBody, _, _) =>
-        continueBody.traverse(f, enterFunctions) ++ mainBody.traverse(f, enterFunctions) :+ f(x)
-      case x @ Expression.Branch(_, ifTrue, ifFalse, _) =>
-        ifFalse.traverse(f, enterFunctions) ++ ifTrue.traverse(f, enterFunctions) :+ f(x)
-      case x @ Expression.CustomCall(func, _) if enterFunctions =>
-        func.body.traverse(f, enterFunctions) :+ f(x)
+      case x: Expression.BranchingExpression =>
+        x match
+          case x @ Expression.Loop(mainBody, continueBody, _, _) =>
+            continueBody.traverse(f, enterFunctions) ++ mainBody.traverse(f, enterFunctions) :+ f(x)
+          case x @ Expression.Branch(_, ifTrue, ifFalse, _) =>
+            ifFalse.traverse(f, enterFunctions) ++ ifTrue.traverse(f, enterFunctions) :+ f(x)
+          case x @ Expression.CustomCall(func, _) if enterFunctions =>
+            func.body.traverse(f, enterFunctions) :+ f(x)
+          case x: Expression.CustomCall[?] => List(f(x))
       case other => List(f(other))
 
   def collect[T](pf: PartialFunction[Expression[?], T]): List[T] =
@@ -80,7 +81,7 @@ case class ExpressionBlock[A](result: Expression[A], body: List[Expression[?]]):
         case Expression.VariableDeclare(variable, init)      => s"declare $variable ${init.map(_.id.toString).getOrElse("")}"
         case Expression.Read(variable, accessChain)          => s"read $variable ${accessChain.map(_.id).mkString("%", " %", "")}"
         case Expression.Write(variable, accessChain, value)  => s"write $variable ${accessChain.map(_.id).mkString("%", " %", "")} <- %${value.id}"
-        case Expression.BuildInOperation(func, args)         => s"$func ${args.map(_.id).mkString("%", " %", "")}"
+        case Expression.Operation(func, args)                => s"$func ${args.map(_.id).mkString("%", " %", "")}"
         case Expression.CustomCall(func, args)               => s"call #${func.id} ${args.map(_.id).mkString("%", " %", "")}"
         case Expression.Branch(cond, ifTrue, ifFalse, break) => s"branch %${cond.id} ? [%${ifTrue._1.id}] : [%${ifFalse._1.id}] -> jt#${break.id}"
         case Expression.Loop(mainBody, continueBody, break, continue) =>
@@ -111,63 +112,3 @@ object ExpressionBlock:
   given Monad[ExpressionBlock] with
     def flatMap[A, B](fa: ExpressionBlock[A])(f: A => ExpressionBlock[B]): ExpressionBlock[B] = ExpressionBlock.flatMap(fa)(f)
     def pure[A](x: A): ExpressionBlock[A] = ExpressionBlock.pure(x)
-
-  def optimise[A: Value](block: ExpressionBlock[A]): ExpressionBlock[A] =
-    val combined = simplifyExtractCombine(block)
-    val distinct = ExpressionBlock(combined.result, combined.body.reverse.distinctBy(_.id).reverse)
-    val active = getActive(distinct)
-    filterNotActive(distinct, active)
-
-  private def simplifyExtractCombine[A: Value](block: ExpressionBlock[A]): ExpressionBlock[A] =
-    block
-
-  private def filterNotActive[A: Value](block: ExpressionBlock[A], active: Set[Int]): ExpressionBlock[A] = block // TODO filter
-
-  private def getActive(block: ExpressionBlock[?]): Set[Int] =
-    val visited = mutable.Set.empty[Int]
-
-    def visit(current: Expression[?]): Unit =
-      if visited(current.id) then return
-
-      visited.add(current.id)
-      current match
-        case Expression.VariableDeclare(_, Some(x))  => visit(x)
-        case Expression.Write(_, accessChain, value) =>
-          accessChain.foreach(visit)
-          visit(value)
-        case Expression.Jump(_, value)                  => visit(value)
-        case Expression.ConditionalJump(cond, _, value) =>
-          visit(value)
-          visit(cond)
-        case Expression.Read(_, accessChain)             => accessChain.foreach(visit)
-        case Expression.BuildInOperation(_, args)        => args.foreach(visit)
-        case Expression.Branch(cond, ifTrue, ifFalse, _) =>
-          visit(cond)
-          visit(ifTrue.result)
-          visit(ifFalse.result)
-          visitBlock(ifTrue)
-          visitBlock(ifFalse)
-        case Expression.Loop(mainBody, continueBody, _, _) =>
-          visitBlock(mainBody)
-          visitBlock(continueBody)
-        case Expression.Extract(value, _)                => visit(value)
-        case Expression.Combine(composites)              => composites.foreach(visit)
-        case Expression.Insert(original, replacement, _) =>
-          visit(original)
-          visit(replacement)
-        case _ => ()
-
-    def visitBlock(block: ExpressionBlock[?]): Unit =
-      block.body.foreach:
-        case x: Expression.VariableDeclare[?]                    => visit(x)
-        case x: Expression.Write[?]                              => visit(x)
-        case x: Expression.BuildInOperation[?] if !x.func.isPure => visit(x)
-        case x: Expression.CustomCall[?] if !x.func.isPure       => visit(x)
-        case x: Expression.Branch[?]                             => visit(x)
-        case x: Expression.Loop                                  => visit(x)
-        case x: Expression.Jump[?]                               => visit(x)
-        case x: Expression.ConditionalJump[?]                    => visit(x)
-        case _                                                   => ()
-
-    visitBlock(block)
-    visited.toSet

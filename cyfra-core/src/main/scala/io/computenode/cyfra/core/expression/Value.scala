@@ -1,7 +1,7 @@
 package io.computenode.cyfra.core.expression
 
 import io.computenode.cyfra.core.expression.{Expression, ExpressionBlock}
-import io.computenode.cyfra.core.expression.BuildInFunction.{BuildInFunction0, BuildInFunction1, BuildInFunction2, BuildInFunction3, BuildInFunction4}
+import io.computenode.cyfra.core.expression.Operator.{Operator0, Operator1, Operator2, Operator3, Operator4}
 import io.computenode.cyfra.core.expression.types.unitZero
 import io.computenode.cyfra.utility.cats.Monad
 import izumi.reflect.Tag
@@ -38,34 +38,34 @@ object Value:
     def baseTag: Option[Tag[?]] = None
     def composites: List[Value[?]] = Nil
 
-  def map[Res: Value](f: BuildInFunction0)(): Res =
-    val next = Expression.BuildInOperation[Res](f, Nil)
+  def map[Res: Value](f: Operator0)(): Res =
+    val next = Expression.Operation[Res](f, Nil)
     Value[Res].extract(ExpressionBlock(next, List(next)))
 
-  def map(f: BuildInFunction1)[A1: Value, Res: Value](x1: A1): Res =
+  def map(f: Operator1)[A1: Value, Res: Value](x1: A1): Res =
     val arg1 = Value[A1].peel(x1)
-    val next = Expression.BuildInOperation[Res](f, List(arg1.result))
+    val next = Expression.Operation[Res](f, List(arg1.result))
     Value[Res].extract(arg1.add(next))
 
-  def map(f: BuildInFunction2)[A1: Value, A2: Value, Res: Value](x1: A1, x2: A2): Res =
+  def map(f: Operator2)[A1: Value, A2: Value, Res: Value](x1: A1, x2: A2): Res =
     val arg1 = Value[A1].peel(x1)
     val arg2 = Value[A2].peel(x2)
-    val next = Expression.BuildInOperation[Res](f, List(arg1.result, arg2.result))
+    val next = Expression.Operation[Res](f, List(arg1.result, arg2.result))
     Value[Res].extract(arg1.extend(arg2).add(next))
 
-  def map(f: BuildInFunction3)[A1: Value, A2: Value, A3: Value, Res: Value](x1: A1, x2: A2, x3: A3): Res =
+  def map(f: Operator3)[A1: Value, A2: Value, A3: Value, Res: Value](x1: A1, x2: A2, x3: A3): Res =
     val arg1 = Value[A1].peel(x1)
     val arg2 = Value[A2].peel(x2)
     val arg3 = Value[A3].peel(x3)
-    val next = Expression.BuildInOperation[Res](f, List(arg1.result, arg2.result, arg3.result))
+    val next = Expression.Operation[Res](f, List(arg1.result, arg2.result, arg3.result))
     Value[Res].extract(arg1.extend(arg2).extend(arg3).add(next))
 
-  def map(f: BuildInFunction4)[A1: Value, A2: Value, A3: Value, A4: Value, Res: Value](x1: A1, x2: A2, x3: A3, x4: A4): Res =
+  def map(f: Operator4)[A1: Value, A2: Value, A3: Value, A4: Value, Res: Value](x1: A1, x2: A2, x3: A3, x4: A4): Res =
     val arg1 = Value[A1].peel(x1)
     val arg2 = Value[A2].peel(x2)
     val arg3 = Value[A3].peel(x3)
     val arg4 = Value[A4].peel(x4)
-    val next = Expression.BuildInOperation[Res](f, List(arg1.result, arg2.result, arg3.result, arg4.result))
+    val next = Expression.Operation[Res](f, List(arg1.result, arg2.result, arg3.result, arg4.result))
     Value[Res].extract(arg1.extend(arg2).extend(arg3).extend(arg4).add(next))
 
   extension [A: Value](x: A) def irs: ExpressionBlock[A] = Value[A].peel(x)

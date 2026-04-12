@@ -4,7 +4,7 @@ import io.computenode.cyfra.core.memory.GBinding
 import io.computenode.cyfra.core.expression.ExpressionBlock
 import io.computenode.cyfra.compiler.modules.*
 import io.computenode.cyfra.compiler.modules.CompilationModule.StandardCompilationModule
-import io.computenode.cyfra.compiler.unit.Compilation
+import io.computenode.cyfra.compiler.unit.CompilationUnit
 import io.computenode.cyfra.core.GProgram.WorkDimensions
 
 import java.nio.ByteBuffer
@@ -29,18 +29,18 @@ class Compiler(verbose: "none" | "last" | "all" = "none"):
     val parsed = transformer.compile((body, config))
     if verbose == "all" then
       println(s"=== ${transformer.name} ===")
-      Compilation.debugPrint(parsed)
+      CompilationUnit.debugPrint(parsed)
 
     val compiledUnit = modules.foldLeft(parsed): (unit, module) =>
       val res = module.compile(unit)
       if verbose == "all" then
         println(s"\n=== ${module.name} ===")
-        Compilation.debugPrint(res)
+        CompilationUnit.debugPrint(res)
       res
 
     if verbose == "last" then
       println(s"\n=== Final Output ===")
-      Compilation.debugPrint(compiledUnit)
+      CompilationUnit.debugPrint(compiledUnit)
 
     emitter.compile(compiledUnit)
 

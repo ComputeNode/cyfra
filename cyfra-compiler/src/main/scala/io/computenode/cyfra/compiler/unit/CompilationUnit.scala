@@ -8,18 +8,18 @@ import io.computenode.cyfra.compiler.ir.{FunctionIR, IR, IRs}
 import io.computenode.cyfra.core.memory.{BindingRef, FocusRoot, Variable}
 import io.computenode.cyfra.utility.Utility.*
 
-case class Compilation(metadata: Metadata, context: Context, functionBodies: List[IRs[?]]):
+case class CompilationUnit(metadata: Metadata, context: Context, functionBodies: List[IRs[?]]):
   def output: List[IR[?]] =
     context.output ++ functionBodies.flatMap(_.body)
 
-object Compilation:
-  def apply(functions: List[(FunctionIR[?], IRs[?])], config: Config): Compilation =
+object CompilationUnit:
+  def apply(functions: List[(FunctionIR[?], IRs[?])], config: Config): CompilationUnit =
     val (f, fir) = functions.unzip
     val context = Context(Nil, Nil, TypeManager(), ConstantsManager(), Nil)
     val meta = Metadata(f, config)
-    Compilation(meta, context, fir)
+    CompilationUnit(meta, context, fir)
 
-  def debugPrint(compilation: Compilation): Unit =
+  def debugPrint(compilation: CompilationUnit): Unit =
     var printingError = false
 
     val irs = compilation.output

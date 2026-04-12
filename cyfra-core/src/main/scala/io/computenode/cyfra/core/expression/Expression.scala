@@ -16,18 +16,21 @@ sealed trait Expression[A: Value]:
 object Expression:
   sealed trait ExpressionUnit[B: Value] extends Expression[Unit]:
     def v2: Value[B] = Value[B]
+  
+  sealed trait BranchingExpression
 
   case class Constant[A: Value](value: Any) extends Expression[A]
   case class LiteralArgs(value: List[Int]) extends Expression[Literal]
   case class VariableDeclare[B: Value](variable: LocalVariable[B], init: Option[Expression[B]]) extends ExpressionUnit[B]
   case class Read[A: Value](focus: FocusRoot[?], accessChain: List[Expression[?]]) extends Expression[A]
   case class Write[B: Value](focus: FocusRoot[?], accessChain: List[Expression[?]], value: Expression[B]) extends ExpressionUnit[B]
-  case class BuildInOperation[A: Value](func: BuildInFunction, args: List[Expression[?]]) extends Expression[A]
-  case class CustomCall[A: Value](func: CustomFunction[A], args: List[Variable[?]]) extends Expression[A]
+  case class Operation[A: Value](op: Operator, args: List[Expression[?]]) extends Expression[A]
+  case class OperationImpure[A: Value](op: OperatorImpure, args: List[Expression[?]]) extends Expression[A]
+  case class CustomCall[A: Value](func: CustomFunction[A], args: List[Variable[?]]) extends Expression[A] with BranchingExpression
   case class Branch[A: Value](cond: Expression[Bool], ifTrue: ExpressionBlock[A], ifFalse: ExpressionBlock[A], break: JumpTarget[A])
-      extends Expression[A]
+      extends Expression[A] with BranchingExpression
   case class Loop(mainBody: ExpressionBlock[Unit], continueBody: ExpressionBlock[Unit], break: BreakTarget, continue: ContinueTarget)
-      extends Expression[Unit]
+      extends Expression[Unit] with BranchingExpression // TODO change jump target to phi
   case class Jump[B: Value](target: JumpTarget[B], value: Expression[B]) extends ExpressionUnit[B]
   case class ConditionalJump[B: Value](cond: Expression[Bool], target: JumpTarget[B], value: Expression[B]) extends ExpressionUnit[B]
   case class Extract[In: Value, Res: Value](value: Expression[In], index: Int) extends Expression[Res]:

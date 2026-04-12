@@ -4,14 +4,14 @@ import io.computenode.cyfra.compiler.CompilationException
 import io.computenode.cyfra.compiler.Compiler.Config
 import io.computenode.cyfra.compiler.ir.IR.RefIR
 import io.computenode.cyfra.compiler.ir.{FunctionIR, IR, IRs}
-import io.computenode.cyfra.compiler.unit.Compilation
+import io.computenode.cyfra.compiler.unit.CompilationUnit
 import io.computenode.cyfra.core.expression.types.given
 import io.computenode.cyfra.core.expression.{CustomFunction, Expression, ExpressionBlock, Value}
 
 import scala.collection.mutable
 
-class Transformer extends CompilationModule[(ExpressionBlock[Unit], Config), Compilation]:
-  def compile(body: (ExpressionBlock[Unit], Config)): Compilation =
+class Transformer extends CompilationModule[(ExpressionBlock[Unit], Config), CompilationUnit]:
+  def compile(body: (ExpressionBlock[Unit], Config)): CompilationUnit =
     val main = new CustomFunction("main", List(), body._1)
     val functions = extractCustomFunctions(main).reverse
     val functionMap = mutable.Map.empty[CustomFunction[?], FunctionIR[?]]
@@ -19,23 +19,26 @@ class Transformer extends CompilationModule[(ExpressionBlock[Unit], Config), Com
       val func = convertToFunction(f, functionMap)(using f.v)
       functionMap(f) = func._1
       func
-    Compilation(nextFunctions, body._2)
+    CompilationUnit(nextFunctions, body._2)
 
   private def extractCustomFunctions(f: CustomFunction[Unit]): List[CustomFunction[?]] =
-    val visited = mutable.Map[CustomFunction[?], 0 | 1 | 2]().withDefaultValue(0)
+    enum State:
+      case NotVisited, Processing, Visited
+    import State.*
+    val visited = mutable.Map[CustomFunction[?], State]().withDefaultValue(NotVisited)
 
     def rec(f: CustomFunction[?]): List[CustomFunction[?]] =
       visited(f) match
-        case 0 =>
-          visited(f) = 1
+        case NotVisited =>
+          visited(f) = Processing
           val fs = f.body
             .collect:
               case cc: Expression.CustomCall[?] => cc.func
             .flatMap(rec)
-          visited(f) = 2
+          visited(f) = Visited
           f :: fs
-        case 1 => throw new CompilationException(s"Cyclic dependency detected involving function: ${f.name}")
-        case 2 => Nil // Already processed
+        case Processing => throw new CompilationException(s"Cyclic dependency detected involving function: ${f.name}")
+        case Visited    => Nil // Already processed
 
     rec(f)
 
@@ -43,8 +46,7 @@ class Transformer extends CompilationModule[(ExpressionBlock[Unit], Config), Com
     f: CustomFunction[A],
     functionMap: collection.Map[CustomFunction[?], FunctionIR[?]],
   ): (FunctionIR[A], IRs[A]) =
-    val body = ExpressionBlock.optimise(f.body)
-    (FunctionIR(f.name, f.arg), convertToIRs(body, functionMap, mutable.Map.empty))
+    (FunctionIR(f.name, f.arg), convertToIRs(f.body, functionMap, mutable.Map.empty))
 
   private def convertToIRs[A: Value](
     block: ExpressionBlock[A],
@@ -83,7 +85,7 @@ class Transformer extends CompilationModule[(ExpressionBlock[Unit], Config), Com
         given Value[a] = x.v2
         val chain = x.accessChain.map(x => convertToRefIR(x, functionMap, expressionMap))
         IR.Write(x.focus.getRoot, chain, convertToRefIR(x.value, functionMap, expressionMap))
-      case Expression.BuildInOperation(func, args) =>
+      case Expression.Operation(func, args) =>
         IR.Operation(func, args.map(convertToRefIR(_, functionMap, expressionMap)))
       case Expression.CustomCall(func, args) =>
         IR.CallWithVar(functionMap(func).asInstanceOf[FunctionIR[A]], args)

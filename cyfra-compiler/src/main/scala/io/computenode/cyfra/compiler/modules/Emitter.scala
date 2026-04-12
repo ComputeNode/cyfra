@@ -3,16 +3,16 @@ package io.computenode.cyfra.compiler.modules
 import io.computenode.cyfra.compiler.CompilationException
 import io.computenode.cyfra.compiler.ir.IR.*
 import io.computenode.cyfra.compiler.ir.IR
-import io.computenode.cyfra.compiler.unit.Compilation
+import io.computenode.cyfra.compiler.unit.CompilationUnit
 import io.computenode.cyfra.compiler.Spirv.*
 import io.computenode.cyfra.utility.FlatList
 import org.lwjgl.BufferUtils
 
 import java.nio.ByteBuffer
 
-class Emitter extends CompilationModule[Compilation, ByteBuffer]:
+class Emitter extends CompilationModule[CompilationUnit, ByteBuffer]:
 
-  override def compile(input: Compilation): ByteBuffer =
+  override def compile(input: CompilationUnit): ByteBuffer =
 
     val output = input.output
     val ids = output.filter(_.isInstanceOf[RefIR[?]]).zipWithIndex.map(x => (x._1.id, ResultRef(x._2 + 1))).toMap

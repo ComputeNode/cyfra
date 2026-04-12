@@ -46,7 +46,7 @@ object IR:
   case class Write[A: Value](root: FocusRoot[?], accessChain: List[RefIR[?]], value: RefIR[A]) extends IR[Unit]:
     override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[Unit] =
       this.copy(value = value.replaced, accessChain = accessChain.map(_.replaced))
-  case class Operation[A: Value](func: BuildInFunction, args: List[RefIR[?]]) extends RefIR[A]:
+  case class Operation[A: Value](func: Operator, args: List[RefIR[?]]) extends RefIR[A]:
     override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[A] = this.copy(args = args.map(_.replaced))
   case class CallWithVar[A: Value](func: FunctionIR[A], args: List[Variable[?]]) extends RefIR[A]
   case class Branch[T: Value](cond: RefIR[Bool], ifTrue: IRs[T], ifFalse: IRs[T], break: JumpTarget[T]) extends RefIR[T]:

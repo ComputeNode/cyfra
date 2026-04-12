@@ -4,7 +4,7 @@ import io.computenode.cyfra.compiler.Spirv.*
 import io.computenode.cyfra.compiler.ir.IR.RefIR
 import io.computenode.cyfra.compiler.ir.{IR, IRs}
 import io.computenode.cyfra.compiler.modules.CompilationModule.StandardCompilationModule
-import io.computenode.cyfra.compiler.unit.{Compilation, Context, Ctx}
+import io.computenode.cyfra.compiler.unit.{CompilationUnit, Context, Ctx}
 import io.computenode.cyfra.core.expression.Value
 import io.computenode.cyfra.core.expression.types.{UInt32, given}
 import io.computenode.cyfra.core.memory.*
@@ -13,7 +13,7 @@ import io.computenode.cyfra.utility.FlatList
 import scala.collection.mutable
 
 class VariablesDigestion extends StandardCompilationModule:
-  def compile(input: Compilation): Compilation =
+  def compile(input: CompilationUnit): CompilationUnit =
     val (c1, globalMap) = compileGlobal(input.context)
     val (newFunctions, c2) = Ctx.withCapability(c1):
       input.functionBodies.map(compileFunction(_, globalMap))

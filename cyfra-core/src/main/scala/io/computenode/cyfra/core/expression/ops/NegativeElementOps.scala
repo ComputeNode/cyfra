@@ -4,7 +4,7 @@ import io.computenode.cyfra.core.expression.*
 import io.computenode.cyfra.core.expression.Value.map
 import io.computenode.cyfra.core.expression.types.*
 import io.computenode.cyfra.core.expression.types.given
-import io.computenode.cyfra.core.expression.{BuildInFunction, Value}
+import io.computenode.cyfra.core.expression.{Operator, Value}
 
 import scala.annotation.targetName
 
@@ -17,6 +17,6 @@ trait NegativeElementOps[T]
 
 extension [T: {NegativeElementOps, Value}](self: T)
   @targetName("neg")
-  def unary_- : T = Value.map(BuildInFunction.Neg)(self)
+  def unary_- : T = Value.map(Operator.Neg)(self)
   @targetName("rem")
-  infix def rem(that: T): T = Value.map(BuildInFunction.Rem)(self, that)
+  infix def rem(that: T): T = Value.map(Operator.Rem)(self, that)

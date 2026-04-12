@@ -7,7 +7,7 @@ import io.computenode.cyfra.compiler.unit.{Context, Ctx}
 import io.computenode.cyfra.compiler.Spirv.Op
 import io.computenode.cyfra.compiler.Spirv.Code
 import io.computenode.cyfra.core.expression.*
-import io.computenode.cyfra.core.expression.BuildInFunction.*
+import io.computenode.cyfra.core.expression.Operator.*
 import io.computenode.cyfra.core.expression.types.*
 import io.computenode.cyfra.core.expression.types.given
 import izumi.reflect.Tag
@@ -31,12 +31,12 @@ class Algebra extends FunctionCompilationModule:
     val tpe = Ctx.getType(Value[A])
     IRs(IR.SvRef[A](opCode, tpe, args))
 
-  private val findComposite: PartialFunction[BuildInFunction, Code] =
+  private val findComposite: PartialFunction[Operator, Code] =
     case CompositeExtract => Op.OpCompositeExtract
     case CompositeInsert  => Op.OpCompositeInsert
     case VectorShuffle    => Op.OpVectorShuffle
 
-  private def findFloat(func: BuildInFunction): Code =
+  private def findFloat(func: Operator): Code =
     func match
       case Add => Op.OpFAdd
       case Sub => Op.OpFSub
@@ -70,7 +70,7 @@ class Algebra extends FunctionCompilationModule:
 
       case other => throw CompilationException(s"$func for Float type not found")
 
-  private def findBoolean(func: BuildInFunction): Code =
+  private def findBoolean(func: Operator): Code =
     func match
       case LogicalAny      => Op.OpAny
       case LogicalAll      => Op.OpAll
@@ -83,7 +83,7 @@ class Algebra extends FunctionCompilationModule:
       case Select => Op.OpSelect // This code need more research
       case other  => throw CompilationException(s"$func for Bool type not found")
 
-  private def findInteger(func: BuildInFunction, signed: Boolean): Code =
+  private def findInteger(func: Operator, signed: Boolean): Code =
     func match
       case Add => Op.OpIAdd
       case Sub => Op.OpISub
@@ -104,7 +104,7 @@ class Algebra extends FunctionCompilationModule:
       case NotEqual => Op.OpINotEqual
       case other    => if signed then findSignedInteger(other) else findUnsignedInteger(other)
 
-  private def findSignedInteger(func: BuildInFunction): Code =
+  private def findSignedInteger(func: Operator): Code =
     func match
       case Div => Op.OpSDiv
       case Mod => Op.OpSMod
@@ -121,7 +121,7 @@ class Algebra extends FunctionCompilationModule:
 
       case other => throw CompilationException(s"$func for SInt type not found")
 
-  private def findUnsignedInteger(func: BuildInFunction): Code =
+  private def findUnsignedInteger(func: Operator): Code =
     func match
       case Div => Op.OpUDiv
       case Mod => Op.OpUMod
