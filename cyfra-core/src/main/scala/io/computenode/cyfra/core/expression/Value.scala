@@ -162,12 +162,8 @@ object Value:
       case isf: ImplicitSearchFailure =>
         report.errorAndAbort(s"Could not find Tag[${tpe.show}]: ${isf.explanation}")
 
-    // Get baseTag for tuples
-    val isTuple = tpe match
-      case AppliedType(tycon, _) => tycon.typeSymbol.fullName.startsWith("scala.Tuple")
-      case _                     => false
-    val baseTagExpr: Expr[Option[Tag[?]]] =
-      if isTuple then '{ Value.tupleBaseTag } else '{ None }
+    // Both tuples and case classes are struct-like; use tupleBaseTag so TypeManager handles them uniformly
+    val baseTagExpr: Expr[Option[Tag[?]]] = '{ Value.tupleBaseTag }
 
     // Generate tuple construction from array
     def constructFromArray(arrExpr: Expr[Array[Any]]): Expr[T] =
