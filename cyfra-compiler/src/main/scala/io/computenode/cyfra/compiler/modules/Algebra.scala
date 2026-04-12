@@ -36,8 +36,8 @@ class Algebra extends FunctionCompilationModule:
     case CompositeInsert  => Op.OpCompositeInsert
     case VectorShuffle    => Op.OpVectorShuffle
 
-  private def findFloat(func: Operator): Code =
-    func match
+  private def findFloat(op: Operator): Code =
+    op match
       case Add => Op.OpFAdd
       case Sub => Op.OpFSub
       case Mul => Op.OpFMul
@@ -68,10 +68,10 @@ class Algebra extends FunctionCompilationModule:
       case LessThanEqual    => Op.OpFOrdLessThanEqual
       case GreaterThanEqual => Op.OpFOrdGreaterThanEqual
 
-      case other => throw CompilationException(s"$func for Float type not found")
+      case other => throw CompilationException(s"$op for Float type not found")
 
-  private def findBoolean(func: Operator): Code =
-    func match
+  private def findBoolean(op: Operator): Code =
+    op match
       case LogicalAny      => Op.OpAny
       case LogicalAll      => Op.OpAll
       case LogicalEqual    => Op.OpLogicalEqual
@@ -81,10 +81,10 @@ class Algebra extends FunctionCompilationModule:
       case LogicalNot      => Op.OpLogicalNot
 
       case Select => Op.OpSelect // This code need more research
-      case other  => throw CompilationException(s"$func for Bool type not found")
+      case other  => throw CompilationException(s"$op for Bool type not found")
 
-  private def findInteger(func: Operator, signed: Boolean): Code =
-    func match
+  private def findInteger(op: Operator, signed: Boolean): Code =
+    op match
       case Add => Op.OpIAdd
       case Sub => Op.OpISub
       case Mul => Op.OpIMul
@@ -104,8 +104,8 @@ class Algebra extends FunctionCompilationModule:
       case NotEqual => Op.OpINotEqual
       case other    => if signed then findSignedInteger(other) else findUnsignedInteger(other)
 
-  private def findSignedInteger(func: Operator): Code =
-    func match
+  private def findSignedInteger(op: Operator): Code =
+    op match
       case Div => Op.OpSDiv
       case Mod => Op.OpSMod
 
@@ -119,10 +119,10 @@ class Algebra extends FunctionCompilationModule:
       case LessThanEqual    => Op.OpSLessThanEqual
       case GreaterThanEqual => Op.OpSGreaterThanEqual
 
-      case other => throw CompilationException(s"$func for SInt type not found")
+      case other => throw CompilationException(s"$op for SInt type not found")
 
-  private def findUnsignedInteger(func: Operator): Code =
-    func match
+  private def findUnsignedInteger(op: Operator): Code =
+    op match
       case Div => Op.OpUDiv
       case Mod => Op.OpUMod
 
@@ -133,4 +133,4 @@ class Algebra extends FunctionCompilationModule:
       case LessThanEqual    => Op.OpULessThanEqual
       case GreaterThanEqual => Op.OpUGreaterThanEqual
 
-      case other => throw CompilationException(s"$func for UInt type not found")
+      case other => throw CompilationException(s"$op for UInt type not found")
