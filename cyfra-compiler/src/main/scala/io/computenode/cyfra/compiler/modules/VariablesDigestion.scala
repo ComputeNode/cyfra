@@ -8,6 +8,7 @@ import io.computenode.cyfra.compiler.unit.{CompilationUnit, Context, Ctx}
 import io.computenode.cyfra.core.expression.Value
 import io.computenode.cyfra.core.expression.types.{UInt32, given}
 import io.computenode.cyfra.core.memory.*
+import io.computenode.cyfra.core.memory.GlobalVariable.Sharing.{CrossWorkgroup, Private, Workgroup}
 import io.computenode.cyfra.utility.FlatList
 
 import scala.collection.mutable
@@ -79,9 +80,9 @@ class VariablesDigestion extends StandardCompilationModule:
     root match
       case v: GlobalVariable[?] =>
         v.sharing match
-          case "private"         => StorageClass.Private
-          case "workgroup"       => StorageClass.Workgroup
-          case "cross-workgroup" => StorageClass.CrossWorkgroup
+          case Private        => StorageClass.Private
+          case Workgroup      => StorageClass.Workgroup
+          case CrossWorkgroup => StorageClass.CrossWorkgroup
       case _: LocalVariable[?]   => StorageClass.Function
       case _: BuildInVariable[?] => StorageClass.Input
       case _: GUniform[?]        => StorageClass.Uniform
