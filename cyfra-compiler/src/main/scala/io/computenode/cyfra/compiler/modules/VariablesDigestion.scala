@@ -64,6 +64,9 @@ class VariablesDigestion extends StandardCompilationModule:
               val res = IR.SvRef[Unit](Op.OpVariable, pointer, List(storageClass))
               globalDeclarations(root) = res
               interface.addOne(IR.Interface(res))
+              variable match
+                case BuildInVariable.GlobalInvocationId =>
+                  decorations.append(IR.SvInst(Op.OpDecorate, List(res, Decoration.BuiltIn, BuiltIn.GlobalInvocationId)))
               res
             case other => ??? // how did it get here?
         case IR.Declare(root, Some(_)) => ??? // impossible, can't have starting values for global variables
