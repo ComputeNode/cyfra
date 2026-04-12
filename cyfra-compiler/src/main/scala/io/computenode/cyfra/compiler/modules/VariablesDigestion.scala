@@ -73,7 +73,7 @@ class VariablesDigestion extends StandardCompilationModule:
         case IR.Declare(root, Some(_)) => ??? // impossible, can't have starting values for global variables
         case other                     => other
       (res, decorations.toList, interface.toList, globalDeclarations.toMap)
-    val c2 = c1.copy(suffix = suffix, decorations = c1.decorations ++ decorations, prefix = c1.prefix ++ prefix)
+    val c2 = c1.copy(prefix = c1.prefix ++ prefix, decorations = c1.decorations ++ decorations, suffix = suffix)
     (c2, declarations)
 
   private def rootStorageClass(root: FocusRoot[?]): Code =

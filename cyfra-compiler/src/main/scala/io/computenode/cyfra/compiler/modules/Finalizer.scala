@@ -23,7 +23,6 @@ class Finalizer extends StandardCompilationModule:
       case x: Compiler.Compute => x
 
     val prefix = List(
-      IR.SvInst(Op.OpCapability, Capability.Shader :: Nil),
       IR.SvInst(Op.OpMemoryModel, AddressingModel.Logical :: MemoryModel.GLSL450 :: Nil),
       IR.SvInst(Op.OpEntryPoint, ExecutionModel.GLCompute :: main :: Text("main") :: inputs),
       IR.SvInst(Op.OpExecutionMode, main :: ExecutionMode.LocalSize :: config.workgroupSize.toList.map(IntWord.apply)),
@@ -31,6 +30,10 @@ class Finalizer extends StandardCompilationModule:
       IR.SvInst(Op.OpSourceExtension, Text("Scala 3") :: Nil),
     )
 
-    val c2 = input.context.copy(prefix = prefix ++ prevPrefix)
+    val cap = input.metadata.config match
+      case _: Compiler.Compute => Capability.Shader
+
+    val extensions = input.context.extensions.enableCapability(cap)
+    val c2 = input.context.copy(extensions = extensions, prefix = prefix ++ prevPrefix)
 
     input.copy(context = c2)

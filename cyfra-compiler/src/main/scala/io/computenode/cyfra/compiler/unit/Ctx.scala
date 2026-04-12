@@ -34,3 +34,16 @@ object Ctx:
     val (res, next) = ctx.context.types.getPointer(value, storageClass)
     ctx.context = ctx.context.copy(types = next)
     res
+
+  def enableCapability(capability: Code)(using ctx: Ctx): Unit =
+    val next = ctx.context.extensions.enableCapability(capability)
+    ctx.context = ctx.context.copy(extensions = next)
+
+  def enableExtension(name: String)(using ctx: Ctx): Unit =
+    val next = ctx.context.extensions.enableExtension(name)
+    ctx.context = ctx.context.copy(extensions = next)
+
+  def getExtInstImport(name: String)(using ctx: Ctx): RefIR[Unit] =
+    val (res, next) = ctx.context.extensions.getExtInstImport(name)
+    ctx.context = ctx.context.copy(extensions = next)
+    res
