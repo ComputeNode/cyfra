@@ -1,10 +1,11 @@
-package io.computenode.cyfra.core.expression.ops
+package io.computenode.cyfra.core.expression.types
 
 import io.computenode.cyfra.core.expression.types.Literal.given
+import io.computenode.cyfra.core.expression.types.VecOps.extract
 import io.computenode.cyfra.core.expression.types.{*, given}
 import io.computenode.cyfra.core.expression.{Operator, Value}
 
-trait Vec4Ops[T <: Scalar: Value, CC: Value] extends Vec3Ops[T, CC]:
+trait Vec4SwizzleOps[T <: Scalar: Value, CC: Value] extends Vec3SwizzleOps[T, CC]:
   self: CC =>
   def w: T = extract[T, CC](self, 3)
   def ww: Vec2[T] = Value.map(Operator.VectorShuffle)[CC, CC, Literal, Vec2[T]](self, self, Literal(3, 3))

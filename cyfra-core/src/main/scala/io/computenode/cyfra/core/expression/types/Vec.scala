@@ -1,12 +1,11 @@
 package io.computenode.cyfra.core.expression.types
 
 import io.computenode.cyfra.core.expression.*
-import io.computenode.cyfra.core.expression.ops.{Vec2Ops, Vec3Ops, Vec4Ops}
 import izumi.reflect.Tag
 
-sealed trait Vec[T: Value]
+sealed trait Vec[T <: Scalar: Value] extends VecOps[T]
 
-abstract class Vec2[T <: Scalar: Value] extends Vec[T] with Vec2Ops[T, Vec2[T]]
+abstract class Vec2[T <: Scalar: Value] extends Vec[T] with Vec2SwizzleOps[T, Vec2[T]]
 object Vec2:
   def apply[A <: FloatType: Value](x: Float, y: Float): Vec2[A] = const((x, y))
   def apply[A <: IntegerType: Value](x: Int, y: Int): Vec2[A] = const((x, y))
@@ -17,7 +16,7 @@ object Vec2:
     def composites: List[Value[?]] = List(Value[T])
     def baseTag: Option[Tag[?]] = Some(Tag[Vec2].asInstanceOf[Tag[?]])
 
-abstract class Vec3[T <: Scalar: Value] extends Vec[T] with Vec3Ops[T, Vec3[T]]
+abstract class Vec3[T <: Scalar: Value] extends Vec[T] with Vec3SwizzleOps[T, Vec3[T]]
 object Vec3:
   def apply[A <: FloatType: Value](x: Float, y: Float, z: Float): Vec3[A] = const((x, y, z))
   def apply[A <: IntegerType: Value](x: Int, y: Int, z: Int): Vec3[A] = const((x, y, z))
@@ -28,7 +27,7 @@ object Vec3:
     def composites: List[Value[?]] = List(Value[T])
     def baseTag: Option[Tag[?]] = Some(Tag[Vec3].asInstanceOf[Tag[?]])
 
-abstract class Vec4[T <: Scalar: Value] extends Vec[T] with Vec4Ops[T, Vec4[T]]
+abstract class Vec4[T <: Scalar: Value] extends Vec[T] with Vec4SwizzleOps[T, Vec4[T]]
 object Vec4:
   def apply[A <: FloatType: Value](x: Float, y: Float, z: Float, w: Float): Vec4[A] = const((x, y, z, w))
   def apply[A <: IntegerType: Value](x: Int, y: Int, z: Int, w: Int): Vec4[A] = const((x, y, z, w))

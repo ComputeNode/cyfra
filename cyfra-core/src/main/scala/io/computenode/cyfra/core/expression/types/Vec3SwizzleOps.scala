@@ -1,10 +1,11 @@
-package io.computenode.cyfra.core.expression.ops
+package io.computenode.cyfra.core.expression.types
 
 import io.computenode.cyfra.core.expression.types.Literal.given
+import io.computenode.cyfra.core.expression.types.VecOps.{extract, insert}
 import io.computenode.cyfra.core.expression.types.{*, given}
 import io.computenode.cyfra.core.expression.{Operator, Value}
 
-trait Vec3Ops[T <: Scalar: Value, CC: Value] extends Vec2Ops[T, CC]:
+trait Vec3SwizzleOps[T <: Scalar: Value, CC: Value] extends Vec2SwizzleOps[T, CC]:
   self: CC =>
   def z: T = extract[T, CC](self, 2)
   def z(value: T): CC = insert[T, CC](self, value, 2)
