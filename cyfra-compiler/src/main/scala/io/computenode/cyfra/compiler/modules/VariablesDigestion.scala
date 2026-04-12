@@ -69,8 +69,8 @@ class VariablesDigestion extends StandardCompilationModule:
                 case BuildInVariable.GlobalInvocationId =>
                   decorations.append(IR.SvInst(Op.OpDecorate, List(res, Decoration.BuiltIn, BuiltIn.GlobalInvocationId)))
               res
-            case other => ??? // how did it get here?
-        case IR.Declare(root, Some(_)) => ??? // impossible, can't have starting values for global variables
+            case other => throw NotImplementedError(s"how did it get here? [$other]")
+        case IR.Declare(root, Some(_)) => throw NotImplementedError("impossible, can't have starting values for global variables")
         case other                     => other
       (res, decorations.toList, interface.toList, globalDeclarations.toMap)
     val c2 = c1.copy(prefix = c1.prefix ++ prefix, decorations = c1.decorations ++ decorations, suffix = suffix)
