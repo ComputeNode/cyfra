@@ -8,13 +8,12 @@ import izumi.reflect.Tag
 import org.lwjgl.vulkan.VK10
 import org.lwjgl.vulkan.VK10.*
 import io.computenode.cyfra.core.memory.{GBinding, GBuffer, GUniform}
-import io.computenode.cyfra.core.expression.types.typeStride
+import io.computenode.cyfra.core.expression.types.{GArray, typeStride}
+
 import scala.collection.mutable
 import scala.util.chaining.given
 
 sealed abstract class VkBinding[T: Value](val buffer: Buffer):
-  val sizeOfT: Int = typeStride(Value[T])
-
   /** Holds either:
     *   1. a single execution that writes to this buffer
     *   1. multiple executions that read from this buffer
@@ -35,12 +34,19 @@ object VkBinding:
 class VkBuffer[T: Value] private (val length: Int, underlying: Buffer) extends VkBinding(underlying) with GBuffer[T]
 
 object VkBuffer:
-  private final val Padding = 64
   private final val UsageFlags = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT
 
   def apply[T: Value](length: Int)(using Allocator): VkBuffer[T] =
-    val sizeOfT = typeStride(Value[T])
-    val size = (length * sizeOfT + Padding - 1) / Padding * Padding
+    val v = Value[T]
+    val sizeOfT = v.baseTag match
+      case Some(value) if value =:= Tag[GArray] =>
+        assert(length > 0)
+        typeStride(v.composites.head)
+      case _ =>
+        assert(length == 1)
+        typeStride(v)
+
+    val size = length * sizeOfT
     val buffer = new Buffer.DeviceBuffer(size, UsageFlags)
     new VkBuffer[T](length, buffer)
 
