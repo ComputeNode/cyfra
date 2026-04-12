@@ -119,10 +119,8 @@ class VkAllocation(val commandPool: CommandPool.Reset, executionHandler: Executi
     new GProgram.InitProgramLayout:
       extension (uniforms: GUniform.type)
         def apply[T: Value](value: T): GUniform[T] = pushStack: stack =>
-          val exp = Value[T].peel(value)
-          val bb = exp.result match
-            case Expression.Constant(value: Int) => MemoryUtil.memByteBuffer(stack.ints(value))
-            case _                               => ???
+          val bArray = Expression.constantToByteBuffer(value)
+          val bb = stack.bytes(bArray*)
           direct(bb)
 
   private val executions = mutable.Buffer[PendingExecution]()

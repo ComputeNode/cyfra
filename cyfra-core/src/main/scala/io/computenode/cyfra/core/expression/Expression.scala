@@ -1,16 +1,12 @@
 package io.computenode.cyfra.core.expression
 
-import io.computenode.cyfra.core.memory.{Focus, FocusRoot, GBuffer, GUniform, LocalVariable, Variable}
 import io.computenode.cyfra.core.expression.JumpTarget.{BreakTarget, ContinueTarget}
-import io.computenode.cyfra.core.expression.given
 import io.computenode.cyfra.core.expression.types.Literal.given
-import io.computenode.cyfra.core.expression.types.*
-import io.computenode.cyfra.core.expression.types.given
-import io.computenode.cyfra.core.expression.types.given
+import io.computenode.cyfra.core.expression.types.{*, given}
+import io.computenode.cyfra.core.memory.{FocusRoot, LocalVariable, Variable}
 import io.computenode.cyfra.utility.Utility.nextId
-import io.computenode.cyfra.core.expression.given
 
-import scala.Tuple.Elem
+import java.nio.{ByteBuffer, ByteOrder}
 import scala.compiletime.constValue
 
 sealed trait Expression[A: Value]:
@@ -39,3 +35,14 @@ object Expression:
   case class Combine[A: Value](composites: List[Expression[?]]) extends Expression[A]
   case class Insert[A: Value, Replace: Value](original: Expression[A], replacement: Expression[Replace], index: Int) extends Expression[A]:
     def v2: Value[Replace] = Value[Replace]
+
+  def constantToByteBuffer[T: Value](value: T): Array[Byte] =
+    val exp = Value[T].peel(value)
+    exp.result match
+      case x: Expression.Constant[a] => Expression.constantRec(x.value)
+      case _                         => ???
+
+  private def constantRec(const: Any): Array[Byte] = const match
+    case x: UInt32  => constantToByteBuffer(x)
+    case x: Int     => ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(x).array()
+    case x: Product => x.productIterator.flatMap(constantRec).toArray
