@@ -8,6 +8,15 @@ private[types] def const[A: Value](value: Any): A =
 
 sealed trait Scalar
 
+sealed trait NumericalType extends Scalar
+sealed trait NegativeType extends NumericalType
+
+trait FloatType extends NegativeType
+
+sealed trait IntegerType extends NumericalType
+trait SignedIntType extends IntegerType with NegativeType
+trait UnsignedIntType extends IntegerType
+
 abstract class Bool extends Scalar
 object Bool:
   def apply(value: Boolean): Bool = const(value)
@@ -15,10 +24,6 @@ object Bool:
     protected def extractUnsafe(ir: ExpressionBlock[Bool]): Bool = new BoolImpl(ir)
     def tag: Tag[Bool] = Tag[Bool]
 
-sealed trait NumericalType extends Scalar
-sealed trait NegativeType extends NumericalType
-
-sealed trait FloatType extends NegativeType
 abstract class Float16 extends FloatType
 object Float16:
   def apply(value: Float): Float16 = const(value)
@@ -33,9 +38,6 @@ object Float32:
     protected def extractUnsafe(ir: ExpressionBlock[Float32]): Float32 = new Float32Impl(ir)
     def tag: Tag[Float32] = Tag[Float32]
 
-sealed trait IntegerType extends NumericalType
-
-sealed trait SignedIntType extends IntegerType with NegativeType
 abstract class Int16 extends SignedIntType
 object Int16:
   def apply(value: Int): Int16 = const(value)
@@ -50,7 +52,6 @@ object Int32:
     protected def extractUnsafe(ir: ExpressionBlock[Int32]): Int32 = new Int32Impl(ir)
     def tag: Tag[Int32] = Tag[Int32]
 
-sealed trait UnsignedIntType extends IntegerType
 abstract class UInt16 extends UnsignedIntType
 object UInt16:
   def apply(value: Int): UInt16 = const(value)

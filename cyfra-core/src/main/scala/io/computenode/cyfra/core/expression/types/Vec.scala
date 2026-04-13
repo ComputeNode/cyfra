@@ -3,7 +3,7 @@ package io.computenode.cyfra.core.expression.types
 import io.computenode.cyfra.core.expression.*
 import izumi.reflect.Tag
 
-sealed trait Vec[T <: Scalar: Value] extends VecOps[T]
+trait Vec[T <: Scalar: Value] extends VecOps[T]
 
 abstract class Vec2[T <: Scalar: Value] extends Vec[T] with Vec2SwizzleOps[T, Vec2[T]]
 object Vec2:
