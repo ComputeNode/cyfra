@@ -126,8 +126,6 @@ object Operator:
   case object InterpolateAtCentroid extends Operator1
   case object Atan2 extends Operator2
   case object Pow extends Operator2
-  case object Modf extends Operator2
-  case object Frexp extends Operator2
   case object Ldexp extends Operator2
   case object Step extends Operator2
   case object Distance extends Operator2

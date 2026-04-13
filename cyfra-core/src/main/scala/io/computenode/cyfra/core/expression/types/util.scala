@@ -18,7 +18,7 @@ def typeStride(value: Value[?]): Int =
     case t if t =:= Tag[Int32]   => 4
     case t if t =:= Tag[UInt16]  => 2
     case t if t =:= Tag[UInt32]  => 4
-    case _                       => ???
+    case _                       => throw new NotImplementedError("Unknown type")
 
   val numberOfElements = value.baseTag match
     case None                         => 1
@@ -35,7 +35,7 @@ def typeStride(value: Value[?]): Int =
     case Some(t) if t =:= Tag[Mat4x3] => 12
     case Some(t) if t =:= Tag[Mat4x4] => 16
     case Some(t) if t =:= Tag[GArray] => return Int.MaxValue
-    case _                            => ???
+    case _                            => throw new NotImplementedError("Unknown type")
 
   numberOfElements * elementSize
 

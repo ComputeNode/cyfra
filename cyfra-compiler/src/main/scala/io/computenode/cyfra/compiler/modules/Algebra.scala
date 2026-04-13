@@ -180,8 +180,6 @@ class Algebra extends FunctionCompilationModule:
     case InterpolateAtCentroid => GlslOp.InterpolateAtCentroid
     case Atan2                 => GlslOp.Atan2
     case Pow                   => GlslOp.Pow
-    case Modf                  => GlslOp.Modf
-    case Frexp                 => GlslOp.Frexp
     case Ldexp                 => GlslOp.Ldexp
     case Step                  => GlslOp.Step
     case Distance              => GlslOp.Distance
