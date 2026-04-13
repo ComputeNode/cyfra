@@ -1,9 +1,10 @@
 package io.computenode.cyfra.core.expression.types
 
 import io.computenode.cyfra.core.expression.*
+import io.computenode.cyfra.core.expression.ops.IntegerOps
 import izumi.reflect.Tag
 
-abstract class UInt16 extends UnsignedIntType
+abstract class UInt16 extends UnsignedIntType with IntegerOps[UInt16]
 object UInt16:
   final class UInt16Impl(val block: ExpressionBlock[UInt16]) extends UInt16 with ExpressionHolder[UInt16]
 

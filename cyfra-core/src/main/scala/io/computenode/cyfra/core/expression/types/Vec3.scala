@@ -6,7 +6,7 @@ import izumi.reflect.Tag
 
 import scala.annotation.targetName
 
-abstract class Vec3[T <: Scalar: Value] extends Vec[T] with Vec3Ops[T, Vec3[T]] with VecOps[T, Vec3]:
+abstract class Vec3[T <: Scalar: Value] extends Vec[T] with Vec3Ops[T, Vec3] with VecOps[T, Vec3]:
   @targetName("vec3TimesMat3x2")
   def *(mat: Mat3x2[T])(using T <:< FloatType, Value[Vec3[T]], Value[Mat3x2[T]], Value[Vec2[T]]): Vec2[T] =
     Value.map(Operator.VectorTimesMatrix)[Vec3[T], Mat3x2[T], Vec2[T]](this, mat)
