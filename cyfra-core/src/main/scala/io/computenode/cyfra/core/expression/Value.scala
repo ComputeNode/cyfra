@@ -2,7 +2,7 @@ package io.computenode.cyfra.core.expression
 
 import io.computenode.cyfra.core.expression.{Expression, ExpressionBlock}
 import io.computenode.cyfra.core.expression.Operator.{Operator0, Operator1, Operator2, Operator3, Operator4}
-import io.computenode.cyfra.core.expression.types.unitZero
+import io.computenode.cyfra.core.expression.Expression.unitZero
 import io.computenode.cyfra.utility.cats.Monad
 import izumi.reflect.Tag
 
@@ -37,6 +37,16 @@ object Value:
   trait Scalar[A] extends Value[A]:
     def baseTag: Option[Tag[?]] = None
     def composites: List[Value[?]] = Nil
+
+  given Value.Scalar[Unit] with
+    protected def extractUnsafe(ir: ExpressionBlock[Unit]): Unit = ()
+
+    def tag: Tag[Unit] = Tag[Unit]
+
+  given Value.Scalar[Any] with
+    protected def extractUnsafe(ir: ExpressionBlock[Any]): Any = ir.result.asInstanceOf[Expression.Constant[Any]].value
+
+    def tag: Tag[Any] = Tag[Any]
 
   def map[Res: Value](f: Operator0)(): Res =
     val next = Expression.Operation[Res](f, Nil)
@@ -77,7 +87,7 @@ object Value:
       elemValues = List(value),
       theTag = tuple1Tag,
       theBaseTag = tupleBaseTag,
-      extract = (ir, self) => Tuple1(Value.extractComposite[Tuple1[A], A](ir, self, value, 0))
+      extract = (ir, self) => Tuple1(Value.extractComposite[Tuple1[A], A](ir, self, value, 0)),
     )
 
   private def tupleAsExpression[A: Value as v](tuple: A): ExpressionBlock[A] =

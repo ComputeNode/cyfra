@@ -5,8 +5,10 @@ import izumi.reflect.Tag
 
 abstract class UInt32 extends UnsignedIntType
 object UInt32:
-  def apply(value: Int): UInt32 = const(value)
+  final class UInt32Impl(val block: ExpressionBlock[UInt32]) extends UInt32 with ExpressionHolder[UInt32]
+
   given Value.Scalar[UInt32] with
     protected def extractUnsafe(ir: ExpressionBlock[UInt32]): UInt32 = new UInt32Impl(ir)
     def tag: Tag[UInt32] = Tag[UInt32]
-  final class UInt32Impl(val block: ExpressionBlock[UInt32]) extends UInt32 with ExpressionHolder[UInt32]
+
+  def apply(value: Int): UInt32 = const(value)

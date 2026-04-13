@@ -5,12 +5,14 @@ import izumi.reflect.Tag
 
 abstract class Vec2[T <: Scalar: Value] extends Vec[T] with Vec2SwizzleOps[T, Vec2[T]]
 object Vec2:
-  def apply[A <: FloatType: Value](x: Float, y: Float): Vec2[A] = const((x, y))
-  def apply[A <: IntegerType: Value](x: Int, y: Int): Vec2[A] = const((x, y))
+  final class Vec2Impl[T <: Scalar: Value](val block: ExpressionBlock[Vec2[T]]) extends Vec2[T] with ExpressionHolder[Vec2[T]]
+
   given [T <: Scalar: Value]: Value[Vec2[T]] with
     protected def extractUnsafe(ir: ExpressionBlock[Vec2[T]]): Vec2[T] = new Vec2Impl[T](ir)
     given Tag[T] = Value[T].tag
     def tag: Tag[Vec2[T]] = Tag[Vec2[T]]
     def composites: List[Value[?]] = List(Value[T])
     def baseTag: Option[Tag[?]] = Some(Tag[Vec2].asInstanceOf[Tag[?]])
-  final class Vec2Impl[T <: Scalar: Value](val block: ExpressionBlock[Vec2[T]]) extends Vec2[T] with ExpressionHolder[Vec2[T]]
+
+  def apply[A <: FloatType: Value](x: Float, y: Float): Vec2[A] = const((x, y))
+  def apply[A <: IntegerType: Value](x: Int, y: Int): Vec2[A] = const((x, y))

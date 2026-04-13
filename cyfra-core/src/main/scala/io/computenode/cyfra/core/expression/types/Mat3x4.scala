@@ -5,6 +5,15 @@ import izumi.reflect.Tag
 
 abstract class Mat3x4[T: Value] extends Mat[T]
 object Mat3x4:
+  final class Mat3x4Impl[T <: Scalar: Value](val block: ExpressionBlock[Mat3x4[T]]) extends Mat3x4[T] with ExpressionHolder[Mat3x4[T]]
+
+  given [T <: Scalar: Value]: Value[Mat3x4[T]] with
+    protected def extractUnsafe(ir: ExpressionBlock[Mat3x4[T]]): Mat3x4[T] = new Mat3x4Impl[T](ir)
+    given Tag[T] = Value[T].tag
+    def tag: Tag[Mat3x4[T]] = Tag[Mat3x4[T]]
+    def composites: List[Value[?]] = List(Value[Vec4[T]])
+    def baseTag: Option[Tag[?]] = Some(Tag[Mat3x4].asInstanceOf[Tag[?]])
+
   def apply[A <: FloatType: Value](
     m00: Float,
     m01: Float,
@@ -33,10 +42,3 @@ object Mat3x4:
     m22: Int,
     m23: Int,
   ): Mat3x4[A] = const((m00, m01, m02, m03, m10, m11, m12, m13, m20, m21, m22, m23))
-  given [T <: Scalar: Value]: Value[Mat3x4[T]] with
-    protected def extractUnsafe(ir: ExpressionBlock[Mat3x4[T]]): Mat3x4[T] = new Mat3x4Impl[T](ir)
-    given Tag[T] = Value[T].tag
-    def tag: Tag[Mat3x4[T]] = Tag[Mat3x4[T]]
-    def composites: List[Value[?]] = List(Value[Vec4[T]])
-    def baseTag: Option[Tag[?]] = Some(Tag[Mat3x4].asInstanceOf[Tag[?]])
-  final class Mat3x4Impl[T <: Scalar: Value](val block: ExpressionBlock[Mat3x4[T]]) extends Mat3x4[T] with ExpressionHolder[Mat3x4[T]]
