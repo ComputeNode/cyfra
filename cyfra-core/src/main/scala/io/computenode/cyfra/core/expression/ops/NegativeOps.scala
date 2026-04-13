@@ -8,7 +8,7 @@ import io.computenode.cyfra.core.expression.{Operator, Value}
 
 import scala.annotation.targetName
 
-trait NegativeTypeOps[T <: NegativeType: Value] extends NumericalOps[T]:
+trait NegativeOps[T <: NegativeType: Value] extends NumericalOps[T]:
   this: T =>
   private val self: T = this
 

@@ -1,10 +1,10 @@
 package io.computenode.cyfra.core.expression.types
 
 import io.computenode.cyfra.core.expression.*
-import io.computenode.cyfra.core.expression.ops.FloatTypeOps
+import io.computenode.cyfra.core.expression.ops.FloatOps
 import izumi.reflect.Tag
 
-abstract class Float16 extends FloatType with FloatTypeOps[Float16]
+abstract class Float16 extends FloatType with FloatOps[Float16]
 object Float16:
   final class Float16Impl(val block: ExpressionBlock[Float16]) extends Float16 with ExpressionHolder[Float16]
 

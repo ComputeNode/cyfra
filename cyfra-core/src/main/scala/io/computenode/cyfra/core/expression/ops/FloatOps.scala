@@ -5,7 +5,7 @@ import io.computenode.cyfra.core.expression.{Operator, Value}
 
 import scala.annotation.targetName
 
-trait FloatTypeOps[T <: FloatType: Value] extends NegativeTypeOps[T]:
+trait FloatOps[T <: FloatType: Value] extends NegativeOps[T]:
   this: T =>
   private val self: T = this
 
