@@ -4,13 +4,11 @@ import io.computenode.cyfra.core.expression.*
 
 sealed trait Scalar
 
-trait BoolType extends Scalar
-
 sealed trait NumericalType extends Scalar
 sealed trait NegativeType extends NumericalType
-
-trait FloatType extends NegativeType
-
 sealed trait IntegerType extends NumericalType
+
+trait BoolType extends Scalar
+trait FloatType extends NegativeType
 trait SignedIntType extends IntegerType with NegativeType
 trait UnsignedIntType extends IntegerType

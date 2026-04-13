@@ -51,8 +51,6 @@ object Operator:
   // Logical operations on booleans
   case object LogicalAny extends Operator1
   case object LogicalAll extends Operator1
-  case object LogicalEqual extends Operator2
-  case object LogicalNotEqual extends Operator2
   case object LogicalOr extends Operator2
   case object LogicalAnd extends Operator2
   case object LogicalNot extends Operator1

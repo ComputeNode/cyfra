@@ -87,7 +87,7 @@ object GIO:
     Value[Res].indirect(next)
 
   def op[A1: Value, A2: Value, A3: Value, A4: Value, Res: Value](func: Operator.Operator4, arg1: A1, arg2: A2, arg3: A3, arg4: A4)(using
-                                                                                                                                   gio: GIO,
+    gio: GIO,
   ): Res =
     val a1 = arg1.irs
     val a2 = arg2.irs

@@ -64,7 +64,14 @@ object CompilationUnit:
 
     val Context(extensions, prefix, decorations, types, constants, suffix) = compilation.context
     val data =
-      Seq((extensions.output, "Extensions"), (prefix, "Prefix"), (decorations, "Decorations"), (types.output, "Type Info"), (constants.output, "Constants"), (suffix, "Suffix")) ++
+      Seq(
+        (extensions.output, "Extensions"),
+        (prefix, "Prefix"),
+        (decorations, "Decorations"),
+        (types.output, "Type Info"),
+        (constants.output, "Constants"),
+        (suffix, "Suffix"),
+      ) ++
         compilation.metadata.functions
           .zip(compilation.functionBodies)
           .map: (func, body) =>

@@ -9,9 +9,6 @@ import io.computenode.cyfra.core.expression.{Operator, Value}
 import scala.annotation.targetName
 
 given [T <: NegativeType: Value]: NegativeElementOps[T] with {}
-given [T <: NegativeType: Value]: NegativeElementOps[Vec2[T]] with {}
-given [T <: NegativeType: Value]: NegativeElementOps[Vec3[T]] with {}
-given [T <: NegativeType: Value]: NegativeElementOps[Vec4[T]] with {}
 
 trait NegativeElementOps[T]
 

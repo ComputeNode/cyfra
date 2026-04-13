@@ -9,9 +9,6 @@ import io.computenode.cyfra.core.expression.{Operator, Value}
 import scala.annotation.targetName
 
 given [T <: IntegerType: Value]: BitwiseOps[T] with {}
-given [T <: IntegerType: Value]: BitwiseOps[Vec2[T]] with {}
-given [T <: IntegerType: Value]: BitwiseOps[Vec3[T]] with {}
-given [T <: IntegerType: Value]: BitwiseOps[Vec4[T]] with {}
 
 trait BitwiseOps[T]
 

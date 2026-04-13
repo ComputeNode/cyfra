@@ -5,7 +5,7 @@ import io.computenode.cyfra.core.expression.types.VecOps.extract
 import io.computenode.cyfra.core.expression.types.{*, given}
 import io.computenode.cyfra.core.expression.{Expression, Operator, Value}
 
-trait Vec2SwizzleOps[T <: Scalar: Value, CC: Value] extends Vec1SwizzleOps[T, CC]:
+trait Vec2Ops[T <: Scalar: Value, CC: Value] extends Vec1Ops[T, CC]:
   self: CC =>
   def y: T = extract[T, CC](self, 1)
   def yy: Vec2[T] = Value.map(Operator.VectorShuffle)[CC, CC, Literal, Vec2[T]](self, self, Literal(1, 1))

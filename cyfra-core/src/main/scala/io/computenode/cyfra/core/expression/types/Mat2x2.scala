@@ -2,8 +2,22 @@ package io.computenode.cyfra.core.expression.types
 
 import io.computenode.cyfra.core.expression.*
 import izumi.reflect.Tag
+import scala.annotation.targetName
 
-abstract class Mat2x2[T: Value] extends Mat[T]
+abstract class Mat2x2[T <: Scalar: Value] extends Mat[T]:
+  @targetName("mat2x2TimesVec2")
+  def *(vec: Vec2[T])(using T <:< FloatType, Value[Mat2x2[T]], Value[Vec2[T]]): Vec2[T] =
+    Value.map(Operator.MatrixTimesVector)[Mat2x2[T], Vec2[T], Vec2[T]](this, vec)
+  @targetName("mat2x2TimesMat2x2")
+  def *(right: Mat2x2[T])(using T <:< FloatType, Value[Mat2x2[T]]): Mat2x2[T] =
+    Value.map(Operator.MatrixTimesMatrix)[Mat2x2[T], Mat2x2[T], Mat2x2[T]](this, right)
+  @targetName("mat2x2TimesMat2x3")
+  def *(right: Mat2x3[T])(using T <:< FloatType, Value[Mat2x2[T]], Value[Mat2x3[T]]): Mat2x3[T] =
+    Value.map(Operator.MatrixTimesMatrix)[Mat2x2[T], Mat2x3[T], Mat2x3[T]](this, right)
+  @targetName("mat2x2TimesMat2x4")
+  def *(right: Mat2x4[T])(using T <:< FloatType, Value[Mat2x2[T]], Value[Mat2x4[T]]): Mat2x4[T] =
+    Value.map(Operator.MatrixTimesMatrix)[Mat2x2[T], Mat2x4[T], Mat2x4[T]](this, right)
+
 object Mat2x2:
   final class Mat2x2Impl[T <: Scalar: Value](val block: ExpressionBlock[Mat2x2[T]]) extends Mat2x2[T] with ExpressionHolder[Mat2x2[T]]
 

@@ -16,7 +16,7 @@ sealed trait GBufferRegion[ReqAlloc: Layout, ResAlloc: Layout]:
 
   def map[NewAlloc: Layout](f: Allocation ?=> ResAlloc => NewAlloc): GBufferRegion[ReqAlloc, NewAlloc] =
     MapRegion(this, (alloc: Allocation) => (resAlloc: ResAlloc) => f(using alloc)(resAlloc))
-   
+
 object GBufferRegion:
 
   def allocate[Alloc: Layout]: GBufferRegion[Alloc, Alloc] = AllocRegion()

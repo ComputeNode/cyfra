@@ -75,11 +75,11 @@ object TypeManager:
       next
 
     val cIR = value.baseTag.get match
-      case t if t <:< Tag[Vec]          => SvRef[Unit](Op.OpTypeVector, List(irs.head, IntWord(rows(t))))
-      case t if t <:< Tag[Mat]          => SvRef[Unit](Op.OpTypeMatrix, List(irs.head, IntWord(columns(t))))
+      case t if t <:< Tag[Vec]    => SvRef[Unit](Op.OpTypeVector, List(irs.head, IntWord(rows(t))))
+      case t if t <:< Tag[Mat]    => SvRef[Unit](Op.OpTypeMatrix, List(irs.head, IntWord(columns(t))))
       case t if t =:= Tag[GArray] => SvRef[Unit](Op.OpTypeRuntimeArray, List(irs.head))
-      case t if t <:< Tag[Tuple]        => SvRef[Unit](Op.OpTypeStruct, irs.toList)
-      case _                            => throw new Exception(s"Unsupported type: ${value.tag}")
+      case t if t <:< Tag[Tuple]  => SvRef[Unit](Op.OpTypeStruct, irs.toList)
+      case _                      => throw new Exception(s"Unsupported type: ${value.tag}")
     m1.withIr(key, cIR)
 
   private def withTypePointer(manager: TypeManager, value: Value[?], storageClass: Code): TypeManager =

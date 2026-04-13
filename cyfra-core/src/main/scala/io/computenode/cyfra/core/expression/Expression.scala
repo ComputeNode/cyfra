@@ -16,7 +16,7 @@ sealed trait Expression[A: Value]:
 object Expression:
   sealed trait ExpressionUnit[B: Value] extends Expression[Unit]:
     def v2: Value[B] = Value[B]
- 
+
   sealed trait BranchingExpression
 
   case class Constant[A: Value](value: Any) extends Expression[A]

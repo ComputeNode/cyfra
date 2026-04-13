@@ -87,14 +87,14 @@ class Algebra extends FunctionCompilationModule:
     case GreaterThanEqual => Op.OpFOrdGreaterThanEqual
 
   private val findBoolean: PartialFunction[Operator, Code] =
-    case LogicalAny      => Op.OpAny
-    case LogicalAll      => Op.OpAll
-    case LogicalEqual    => Op.OpLogicalEqual
-    case LogicalNotEqual => Op.OpLogicalNotEqual
-    case LogicalOr       => Op.OpLogicalOr
-    case LogicalAnd      => Op.OpLogicalAnd
-    case LogicalNot      => Op.OpLogicalNot
-    case Select          => Op.OpSelect // This code need more research
+    case Equal      => Op.OpLogicalEqual
+    case NotEqual   => Op.OpLogicalNotEqual
+    case LogicalAny => Op.OpAny
+    case LogicalAll => Op.OpAll
+    case LogicalOr  => Op.OpLogicalOr
+    case LogicalAnd => Op.OpLogicalAnd
+    case LogicalNot => Op.OpLogicalNot
+    case Select     => Op.OpSelect // This code need more research
 
   private val findInteger: PartialFunction[Operator, Code] =
     case Add => Op.OpIAdd
