@@ -127,7 +127,10 @@ object TypeManager:
           case (acc, (v, idx)) =>
             val inst = IR.SvInst(Op.OpMemberDecorate, List(tpe, IntWord(idx), Decoration.Offset, IntWord(acc)))
             dec.addOne(inst)
-            acc + typeStride(v)
+            if v.baseTag.exists(_ =:= Tag[GArray]) then
+              Int.MinValue
+            else
+              acc + typeStride(v)
         m1.copy(decorations = dec.toList ++ m1.decorations, decorated = m1.decorated + key)
       case t if t <:< Tag[Vec] => m1.copy(decorated = m1.decorated + key)
       case t if t <:< Tag[Mat] =>

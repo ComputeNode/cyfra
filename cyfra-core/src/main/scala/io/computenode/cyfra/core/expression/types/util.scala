@@ -11,14 +11,14 @@ def typeStride(value: Value[?]): Int =
   if value.baseTag.exists(_ <:< Tag[Tuple]) then return value.composites.map(typeStride).sum
 
   val elementSize = value.bottomComposite.tag match
-    case t if t =:= Tag[Bool]    => throw new IllegalArgumentException("Boolean type has no size")
+    case t if t =:= Tag[Bool]    => throw new IllegalArgumentException("Bool has no size")
     case t if t =:= Tag[Float16] => 2
     case t if t =:= Tag[Float32] => 4
     case t if t =:= Tag[Int16]   => 2
     case t if t =:= Tag[Int32]   => 4
     case t if t =:= Tag[UInt16]  => 2
     case t if t =:= Tag[UInt32]  => 4
-    case _                       => throw new NotImplementedError("Unknown type")
+    case t                       => throw new NotImplementedError(s"Unknown type $t")
 
   val numberOfElements = value.baseTag match
     case None                         => 1
@@ -34,8 +34,8 @@ def typeStride(value: Value[?]): Int =
     case Some(t) if t =:= Tag[Mat4x2] => 8
     case Some(t) if t =:= Tag[Mat4x3] => 12
     case Some(t) if t =:= Tag[Mat4x4] => 16
-    case Some(t) if t =:= Tag[GArray] => return Int.MaxValue
-    case _                            => throw new NotImplementedError("Unknown type")
+    case Some(t) if t =:= Tag[GArray] => throw new IllegalArgumentException("GArray has infinite size")
+    case t                            => throw new NotImplementedError(s"Unknown type $t")
 
   numberOfElements * elementSize
 
@@ -53,7 +53,7 @@ def rows(tag: Tag[?]): Int =
     case t if t =:= Tag[Mat4x2] => 4
     case t if t =:= Tag[Mat4x3] => 4
     case t if t =:= Tag[Mat4x4] => 4
-    case _                      => ???
+    case t                      => throw new NotImplementedError(s"Unknown type $t")
 
 def columns(tag: Tag[?]): Int =
   tag match
@@ -69,4 +69,4 @@ def columns(tag: Tag[?]): Int =
     case t if t =:= Tag[Mat4x2] => 2
     case t if t =:= Tag[Mat4x3] => 3
     case t if t =:= Tag[Mat4x4] => 4
-    case _                      => ???
+    case t                      => throw new NotImplementedError(s"Unknown type $t")
