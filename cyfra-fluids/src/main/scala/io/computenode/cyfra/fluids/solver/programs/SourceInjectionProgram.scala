@@ -1,8 +1,7 @@
 package io.computenode.cyfra.fluids.solver.programs
 
-import io.computenode.cyfra.core.GProgram
+import io.computenode.cyfra.core.{GProgram, Layout}
 import io.computenode.cyfra.core.GProgram.StaticDispatch
-import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.fluids.solver.FluidParams
 import io.computenode.cyfra.fluids.solver.utils.GridUtils.*

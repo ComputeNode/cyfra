@@ -1,7 +1,7 @@
 package io.computenode.cyfra.e2e
 
 import io.computenode.cyfra.core.layout.*
-import io.computenode.cyfra.core.{GBufferRegion, GExecution, GProgram}
+import io.computenode.cyfra.core.{GBufferRegion, GExecution, GProgram, Layout}
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.runtime.VkCyfraRuntime
 import io.computenode.cyfra.spirvtools.{SpirvCross, SpirvDisassembler, SpirvToolsRunner}

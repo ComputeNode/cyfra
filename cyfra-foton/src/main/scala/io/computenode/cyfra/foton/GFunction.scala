@@ -1,11 +1,10 @@
 package io.computenode.cyfra.foton
 
-import io.computenode.cyfra.core.{CyfraRuntime, GBufferRegion, GCodec, GProgram}
+import io.computenode.cyfra.core.{CyfraRuntime, GBufferRegion, GCodec, GProgram, Layout}
 import io.computenode.cyfra.core.GBufferRegion.*
 import io.computenode.cyfra.core.GProgram.StaticDispatch
 import io.computenode.cyfra.foton.GFunction
 import io.computenode.cyfra.foton.GFunction.{GFunctionLayout, GFunctionParams}
-import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
 import io.computenode.cyfra.dsl.collections.{GArray, GArray2D}
