@@ -1,10 +1,11 @@
 package io.computenode.cyfra.core.expression.types
 
 import io.computenode.cyfra.core.expression.*
+import io.computenode.cyfra.core.expression.ops.MatOps
 import izumi.reflect.Tag
 import scala.annotation.targetName
 
-abstract class Mat4x2[T <: Scalar: Value] extends Mat[T]:
+abstract class Mat4x2[T <: Scalar: Value] extends Mat[T] with MatOps[T, Mat4x2]:
   @targetName("mat4x2TimesVec2")
   def *(vec: Vec2[T])(using T <:< FloatType, Value[Mat4x2[T]], Value[Vec2[T]], Value[Vec4[T]]): Vec4[T] =
     Value.map(Operator.MatrixTimesVector)[Mat4x2[T], Vec2[T], Vec4[T]](this, vec)

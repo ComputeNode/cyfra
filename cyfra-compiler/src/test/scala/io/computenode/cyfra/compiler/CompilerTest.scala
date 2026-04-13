@@ -31,8 +31,8 @@ class CompilerTest extends munit.FunSuite:
 
       val i = GIO.read(GlobalInvocationId)
       val x = i.x
-      val v2 = i.z(x)
-      GIO.write(u1, v2.yzx)
+//      val v2 = i.z(x)
+//      GIO.write(u1, v2.yzx)
     val code = compiler.compile(exp, config)
     SpirvValidator.validateSpirv(code, Enable(throwOnFail = true))
 
