@@ -1,5 +1,6 @@
-package io.computenode.cyfra.core.expression.types
+package io.computenode.cyfra.core.expression.ops
 
+import io.computenode.cyfra.core.expression.types.*
 import io.computenode.cyfra.core.expression.{Expression, Operator, Value}
 
 import scala.annotation.targetName
@@ -86,7 +87,7 @@ trait VecOps[T <: Scalar: Value, Vec[_ <: Scalar]](using Value[Vec[T]], Value[Ve
   // floating ops
   @targetName("vectorTimesScalar")
   def *(scalar: T)(using T <:< FloatType): Vec[T] = Value.map(Operator.VectorTimesScalar)(self, scalar)
-  
+
   @targetName("dotProduct")
   infix def dot(that: Vec[T]): T = Value.map(Operator.Dot)(self, that)
 
@@ -115,11 +116,11 @@ trait VecOps[T <: Scalar: Value, Vec[_ <: Scalar]](using Value[Vec[T]], Value[Ve
   def all(using T =:= Bool): Bool = Value.map(Operator.LogicalAll)(self)
 
 object VecOps:
-  private[types] def extract[T: Value, CC: Value](cc: CC, i: Int): T =
+  private[ops] def extract[T: Value, CC: Value](cc: CC, i: Int): T =
     val s = Value[CC].peel(cc)
     Value[T].extract(s.add(Expression.Extract(s.result, i)))
 
-  private[types] def insert[T: Value, CC: Value](cc: CC, v: T, i: Int): CC =
+  private[ops] def insert[T: Value, CC: Value](cc: CC, v: T, i: Int): CC =
     val s = Value[CC].peel(cc)
     val sv = Value[T].peel(v)
     Value[CC].extract(s.extend(sv).add(Expression.Insert(s.result, sv.result, i)))

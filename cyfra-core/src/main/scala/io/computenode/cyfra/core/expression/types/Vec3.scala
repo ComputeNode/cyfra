@@ -1,7 +1,9 @@
 package io.computenode.cyfra.core.expression.types
 
 import io.computenode.cyfra.core.expression.*
+import io.computenode.cyfra.core.expression.ops.{Vec3Ops, VecOps}
 import izumi.reflect.Tag
+
 import scala.annotation.targetName
 
 abstract class Vec3[T <: Scalar: Value] extends Vec[T] with Vec3Ops[T, Vec3[T]] with VecOps[T, Vec3]:

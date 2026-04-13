@@ -1,7 +1,7 @@
-package io.computenode.cyfra.core.expression.types
+package io.computenode.cyfra.core.expression.ops
 
 import io.computenode.cyfra.core.expression.types.Literal.given
-import io.computenode.cyfra.core.expression.types.VecOps.extract
+import VecOps.extract
 import io.computenode.cyfra.core.expression.types.{*, given}
 import io.computenode.cyfra.core.expression.{Expression, ExpressionBlock, Operator, Value}
 
