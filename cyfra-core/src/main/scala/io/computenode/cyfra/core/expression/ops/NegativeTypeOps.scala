@@ -8,11 +8,10 @@ import io.computenode.cyfra.core.expression.{Operator, Value}
 
 import scala.annotation.targetName
 
-given [T <: NegativeType: Value]: NegativeElementOps[T] with {}
+trait NegativeTypeOps[T <: NegativeType: Value] extends NumericalOps[T]:
+  this: T =>
+  private val self: T = this
 
-trait NegativeElementOps[T]
-
-extension [T: {NegativeElementOps, Value}](self: T)
   @targetName("neg")
   def unary_- : T = Value.map(Operator.Neg)(self)
   @targetName("rem")

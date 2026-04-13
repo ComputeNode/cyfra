@@ -1,6 +1,7 @@
 package io.computenode.cyfra.core.expression.types
 
 import io.computenode.cyfra.core.expression.*
+import io.computenode.cyfra.core.expression.ops.BoolOps
 
 sealed trait Scalar
 

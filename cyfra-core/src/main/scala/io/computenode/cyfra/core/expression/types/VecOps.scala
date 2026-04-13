@@ -86,6 +86,9 @@ trait VecOps[T <: Scalar: Value, Vec[_ <: Scalar]](using Value[Vec[T]], Value[Ve
   // floating ops
   @targetName("vectorTimesScalar")
   def *(scalar: T)(using T <:< FloatType): Vec[T] = Value.map(Operator.VectorTimesScalar)(self, scalar)
+  
+  @targetName("dotProduct")
+  infix def dot(that: Vec[T]): T = Value.map(Operator.Dot)(self, that)
 
   def isNan(using T <:< FloatType): Vec[Bool] = Value.map(Operator.IsNan)(self)
 

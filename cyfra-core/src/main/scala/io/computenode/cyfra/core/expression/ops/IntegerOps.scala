@@ -8,11 +8,10 @@ import io.computenode.cyfra.core.expression.{Operator, Value}
 
 import scala.annotation.targetName
 
-given [T <: IntegerType: Value]: BitwiseOps[T] with {}
+trait IntegerOps[T <: IntegerType: Value] extends NumericalOps[T]:
+  this: T =>
+  private val self: T = this
 
-trait BitwiseOps[T]
-
-extension [T: {BitwiseOps, Value}](self: T)
   @targetName("shiftRightLogical")
   infix def >>>(shift: T): T = Value.map(Operator.ShiftRightLogical)(self, shift)
 
@@ -34,11 +33,11 @@ extension [T: {BitwiseOps, Value}](self: T)
   @targetName("bitwiseNot")
   def unary_~ : T = Value.map(Operator.BitwiseNot)(self)
 
-  def bitFieldInsert[Offset: Value, Count: Value](insert: T, offset: Offset, count: Count): T =
-    Value.map(Operator.BitFieldInsert)[T, T, Offset, Count, T](self, insert, offset, count)
+  def bitFieldInsert[Offset <: IntegerType: Value, Count <: IntegerType: Value](insert: T, offset: Offset, count: Count): T =
+    Value.map(Operator.BitFieldInsert)(self, insert, offset, count)
 
-  def bitFieldExtract[Offset: Value, Count: Value](offset: Offset, count: Count): T =
-    Value.map(Operator.BitFieldExtract)[T, Offset, Count, T](self, offset, count)
+  def bitFieldExtract[Offset <: IntegerType: Value, Count <: IntegerType: Value](offset: Offset, count: Count): T =
+    Value.map(Operator.BitFieldExtract)(self, offset, count)
 
   def bitReverse: T = Value.map(Operator.BitReverse)(self)
 

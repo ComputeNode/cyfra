@@ -5,11 +5,9 @@ import izumi.reflect.Tag
 
 abstract class GArray[T: Value]
 object GArray:
-  final class GArrayImpl[T: Value](val block: ExpressionBlock[GArray[T]]) extends GArray[T] with ExpressionHolder[GArray[T]]
-
   given [T: Value]: Value[GArray[T]] with
     protected def extractUnsafe(ir: ExpressionBlock[GArray[T]]): GArray[T] = throw UnsupportedOperationException(
-      "Cant have direct access to runtime array",
+      "Can't have direct access to runtime array",
     )
     given Tag[T] = Value[T].tag
     def tag: Tag[GArray[T]] = Tag[GArray[T]]
