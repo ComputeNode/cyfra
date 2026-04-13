@@ -9,3 +9,4 @@ object UInt32:
   given Value.Scalar[UInt32] with
     protected def extractUnsafe(ir: ExpressionBlock[UInt32]): UInt32 = new UInt32Impl(ir)
     def tag: Tag[UInt32] = Tag[UInt32]
+  final class UInt32Impl(val block: ExpressionBlock[UInt32]) extends UInt32 with ExpressionHolder[UInt32]

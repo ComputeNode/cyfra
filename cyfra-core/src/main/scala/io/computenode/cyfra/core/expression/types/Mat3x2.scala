@@ -15,3 +15,4 @@ object Mat3x2:
     def tag: Tag[Mat3x2[T]] = Tag[Mat3x2[T]]
     def composites: List[Value[?]] = List(Value[Vec2[T]])
     def baseTag: Option[Tag[?]] = Some(Tag[Mat3x2].asInstanceOf[Tag[?]])
+  final class Mat3x2Impl[T <: Scalar: Value](val block: ExpressionBlock[Mat3x2[T]]) extends Mat3x2[T] with ExpressionHolder[Mat3x2[T]]

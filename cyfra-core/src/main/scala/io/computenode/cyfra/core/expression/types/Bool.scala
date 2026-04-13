@@ -9,3 +9,4 @@ object Bool:
   given Value.Scalar[Bool] with
     protected def extractUnsafe(ir: ExpressionBlock[Bool]): Bool = new BoolImpl(ir)
     def tag: Tag[Bool] = Tag[Bool]
+  final class BoolImpl(val block: ExpressionBlock[Bool]) extends Bool with ExpressionHolder[Bool]

@@ -9,3 +9,4 @@ object Float32:
   given Value.Scalar[Float32] with
     protected def extractUnsafe(ir: ExpressionBlock[Float32]): Float32 = new Float32Impl(ir)
     def tag: Tag[Float32] = Tag[Float32]
+  final class Float32Impl(val block: ExpressionBlock[Float32]) extends Float32 with ExpressionHolder[Float32]

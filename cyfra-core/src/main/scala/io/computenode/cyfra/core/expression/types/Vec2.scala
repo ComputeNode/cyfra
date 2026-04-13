@@ -13,3 +13,4 @@ object Vec2:
     def tag: Tag[Vec2[T]] = Tag[Vec2[T]]
     def composites: List[Value[?]] = List(Value[T])
     def baseTag: Option[Tag[?]] = Some(Tag[Vec2].asInstanceOf[Tag[?]])
+  final class Vec2Impl[T <: Scalar: Value](val block: ExpressionBlock[Vec2[T]]) extends Vec2[T] with ExpressionHolder[Vec2[T]]

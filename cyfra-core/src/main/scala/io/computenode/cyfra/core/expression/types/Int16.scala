@@ -9,3 +9,4 @@ object Int16:
   given Value.Scalar[Int16] with
     protected def extractUnsafe(ir: ExpressionBlock[Int16]): Int16 = new Int16Impl(ir)
     def tag: Tag[Int16] = Tag[Int16]
+  final class Int16Impl(val block: ExpressionBlock[Int16]) extends Int16 with ExpressionHolder[Int16]

@@ -13,3 +13,4 @@ object GArray:
     def tag: Tag[GArray[T]] = Tag[GArray[T]]
     def composites: List[Value[?]] = List(Value[T])
     def baseTag: Option[Tag[?]] = Some(Tag[GArray].asInstanceOf[Tag[?]])
+  final class GArrayImpl[T: Value](val block: ExpressionBlock[GArray[T]]) extends GArray[T] with ExpressionHolder[GArray[T]]
