@@ -1,10 +1,10 @@
 package io.computenode.cyfra.core.expression.types
 
 import io.computenode.cyfra.core.expression.*
-import io.computenode.cyfra.core.expression.ops.NegativeOps
+import io.computenode.cyfra.core.expression.ops.{IntegerOps, NegativeOps}
 import izumi.reflect.Tag
 
-abstract class Int32 extends SignedIntType with NegativeOps[Int32]
+abstract class Int32 extends SignedIntType with NegativeOps[Int32] with IntegerOps[Int32]
 object Int32:
   final class Int32Impl(val block: ExpressionBlock[Int32]) extends Int32 with ExpressionHolder[Int32]
 
@@ -16,3 +16,5 @@ object Int32:
     def apply(value: Int): Int32 = Int32(value)
 
   def apply(value: Int): Int32 = const(value)
+
+  def apply(value: UInt32): Int32 = Value.map(Operator.ConvertToS)(value)

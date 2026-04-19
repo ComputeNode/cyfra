@@ -3,13 +3,11 @@ package io.computenode.cyfra.foton.rt
 import io.computenode.cyfra
 import io.computenode.cyfra.*
 import io.computenode.cyfra.core.CyfraRuntime
-import io.computenode.cyfra.dsl.Value.*
-import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.foton.library.fRGBA
 import io.computenode.cyfra.foton.rt.ImageRtRenderer.RaytracingIteration
-import io.computenode.cyfra.foton.GFunction
+import io.computenode.cyfra.foton.{GFunction, ImageUtility}
 import io.computenode.cyfra.runtime.VkCyfraRuntime
-import io.computenode.cyfra.foton.ImageUtility
 import io.computenode.cyfra.utility.Utility.timed
 
 import java.nio.file.Path
@@ -43,7 +41,7 @@ class ImageRtRenderer(params: ImageRtRenderer.Parameters) extends RtRenderer(par
 
 object ImageRtRenderer:
 
-  private case class RaytracingIteration(frame: Int32) extends GStruct[RaytracingIteration]
+  private case class RaytracingIteration(frame: Int32)
 
   case class Parameters(
     width: Int,

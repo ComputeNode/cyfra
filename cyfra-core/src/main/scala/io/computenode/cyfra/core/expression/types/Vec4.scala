@@ -30,5 +30,21 @@ object Vec4:
     def composites: List[Value[?]] = List(Value[T])
     def baseTag: Option[Tag[?]] = Some(Tag[Vec4].asInstanceOf[Tag[?]])
 
+  def apply(x: Float32): Vec4[Float32] =
+    val v = Value[Float32]
+    val ExpressionBlock(result, body) = v.peel(x)
+    val res = Expression.Combine[Vec4[Float32]](List.fill(4)(result))
+    Value[Vec4[Float32]].extract(ExpressionBlock(res, res :: body))
+
+  def apply(xyz: Vec3[Float32], w: Float32): Vec4[Float32] =
+    val (x, y, z) = (xyz.x, xyz.y, xyz.z)
+    Vec4(x, y, z, w)
+
+  def apply(x: Float32, y: Float32, z: Float32, w: Float32): Vec4[Float32] =
+    val v = Value[Float32]
+    val (args, body) = List(x, y, z, w).map(v.peel).map(x => (x.result, x.body)).unzip
+    val res = Expression.Combine[Vec4[Float32]](args)
+    Value[Vec4[Float32]].extract(ExpressionBlock(res, res :: body.flatten))
+    
   def apply[A <: FloatType: Value](x: Float, y: Float, z: Float, w: Float): Vec4[A] = const((x, y, z, w))
   def apply[A <: IntegerType: Value](x: Int, y: Int, z: Int, w: Int): Vec4[A] = const((x, y, z, w))

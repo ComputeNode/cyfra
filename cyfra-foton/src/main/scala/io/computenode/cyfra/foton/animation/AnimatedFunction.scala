@@ -1,10 +1,10 @@
 package io.computenode.cyfra.foton.animation
 
 import io.computenode.cyfra
-import io.computenode.cyfra.dsl.Value.*
-import io.computenode.cyfra.dsl.collections.GArray2D
+import io.computenode.cyfra.core.expression.types.{Float32, Vec2, Vec4}
 import io.computenode.cyfra.foton.animation.AnimatedFunction.FunctionArguments
 import io.computenode.cyfra.foton.animation.AnimationFunctions.AnimationInstant
+import io.computenode.cyfra.foton.library.GArray2D
 import io.computenode.cyfra.utility.Units.Milliseconds
 
 case class AnimatedFunction(fn: FunctionArguments => AnimationInstant ?=> Vec4[Float32], duration: Milliseconds) extends AnimationRenderer.Scene

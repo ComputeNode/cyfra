@@ -1,17 +1,19 @@
 package io.computenode.cyfra.foton.animation
 
 import io.computenode.cyfra
-import io.computenode.cyfra.core.CyfraRuntime
-import io.computenode.cyfra.dsl.Value.*
-import io.computenode.cyfra.dsl.struct.GStruct
-import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.core.{CyfraRuntime, GCodec}
+import io.computenode.cyfra.core.GCodec.given
+import io.computenode.cyfra.core.expression.types.{Float32, Int32, Vec2, Vec4}
 import io.computenode.cyfra.foton.animation.AnimatedFunctionRenderer.{AnimationIteration, RenderFn}
 import io.computenode.cyfra.foton.animation.AnimationFunctions.AnimationInstant
 import io.computenode.cyfra.foton.GFunction
+import io.computenode.cyfra.foton.library.fRGBA
 import io.computenode.cyfra.runtime.VkCyfraRuntime
 
+import java.nio.ByteBuffer
 import scala.concurrent.ExecutionContext
 import scala.concurrent.ExecutionContext.Implicits
+import scala.io.Codec
 
 class AnimatedFunctionRenderer(params: AnimatedFunctionRenderer.Parameters)
     extends AnimationRenderer[AnimatedFunction, AnimatedFunctionRenderer.RenderFn](params):
@@ -31,7 +33,7 @@ class AnimatedFunctionRenderer(params: AnimatedFunctionRenderer.Parameters)
         val lastColor = lastFrame.at(xi, yi)
         val x = (xi - (params.width / 2)).asFloat / params.width.toFloat
         val y = (yi - (params.height / 2)).asFloat / params.height.toFloat
-        val uv = (x, y)
+        val uv = Vec2(x, y)
         scene.fn(AnimatedFunction.FunctionArguments(lastFrame, lastColor, uv))(using AnimationInstant(time))
 
   /** Close the runtime to release GPU resources */
@@ -39,6 +41,6 @@ class AnimatedFunctionRenderer(params: AnimatedFunctionRenderer.Parameters)
 
 object AnimatedFunctionRenderer:
   type RenderFn = GFunction[AnimationIteration, Vec4[Float32], Vec4[Float32]]
-  case class AnimationIteration(time: Float32) extends GStruct[AnimationIteration]
+  case class AnimationIteration(time: Float32)
 
   case class Parameters(width: Int, height: Int, framesPerSecond: Int) extends AnimationRenderer.Parameters

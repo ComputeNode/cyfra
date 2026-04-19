@@ -79,6 +79,12 @@ object Operator:
 
   case object VectorShuffle extends Operator3
 
+  // conversion
+  case object ConvertToU extends Operator1
+  case object ConvertToS extends Operator1
+  case object ConvertToF extends Operator1
+  case object Convert extends Operator1
+
   // GLSL extended section
 
   // universal

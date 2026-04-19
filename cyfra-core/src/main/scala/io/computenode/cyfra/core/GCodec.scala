@@ -62,3 +62,33 @@ object GCodec:
     def fromByteBuffer(outBuf: ByteBuffer, arr: Array[Boolean]): Array[Boolean] =
       outBuf.get(arr.asInstanceOf[Array[Byte]]).flip()
       arr
+
+  given GCodec[Vec4[Float32], (Float, Float, Float, Float)]:
+    def toByteBuffer(inBuf: ByteBuffer, arr: Array[(Float, Float, Float, Float)]): ByteBuffer =
+      inBuf.clear().order(ByteOrder.nativeOrder())
+      arr
+        .flatMap(_.productIterator)
+        .map(_.asInstanceOf[Float])
+        .foreach: f =>
+          inBuf.putFloat(f)
+      inBuf.flip()
+      inBuf
+
+    def fromByteBuffer(outBuf: ByteBuffer, arr: Array[(Float, Float, Float, Float)]): Array[(Float, Float, Float, Float)] =
+      val res = outBuf.asFloatBuffer()
+      for i <- 0 until arr.size do arr(i) = (res.get(), res.get(), res.get(), res.get())
+      outBuf.rewind()
+      arr
+
+  given [T <: Product: {Value, ClassTag}]: GCodec[T, T] with
+    def toByteBuffer(inBuf: ByteBuffer, arr: Array[T]): ByteBuffer =
+      inBuf.order(ByteOrder.nativeOrder())
+      arr
+        .flatMap(_.productIterator)
+        .foreach:
+          case x: Int32 =>
+            val int = Value[Int32].peel(x).result.asInstanceOf[Expression.Constant[?]].value.asInstanceOf[Int]
+            inBuf.putInt(int)
+      inBuf
+
+    def fromByteBuffer(outBuf: ByteBuffer, arr: Array[T]): Array[T] = ???

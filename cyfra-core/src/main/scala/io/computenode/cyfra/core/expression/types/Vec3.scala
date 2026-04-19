@@ -1,6 +1,7 @@
 package io.computenode.cyfra.core.expression.types
 
 import io.computenode.cyfra.core.expression.*
+import io.computenode.cyfra.core.expression.Expression.Operation
 import io.computenode.cyfra.core.expression.ops.{Vec3Ops, VecOps}
 import izumi.reflect.Tag
 
@@ -30,5 +31,18 @@ object Vec3:
     def composites: List[Value[?]] = List(Value[T])
     def baseTag: Option[Tag[?]] = Some(Tag[Vec3].asInstanceOf[Tag[?]])
 
-  def apply[A <: FloatType: Value](x: Float, y: Float, z: Float): Vec3[A] = const((x, y, z))
-  def apply[A <: IntegerType: Value](x: Int, y: Int, z: Int): Vec3[A] = const((x, y, z))
+  def apply(x: Float32): Vec3[Float32] =
+    val v = Value[Float32]
+    val ExpressionBlock(result, body) = v.peel(x)
+    val res = Expression.Combine[Vec3[Float32]](List.fill(3)(result))
+    Value[Vec3[Float32]].extract(ExpressionBlock(res, res :: body))
+
+  def apply(x: Float32, y: Float32, z: Float32): Vec3[Float32] =
+    val v = Value[Float32]
+    val (args, body) = List(x, y, z).map(v.peel).map(x => (x.result, x.body)).unzip
+    val res = Expression.Combine[Vec3[Float32]](args)
+    Value[Vec3[Float32]].extract(ExpressionBlock(res, res :: body.flatten))
+
+  def apply(x: Float): Vec3[Float32] = const((x, x, x))
+  def apply(x: Float, y: Float, z: Float): Vec3[Float32] = const((x, y, z))
+  def apply(vec: (Float, Float, Float)): Vec3[Float32] = const(vec)

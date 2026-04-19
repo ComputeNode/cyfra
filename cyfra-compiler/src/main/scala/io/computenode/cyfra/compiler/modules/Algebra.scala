@@ -79,6 +79,10 @@ class Algebra extends FunctionCompilationModule:
     case OuterProduct      => Op.OpOuterProduct
     case Dot               => Op.OpDot
 
+    case ConvertToU => Op.OpConvertFToU
+    case ConvertToS => Op.OpConvertFToS
+    case Convert    => Op.OpFConvert
+
     case Equal            => Op.OpFOrdEqual
     case NotEqual         => Op.OpFOrdNotEqual
     case LessThan         => Op.OpFOrdLessThan
@@ -124,6 +128,10 @@ class Algebra extends FunctionCompilationModule:
 
     case BitFieldExtract => Op.OpBitFieldSExtract
 
+    case ConvertToF => Op.OpConvertSToF
+    case ConvertToU => Op.OpBitcast
+    case Convert    => Op.OpSConvert
+
     case LessThan         => Op.OpSLessThan
     case GreaterThan      => Op.OpSGreaterThan
     case LessThanEqual    => Op.OpSLessThanEqual
@@ -134,6 +142,10 @@ class Algebra extends FunctionCompilationModule:
     case Mod => Op.OpUMod
 
     case BitFieldExtract => Op.OpBitFieldUExtract
+
+    case ConvertToF => Op.OpConvertUToF
+    case ConvertToS => Op.OpBitcast
+    case Convert    => Op.OpUConvert
 
     case LessThan         => Op.OpULessThan
     case GreaterThan      => Op.OpUGreaterThan

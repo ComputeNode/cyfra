@@ -5,7 +5,7 @@ import io.computenode.cyfra.core.expression.*
 
 import scala.annotation.targetName
 
-object Library:
+object Functions:
 
   def select[T: Value](cond: Bool, obj1: T, obj2: T): T = Value.map(Operator.Select)(cond, obj1, obj2)
   def select[V <: Vec[Bool]: Value, T <: Vec[?]: Value](cond: V, obj1: T, obj2: T): T = Value.map(Operator.Select)(cond, obj1, obj2)
@@ -176,7 +176,7 @@ object Library:
   @targetName("log2Vec32")
   def log2[V <: Vec[Float32]: Value](x: V): V = Value.map(Operator.Log2)(x)
 
-  def min[T <: FloatType: Value](x: T, y: T): T = Value.map(Operator.Min)(x, y)
+  def min[T <: FloatType: Value](x: T, xs: T*): T = xs.fold(x)(Value.map(Operator.Min))
   @targetName("minVec")
   def min[T <: FloatType: Value, V <: Vec[T]: Value](x: V, y: V): V = Value.map(Operator.Min)(x, y)
   def min[T <: SignedIntType: Value](x: T, y: T): T = Value.map(Operator.Min)(x, y)
@@ -186,7 +186,7 @@ object Library:
   @targetName("minVecUnsignedInt")
   def min[T <: UnsignedIntType: Value, V <: Vec[T]: Value](x: V, y: V): V = Value.map(Operator.Min)(x, y)
 
-  def max[T <: FloatType: Value](x: T, y: T): T = Value.map(Operator.Max)(x, y)
+  def max[T <: FloatType: Value](x: T, xs: T*): T = xs.fold(x)(Value.map(Operator.Max))
   @targetName("maxVec")
   def max[T <: FloatType: Value, V <: Vec[T]: Value](x: V, y: V): V = Value.map(Operator.Max)(x, y)
   def max[T <: SignedIntType: Value](x: T, y: T): T = Value.map(Operator.Max)(x, y)
@@ -247,7 +247,7 @@ object Library:
   def ldexp[T <: FloatType: Value](x: Vec3[T], exp: Vec3[Int32])(using Value[Vec3[T]], Value[Vec3[Int32]]): Vec3[T] = Value.map(Operator.Ldexp)(x, exp)
   def ldexp[T <: FloatType: Value](x: Vec4[T], exp: Vec4[Int32])(using Value[Vec4[T]], Value[Vec4[Int32]]): Vec4[T] = Value.map(Operator.Ldexp)(x, exp)
 
-  def cross[T <: FloatType: Value](x: Vec3[T], y: Vec3[T])(using Value[Vec3[T]]): Vec3[T] = Value.map(Operator.Cross)(x, y)
+  extension [T <: FloatType: Value](x: Vec3[T]) infix def cross(y: Vec3[T])(using Value[Vec3[T]]): Vec3[T] = Value.map(Operator.Cross)(x, y)
 
   def normalize[T <: FloatType: Value](x: T): T = Value.map(Operator.Normalize)(x)
   @targetName("normalizeVec")

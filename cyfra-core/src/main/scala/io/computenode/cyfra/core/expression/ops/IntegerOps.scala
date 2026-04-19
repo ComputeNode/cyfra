@@ -42,3 +42,5 @@ trait IntegerOps[T <: IntegerType: Value] extends NumericalOps[T]:
   def bitReverse: T = Value.map(Operator.BitReverse)(self)
 
   def bitCount: T = Value.map(Operator.BitCount)(self)
+
+  def asFloat: Float32 = Value.map(Operator.ConvertToF)(self)
