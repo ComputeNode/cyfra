@@ -48,7 +48,7 @@ case class SumParams(value: Float32) extends GStruct[SumParams]
 case class SumLayout(
   input: GBuffer[Float32], 
   output: GBuffer[Float32], 
-  params: GUniform[AddParams]
+  params: GUniform[SumParams]
 ) derives Layout
 
 val sumProgram: GProgram[Int, SumLayout] = GProgram[Int, SumLayout](
