@@ -57,7 +57,6 @@ object GFunction:
   case class GFunctionLayout[G: Value, H: Value, R: Value](in: GBuffer[GArray[H]], out: GBuffer[GArray[R]], uniform: GUniform[G])
 
   object GFunctionLayout:
-    // Hand-written: Layout.derived can't resolve the type parameters of a generic layout
     given [G: Value, H: Value, R: Value]: Layout[GFunctionLayout[G, H, R]] with
       def fromBindings(bindings: Seq[GBinding[?]]): GFunctionLayout[G, H, R] =
         GFunctionLayout(

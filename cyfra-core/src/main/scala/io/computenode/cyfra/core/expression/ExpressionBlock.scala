@@ -16,9 +16,6 @@ case class ExpressionBlock[A](result: Expression[A], body: List[Expression[?]]):
 
   def isPureWith(externalVarsIDs: Set[Int]): Boolean = freeVariables.exists(_.subsetOf(externalVarsIDs))
 
-  /** Ids of local variables used here but declared outside, or None if the block is impure regardless of its scope. Cached, so nested
-    * blocks are only analysed once.
-    */
   lazy val freeVariables: Option[Set[Int]] = boundary:
     val (_, free) = body.foldRight((Set.empty[Int], Set.empty[Int])): (expr, acc) =>
       val (declared, free) = acc
@@ -26,7 +23,7 @@ case class ExpressionBlock[A](result: Expression[A], body: List[Expression[?]]):
       def nested(blocks: ExpressionBlock[?]*) =
         (declared, blocks.foldLeft(free)((f, b) => f ++ (b.freeVariables.getOrElse(break(None)) -- declared)))
       expr match
-        case e if ExpressionBlock.trusted.contains(e.id) => acc
+        case e if e.trusted                          => acc
         case Expression.VariableDeclare(variable, _)     => (declared + variable.id, free)
         case Expression.Read(focus, _) =>
           focus.getRoot match
@@ -54,7 +51,6 @@ case class ExpressionBlock[A](result: Expression[A], body: List[Expression[?]]):
   def extend[B](that: ExpressionBlock[B]): ExpressionBlock[B] =
     ExpressionBlock(that.result, that.body ++ this.body)
 
-  /** Visits every expression once, even though bodies share (and so repeat) their dependencies. */
   def traverse[T](f: Expression[?] => Option[T], enterFunctions: Boolean = false): List[Option[T]] =
     val visited = mutable.HashSet.empty[Int]
     def rec(block: ExpressionBlock[?]): List[Option[T]] =
@@ -95,11 +91,7 @@ case class ExpressionBlock[A](result: Expression[A], body: List[Expression[?]]):
     .flatten
 
 object ExpressionBlock:
-  // ponytail: global set of expression ids exempt from the purity check (ids are unique, so this is sound); never shrinks
-  private[expression] val trusted: java.util.Set[Int] = java.util.concurrent.ConcurrentHashMap.newKeySet[Int]()
-
-  /** Exempts every expression of the block (and anything built on top of it) from the purity check. */
-  def trust(block: ExpressionBlock[?]): Unit = block.body.foreach(e => trusted.add(e.id))
+  def trust(block: ExpressionBlock[?]): Unit = block.body.foreach(_.trusted = true)
 
   def apply[A](expression: Expression[A]): ExpressionBlock[A] =
     ExpressionBlock(expression, List(expression))

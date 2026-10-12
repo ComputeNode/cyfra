@@ -13,8 +13,6 @@ class ConstantArgs extends FunctionCompilationModule:
     input.flatMapReplace:
       case x: IR.ConstantArgs =>
         IRs.proxy(x)(using x.v)
-      // Only rebuild instructions that actually inline literals: a rebuilt IR gets a new id, and references from other functions
-      // (e.g. OpFunctionCall -> OpFunction) are not remapped
       case x: IR.SvRef[a] if hasConstantArgs(x.operands) =>
         given Value[a] = x.v
         IRs(x.copy(operands = inlineArgs(x.operands)))

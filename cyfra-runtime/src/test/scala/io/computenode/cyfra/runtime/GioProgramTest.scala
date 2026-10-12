@@ -10,6 +10,7 @@ import io.computenode.cyfra.core.expression.types.given
 import io.computenode.cyfra.core.memory.BuildInVariable.GlobalInvocationId
 import io.computenode.cyfra.dsl.direct.*
 import io.computenode.cyfra.core.{GBufferRegion, GExecution, GProgram, Layout}
+import io.computenode.cyfra.core.expression.CustomFunction
 import org.lwjgl.BufferUtils
 import org.lwjgl.system.MemoryUtil
 
@@ -101,6 +102,24 @@ class GioProgramTest extends munit.FunSuite:
       layout => FilterProgramLayout(in = layout.emitBuffer, out = layout.filterBuffer),
     )
 
+
+  case class SingleBufferLayout(buf: GBuffer[GArray[UInt32]])
+
+  val returnFirstRead = CustomFunction[UInt32, UInt32]: v =>
+    GIO.reify:
+      val first = GIO.read(v)
+      GIO.write(v, first + UInt32(1))
+      GIO.read(v)
+      first
+
+  val callProgram = GioProgram[Int, SingleBufferLayout](
+    layout = n => SingleBufferLayout(GBuffer(n)),
+    dispatch = (_, n) => GProgram.StaticDispatch((n / 128, 1, 1)),
+  ): layout =>
+    val invocId = GIO.read(GlobalInvocationId.focus(_.x))
+    val arg = GIO.declare[UInt32](Some(invocId))
+    GIO.write(layout.buf.focus(_.at(invocId)), GIO.call(returnFirstRead, arg))
+
   // === Tests ===
 
   test("emit duplicates each element emitN times"):
@@ -151,3 +170,12 @@ class GioProgramTest extends munit.FunSuite:
     val actual   = (0 until inSize * emitN).map(outBuffer.get(_) != 0)
     val expected = (0 until inSize).flatMap(x => Seq.fill(emitN)(x)).map(_ == filterValue)
     assertEquals(actual, expected)
+
+  test("function returns its first read, not a later identical one"):
+    val n = 256
+    val outBuffer = BufferUtils.createIntBuffer(n)
+    GBufferRegion
+      .allocate[SingleBufferLayout]
+      .map(callProgram.execute(n, _))
+      .runUnsafe(init = SingleBufferLayout(buf = GBuffer(n)), onDone = _.buf.read(MemoryUtil.memByteBuffer(outBuffer)))
+    assertEquals((0 until n).map(outBuffer.get), 0 until n)

@@ -6,11 +6,14 @@ import io.computenode.cyfra.core.expression.types.{*, given}
 import io.computenode.cyfra.core.memory.{FocusRoot, LocalVariable, Variable}
 import io.computenode.cyfra.utility.Utility.nextId
 
+import izumi.reflect.Tag
+
 import java.nio.{ByteBuffer, ByteOrder}
 import scala.compiletime.constValue
 
 sealed trait Expression[A: Value]:
   val id: Int = nextId()
+  @volatile private[expression] var trusted: Boolean = false
   def v: Value[A] = Value[A]
 
 object Expression:
@@ -44,12 +47,21 @@ object Expression:
   val unitZero = Expression.Constant[Unit](())
 
   def constantToByteBuffer[T: Value](value: T): Array[Byte] =
-    val exp = Value[T].peel(value)
-    exp.result match
-      case x: Expression.Constant[a] => Expression.constantRec(x.value)
+    Value[T].peel(value).result match
+      case x: Expression.Constant[a] => constantRec(x.value, Value[T])
       case _                         => throw IllegalArgumentException(s"Value is not a compile-time constant: $value")
 
-  private def constantRec(const: Any): Array[Byte] = const match
-    case x: Int     => ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(x).array()
-    case x: Float   => ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putFloat(x).array()
-    case x: Product => x.productIterator.flatMap(constantRec).toArray
+  private def constantRec(const: Any, v: Value[?]): Array[Byte] =
+    if v.baseTag.exists(_ <:< Tag[Tuple]) then
+      const.asInstanceOf[Product].productIterator.zip(v.composites).flatMap((c, cv) => constantRec(c, cv)).toArray
+    else if v.baseTag.isDefined then const.asInstanceOf[Product].productIterator.flatMap(constantRec(_, v.bottomComposite)).toArray
+    else
+      val bb = ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN)
+      v.tag match
+        case t if t =:= Tag[Int32] || t =:= Tag[UInt32] => bb.putInt(const.asInstanceOf[Int])
+        case t if t =:= Tag[Int16] || t =:= Tag[UInt16] => bb.putShort(const.asInstanceOf[Int].toShort)
+        case t if t =:= Tag[Float32]                    => bb.putFloat(const.asInstanceOf[Float])
+        case t if t =:= Tag[Float16]                    => bb.putShort(java.lang.Float.floatToFloat16(const.asInstanceOf[Float]))
+        case t if t =:= Tag[Float64]                    => bb.putDouble(const.asInstanceOf[Double])
+        case t                                          => throw IllegalArgumentException(s"$t has no buffer representation")
+      bb.array().take(bb.position())

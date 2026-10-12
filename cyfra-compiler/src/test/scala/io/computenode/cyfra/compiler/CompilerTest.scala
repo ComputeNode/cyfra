@@ -99,6 +99,26 @@ class CompilerTest extends munit.FunSuite:
     val code = compiler.compile(exp, Compiler.Compute(Layout[TestLayout].toBindings(ref), (1024, 1, 1)))
     SpirvValidator.validateSpirv(code, Enable(throwOnFail = true))
 
+  test("branch result used inside a later branch"):
+    import io.computenode.cyfra.dsl.Library.when
+    val ref = Layout[TestLayout].layoutRef
+    val exp = GIO.reify:
+      val v = GIO.read(ref.in1.focus(_.at(0)))
+      val b = GIO.branch[Int32](v > 0, v * 2, v * 3)
+      GIO.write(ref.in1.focus(_.at(1)), when(v > 5)(b * 2).otherwise(Int32(1)))
+    val code = compiler.compile(exp, Compiler.Compute(Layout[TestLayout].toBindings(ref), (1024, 1, 1)))
+    SpirvValidator.validateSpirv(code, Enable(throwOnFail = true))
+
+  test("branch result passed through a later branch"):
+    import io.computenode.cyfra.dsl.Library.when
+    val ref = Layout[TestLayout].layoutRef
+    val exp = GIO.reify:
+      val v = GIO.read(ref.in1.focus(_.at(0)))
+      val b = GIO.branch[Int32](v > 0, v * 2, v * 3)
+      GIO.write(ref.in1.focus(_.at(1)), when(v > 5)(b).otherwise(Int32(1)))
+    val code = compiler.compile(exp, Compiler.Compute(Layout[TestLayout].toBindings(ref), (1024, 1, 1)))
+    SpirvValidator.validateSpirv(code, Enable(throwOnFail = true))
+
   test("custom function call references the right function"):
     val ref = Layout[TestLayout].layoutRef
     val f = CustomFunction[Int32, Int32](v => GIO.reify(GIO.read(v) + 1))

@@ -70,7 +70,6 @@ class VariablesDigestion extends StandardCompilationModule:
                   decorations.append(IR.SvInst(Op.OpDecorate, List(res, Decoration.BuiltIn, BuiltIn.GlobalInvocationId)))
               res
             case other => throw NotImplementedError(s"how did it get here? [$other]")
-        case IR.Declare(root, Some(_)) => throw NotImplementedError("impossible, can't have starting values for global variables")
         case other                     => other
       (res, decorations.toList, interface.toList, globalDeclarations.toMap)
     val c2 = c1.copy(prefix = c1.prefix ++ prefix, decorations = c1.decorations ++ decorations, suffix = suffix)
@@ -91,8 +90,8 @@ class VariablesDigestion extends StandardCompilationModule:
   private def compileFunction(input: IRs[?], globalVariables: Map[FocusRoot[?], RefIR[Unit]])(using Ctx): IRs[?] =
     val varDeclarations = mutable.Map.from[FocusRoot[?], RefIR[Unit]](globalVariables)
     input.flatMapReplace:
-      case IR.Declare(variable, maybeInit) =>
-        val inst = IR.SvRef[Unit](Op.OpVariable, Ctx.getTypePointer(variable.v, StorageClass.Function), StorageClass.Function :: maybeInit.toList)
+      case IR.Declare(variable, _) =>
+        val inst = IR.SvRef[Unit](Op.OpVariable, Ctx.getTypePointer(variable.v, StorageClass.Function), List(StorageClass.Function))
         varDeclarations(variable) = inst
         IRs(inst)
       case IR.Write(variable, Nil, value) if !variable.isInstanceOf[GBinding[?]] =>

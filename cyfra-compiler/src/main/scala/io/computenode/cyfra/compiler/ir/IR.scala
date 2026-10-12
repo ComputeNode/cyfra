@@ -19,15 +19,13 @@ sealed trait IR[A: Value] extends Product:
   def name: String = this.getClass.getSimpleName
   protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[A] = this
 
-  // Shallow on purpose: children are compared by id, nested blocks by reference. Case-class == would walk the whole (shared) DAG.
   def deepEquals(that: IR[?]): Boolean =
-    if (this eq that) || this.getClass != that.getClass then return this eq that
+    if this.getClass != that.getClass then return false
 
     this.productIterator
       .zip(that.productIterator)
       .forall:
         case (a: IR[?], b: IR[?])     => a.id == b.id
-        case (a: IRs[?], b: IRs[?])   => a eq b
         case (Some(a: IR[?]), Some(b: IR[?])) => a.id == b.id
         case (a: List[?], b: List[?]) =>
           a.length == b.length &&

@@ -25,17 +25,14 @@ class Emitter extends CompilationModule[CompilationUnit, ByteBuffer]:
       Word(0), // Reserved
     )
 
-    def ref(user: IR[?])(r: RefIR[?]): ResultRef =
-      ids.getOrElse(r.id, throw CompilationException(s"${user.name} references ${r.name} (id ${r.id}), which is never emitted"))
-
-    def mapOperands(user: IR[?], operands: List[Words | RefIR[?]]): List[Words] =
+    def mapOperands(operands: List[Words | RefIR[?]]): List[Words] =
       operands.map:
         case w: Words    => w
-        case r: RefIR[?] => ref(user)(r)
+        case r: RefIR[?] => ids(r.id)
 
     val code: List[Words] = output.map:
-      case x @ IR.SvInst(op, operands)     => Instruction(op, mapOperands(x, operands))
-      case x @ IR.SvRef(op, tpe, operands) => Instruction(op, FlatList(tpe.map(ref(x)), ids(x.id), mapOperands(x, operands)))
+      case IR.SvInst(op, operands)         => Instruction(op, mapOperands(operands))
+      case x @ IR.SvRef(op, tpe, operands) => Instruction(op, FlatList(tpe.map(_.id).map(ids), ids(x.id), mapOperands(operands)))
       case other                           => throw new CompilationException("Cannot emit non-SPIR-V IR: " + other)
 
     val bytes = (headers ++ code).flatMap(_.toBytes).toArray

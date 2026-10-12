@@ -37,7 +37,6 @@ class GFunctionTest extends munit.FunSuite:
 
   test("GSeq nested in a loop restarts on every outer iteration"):
     val f: GFunction[Int32, Int32, Int32] = GFunction: x =>
-      // inner count depends on the outer element j = 1, 2, 3, so it must really rerun: 1 + 2 + 3
       GSeq.gen[Int32](1, _ + 1).limit(3).map(j => GSeq.gen[Int32](0, _ + 1).limit(4).filter(_ < j).count).fold(Int32(0), _ + _) + x * 0
     val result: Array[Int] = f.run(input)
     assertEquals(result.toList, List.fill(256)(6))

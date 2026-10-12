@@ -22,12 +22,9 @@ trait Value[A]:
     if !block.isPure then throw RuntimeException("Cannot embed impure expression")
     extractUnsafe(block)
 
-  /** Like [[extract]], but skips the purity check, also for every value later derived from the result. The block's side effects (e.g.
-    * buffer reads) are emitted wherever the value is first used, so only use it when that ordering doesn't matter.
-    */
   final def extractUnchecked(block: ExpressionBlock[A]): A =
     ExpressionBlock.trust(block)
-    extractUnsafe(block)
+    extractUnsafe(block.copy())
   final def peel(x: A): ExpressionBlock[A] = x match
     case p: Product if baseTag.exists(_ <:< Tag[Tuple]) => Value.productAsExpression(p)(using this.asInstanceOf[Value[Product]]).asInstanceOf[ExpressionBlock[A]]
     case x                                              => ExpressionBlock.pure(x)
@@ -97,7 +94,6 @@ object Value:
       extract = (ir, self) => Tuple1(Value.extractComposite[Tuple1[A], A](ir, self, value, 0)),
     )
 
-  // Tuples and case classes: a Constant when every field is constant, otherwise a Combine of the fields
   private def productAsExpression[A <: Product: Value as v](product: A): ExpressionBlock[A] =
     productAsConstant(product) match
       case Some(value) => return ExpressionBlock(value)

@@ -17,7 +17,6 @@ class AnimationRtRenderer(params: AnimationRtRenderer.Parameters)
   private val runtime = VkCyfraRuntime()
   given CyfraRuntime = runtime
 
-  /** Close the runtime to release GPU resources */
   override def close(): Unit = runtime.close()
 
   protected def renderFrame(scene: AnimatedScene, time: Float32, fn: GFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]]): Array[fRGBA] =

@@ -2,7 +2,7 @@ package io.computenode.cyfra.foton
 
 import java.awt.image.BufferedImage
 import java.io.File
-import java.nio.file.Path
+import java.nio.file.{Files, Path}
 import javax.imageio.ImageIO
 
 object ImageUtility:
@@ -16,5 +16,6 @@ object ImageUtility:
         val (iR, iG, iB) = ((clip(r) * 255).toInt, (clip(g) * 255).toInt, (clip(b) * 255).toInt)
         image.setRGB(x, y, (iR << 16) | (iG << 8) | iB)
 
+    Option(location.toAbsolutePath.getParent).foreach(Files.createDirectories(_))
     val outputFile = location.toFile
     ImageIO.write(image, "png", outputFile)

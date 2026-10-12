@@ -78,8 +78,15 @@ class ValueTest extends munit.FunSuite:
     intercept[RuntimeException](Value[Int32].extract(block))
     val v = Value[Int32].extractUnchecked(block)
     assertEquals(Value[Int32].peel(v), block)
-    val derived = v + 1 // goes through extract again
+    val derived = v + 1
     assert(Value[Int32].peel(derived).isPure)
+
+  test("a block rejected by extract can still be trusted later"):
+    val read = Expression.Read[Int32](io.computenode.cyfra.core.memory.BufferRef[GArray[Int32]](0), Nil)
+    val block = ExpressionBlock(read)
+    intercept[RuntimeException](Value[Int32].extract(block))
+    val v = Value[Int32].extractUnchecked(block)
+    Value[Int32].extract(Value[Int32].peel(v))
 
   test("case class peels into Combine, or Constant when all fields are constant"):
     case class P(x: Float32, y: Float32)

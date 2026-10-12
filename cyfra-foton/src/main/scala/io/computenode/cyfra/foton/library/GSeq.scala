@@ -4,7 +4,6 @@ import io.computenode.cyfra.core.expression.JumpTarget.{BreakTarget, ContinueTar
 import io.computenode.cyfra.dsl.*
 import io.computenode.cyfra.dsl.direct.GIO
 
-/** A lazy GPU sequence. Nothing is emitted until `fold`, which compiles the whole pipeline into a single loop. */
 final class GSeq[A: Value] private (
   source: GSeq.Source[?],
   pipeline: Any => (BreakTarget, ContinueTarget, GIO) ?=> A,

@@ -25,15 +25,21 @@ case class IRs[A: Value](result: IR[A], body: List[IR[?]]):
   def flatMapReplace(f: IR[?] => IRs[?]): IRs[A] = flatMapReplace(true)(f)
 
   def flatMapReplace(enterControlFlow: Boolean)(f: IR[?] => IRs[?]): IRs[A] =
-    flatMapReplaceImpl(f, mutable.Map.empty, enterControlFlow)
+    flatMapReplaceImpl((ir, _) => f(ir), mutable.Map.empty, enterControlFlow)
 
-  private def flatMapReplaceImpl(f: IR[?] => IRs[?], replacements: mutable.Map[Int, RefIR[?]], enterControlFlow: Boolean): IRs[A] =
+  def flatMapReplaceScoped(inherited: collection.Map[Int, RefIR[?]])(f: (IR[?], collection.Map[Int, RefIR[?]]) => IRs[?]): IRs[A] =
+    flatMapReplaceImpl(f, mutable.Map.from(inherited), enterControlFlow = false)
+
+  private def flatMapReplaceImpl(
+    f: (IR[?], collection.Map[Int, RefIR[?]]) => IRs[?],
+    replacements: mutable.Map[Int, RefIR[?]],
+    enterControlFlow: Boolean,
+  ): IRs[A] =
     val nBody = body.flatMap: (v: IR[?]) =>
       val next = v match
         case b: Branch[a] if enterControlFlow =>
           given Value[a] = b.v
           val Branch(cond, ifTrue, ifFalse, t) = b
-          // Nested blocks see the outer replacements but must not leak theirs: the same IR may also occur in the parent
           val nextT = ifTrue.flatMapReplaceImpl(f, replacements.clone(), enterControlFlow)
           val nextF = ifFalse.flatMapReplaceImpl(f, replacements.clone(), enterControlFlow)
           Branch[a](cond, nextT, nextF, t)
@@ -43,7 +49,7 @@ case class IRs[A: Value](result: IR[A], body: List[IR[?]]):
           Loop(nextM, nextC, b, c)
         case other => other
       val subst = next.substitute(replacements)
-      val IRs(result, body) = f(subst)
+      val IRs(result, body) = f(subst, replacements)
       v match
         case v: RefIR[?] => replacements(v.id) = result.asInstanceOf[RefIR[?]]
         case _           => ()

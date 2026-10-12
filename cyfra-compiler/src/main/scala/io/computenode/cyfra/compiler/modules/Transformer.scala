@@ -53,15 +53,10 @@ class Transformer extends CompilationModule[(ExpressionBlock[Unit], Config), Com
     functionMap: collection.Map[CustomFunction[?], FunctionIR[?]],
     expressionMap: mutable.Map[Int, IR[?]],
   ): IRs[A] =
-    var result: Option[IR[A]] = None
     val body = block.body.reverse
       .distinctBy(_.id)
-      .map: expr =>
-        val res = convertToIR(expr, functionMap, expressionMap)
-        if expr.id == block.result.id then result = Some(res.asInstanceOf[IR[A]])
-        res
-    // A block may just pass through a value defined in an enclosing block (e.g. `when(c)(x).otherwise(read)`)
-    IRs(result.getOrElse(convertToIR(block.result, functionMap, expressionMap)), body)
+      .map(convertToIR(_, functionMap, expressionMap))
+    IRs(convertToIR(block.result, functionMap, expressionMap), body)
 
   private def convertToIR[A](
     expr: Expression[A],
