@@ -6,7 +6,7 @@ import io.computenode.cyfra.utility.Logger.logger
 import java.nio.ByteBuffer
 
 class SpirvToolsRunner(
-  val validator: SpirvValidator.Validation = SpirvValidator.Enable(),
+  val validator: SpirvValidator.Validation = SpirvValidator.Disable,
   val optimizer: SpirvOptimizer.Optimization = SpirvOptimizer.Disable,
   val disassembler: SpirvDisassembler.Disassembly = SpirvDisassembler.Disable,
   val crossCompilation: SpirvCross.CrossCompilation = SpirvCross.Disable,

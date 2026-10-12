@@ -8,13 +8,49 @@ It is multiplatform. It works on:
 - Any dedicated or integrated GPUs that support Vulkan. In practice, it means almost all moderately modern devices from
   most manufacturers including Nvidia, AMD, Intel, Apple.
 
-Library is in an early stage - alpha release and proper documentation are coming.
-
 ## Animations
 
 Included Foton library provides a clean and fun way to animate functions and ray traced scenes.
 
 ## Examples
+
+### Simple example
+
+```scala
+//> using scala "3.6.4"
+//> using dep "io.computenode::cyfra-foton:0.1.0-RC1"
+
+import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.foton.GFunction
+import io.computenode.cyfra.runtime.VkCyfraRuntime
+
+@main
+def multiplyByTwo(): Unit =
+  VkCyfraRuntime.using:
+    val input = (0 until 256).map(_.toFloat).toArray
+
+    val doubleIt: GFunction[GStruct.Empty, Float32, Float32] = GFunction: x =>
+      x * 2.0f
+
+    val result: Array[Float] = doubleIt.run(input)
+
+    println(s"Output: ${result.take(10).mkString(", ")}...")
+```
+
+Run it with:
+```
+scala filename.scala
+```
+<details>
+<summary>Running on macOS</summary>
+  On macOS, you may need to add extra dependencies:
+  
+  ```scala
+  //> using dep "org.lwjgl:lwjgl:3.4.0,classifier=natives-macos-arm64"
+  //> using dep "org.lwjgl:lwjgl-vulkan:3.4.0,classifier=natives-macos-arm64"
+  //> using dep "org.lwjgl:lwjgl-vma:3.4.0,classifier=natives-macos-arm64"
+  ```
+</details>
 
 ### Ray traced animation
 
@@ -55,7 +91,7 @@ at [RtRenderer](https://github.com/ComputeNode/cyfra/blob/50aecea132188776021afe
 
 ## Development
 
-To enable validation layers for vulkan, you need to install vulkan SKD. After installing, set the following VM option:
+To enable validation layers for vulkan, you need to install vulkan SDK. After installing, set the following VM option:
 
 ```
 -Dio.computenode.cyfra.vulkan.validation=true

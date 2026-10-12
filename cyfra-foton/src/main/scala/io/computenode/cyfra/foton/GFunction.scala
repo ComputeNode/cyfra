@@ -84,6 +84,9 @@ object GFunction:
   def apply[H: Value, R: Value](fn: H => R): GFunction[Int32, H, R] =
     GFunction.forEachIndex[Int32, H, R]((_, index, a) => fn(a.at(index)))
 
+  def apply[G: Value, H: Value, R: Value](fn: (G, H) => R): GFunction[G, H, R] =
+    GFunction.forEachIndex[G, H, R]((g, index, a) => fn(g, a.at(index)))
+
   def from2D[G: Value, H: Value, R: Value](width: Int)(fn: (G, (Int32, Int32), GArray2D[H]) => R): GFunction[G, H, R] =
     GFunction.forEachIndex[G, H, R]((g: G, index: Int32, a: GBuffer[GArray[H]]) =>
       val x: Int32 = index % width

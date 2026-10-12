@@ -40,3 +40,8 @@ class GFunctionTest extends munit.FunSuite:
       GSeq.gen[Int32](1, _ + 1).limit(3).map(j => GSeq.gen[Int32](0, _ + 1).limit(4).filter(_ < j).count).fold(Int32(0), _ + _) + x * 0
     val result: Array[Int] = f.run(input)
     assertEquals(result.toList, List.fill(256)(6))
+
+  test("map element-wise with a uniform"):
+    val f: GFunction[Int32, Int32, Int32] = GFunction((g: Int32, x: Int32) => x * g)
+    val result: Array[Int] = f.run(input, 5)
+    assertEquals(result.toList, input.map(_ * 5).toList)

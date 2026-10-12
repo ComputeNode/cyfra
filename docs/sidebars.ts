@@ -4,8 +4,10 @@ const sidebars: SidebarsConfig = {
   docsSidebar: [
     'getting-started',
     'gpu-functions',
-    'composing-gpu-programs',
+    'gpu-programs',
+    'gpu-pipelines',
     'examples',
+    'there-is-more',
   ],
 };
 
