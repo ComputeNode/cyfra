@@ -111,6 +111,9 @@ object GIO:
     gio.extend(branch :: c.body)
     Value[T].indirect(branch)
 
+  def when(cond: Bool)(body: GIO ?=> Unit)(using GIO): Unit =
+    branch[Unit](cond, body, ())
+
   def loop(mainBody: (BreakTarget, ContinueTarget, GIO) ?=> Unit, continueBody: GIO ?=> Unit)(using gio: GIO): Unit =
     val jb = BreakTarget()
     val jc = ContinueTarget()

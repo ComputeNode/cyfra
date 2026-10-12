@@ -80,7 +80,7 @@ class GioProgramTest extends munit.FunSuite:
     val invocId = GIO.read(GlobalInvocationId.focus(_.x))
     val element = GIO.read(layout.in.focus(_.at(invocId)))
     val uniform = GIO.read(layout.params)
-    GIO.write(layout.out.focus(_.at(invocId)), when(element === uniform.filter)(UInt32(1))(UInt32(0)))
+    GIO.write(layout.out.focus(_.at(invocId)), when(element === uniform.filter)(UInt32(1)).otherwise(UInt32(0)))
 
   // === Chained execution ===
 

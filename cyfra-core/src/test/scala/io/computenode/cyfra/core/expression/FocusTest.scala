@@ -27,7 +27,7 @@ class FocusTest extends munit.FunSuite:
     val v1: LocalVariable[Struct] = new LocalVariable()
 
     val result = v1.focus(_._2._1)
-    val expected: Focus[Float32] = FocusConstant[Inner, Float32](FocusConstant[Struct, Inner](v1, 2), 1)
+    val expected: Focus[Float32] = FocusConstant[Inner, Float32](FocusConstant[Struct, Inner](v1, 1), 0)
 
     assertEquals(result, expected)
 
@@ -37,7 +37,7 @@ class FocusTest extends munit.FunSuite:
     val result1 = v1.focus(x => x._2._1)
     val result2 = v1.focus: x =>
       x._2._1
-    val expected: Focus[Float32] = FocusConstant[Inner, Float32](FocusConstant[Struct, Inner](v1, 2), 1)
+    val expected: Focus[Float32] = FocusConstant[Inner, Float32](FocusConstant[Struct, Inner](v1, 1), 0)
 
     assertEquals(result1, expected)
     assertEquals(result2, expected)
@@ -46,7 +46,7 @@ class FocusTest extends munit.FunSuite:
     val v2: LocalVariable[GArray[Inner]] = new LocalVariable()
 
     val result = v2.focus(_.at(10)._2)
-    val expected: Focus[UInt32] = FocusConstant[Inner, UInt32](FocusConstant[GArray[Inner], Inner](v2, 10), 2)
+    val expected: Focus[UInt32] = FocusConstant[Inner, UInt32](FocusConstant[GArray[Inner], Inner](v2, 10), 1)
 
     assertEquals(result, expected)
 
@@ -67,7 +67,7 @@ class FocusTest extends munit.FunSuite:
     val v: LocalVariable[Point] = new LocalVariable()
 
     val result = v.focus(_.x)
-    val expected: Focus[Float32] = FocusConstant[Point, Float32](v, 1)
+    val expected: Focus[Float32] = FocusConstant[Point, Float32](v, 0)
 
     assertEquals(result, expected)
 
@@ -75,7 +75,7 @@ class FocusTest extends munit.FunSuite:
     val v: LocalVariable[Point] = new LocalVariable()
 
     val result = v.focus(_.y)
-    val expected: Focus[Float32] = FocusConstant[Point, Float32](v, 2)
+    val expected: Focus[Float32] = FocusConstant[Point, Float32](v, 1)
 
     assertEquals(result, expected)
 
@@ -83,7 +83,7 @@ class FocusTest extends munit.FunSuite:
     val v: LocalVariable[Line] = new LocalVariable()
 
     val result = v.focus(_.end.x)
-    val expected: Focus[Float32] = FocusConstant[Point, Float32](FocusConstant[Line, Point](v, 2), 1)
+    val expected: Focus[Float32] = FocusConstant[Point, Float32](FocusConstant[Line, Point](v, 1), 0)
 
     assertEquals(result, expected)
 
@@ -91,7 +91,7 @@ class FocusTest extends munit.FunSuite:
     val v: LocalVariable[GArray[Point]] = new LocalVariable()
 
     val result = v.focus(_.at(5).y)
-    val expected: Focus[Float32] = FocusConstant[Point, Float32](FocusConstant[GArray[Point], Point](v, 5), 2)
+    val expected: Focus[Float32] = FocusConstant[Point, Float32](FocusConstant[GArray[Point], Point](v, 5), 1)
 
     assertEquals(result, expected)
 

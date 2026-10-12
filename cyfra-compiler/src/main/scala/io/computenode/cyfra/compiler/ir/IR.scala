@@ -19,13 +19,16 @@ sealed trait IR[A: Value] extends Product:
   def name: String = this.getClass.getSimpleName
   protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[A] = this
 
+  // Shallow on purpose: children are compared by id, nested blocks by reference. Case-class == would walk the whole (shared) DAG.
   def deepEquals(that: IR[?]): Boolean =
-    if this != that then return false
+    if (this eq that) || this.getClass != that.getClass then return this eq that
 
     this.productIterator
       .zip(that.productIterator)
       .forall:
         case (a: IR[?], b: IR[?])     => a.id == b.id
+        case (a: IRs[?], b: IRs[?])   => a eq b
+        case (Some(a: IR[?]), Some(b: IR[?])) => a.id == b.id
         case (a: List[?], b: List[?]) =>
           a.length == b.length &&
           a.zip(b)
@@ -40,7 +43,8 @@ object IR:
   // Genesis IRs, there is a homomorphism between them and expression
   case class Constant[A: Value](value: Any) extends RefIR[A]
   case class ConstantArgs(value: List[Int]) extends RefIR[Literal]
-  case class Declare[A: Value](root: FocusRoot[A], init: Option[RefIR[A]]) extends RefIR[Unit]
+  case class Declare[A: Value](root: FocusRoot[A], init: Option[RefIR[A]]) extends RefIR[Unit]:
+    override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[Unit] = this.copy(init = init.map(_.replaced))
   case class Read[A: Value](root: FocusRoot[?], accessChain: List[RefIR[?]]) extends RefIR[A]:
     override protected def replace(using map: collection.Map[Int, RefIR[?]]): IR[A] = this.copy(accessChain = accessChain.map(_.replaced))
   case class Write[A: Value](root: FocusRoot[?], accessChain: List[RefIR[?]], value: RefIR[A]) extends IR[Unit]:

@@ -82,13 +82,8 @@ object GCodec:
 
   given [T <: Product: {Value, ClassTag}]: GCodec[T, T] with
     def toByteBuffer(inBuf: ByteBuffer, arr: Array[T]): ByteBuffer =
-      inBuf.order(ByteOrder.nativeOrder())
-      arr
-        .flatMap(_.productIterator)
-        .foreach:
-          case x: Int32 =>
-            val int = Value[Int32].peel(x).result.asInstanceOf[Expression.Constant[?]].value.asInstanceOf[Int]
-            inBuf.putInt(int)
-      inBuf
+      inBuf.clear()
+      arr.foreach(x => inBuf.put(Expression.constantToByteBuffer(x)))
+      inBuf.flip()
 
     def fromByteBuffer(outBuf: ByteBuffer, arr: Array[T]): Array[T] = ???

@@ -72,6 +72,30 @@ class ValueTest extends munit.FunSuite:
     assert(i1 =:= Tag[Float32])
     assert(i2 =:= Tag[UInt32])
 
+  test("extract rejects impure blocks, extractUnchecked embeds them"):
+    val read = Expression.Read[Int32](io.computenode.cyfra.core.memory.BufferRef[GArray[Int32]](0), Nil)
+    val block = ExpressionBlock(read)
+    intercept[RuntimeException](Value[Int32].extract(block))
+    val v = Value[Int32].extractUnchecked(block)
+    assertEquals(Value[Int32].peel(v), block)
+    val derived = v + 1 // goes through extract again
+    assert(Value[Int32].peel(derived).isPure)
+
+  test("case class peels into Combine, or Constant when all fields are constant"):
+    case class P(x: Float32, y: Float32)
+    val dynamic = Value[P].peel(P(Float32(1f) + Float32(2f), 3f))
+    assert(dynamic.result.isInstanceOf[Expression.Combine[?]])
+    val constant = Value[P].peel(P(1f, 2f))
+    assertEquals(constant.result.asInstanceOf[Expression.Constant[?]].value, (1f, 2f))
+
+  test("loop writing a variable declared outside it is pure"):
+    val v = new io.computenode.cyfra.core.memory.LocalVariable[Int32]()
+    val declare = Expression.VariableDeclare(v, None)
+    val one = Expression.Constant[Int32](1)
+    val write = Expression.Write(v, Nil, one)
+    val loop = Expression.Loop(ExpressionBlock(write, List(write, one)), ExpressionBlock(Expression.unitZero), JumpTarget.BreakTarget(), JumpTarget.ContinueTarget())
+    assert(ExpressionBlock(loop, List(loop, declare)).isPure)
+
   test("case class derivation works"):
     case class Point(x: Float32, y: Float32)
     

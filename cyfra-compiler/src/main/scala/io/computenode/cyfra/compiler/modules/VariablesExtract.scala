@@ -31,14 +31,10 @@ class VariablesExtract extends StandardCompilationModule:
     val IRs(res, body) = input.flatMapReplace:
       case x @ IR.Declare(variable, init) =>
 
-        var write: Option[IR[?]] = None
-        val nextInit = init.flatMap:
-          case c @ IR.Constant(value) =>
-            Some(Ctx.getConstant(value)(using c.v))
-          case other =>
-            write = Some(IR.Write(variable, Nil, other)(using other.v))
-            None
-        val next = IR.Declare(variable, nextInit)(using variable.v)
+        // The declaration is hoisted to the function start, so the initial value must be stored where the declaration was:
+        // it may execute many times (e.g. a GSeq nested in a loop), while an OpVariable initializer runs once per call
+        val write = init.map(i => IR.Write(variable, Nil, i)(using i.v))
+        val next = IR.Declare(variable, None)(using variable.v)
 
         variable match
           case _: LocalVariable[?]  => localDeclarations.append(next)

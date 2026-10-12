@@ -14,11 +14,17 @@ import java.nio.file.Path
 
 class ImageRtRenderer(params: ImageRtRenderer.Parameters) extends RtRenderer(params):
 
-  given CyfraRuntime = VkCyfraRuntime()
+  private val runtime = VkCyfraRuntime()
+  given CyfraRuntime = runtime
 
   def renderToFile(scene: Scene, destinationPath: Path): Unit =
-    val images = render(scene)
-    for image <- images do ImageUtility.renderToImage(image, params.width, params.height, destinationPath)
+    try
+      val images = render(scene)
+      for image <- images do ImageUtility.renderToImage(image, params.width, params.height, destinationPath)
+    finally close()
+
+  /** Close the runtime to release GPU resources */
+  def close(): Unit = runtime.close()
 
   def render(scene: Scene): LazyList[Array[fRGBA]] =
     render(scene, renderFunction(scene))

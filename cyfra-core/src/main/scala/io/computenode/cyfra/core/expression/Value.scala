@@ -21,9 +21,16 @@ trait Value[A]:
   final def extract(block: ExpressionBlock[A]): A =
     if !block.isPure then throw RuntimeException("Cannot embed impure expression")
     extractUnsafe(block)
+
+  /** Like [[extract]], but skips the purity check, also for every value later derived from the result. The block's side effects (e.g.
+    * buffer reads) are emitted wherever the value is first used, so only use it when that ordering doesn't matter.
+    */
+  final def extractUnchecked(block: ExpressionBlock[A]): A =
+    ExpressionBlock.trust(block)
+    extractUnsafe(block)
   final def peel(x: A): ExpressionBlock[A] = x match
-    case t: Tuple => Value.tupleAsExpression(t)(using this)
-    case x        => ExpressionBlock.pure(x)
+    case p: Product if baseTag.exists(_ <:< Tag[Tuple]) => Value.productAsExpression(p)(using this.asInstanceOf[Value[Product]]).asInstanceOf[ExpressionBlock[A]]
+    case x                                              => ExpressionBlock.pure(x)
 
   @tailrec
   final def bottomComposite: Value[?] =
@@ -90,15 +97,13 @@ object Value:
       extract = (ir, self) => Tuple1(Value.extractComposite[Tuple1[A], A](ir, self, value, 0)),
     )
 
-  private def tupleAsExpression[A: Value as v](tuple: A): ExpressionBlock[A] =
-    tupleAsExpressionInternal(tuple.asInstanceOf[Tuple])(using Value[A].asInstanceOf[Value[Tuple]]).asInstanceOf[ExpressionBlock[A]]
-
-  private def tupleAsExpressionInternal[A <: Tuple: Value as v](tuple: A): ExpressionBlock[A] =
-    tupleAsConstant(tuple) match
+  // Tuples and case classes: a Constant when every field is constant, otherwise a Combine of the fields
+  private def productAsExpression[A <: Product: Value as v](product: A): ExpressionBlock[A] =
+    productAsConstant(product) match
       case Some(value) => return ExpressionBlock(value)
       case None        => ()
 
-    val (args, bodies) = tuple.productIterator
+    val (args, bodies) = product.productIterator
       .zip(v.composites)
       .toList
       .map: (x, vl) =>
@@ -108,17 +113,17 @@ object Value:
     val res = Expression.Combine[A](args)
     ExpressionBlock(res, res :: bodies.flatten)
 
-  private def tupleAsConstant[A <: Tuple: Value](tuple: A): Option[Expression.Constant[A]] = boundary:
-    val constants = tuple.productIterator
+  private def productAsConstant[A <: Product: Value](product: A): Option[Expression.Constant[A]] = boundary:
+    val constants = product.productIterator
       .zip(Value[A].composites)
       .map:
-        case (h: ExpressionHolder[a], v) =>
+        case (h: ExpressionHolder[a], _) =>
           h.block.result match
             case x: Expression.Constant[?] => x
             case _                         => break(None)
-        case (t: Tuple, v: Value[Tuple]) => tupleAsConstant(t)(using v).getOrElse(break(None))
-        case _: Unit                     => unitZero
-        case _: Any                      => break(None)
+        case (p: Product, v: Value[Product] @unchecked) if v.baseTag.exists(_ <:< Tag[Tuple]) =>
+          productAsConstant(p)(using v).getOrElse(break(None))
+        case _ => break(None)
 
     val t = Tuple.fromArray(constants.map(_.value).toArray)
     Some(Expression.Constant[A](t))

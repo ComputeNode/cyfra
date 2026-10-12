@@ -14,39 +14,39 @@ import scala.util.boundary.break
 case class ExpressionBlock[A](result: Expression[A], body: List[Expression[?]]):
   lazy val isPure: Boolean = isPureWith(Set.empty)
 
-  def isPureWith(externalVarsIDs: Set[Int]): Boolean = boundary[Boolean]:
-    body.foldRight(externalVarsIDs): (expr, vars) =>
+  def isPureWith(externalVarsIDs: Set[Int]): Boolean = freeVariables.exists(_.subsetOf(externalVarsIDs))
+
+  /** Ids of local variables used here but declared outside, or None if the block is impure regardless of its scope. Cached, so nested
+    * blocks are only analysed once.
+    */
+  lazy val freeVariables: Option[Set[Int]] = boundary:
+    val (_, free) = body.foldRight((Set.empty[Int], Set.empty[Int])): (expr, acc) =>
+      val (declared, free) = acc
+      def use(id: Int) = (declared, if declared(id) then free else free + id)
+      def nested(blocks: ExpressionBlock[?]*) =
+        (declared, blocks.foldLeft(free)((f, b) => f ++ (b.freeVariables.getOrElse(break(None)) -- declared)))
       expr match
-        case Expression.Constant(_)                  => vars
-        case Expression.LiteralArgs(_)               => vars
-        case Expression.VariableDeclare(variable, _) =>
-          vars + variable.id
+        case e if ExpressionBlock.trusted.contains(e.id) => acc
+        case Expression.VariableDeclare(variable, _)     => (declared + variable.id, free)
         case Expression.Read(focus, _) =>
           focus.getRoot match
-            case variable: LocalVariable[?] if vars.contains(variable.id) => vars
-            case uniform: GUniform[?]                                     => vars
-            case _                                                        => break(false)
+            case variable: LocalVariable[?] => use(variable.id)
+            case _: GUniform[?]             => acc
+            case _                          => break(None)
         case Expression.Write(focus, _, _) =>
           focus.getRoot match
-            case variable: LocalVariable[?] if vars.contains(variable.id) => vars
-            case _                                                        => break(false)
-        case Expression.Operation(_, _)     => vars
+            case variable: LocalVariable[?] => use(variable.id)
+            case _                          => break(None)
         case Expression.CustomCall(func, _) =>
-          if !func.isPure then break(false)
-          vars
-        case Expression.Branch(_, ifTrue, ifFalse, _) =>
-          if !ifTrue.isPure then break(false)
-          if !ifFalse.isPure then break(false)
-          vars
-        case Expression.Loop(mainBody, continueBody, _, _) =>
-          if !mainBody.isPure then break(false)
-          if !continueBody.isPure then break(false)
-          vars
-        case Expression.Jump(_, _)               => vars
-        case Expression.ConditionalJump(_, _, _) => vars
-        case Expression.Extract(_, _)            => vars
-        case Expression.Insert(_, _, _)          => vars
-    true
+          if !func.isPure then break(None)
+          acc
+        case Expression.Branch(_, ifTrue, ifFalse, _)      => nested(ifTrue, ifFalse)
+        case Expression.Loop(mainBody, continueBody, _, _) => nested(mainBody, continueBody)
+        case Expression.OperationImpure(_, _)              => break(None)
+        case _: (Expression.Constant[?] | Expression.LiteralArgs | Expression.Operation[?] | Expression.Jump[?] |
+              Expression.ConditionalJump[?] | Expression.Extract[?, ?] | Expression.Insert[?, ?] | Expression.Combine[?]) =>
+          acc
+    Some(free)
 
   def add[B](that: Expression[B]): ExpressionBlock[B] =
     ExpressionBlock(that, that :: this.body)
@@ -54,18 +54,20 @@ case class ExpressionBlock[A](result: Expression[A], body: List[Expression[?]]):
   def extend[B](that: ExpressionBlock[B]): ExpressionBlock[B] =
     ExpressionBlock(that.result, that.body ++ this.body)
 
+  /** Visits every expression once, even though bodies share (and so repeat) their dependencies. */
   def traverse[T](f: Expression[?] => Option[T], enterFunctions: Boolean = false): List[Option[T]] =
-    body.flatMap:
-      case x: Expression.BranchingExpression =>
-        x match
-          case x @ Expression.Loop(mainBody, continueBody, _, _) =>
-            continueBody.traverse(f, enterFunctions) ++ mainBody.traverse(f, enterFunctions) :+ f(x)
-          case x @ Expression.Branch(_, ifTrue, ifFalse, _) =>
-            ifFalse.traverse(f, enterFunctions) ++ ifTrue.traverse(f, enterFunctions) :+ f(x)
-          case x @ Expression.CustomCall(func, _) if enterFunctions =>
-            func.body.traverse(f, enterFunctions) :+ f(x)
-          case x: Expression.CustomCall[?] => List(f(x))
-      case other => List(f(other))
+    val visited = mutable.HashSet.empty[Int]
+    def rec(block: ExpressionBlock[?]): List[Option[T]] =
+      block.body.flatMap:
+        case x if !visited.add(x.id) => Nil
+        case x: Expression.BranchingExpression =>
+          x match
+            case x @ Expression.Loop(mainBody, continueBody, _, _) => rec(continueBody) ++ rec(mainBody) :+ f(x)
+            case x @ Expression.Branch(_, ifTrue, ifFalse, _)      => rec(ifFalse) ++ rec(ifTrue) :+ f(x)
+            case x @ Expression.CustomCall(func, _) if enterFunctions => rec(func.body) :+ f(x)
+            case x: Expression.CustomCall[?]                         => List(f(x))
+        case other => List(f(other))
+    rec(this)
 
   def collect[T](pf: PartialFunction[Expression[?], T]): List[T] =
     traverse:
@@ -93,6 +95,12 @@ case class ExpressionBlock[A](result: Expression[A], body: List[Expression[?]]):
     .flatten
 
 object ExpressionBlock:
+  // ponytail: global set of expression ids exempt from the purity check (ids are unique, so this is sound); never shrinks
+  private[expression] val trusted: java.util.Set[Int] = java.util.concurrent.ConcurrentHashMap.newKeySet[Int]()
+
+  /** Exempts every expression of the block (and anything built on top of it) from the purity check. */
+  def trust(block: ExpressionBlock[?]): Unit = block.body.foreach(e => trusted.add(e.id))
+
   def apply[A](expression: Expression[A]): ExpressionBlock[A] =
     ExpressionBlock(expression, List(expression))
 

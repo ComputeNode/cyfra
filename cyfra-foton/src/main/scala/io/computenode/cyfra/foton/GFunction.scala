@@ -14,11 +14,11 @@ import io.computenode.cyfra.core.GCodec.{*, given}
 import io.computenode.cyfra.core.expression.*
 import io.computenode.cyfra.core.expression.types.*
 import io.computenode.cyfra.core.expression.types.GArray.given
-import io.computenode.cyfra.core.memory.{GBuffer, GUniform}
+import io.computenode.cyfra.core.memory.{BufferRef, GBinding, GBuffer, GUniform, UniformRef}
 import io.computenode.cyfra.dsl.direct.GioProgram
 import io.computenode.cyfra.dsl.Library.*
 import io.computenode.cyfra.dsl.direct.GIO
-import io.computenode.cyfra.foton.library.GArray2D
+import io.computenode.cyfra.foton.library.{GArray2D, at}
 
 case class GFunction[G: Value, H: Value, R: Value](underlying: GProgram[GFunctionParams, GFunctionLayout[G, H, R]]):
   given Layout[GFunctionLayout[G, H, R]] = underlying.summonLayout
@@ -56,6 +56,18 @@ object GFunction:
 
   case class GFunctionLayout[G: Value, H: Value, R: Value](in: GBuffer[GArray[H]], out: GBuffer[GArray[R]], uniform: GUniform[G])
 
+  object GFunctionLayout:
+    // Hand-written: Layout.derived can't resolve the type parameters of a generic layout
+    given [G: Value, H: Value, R: Value]: Layout[GFunctionLayout[G, H, R]] with
+      def fromBindings(bindings: Seq[GBinding[?]]): GFunctionLayout[G, H, R] =
+        GFunctionLayout(
+          bindings(0).asInstanceOf[GBuffer[GArray[H]]],
+          bindings(1).asInstanceOf[GBuffer[GArray[R]]],
+          bindings(2).asInstanceOf[GUniform[G]],
+        )
+      def toBindings(layout: GFunctionLayout[G, H, R]): Seq[GBinding[?]] = Seq(layout.in, layout.out, layout.uniform)
+      def layoutRef: GFunctionLayout[G, H, R] = GFunctionLayout(BufferRef[GArray[H]](0), BufferRef[GArray[R]](1), UniformRef[G](2))
+
   def forEachIndex[G: Value, H: Value, R: Value](fn: (G, Int32, GBuffer[GArray[H]]) => R): GFunction[G, H, R] =
     val program = GioProgram[GFunctionParams, GFunctionLayout[G, H, R]](
       layout = (p: GFunctionParams) => GFunctionLayout[G, H, R](in = GBuffer(p.size), out = GBuffer(p.size), uniform = GUniform()),
@@ -67,17 +79,11 @@ object GFunction:
       val g = GIO.read(layout.uniform)
       val result = fn(g, Int32(invocationIdX), layout.in)
       GIO.write(layout.out.focus(_.at(invocationIdX)), result)
-      ???
 
     GFunction(underlying = program)
 
   def apply[H: Value, R: Value](fn: H => R): GFunction[Int32, H, R] =
-    GFunction.forEachIndex[Int32, H, R]((g: Int32, index: Int32, a: GBuffer[GArray[H]]) =>
-      val exp = GIO.reify:
-        val value = GIO.read(a.focus(_.at(index)))
-        fn(value)
-      Value[R].extract(exp),
-    )
+    GFunction.forEachIndex[Int32, H, R]((_, index, a) => fn(a.at(index)))
 
   def from2D[G: Value, H: Value, R: Value](width: Int)(fn: (G, (Int32, Int32), GArray2D[H]) => R): GFunction[G, H, R] =
     GFunction.forEachIndex[G, H, R]((g: G, index: Int32, a: GBuffer[GArray[H]]) =>

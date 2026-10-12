@@ -33,12 +33,13 @@ case class IRs[A: Value](result: IR[A], body: List[IR[?]]):
         case b: Branch[a] if enterControlFlow =>
           given Value[a] = b.v
           val Branch(cond, ifTrue, ifFalse, t) = b
-          val nextT = ifTrue.flatMapReplaceImpl(f, replacements, enterControlFlow)
-          val nextF = ifFalse.flatMapReplaceImpl(f, replacements, enterControlFlow)
+          // Nested blocks see the outer replacements but must not leak theirs: the same IR may also occur in the parent
+          val nextT = ifTrue.flatMapReplaceImpl(f, replacements.clone(), enterControlFlow)
+          val nextF = ifFalse.flatMapReplaceImpl(f, replacements.clone(), enterControlFlow)
           Branch[a](cond, nextT, nextF, t)
         case Loop(mainBody, continueBody, b, c) if enterControlFlow =>
-          val nextM = mainBody.flatMapReplaceImpl(f, replacements, enterControlFlow)
-          val nextC = continueBody.flatMapReplaceImpl(f, replacements, enterControlFlow)
+          val nextM = mainBody.flatMapReplaceImpl(f, replacements.clone(), enterControlFlow)
+          val nextC = continueBody.flatMapReplaceImpl(f, replacements.clone(), enterControlFlow)
           Loop(nextM, nextC, b, c)
         case other => other
       val subst = next.substitute(replacements)

@@ -14,7 +14,11 @@ class AnimationRtRenderer(params: AnimationRtRenderer.Parameters)
     extends RtRenderer(params)
     with AnimationRenderer[AnimatedScene, AnimationRtRenderer.RenderFn](params):
 
-  given CyfraRuntime = VkCyfraRuntime()
+  private val runtime = VkCyfraRuntime()
+  given CyfraRuntime = runtime
+
+  /** Close the runtime to release GPU resources */
+  override def close(): Unit = runtime.close()
 
   protected def renderFrame(scene: AnimatedScene, time: Float32, fn: GFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]]): Array[fRGBA] =
     val initialMem = Array.fill(params.width * params.height)((0.5f, 0.5f, 0.5f, 0.5f))

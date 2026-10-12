@@ -15,11 +15,11 @@ object Random:
     def gen(seed: UInt32): (T, UInt32)
 
   private val wangHash = pure: (seed: UInt32) =>
-    val s1 = (seed ^ 61) ^ (seed >> 16)
+    val s1 = (seed ^ 61) ^ (seed >>> 16)
     val s2 = s1 * 9
-    val s3 = s2 ^ (s2 >> 4)
+    val s3 = s2 ^ (s2 >>> 4)
     val s4 = s3 * 0x27d4eb2d
-    s4 ^ (s4 >> 15)
+    s4 ^ (s4 >>> 15)
 
   given Generator[Float32] with
     def gen(seed: UInt32): (Float32, UInt32) =

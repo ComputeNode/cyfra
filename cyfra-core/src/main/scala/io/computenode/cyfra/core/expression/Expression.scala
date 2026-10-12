@@ -47,9 +47,9 @@ object Expression:
     val exp = Value[T].peel(value)
     exp.result match
       case x: Expression.Constant[a] => Expression.constantRec(x.value)
-      case _                         => ???
+      case _                         => throw IllegalArgumentException(s"Value is not a compile-time constant: $value")
 
   private def constantRec(const: Any): Array[Byte] = const match
-    case x: UInt32  => constantToByteBuffer(x)
     case x: Int     => ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(x).array()
+    case x: Float   => ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putFloat(x).array()
     case x: Product => x.productIterator.flatMap(constantRec).toArray

@@ -3,6 +3,7 @@ package io.computenode.cyfra.compiler
 import io.computenode.cyfra.core.memory.GUniform
 import io.computenode.cyfra.core.memory.Focus.*
 import io.computenode.cyfra.core.Layout
+import io.computenode.cyfra.core.expression.CustomFunction
 import io.computenode.cyfra.core.expression.types.*
 import io.computenode.cyfra.core.expression.types.given
 import io.computenode.cyfra.core.expression.ops.*
@@ -64,6 +65,50 @@ class CompilerTest extends munit.FunSuite:
       GIO.write(variable, x3)
 
     compiler.compile(exp, config)
+
+  test("value shared by both branches and used after them"):
+    val ref = Layout[TestLayout].layoutRef
+    val config = Compiler.Compute(Layout[TestLayout].toBindings(ref), (1024, 1, 1))
+    val TestLayout(b1, _) = ref
+
+    val exp = GIO.reify:
+      val v = GIO.read(b1.focus(_.at(0)))
+      val shared = v * 3 + 1
+      val picked = io.computenode.cyfra.dsl.Library.when(v > 0)(shared * 2).otherwise(shared - 1)
+      GIO.write(b1.focus(_.at(1)), picked + shared)
+    SpirvValidator.validateSpirv(compiler.compile(exp, config), Enable(throwOnFail = true))
+
+  test("branch value reused in a nested elseWhen condition and after it"):
+    import io.computenode.cyfra.dsl.Library.when
+    val ref = Layout[TestLayout].layoutRef
+    val exp = GIO.reify:
+      val v = GIO.read(ref.in1.focus(_.at(0)))
+      val d = when(v > 0)(v * 2).otherwise(v * 3)
+      val r = when(v === 1)(Int32(5)).elseWhen(d === 4)(Int32(6)).otherwise(Int32(7))
+      GIO.write(ref.in1.focus(_.at(1)), d + r)
+    val code = compiler.compile(exp, Compiler.Compute(Layout[TestLayout].toBindings(ref), (1024, 1, 1)))
+    SpirvValidator.validateSpirv(code, Enable(throwOnFail = true))
+
+  test("variable initialised from a branch result"):
+    import io.computenode.cyfra.dsl.Library.when
+    val ref = Layout[TestLayout].layoutRef
+    val exp = GIO.reify:
+      val v = GIO.read(ref.in1.focus(_.at(0)))
+      val x = GIO.declare(Some(when(v > 0)(v * 2).otherwise(v)))
+      GIO.write(ref.in1.focus(_.at(1)), GIO.read(x))
+    val code = compiler.compile(exp, Compiler.Compute(Layout[TestLayout].toBindings(ref), (1024, 1, 1)))
+    SpirvValidator.validateSpirv(code, Enable(throwOnFail = true))
+
+  test("custom function call references the right function"):
+    val ref = Layout[TestLayout].layoutRef
+    val f = CustomFunction[Int32, Int32](v => GIO.reify(GIO.read(v) + 1))
+    val exp = GIO.reify:
+      val x = GIO.read(ref.in1.focus(_.at(0)))
+      val arg = GIO.declare[Int32]()
+      GIO.write(arg, x)
+      GIO.write(ref.in1.focus(_.at(1)), GIO.call(f, arg))
+    val code = compiler.compile(exp, Compiler.Compute(Layout[TestLayout].toBindings(ref), (1024, 1, 1)))
+    SpirvValidator.validateSpirv(code, Enable(throwOnFail = true))
 
 //  test("compile vectors"):
 //    val ref = Layout[EmptyLayout].layoutRef

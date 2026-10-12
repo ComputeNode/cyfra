@@ -1,6 +1,7 @@
 package io.computenode.cyfra.samples.foton
 
 import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.foton.library.Color.hex
 import io.computenode.cyfra.foton.*
 import io.computenode.cyfra.foton.animation.AnimationFunctions.smooth
 import io.computenode.cyfra.foton.rt.animation.{AnimatedScene, AnimationRtRenderer}
@@ -15,44 +16,44 @@ object AnimatedRaytrace:
   @main
   def raytrace() =
     val sphereMaterial =
-      Material(color = (1f, 0.3f, 0.3f), emissive = vec3(0f), percentSpecular = 0.5f, specularColor = (1f, 0.3f, 0.3f) * 0.1f, roughness = 0.2f)
+      Material(color = Vec3(1f, 0.3f, 0.3f), emissive = Vec3(0f), percentSpecular = 0.5f, specularColor = Vec3(1f, 0.3f, 0.3f) * 0.1f, roughness = 0.2f)
 
     val sphere2Material = Material(
-      color = (1f, 0.3f, 0.6f),
-      emissive = vec3(0f),
+      color = Vec3(1f, 0.3f, 0.6f),
+      emissive = Vec3(0f),
       percentSpecular = 0.1f,
-      specularColor = (1f, 0.3f, 0.6f) * 0.1f,
+      specularColor = Vec3(1f, 0.3f, 0.6f) * 0.1f,
       roughness = 0.1f,
       refractionChance = 0.9f,
       indexOfRefraction = 1.5f,
       refractionRoughness = 0.1f,
     )
     val sphere3Material =
-      Material(color = (1f, 0.6f, 0.3f), emissive = vec3(0f), percentSpecular = 0.5f, specularColor = (1f, 0.6f, 0.3f) * 0.1f, roughness = 0.2f)
+      Material(color = Vec3(1f, 0.6f, 0.3f), emissive = Vec3(0f), percentSpecular = 0.5f, specularColor = Vec3(1f, 0.6f, 0.3f) * 0.1f, roughness = 0.2f)
     val sphere4Material =
-      Material(color = (1f, 0.2f, 0.2f), emissive = vec3(0f), percentSpecular = 0.5f, specularColor = (1f, 0.2f, 0.2f) * 0.1f, roughness = 0.2f)
+      Material(color = Vec3(1f, 0.2f, 0.2f), emissive = Vec3(0f), percentSpecular = 0.5f, specularColor = Vec3(1f, 0.2f, 0.2f) * 0.1f, roughness = 0.2f)
 
     val boxMaterial =
-      Material(color = (0.3f, 0.3f, 1f), emissive = vec3(0f), percentSpecular = 0.5f, specularColor = (0.3f, 0.3f, 1f) * 0.1f, roughness = 0.1f)
+      Material(color = Vec3(0.3f, 0.3f, 1f), emissive = Vec3(0f), percentSpecular = 0.5f, specularColor = Vec3(0.3f, 0.3f, 1f) * 0.1f, roughness = 0.1f)
 
-    val lightMaterial = Material(color = (1f, 0.3f, 0.3f), emissive = vec3(40f))
+    val lightMaterial = Material(color = Vec3(1f, 0.3f, 0.3f), emissive = Vec3(40f))
 
-    val floorMaterial = Material(color = vec3(0.5f), emissive = vec3(0f), roughness = 0.9f)
+    val floorMaterial = Material(color = Vec3(0.5f), emissive = Vec3(0f), roughness = 0.9f)
 
     val staticShapes: List[Shape] = List(
       // Spheres
-      Sphere((-1f, 0.5f, 14f), 3f, sphereMaterial),
-      Sphere((-3f, 2.5f, 10f), 1f, sphere3Material),
-      Sphere((9f, -1.5f, 18f), 5f, sphere4Material),
+      Sphere(Vec3(-1f, 0.5f, 14f), 3f, sphereMaterial),
+      Sphere(Vec3(-3f, 2.5f, 10f), 1f, sphere3Material),
+      Sphere(Vec3(9f, -1.5f, 18f), 5f, sphere4Material),
       // Light
-      Sphere((-140f, -140f, 10f), 50f, lightMaterial),
+      Sphere(Vec3(-140f, -140f, 10f), 50f, lightMaterial),
       // Floor
-      Plane((0f, 3.5f, 0f), (0f, 1f, 0f), floorMaterial),
+      Plane(Vec3(0f, 3.5f, 0f), Vec3(0f, 1f, 0f), floorMaterial),
     )
 
     val scene = AnimatedScene(
-      shapes = staticShapes ::: List(Sphere(center = (3f, smooth(from = -5f, to = 1.5f, duration = 2.seconds), 10f), 2f, sphere2Material)),
-      camera = Camera(position = (2f, 0f, smooth(from = -5f, to = -1f, 2.seconds))),
+      shapes = staticShapes ::: List(Sphere(center = Vec3(3f, smooth(from = -5f, to = 1.5f, duration = 2.seconds), 10f), 2f, sphere2Material)),
+      camera = Camera(position = Vec3(2f, 0f, smooth(from = -5f, to = -1f, 2.seconds))),
       duration = 3.seconds,
     )
 

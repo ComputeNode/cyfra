@@ -26,14 +26,14 @@ class RtRenderer(params: RtRenderer.Parameters):
     finished: Bool = false,
   )
 
-  private val applyRefractionThroughput: pure[(state: RayTraceState, testResult: RayHitInfo), Vec3[Float32]] = pure: x =>
+  private val applyRefractionThroughput: pure[(RayTraceState, RayHitInfo), Vec3[Float32]] = pure: x =>
     val (state, testResult) = x
     when(testResult.fromInside):
       state.throughput * exp[Vec3[Float32]](-testResult.material.refractionColor * testResult.dist)
     .otherwise:
       state.throughput
 
-  private val calculateSpecularChance: pure[(state: RayTraceState, testResult: RayHitInfo), Float32] = pure: x =>
+  private val calculateSpecularChance: pure[(RayTraceState, RayHitInfo), Float32] = pure: x =>
     val (state, testResult) = x
     when(testResult.material.percentSpecular > 0.0f):
       val material = testResult.material
@@ -48,7 +48,7 @@ class RtRenderer(params: RtRenderer.Parameters):
     .otherwise:
       0f
 
-  private val getRefractionChance: pure[(state: RayTraceState, testResult: RayHitInfo, specularChance: Float32), Float32] = pure: x =>
+  private val getRefractionChance: pure[(RayTraceState, RayHitInfo, Float32), Float32] = pure: x =>
     val (state, testResult, specularChance) = x
     when(specularChance > 0.0f):
       testResult.material.refractionChance * ((1.0f - specularChance) / (1.0f - testResult.material.percentSpecular))
@@ -77,7 +77,7 @@ class RtRenderer(params: RtRenderer.Parameters):
     (RayAction(doSpecular, doRefraction, max(rayProbability, 0.01f)), nextRandom)
 
   private val rayPosNormalNudge = 0.01f
-  private val getNextRayPos: pure[(rayPos: Vec3[Float32], rayDir: Vec3[Float32], testResult: RayHitInfo, doRefraction: Float32), Vec3[Float32]] =
+  private val getNextRayPos: pure[(Vec3[Float32], Vec3[Float32], RayHitInfo, Float32), Vec3[Float32]] =
     pure: x =>
       val (rayPos, rayDir, testResult, doRefraction) = x
       when(doRefraction =~= 1.0f):
@@ -103,7 +103,7 @@ class RtRenderer(params: RtRenderer.Parameters):
     (refractionRayDir, random2)
 
   private val getThroughput: pure[
-    (testResult: RayHitInfo, doSpecular: Float32, doRefraction: Float32, rayProbability: Float32, refractedThroughput: Vec3[Float32]),
+    (RayHitInfo, Float32, Float32, Float32, Vec3[Float32]),
     Vec3[Float32],
   ] = pure: x =>
     val (testResult, doSpecular, doRefraction, rayProbability, refractedThroughput) = x

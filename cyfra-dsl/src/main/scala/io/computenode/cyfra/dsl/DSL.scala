@@ -25,5 +25,8 @@ export io.computenode.cyfra.core.expression.types.Vec3
 export io.computenode.cyfra.core.expression.types.Vec4
 
 export io.computenode.cyfra.core.memory.BuildInVariable.*
+export io.computenode.cyfra.core.memory.{GBuffer, GUniform}
+
+export io.computenode.cyfra.dsl.direct.{GIO, GioProgram}
 
 export io.computenode.cyfra.dsl.Library.*

@@ -9,4 +9,4 @@ trait Shape
 
 object Shape:
   trait TestRay[S <: Shape]:
-    val testRay: pure[(shape: S, rayPos: Vec3[Float32], rayDir: Vec3[Float32], currentHit: RayHitInfo), RayHitInfo]
+    val testRay: pure[(S, Vec3[Float32], Vec3[Float32], RayHitInfo), RayHitInfo]

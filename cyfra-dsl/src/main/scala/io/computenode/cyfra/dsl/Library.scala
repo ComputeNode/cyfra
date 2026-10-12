@@ -37,4 +37,4 @@ object Library:
   val invocationIdX: UInt32 =
     val exp = GIO.reify:
       GIO.read(GlobalInvocationId.focus(_.x))
-    Value[UInt32].extract(exp)
+    Value[UInt32].extractUnchecked(exp)

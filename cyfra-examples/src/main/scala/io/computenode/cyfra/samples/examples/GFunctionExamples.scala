@@ -3,7 +3,11 @@ package io.computenode.cyfra.samples.examples
 import io.computenode.cyfra.core.CyfraRuntime
 import io.computenode.cyfra.core.GCodec.{*, given}
 import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.core.expression.types.Float32.given
 import io.computenode.cyfra.foton.{GFunction, ImageUtility}
+import io.computenode.cyfra.foton.library.{GSeq, at, fRGBA}
+import io.computenode.cyfra.foton.library.Color.*
+import io.computenode.cyfra.foton.library.Color.InterpolationThemes.*
 import io.computenode.cyfra.runtime.VkCyfraRuntime
 
 import java.nio.file.Paths
@@ -14,7 +18,7 @@ object GFunctionExamples:
   given CyfraRuntime = runtime
 
   def example1_HelloGpu(): Unit =
-    val doubleIt: GFunction[GStruct.Empty, Float32, Float32] = GFunction: x =>
+    val doubleIt: GFunction[Int32, Float32, Float32] = GFunction: x =>
       x * 2.0f
 
     val input = (0 until 256).map(_.toFloat).toArray
@@ -29,11 +33,11 @@ object GFunctionExamples:
     println()
 
   def example2_VectorOperations(): Unit =
-    val normalizeVec4: GFunction[GStruct.Empty, Vec4[Float32], Vec4[Float32]] = GFunction: v =>
+    val normalizeVec4: GFunction[Int32, Vec4[Float32], Vec4[Float32]] = GFunction: v =>
       normalize(v)
 
-    val dotWithX: GFunction[GStruct.Empty, Vec4[Float32], Float32] = GFunction: v =>
-      val xAxis = vec4(1.0f, 0.0f, 0.0f, 0.0f)
+    val dotWithX: GFunction[Int32, Vec4[Float32], Float32] = GFunction: v =>
+      val xAxis = Vec4[Float32](1.0f, 0.0f, 0.0f, 0.0f)
       v.dot(xAxis)
 
     val vectors: Array[fRGBA] = Array((3.0f, 0.0f, 0.0f, 0.0f), (0.0f, 4.0f, 0.0f, 0.0f), (1.0f, 1.0f, 1.0f, 1.0f), (5.0f, 0.0f, 0.0f, 0.0f)) ++
@@ -58,16 +62,16 @@ object GFunctionExamples:
     println(s"  (-2,1,1,1) · X = ${dots(2)}")
     println()
 
-  case class PhysicsConfig(gravity: Float32, dt: Float32) extends GStruct[PhysicsConfig]
+  case class PhysicsConfig(gravity: Float32, dt: Float32)
 
   def example3_CustomStructs(): Unit =
     val applyGravity: GFunction[PhysicsConfig, Vec4[Float32], Vec4[Float32]] =
       GFunction.forEachIndex[PhysicsConfig, Vec4[Float32], Vec4[Float32]]:
         case (config, idx, buffer) =>
-          val p = buffer.read(idx)
+          val p = buffer.at(idx)
           val gravityEffect = config.gravity * config.dt * config.dt * 0.5f * p.w
           val newPosY = p.y + gravityEffect
-          vec4(p.x, newPosY, p.z, p.w)
+          Vec4(p.x, newPosY, p.z, p.w)
 
     val physics = PhysicsConfig(-9.8f, 0.1f)
 
@@ -84,7 +88,7 @@ object GFunctionExamples:
     println(f"  Particle 3 (mass=0.5): Y: 50.0 -> ${updated(2)._2}%.3f")
     println()
 
-  case class FractalConfig(width: Int32, height: Int32) extends GStruct[FractalConfig]
+  case class FractalConfig(width: Int32, height: Int32)
 
   val MaxIterations = 256
 
@@ -95,14 +99,14 @@ object GFunctionExamples:
     val mandelbrot: GFunction[FractalConfig, Int32, Vec4[Float32]] =
       GFunction.forEachIndex[FractalConfig, Int32, Vec4[Float32]]:
         case (config, idx, buffer) =>
-          val pixelIdx = buffer.read(idx)
-          val px = pixelIdx.mod(config.width)
+          val pixelIdx = buffer.at(idx)
+          val px = pixelIdx % config.width
           val py = pixelIdx / config.width
           val cx = px.asFloat / config.width.asFloat * 3.5f - 2.5f
           val cy = py.asFloat / config.height.asFloat * 2.4f - 1.2f
 
           val iterations = GSeq
-            .gen(vec2(0.0f, 0.0f), z => vec2(z.x * z.x - z.y * z.y + cx, 2.0f * z.x * z.y + cy))
+            .gen(Vec2[Float32](0.0f, 0.0f), z => Vec2(z.x * z.x - z.y * z.y + cx, 2.0f * z.x * z.y + cy))
             .limit(MaxIterations)
             .takeWhile(z => z.x * z.x + z.y * z.y < 4.0f)
             .count
@@ -111,7 +115,7 @@ object GFunctionExamples:
           val r = t * t
           val g = t
           val b = sqrt(t)
-          vec4(r, g, b, 1.0f)
+          Vec4(r, g, b, 1.0f)
 
     val indices = (0 until width * height).toArray
     val config = FractalConfig(width, height)
@@ -125,7 +129,7 @@ object GFunctionExamples:
     println(s"Saved to examples_output/mandelbrot.png")
     println()
 
-  case class JuliaConfig(width: Int32, height: Int32, cReal: Float32, cImag: Float32) extends GStruct[JuliaConfig]
+  case class JuliaConfig(width: Int32, height: Int32, cReal: Float32, cImag: Float32)
 
   def example7_JuliaSet(): Unit =
     val width = 512
@@ -136,20 +140,20 @@ object GFunctionExamples:
     val julia: GFunction[JuliaConfig, Int32, Vec4[Float32]] =
       GFunction.forEachIndex[JuliaConfig, Int32, Vec4[Float32]]:
         case (config, idx, buffer) =>
-          val pixelIdx = buffer.read(idx)
-          val px = pixelIdx.mod(config.width)
+          val pixelIdx = buffer.at(idx)
+          val px = pixelIdx % config.width
           val py = pixelIdx / config.width
           val zx = px.asFloat / config.width.asFloat * 3.0f - 1.5f
           val zy = py.asFloat / config.height.asFloat * 3.0f - 1.5f
 
           val iterations = GSeq
-            .gen(vec2(zx, zy), z => vec2(z.x * z.x - z.y * z.y + config.cReal, 2.0f * z.x * z.y + config.cImag))
+            .gen(Vec2(zx, zy), z => Vec2(z.x * z.x - z.y * z.y + config.cReal, 2.0f * z.x * z.y + config.cImag))
             .limit(MaxIterations)
             .takeWhile(z => z.x * z.x + z.y * z.y < 4.0f)
             .count
 
           val t = iterations.asFloat / MaxIterations.toFloat
-          vec4(interpolate(Blue, t), 1.0f)
+          Vec4(interpolate(Blue, t), 1.0f)
 
     val indices = (0 until width * height).toArray
     val config = JuliaConfig(width, height, cReal, cImag)
@@ -163,13 +167,13 @@ object GFunctionExamples:
     println(s"Saved to examples_output/julia.png")
     println()
 
-  case class TransformConfig(scale: Float32, offset: Float32) extends GStruct[TransformConfig]
+  case class TransformConfig(scale: Float32, offset: Float32)
 
   def example8_Uniforms(): Unit =
     val transform: GFunction[TransformConfig, Float32, Float32] =
       GFunction.forEachIndex[TransformConfig, Float32, Float32]:
         case (config, idx, buffer) =>
-          buffer.read(idx) * config.scale + config.offset
+          buffer.at(idx) * config.scale + config.offset
 
     val data = (0 until 256).map(_.toFloat).toArray
 
