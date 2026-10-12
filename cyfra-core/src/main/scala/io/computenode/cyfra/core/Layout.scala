@@ -28,18 +28,19 @@ object Layout:
     if !layoutSymbol.flags.is(Flags.Case) then
       report.errorAndAbort(s"Can only derive Layout for case classes, tuples and singular GBindings. Found: ${layoutType.show}")
 
-    def generateBindingRef(bindingType: TypeRepr, idx: Int): Expr[GBinding[?]] = bindingType.asType match
-      case '[type t; GBuffer[t]] =>
-        val value = Implicits.search(TypeRepr.of[Value[t]]) match
-          case iss: ImplicitSearchSuccess => iss.tree.asExprOf[Value[t]]
-          case isf: ImplicitSearchFailure => report.errorAndAbort(s"Could not find Value[${TypeRepr.of[t].show}]: ${isf.explanation}")
-        '{ BufferRef[t](${ Expr(idx) })(using $value) }
-      case '[type t; GUniform[t]] =>
-        val value = Implicits.search(TypeRepr.of[Value[t]]) match
-          case iss: ImplicitSearchSuccess => iss.tree.asExprOf[Value[t]]
-          case isf: ImplicitSearchFailure => report.errorAndAbort(s"Could not find Value[${TypeRepr.of[t].show}]: ${isf.explanation}")
-        '{ UniformRef[t](${ Expr(idx) })(using $value) }
-      case _ => report.errorAndAbort(s"All fields of a Layout must be of type GBuffer or GUniform, found: ${bindingType.show}")
+    def generateBindingRef(bindingType: TypeRepr, idx: Int): Expr[GBinding[?]] =
+      bindingType match
+        case AppliedType(base, List(elemType)) if base.typeSymbol.fullName == "io.computenode.cyfra.core.memory.GBuffer" =>
+          elemType.asType match
+            case '[t] =>
+              val valueExpr = '{ scala.compiletime.summonInline[Value[t]] }
+              '{ BufferRef[t](${ Expr(idx) })(using $valueExpr) }.asExprOf[GBinding[?]]
+        case AppliedType(base, List(elemType)) if base.typeSymbol.fullName == "io.computenode.cyfra.core.memory.GUniform" =>
+          elemType.asType match
+            case '[t] =>
+              val valueExpr = '{ scala.compiletime.summonInline[Value[t]] }
+              '{ UniformRef[t](${ Expr(idx) })(using $valueExpr) }.asExprOf[GBinding[?]]
+        case _ => report.errorAndAbort(s"All fields of a Layout must be of type GBuffer or GUniform, found: ${bindingType.show}")
 
     def constructLayout(args: List[Term]): Expr[T] =
       val constructor = Select(New(TypeIdent(layoutSymbol)), layoutSymbol.primaryConstructor)
@@ -59,10 +60,20 @@ object Layout:
           val paramType = param.tree match
             case ValDef(_, tpt, _) => tpt.tpe
 
-          Implicits.search(paramType) match
+          // For type parameters, try to find them in the applied type's implicit arguments
+          val resolvedParamType = paramType match
+            case AppliedType(base, args) =>
+              val resolvedArgs = args.map: arg =>
+                if arg.typeSymbol.isTypeParam then
+                  layoutType.typeArgs.find(_.typeSymbol.name == arg.typeSymbol.name).getOrElse(arg)
+                else arg
+              AppliedType(base, resolvedArgs)
+            case other => other
+
+          Implicits.search(resolvedParamType) match
             case iss: ImplicitSearchSuccess => iss.tree
             case isf: ImplicitSearchFailure =>
-              report.errorAndAbort(s"Could not find implicit ${param.name} of type ${paramType.show}: ${isf.explanation}")
+              report.errorAndAbort(s"Could not find implicit ${param.name} of type ${resolvedParamType.show}: ${isf.explanation}")
 
         Apply(Apply(readyConstructor, args), implicitArgs).asExprOf[T]
       else Apply(readyConstructor, args).asExprOf[T]

@@ -3,29 +3,32 @@ package io.computenode.cyfra.foton
 import io.computenode.cyfra.core.{CyfraRuntime, ExpressionProgram, GBufferRegion, GCodec, GProgram, Layout}
 import io.computenode.cyfra.core.GBufferRegion.*
 import io.computenode.cyfra.core.GProgram.StaticDispatch
+import io.computenode.cyfra.core.memory.Focus
 import io.computenode.cyfra.foton.GFunction
 import io.computenode.cyfra.foton.GFunction.{GFunctionLayout, GFunctionParams}
-import io.computenode.cyfra.dsl.*
 import izumi.reflect.Tag
 import org.lwjgl.BufferUtils
 
 import scala.reflect.ClassTag
 import io.computenode.cyfra.core.GCodec.{*, given}
-import io.computenode.cyfra.core.expression.Value
-import io.computenode.cyfra.core.expression.types.typeStride
+import io.computenode.cyfra.core.expression.*
+import io.computenode.cyfra.core.expression.types.*
+import io.computenode.cyfra.core.expression.types.GArray.given
 import io.computenode.cyfra.core.memory.{GBuffer, GUniform}
 import io.computenode.cyfra.dsl.direct.GioProgram
+import io.computenode.cyfra.dsl.Library.*
 import io.computenode.cyfra.dsl.direct.GIO
 import io.computenode.cyfra.foton.library.GArray2D
 
 case class GFunction[G: Value, H: Value, R: Value](underlying: GProgram[GFunctionParams, GFunctionLayout[G, H, R]]):
+  given Layout[GFunctionLayout[G, H, R]] = underlying.summonLayout
+
   def run[GS: ClassTag, HS, RS: ClassTag](input: Array[HS], g: GS)(using
     gCodec: GCodec[G, GS],
     hCodec: GCodec[H, HS],
     rCodec: GCodec[R, RS],
     runtime: CyfraRuntime,
   ): Array[RS] =
-
     val inTypeSize = typeStride(Value[H])
     val outTypeSize = typeStride(Value[R])
     val uniformStride = typeStride(Value[G])
@@ -58,10 +61,13 @@ object GFunction:
       layout = (p: GFunctionParams) => GFunctionLayout[G, H, R](in = GBuffer(p.size), out = GBuffer(p.size), uniform = GUniform()),
       dispatch = (l, p) => StaticDispatch((p.size + 255) / 256, 1, 1),
       workgroupSize = (256, 1, 1),
-    ): layout =>
+    ): (layout: GFunctionLayout[G, H, R]) =>
+      given vh: Value[GArray[H]] = layout.in.v
+      given vr: Value[GArray[R]] = layout.out.v
       val g = GIO.read(layout.uniform)
       val result = fn(g, Int32(invocationIdX), layout.in)
       GIO.write(layout.out.focus(_.at(invocationIdX)), result)
+      ???
 
     GFunction(underlying = program)
 

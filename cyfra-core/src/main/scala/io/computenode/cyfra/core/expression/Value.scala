@@ -148,12 +148,25 @@ object Value:
     val tpe = TypeRepr.of[T]
     val sym = tpe.typeSymbol
 
-    if !sym.flags.is(Flags.Case) then report.errorAndAbort(s"Can only derive Value for case classes and tuples. Found: ${tpe.show}")
+    // Don't try to derive for type parameters - let implicit search find the context-bound instance
+    if sym.isTypeParam then
+      report.errorAndAbort(s"Cannot derive Value for type parameter ${tpe.show}. Use a context bound instead.")
+
+    // Check if this is a NamedTuple - extract the value types tuple
+    val actualType = tpe match
+      case AppliedType(base, args) if base.typeSymbol.fullName == "scala.NamedTuple$.NamedTuple" =>
+        // NamedTuple[Names, Values] - we want the Values type (second type argument)
+        if args.length >= 2 then args(1) else tpe
+      case other => other
+
+    val actualSym = actualType.typeSymbol
+
+    if !actualSym.flags.is(Flags.Case) then report.errorAndAbort(s"Can only derive Value for case classes and tuples. Found: ${actualType.show}")
 
     // Get element types from tuple/case class
-    val elemTypes: List[TypeRepr] = tpe match
+    val elemTypes: List[TypeRepr] = actualType match
       case AppliedType(_, args) => args
-      case _                    => sym.caseFields.map(f => tpe.memberType(f))
+      case _                    => actualSym.caseFields.map(f => actualType.memberType(f))
 
     // Generate Value lookups for each element
     def lookupValue(elemType: TypeRepr): Expr[Value[?]] =
@@ -183,8 +196,8 @@ object Value:
             val elem = '{ $arrExpr(${ Expr(idx) }).asInstanceOf[t] }
             elem.asTerm
 
-      val constructor = Select(New(TypeIdent(sym)), sym.primaryConstructor)
-      val applied = tpe.typeArgs match
+      val constructor = Select(New(TypeIdent(actualSym)), actualSym.primaryConstructor)
+      val applied = actualType.typeArgs match
         case Nil      => constructor
         case typeArgs => TypeApply(constructor, typeArgs.map(t => TypeTree.of(using t.asType)))
 
