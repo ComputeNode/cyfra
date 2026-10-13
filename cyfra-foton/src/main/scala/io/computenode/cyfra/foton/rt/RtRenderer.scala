@@ -26,14 +26,14 @@ class RtRenderer(params: RtRenderer.Parameters):
     finished: Bool = false,
   )
 
-  private val applyRefractionThroughput: pure[(RayTraceState, RayHitInfo), Vec3[Float32]] = pure: x =>
+  private val applyRefractionThroughput: Pure[(RayTraceState, RayHitInfo), Vec3[Float32]] = pure: x =>
     val (state, testResult) = x
     when(testResult.fromInside):
       state.throughput * exp[Vec3[Float32]](-testResult.material.refractionColor * testResult.dist)
     .otherwise:
       state.throughput
 
-  private val calculateSpecularChance: pure[(RayTraceState, RayHitInfo), Float32] = pure: x =>
+  private val calculateSpecularChance: Pure[(RayTraceState, RayHitInfo), Float32] = pure: x =>
     val (state, testResult) = x
     when(testResult.material.percentSpecular > 0.0f):
       val material = testResult.material
@@ -48,7 +48,7 @@ class RtRenderer(params: RtRenderer.Parameters):
     .otherwise:
       0f
 
-  private val getRefractionChance: pure[(RayTraceState, RayHitInfo, Float32), Float32] = pure: x =>
+  private val getRefractionChance: Pure[(RayTraceState, RayHitInfo, Float32), Float32] = pure: x =>
     val (state, testResult, specularChance) = x
     when(specularChance > 0.0f):
       testResult.material.refractionChance * ((1.0f - specularChance) / (1.0f - testResult.material.percentSpecular))
@@ -77,7 +77,7 @@ class RtRenderer(params: RtRenderer.Parameters):
     (RayAction(doSpecular, doRefraction, max(rayProbability, 0.01f)), nextRandom)
 
   private val rayPosNormalNudge = 0.01f
-  private val getNextRayPos: pure[(Vec3[Float32], Vec3[Float32], RayHitInfo, Float32), Vec3[Float32]] =
+  private val getNextRayPos: Pure[(Vec3[Float32], Vec3[Float32], RayHitInfo, Float32), Vec3[Float32]] =
     pure: x =>
       val (rayPos, rayDir, testResult, doRefraction) = x
       when(doRefraction =~= 1.0f):
@@ -102,7 +102,7 @@ class RtRenderer(params: RtRenderer.Parameters):
     )
     (refractionRayDir, random2)
 
-  private val getThroughput: pure[
+  private val getThroughput: Pure[
     (RayHitInfo, Float32, Float32, Float32, Vec3[Float32]),
     Vec3[Float32],
   ] = pure: x =>
