@@ -1,7 +1,6 @@
 package io.computenode.cyfra.fs2interop
 
 import io.computenode.cyfra.core.{CyfraRuntime, GBufferRegion, GCodec, GProgram}
-import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
 import io.computenode.cyfra.dsl.gio.GIO

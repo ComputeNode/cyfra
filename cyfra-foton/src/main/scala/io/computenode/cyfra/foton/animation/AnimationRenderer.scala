@@ -1,10 +1,9 @@
 package io.computenode.cyfra.foton.animation
 
 import io.computenode.cyfra
-import io.computenode.cyfra.dsl.Value.*
-import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.foton.GFunction
-import io.computenode.cyfra.foton.ImageUtility
+import io.computenode.cyfra.dsl.*
+import io.computenode.cyfra.foton.library.fRGBA
+import io.computenode.cyfra.foton.{GFunction, ImageUtility}
 import io.computenode.cyfra.utility.Units.Milliseconds
 import io.computenode.cyfra.utility.Utility.timed
 

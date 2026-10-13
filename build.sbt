@@ -1,6 +1,6 @@
 ThisBuild / organization := "com.computenode.cyfra"
 ThisBuild / scalaVersion := "3.6.4"
-ThisBuild / version := "0.1.0-RC1"
+ThisBuild / version := "0.2.0-SNAPSHOT"
 ThisBuild / licenses := List("LGPL-2.1" -> url("http://www.gnu.org/licenses/lgpl-2.1.html"))
 ThisBuild / homepage := Some(url("https://github.com/ComputeNode/cyfra"))
 ThisBuild / developers := List(
@@ -13,7 +13,7 @@ ThisBuild / developers := List(
   ),
 )
 
-val lwjglVersion = "3.4.0"
+val lwjglVersion = "3.4.3"
 val jomlVersion = "1.10.0"
 
 lazy val osName = System.getProperty("os.name").toLowerCase
@@ -95,29 +95,30 @@ lazy val tapirSettings = Seq(
 lazy val utility = (project in file("cyfra-utility"))
   .settings(commonSettings)
 
-lazy val spirvTools = (project in file("cyfra-spirv-tools"))
+lazy val core = (project in file("cyfra-core"))
   .settings(commonSettings)
-  .dependsOn(utility)
-
-lazy val vulkan = (project in file("cyfra-vulkan"))
-  .settings(commonSettings)
+  .settings(libraryDependencies ++= Seq("dev.optics" %% "monocle-core" % "3.1.0" % Test, "dev.optics" %% "monocle-macro" % "3.1.0" % Test))
   .dependsOn(utility)
 
 lazy val dsl = (project in file("cyfra-dsl"))
+  .settings(commonSettings)
+  .dependsOn(utility, core)
+
+lazy val spirvTools = (project in file("cyfra-spirv-tools"))
   .settings(commonSettings)
   .dependsOn(utility)
 
 lazy val compiler = (project in file("cyfra-compiler"))
   .settings(commonSettings)
-  .dependsOn(dsl, utility)
+  .dependsOn(core, utility, spirvTools, dsl % Test)
 
-lazy val core = (project in file("cyfra-core"))
+lazy val vulkan = (project in file("cyfra-vulkan"))
   .settings(commonSettings)
-  .dependsOn(compiler, dsl, utility, spirvTools)
+  .dependsOn(utility)
 
 lazy val runtime = (project in file("cyfra-runtime"))
   .settings(commonSettings)
-  .dependsOn(core, vulkan)
+  .dependsOn(core, vulkan, spirvTools, compiler, dsl % Test)
 
 lazy val foton = (project in file("cyfra-foton"))
   .settings(commonSettings)

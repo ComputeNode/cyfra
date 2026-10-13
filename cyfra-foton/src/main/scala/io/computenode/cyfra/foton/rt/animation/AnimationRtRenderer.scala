@@ -2,20 +2,22 @@ package io.computenode.cyfra.foton.rt.animation
 
 import io.computenode.cyfra
 import io.computenode.cyfra.core.CyfraRuntime
-import io.computenode.cyfra.dsl.Value.*
-import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.foton.animation.AnimationRenderer
 import io.computenode.cyfra.foton.rt.RtRenderer
 import io.computenode.cyfra.foton.rt.animation.AnimationRtRenderer.RaytracingIteration
 import io.computenode.cyfra.foton.GFunction
+import io.computenode.cyfra.foton.library.fRGBA
 import io.computenode.cyfra.runtime.VkCyfraRuntime
 
 class AnimationRtRenderer(params: AnimationRtRenderer.Parameters)
     extends RtRenderer(params)
     with AnimationRenderer[AnimatedScene, AnimationRtRenderer.RenderFn](params):
 
-  given CyfraRuntime = VkCyfraRuntime()
+  private val runtime = VkCyfraRuntime()
+  given CyfraRuntime = runtime
+
+  override def close(): Unit = runtime.close()
 
   protected def renderFrame(scene: AnimatedScene, time: Float32, fn: GFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]]): Array[fRGBA] =
     val initialMem = Array.fill(params.width * params.height)((0.5f, 0.5f, 0.5f, 0.5f))
@@ -35,7 +37,7 @@ class AnimationRtRenderer(params: AnimationRtRenderer.Parameters)
 object AnimationRtRenderer:
 
   type RenderFn = GFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]]
-  case class RaytracingIteration(frame: Int32, time: Float32) extends GStruct[RaytracingIteration]
+  case class RaytracingIteration(frame: Int32, time: Float32)
 
   case class Parameters(
     width: Int,

@@ -1,6 +1,5 @@
 package io.computenode.cyfra.foton.rt
 
-import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.dsl.{*, given}
 
 case class Material(
@@ -8,12 +7,12 @@ case class Material(
   emissive: Vec3[Float32],
   percentSpecular: Float32 = 0f,
   roughness: Float32 = 0f,
-  specularColor: Vec3[Float32] = vec3(0f),
+  specularColor: Vec3[Float32] = Vec3(0f),
   indexOfRefraction: Float32 = 1f,
   refractionChance: Float32 = 0f,
   refractionRoughness: Float32 = 0f,
-  refractionColor: Vec3[Float32] = vec3(0f),
-) extends GStruct[Material]
+  refractionColor: Vec3[Float32] = Vec3(0f),
+)
 
 object Material:
-  val Zero = Material(vec3(0f), vec3(0f))
+  val Zero = Material(Vec3(0f), Vec3(0f))

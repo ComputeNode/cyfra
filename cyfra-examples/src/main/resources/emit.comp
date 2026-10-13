@@ -3,21 +3,23 @@
 layout (local_size_x = 128, local_size_y = 1, local_size_z = 1) in;
 
 layout (set = 0, binding = 0) buffer InputBuffer {
-    int inBuffer[];
+    vec3 inBuffer[];
 };
 layout (set = 0, binding = 1) buffer OutputBuffer {
-    int outBuffer[];
+    vec4 outBuffer[];
 };
 
-layout (set = 0, binding = 2) uniform InputUniform {
-    int emitN;
-};
+uint global = 2;
+
+void add_o(uint a) {
+   global = global + a;
+   return;
+}
 
 void main(void) {
     uint index = gl_GlobalInvocationID.x;
-    int element = inBuffer[index];
-    uint offset = index * uint(emitN);
-    for (int i = 0; i < emitN; i++) {
-        outBuffer[offset + uint(i)] = element;
-    }
+    add_o(index);
+    vec3 element = inBuffer[index];
+    add_o(index);
+    outBuffer[global] = element.zxyz;
 }

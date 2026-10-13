@@ -1,9 +1,8 @@
 package io.computenode.cyfra.fluids.visualization
 
-import io.computenode.cyfra.core.{GBufferRegion, GCodec, GProgram}
+import io.computenode.cyfra.core.{GBufferRegion, GCodec, GProgram, Layout}
 import io.computenode.cyfra.core.GProgram.StaticDispatch
 import io.computenode.cyfra.core.GCodec.{*, given}
-import io.computenode.cyfra.core.layout.Layout
 import io.computenode.cyfra.runtime.VkCyfraRuntime
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.fluids.solver.utils.{GridUtils, ObstacleUtils}

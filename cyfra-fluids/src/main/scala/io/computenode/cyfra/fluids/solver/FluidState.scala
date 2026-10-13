@@ -1,6 +1,6 @@
 package io.computenode.cyfra.fluids.solver
 
-import io.computenode.cyfra.core.layout.Layout
+import io.computenode.cyfra.core.Layout
 import io.computenode.cyfra.dsl.{*, given}
 
 /** GPU fluid state buffers (single-buffered) Note: Using Vec4 for velocity to ensure proper 16-byte alignment (std430)

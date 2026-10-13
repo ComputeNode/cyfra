@@ -1,8 +1,7 @@
 package io.computenode.cyfra.analytics.gpu
 
 import fs2.{Pipe, Stream}
-import io.computenode.cyfra.core.{CyfraRuntime, GCodec, GProgram}
-import io.computenode.cyfra.core.layout.Layout
+import io.computenode.cyfra.core.{CyfraRuntime, GCodec, GProgram, Layout}
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.dsl.binding.{GBuffer, GUniform}
 import io.computenode.cyfra.dsl.gio.GIO

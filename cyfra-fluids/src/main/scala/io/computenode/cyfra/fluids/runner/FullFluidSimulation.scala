@@ -1,7 +1,6 @@
 package io.computenode.cyfra.fluids.runner
 
-import io.computenode.cyfra.core.{GBufferRegion, GCodec, GExecution}
-import io.computenode.cyfra.core.layout.Layout
+import io.computenode.cyfra.core.{GBufferRegion, GCodec, GExecution, Layout}
 import io.computenode.cyfra.runtime.VkCyfraRuntime
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.fluids.solver.*

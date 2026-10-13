@@ -1,10 +1,7 @@
 package io.computenode.cyfra.foton.rt.shapes
 
-import io.computenode.cyfra.dsl.Value.*
-import io.computenode.cyfra.dsl.collections.GSeq
-import io.computenode.cyfra.dsl.given
-import io.computenode.cyfra.dsl.library.Functions.*
-import io.computenode.cyfra.dsl.struct.GStruct
+import io.computenode.cyfra.dsl.*
+import io.computenode.cyfra.foton.library.GSeq
 import io.computenode.cyfra.foton.rt.Material
 import io.computenode.cyfra.foton.rt.RtRenderer.RayHitInfo
 import io.computenode.cyfra.foton.rt.shapes.*
@@ -36,7 +33,7 @@ class ShapeCollection(val boxes: List[Box], val spheres: List[Sphere], val quads
       case _ => assert(false, "Unknown shape type: Broken sealed hierarchy")
 
   def testRay(rayPos: Vec3[Float32], rayDir: Vec3[Float32], noHit: RayHitInfo): RayHitInfo =
-    def testShapeType[T <: GStruct[T] & Shape: {FromExpr, Tag, TestRay}](shapes: List[T], currentHit: RayHitInfo): RayHitInfo =
+    def testShapeType[T <: Shape: {Value, TestRay}](shapes: List[T], currentHit: RayHitInfo): RayHitInfo =
       val testRay = summon[TestRay[T]]
       if shapes.isEmpty then currentHit
       else GSeq.of(shapes).fold(currentHit, (currentHit, shape) => testRay.testRay(shape, rayPos, rayDir, currentHit))

@@ -3,24 +3,27 @@ package io.computenode.cyfra.foton.rt
 import io.computenode.cyfra
 import io.computenode.cyfra.*
 import io.computenode.cyfra.core.CyfraRuntime
-import io.computenode.cyfra.dsl.Value.*
-import io.computenode.cyfra.dsl.struct.GStruct
 import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.foton.library.fRGBA
 import io.computenode.cyfra.foton.rt.ImageRtRenderer.RaytracingIteration
-import io.computenode.cyfra.foton.GFunction
+import io.computenode.cyfra.foton.{GFunction, ImageUtility}
 import io.computenode.cyfra.runtime.VkCyfraRuntime
-import io.computenode.cyfra.foton.ImageUtility
 import io.computenode.cyfra.utility.Utility.timed
 
 import java.nio.file.Path
 
 class ImageRtRenderer(params: ImageRtRenderer.Parameters) extends RtRenderer(params):
 
-  given CyfraRuntime = VkCyfraRuntime()
+  private val runtime = VkCyfraRuntime()
+  given CyfraRuntime = runtime
 
   def renderToFile(scene: Scene, destinationPath: Path): Unit =
-    val images = render(scene)
-    for image <- images do ImageUtility.renderToImage(image, params.width, params.height, destinationPath)
+    try
+      val images = render(scene)
+      for image <- images do ImageUtility.renderToImage(image, params.width, params.height, destinationPath)
+    finally close()
+
+  def close(): Unit = runtime.close()
 
   def render(scene: Scene): LazyList[Array[fRGBA]] =
     render(scene, renderFunction(scene))
@@ -43,7 +46,7 @@ class ImageRtRenderer(params: ImageRtRenderer.Parameters) extends RtRenderer(par
 
 object ImageRtRenderer:
 
-  private case class RaytracingIteration(frame: Int32) extends GStruct[RaytracingIteration]
+  private case class RaytracingIteration(frame: Int32)
 
   case class Parameters(
     width: Int,

@@ -1,15 +1,9 @@
 package io.computenode.cyfra.fs2interop
 
-import io.computenode.cyfra.core.{Allocation, layout, GCodec}
-import layout.Layout
+import io.computenode.cyfra.core.{Allocation, GCodec, layout}
 import io.computenode.cyfra.core.{CyfraRuntime, GBufferRegion, GExecution, GProgram}
 import io.computenode.cyfra.dsl.{*, given}
-import gio.GIO
-import binding.{GBinding, GBuffer, GUniform}
 import io.computenode.cyfra.spirv.SpirvTypes.typeStride
-import struct.GStruct
-import GStruct.Empty
-import Empty.given
 import fs2.*
 
 import java.nio.ByteBuffer

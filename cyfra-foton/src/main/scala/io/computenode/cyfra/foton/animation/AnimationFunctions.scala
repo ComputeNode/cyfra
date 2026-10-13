@@ -2,9 +2,13 @@ package io.computenode.cyfra.foton.animation
 
 import io.computenode.cyfra
 import io.computenode.cyfra.*
-import io.computenode.cyfra.dsl.Value.Float32
-import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.core.expression.ops.Functions
+import io.computenode.cyfra.core.expression.types.Float32
+import io.computenode.cyfra.dsl.Library
 import io.computenode.cyfra.utility.Units.Milliseconds
+import io.computenode.cyfra.dsl.Library.when
+
+import scala.language.reflectiveCalls
 
 object AnimationFunctions:
 
@@ -17,10 +21,8 @@ object AnimationFunctions:
         val p = (t - at) / duration
         val dist = to - from
         from + (dist * p)
-      .elseWhen(t <= at):
-        from
       .otherwise:
-        to
+        Functions.select(t <= at, from, to)
 
 //  def freefall(from: Float32, to: Float32, g: Float32): Float32 => Vec3[Float32] =
 //    t =>
