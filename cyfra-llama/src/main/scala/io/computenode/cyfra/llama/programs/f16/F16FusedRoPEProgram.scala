@@ -2,39 +2,32 @@ package io.computenode.cyfra.llama.programs.f16
 
 import io.computenode.cyfra.core.GProgram
 import io.computenode.cyfra.core.GProgram.StaticDispatch
-import io.computenode.cyfra.core.layout.Layout
+import io.computenode.cyfra.core.Layout
 import io.computenode.cyfra.dsl.{*, given}
-import io.computenode.cyfra.dsl.gio.GIO
+import io.computenode.cyfra.core.memory.Focus.*
+import io.computenode.cyfra.dsl.direct.GIO
 import io.computenode.cyfra.llama.programs.AttentionParams
 
 /** Fused F16 Rotary Position Embedding for both Q and K in single dispatch.
   *
-  * Reduces dispatch count by processing both Q and K tensors simultaneously.
-  * Each invocation handles one pair from either Q or K.
+  * Reduces dispatch count by processing both Q and K tensors simultaneously. Each invocation handles one pair from either Q or K.
   */
 object F16FusedRoPEProgram:
   val BLOCK_SIZE = 256
 
-  case class Sizes(
-    B: Int,
-    T: Int,
-    numHeadsQ: Int,
-    numHeadsK: Int,
-    headSize: Int,
-    theta: Float,
-  ):
+  case class Sizes(B: Int, T: Int, numHeadsQ: Int, numHeadsK: Int, headSize: Int, theta: Float):
     def totalQPairs: Int = B * T * numHeadsQ * (headSize / 2)
     def totalKPairs: Int = B * T * numHeadsK * (headSize / 2)
     def totalPairs: Int = totalQPairs + totalKPairs
-  
+
   case class ProgramLayout(
-    qIn: GBuffer[Float16],
-    kIn: GBuffer[Float16],
-    qOut: GBuffer[Float16],
-    kOut: GBuffer[Float16],
+    qIn: GBuffer[GArray[Float16]],
+    kIn: GBuffer[GArray[Float16]],
+    qOut: GBuffer[GArray[Float16]],
+    kOut: GBuffer[GArray[Float16]],
     params: GUniform[AttentionParams],
   ) derives Layout
-  
+
   def forward(sizes: Sizes): GProgram[Sizes, ProgramLayout] =
     val B = sizes.B
     val T = sizes.T
@@ -46,14 +39,15 @@ object F16FusedRoPEProgram:
     val totalKPairs = sizes.totalKPairs
     val totalPairs = sizes.totalPairs
 
-    GProgram[Sizes, ProgramLayout](
-      layout = s => ProgramLayout(
-        qIn = GBuffer[Float16](s.B * s.T * s.numHeadsQ * s.headSize),
-        kIn = GBuffer[Float16](s.B * s.T * s.numHeadsK * s.headSize),
-        qOut = GBuffer[Float16](s.B * s.T * s.numHeadsQ * s.headSize),
-        kOut = GBuffer[Float16](s.B * s.T * s.numHeadsK * s.headSize),
-        params = GUniform[AttentionParams](),
-      ),
+    GioProgram[Sizes, ProgramLayout](
+      layout = s =>
+        ProgramLayout(
+          qIn = GBuffer[GArray[Float16]](s.B * s.T * s.numHeadsQ * s.headSize),
+          kIn = GBuffer[GArray[Float16]](s.B * s.T * s.numHeadsK * s.headSize),
+          qOut = GBuffer[GArray[Float16]](s.B * s.T * s.numHeadsQ * s.headSize),
+          kOut = GBuffer[GArray[Float16]](s.B * s.T * s.numHeadsK * s.headSize),
+          params = GUniform[AttentionParams](),
+        ),
       dispatch = (_, s) => StaticDispatch(((s.totalPairs + BLOCK_SIZE - 1) / BLOCK_SIZE, 1, 1)),
       workgroupSize = (BLOCK_SIZE, 1, 1),
     ): layout =>
@@ -66,27 +60,27 @@ object F16FusedRoPEProgram:
       val halfHead: Int32 = headSize / 2
       val headSizeVal: Int32 = headSize
       val thetaVal: Float32 = theta
-      val startPosVal: Int32 = layout.params.read.startPos
+      val startPosVal: Int32 = GIO.read(layout.params).startPos
 
       GIO.when(idx < totalPairsVal):
         // Determine if this is Q or K based on index
         val isQ = idx < totalQPairsVal
-        
+
         // Calculate local index within Q or K
-        val localIdx: Int32 = when(isQ)(idx).otherwise(idx - totalQPairsVal)
-        val numHeads: Int32 = when(isQ)(numHeadsQVal).otherwise(numHeadsKVal)
-        
+        val localIdx: Int32 = GIO.branch(isQ, idx, idx - totalQPairsVal)
+        val numHeads: Int32 = GIO.branch(isQ, numHeadsQVal, numHeadsKVal)
+
         // Decompose index
         val perHead = halfHead
         val perPos = numHeads * halfHead
         val perBatch = Tval * perPos
 
         val b = localIdx / perBatch
-        val rem1 = localIdx.mod(perBatch)
+        val rem1 = localIdx % perBatch
         val t = rem1 / perPos
-        val rem2 = rem1.mod(perPos)
+        val rem2 = rem1 % perPos
         val h = rem2 / perHead
-        val d = rem2.mod(perHead)
+        val d = rem2 % perHead
 
         // Compute RoPE rotation
         val pos = startPosVal + t
@@ -102,23 +96,17 @@ object F16FusedRoPEProgram:
         val idx1 = idx0 + 1
 
         // Read, rotate, write - branch on Q vs K
-        for
-          _ <- GIO.when(isQ):
-            val x0 = GIO.read[Float16](layout.qIn, idx0)
-            val x1 = GIO.read[Float16](layout.qIn, idx1)
-            val y0 = x0 * cosFreq - x1 * sinFreq
-            val y1 = x0 * sinFreq + x1 * cosFreq
-            for
-              _ <- GIO.write[Float16](layout.qOut, idx0, y0)
-              _ <- GIO.write[Float16](layout.qOut, idx1, y1)
-            yield GStruct.Empty()
-          _ <- GIO.when(!isQ):
-            val x0 = GIO.read[Float16](layout.kIn, idx0)
-            val x1 = GIO.read[Float16](layout.kIn, idx1)
-            val y0 = x0 * cosFreq - x1 * sinFreq
-            val y1 = x0 * sinFreq + x1 * cosFreq
-            for
-              _ <- GIO.write[Float16](layout.kOut, idx0, y0)
-              _ <- GIO.write[Float16](layout.kOut, idx1, y1)
-            yield GStruct.Empty()
-        yield GStruct.Empty()
+        GIO.when(isQ):
+          val x0 = GIO.read(layout.qIn.focus(_.at(idx0)))
+          val x1 = GIO.read(layout.qIn.focus(_.at(idx1)))
+          val y0 = x0 * cosFreq - x1 * sinFreq
+          val y1 = x0 * sinFreq + x1 * cosFreq
+          GIO.write(layout.qOut.focus(_.at(idx0)), y0)
+          GIO.write(layout.qOut.focus(_.at(idx1)), y1)
+        GIO.when(!isQ):
+          val x0 = GIO.read(layout.kIn.focus(_.at(idx0)))
+          val x1 = GIO.read(layout.kIn.focus(_.at(idx1)))
+          val y0 = x0 * cosFreq - x1 * sinFreq
+          val y1 = x0 * sinFreq + x1 * cosFreq
+          GIO.write(layout.kOut.focus(_.at(idx0)), y0)
+          GIO.write(layout.kOut.focus(_.at(idx1)), y1)

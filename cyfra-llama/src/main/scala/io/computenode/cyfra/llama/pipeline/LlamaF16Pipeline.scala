@@ -1,7 +1,7 @@
 package io.computenode.cyfra.llama.pipeline
 
 import io.computenode.cyfra.core.{CyfraRuntime, GBufferRegion, GExecution}
-import io.computenode.cyfra.core.layout.Layout
+import io.computenode.cyfra.core.Layout
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.llama.model.LlamaConfig
 import io.computenode.cyfra.llama.pipeline.LlamaF16Pipeline.*
@@ -26,12 +26,8 @@ import java.nio.{ByteBuffer, ByteOrder}
   *   - Decode: Process 1 token at a time, attend to full cache
   *   - O(1) complexity per generated token
   */
-case class LlamaF16Pipeline(
-  weights: F16ModelWeights,
-  config: LlamaConfig,
-  maxSeqLen: Int = DefaultMaxSeqLen,
-  B: Int = 1,
-)(using runtime: CyfraRuntime) extends LlamaPipeline:
+case class LlamaF16Pipeline(weights: F16ModelWeights, config: LlamaConfig, maxSeqLen: Int = DefaultMaxSeqLen, B: Int = 1)(using runtime: CyfraRuntime)
+    extends LlamaPipeline:
 
   private val C = config.hiddenSize
   private val V = config.vocabSize
@@ -42,7 +38,7 @@ case class LlamaF16Pipeline(
   private val FFN = config.intermediateSize
   private val kvSize = NKV * headSize
 
-  Logger.info(s"Uploading F16 weights: $L layers, ${V}×${C} vocab, maxSeqLen=$maxSeqLen")
+  Logger.info(s"Uploading F16 weights: $L layers, $V×$C vocab, maxSeqLen=$maxSeqLen")
 
   private val tokenEmbedBuf = allocateF16Buffer(V * C)
   copyF16BytesToBuffer(weights.tokenEmbed, tokenEmbedBuf)
@@ -88,7 +84,7 @@ case class LlamaF16Pipeline(
   private val attnParamsBuf = ByteBuffer.allocateDirect(8).order(ByteOrder.nativeOrder())
 
   // GPU sampling buffers
-  private val sampleParamsBuf = ByteBuffer.allocateDirect(16).order(ByteOrder.nativeOrder()) // std140 aligned
+  private val sampleParamsBuf = ByteBuffer.allocateDirect(12).order(ByteOrder.nativeOrder())
   private val sampledTokenBuf = allocateIntBuffer(1)
   private val random = new scala.util.Random()
 
@@ -123,8 +119,7 @@ case class LlamaF16Pipeline(
       var result = topTokens.last._2
       for (prob, idx) <- topTokens do
         acc += prob
-        if acc >= threshold && result == topTokens.last._2 then
-          result = idx
+        if acc >= threshold && result == topTokens.last._2 then result = idx
       result
 
   private val pipelineCache = scala.collection.mutable.Map[(Int, Int, Boolean), GExecution[PipelineParams, PipelineLayout, PipelineLayout]]()
@@ -150,10 +145,7 @@ case class LlamaF16Pipeline(
     stopTokens: Set[Int] = Set.empty,
     reportStats: Boolean = false,
   ): Array[Int] =
-    require(
-      promptTokens.length + maxNewTokens <= maxSeqLen,
-      s"Total sequence ${promptTokens.length + maxNewTokens} exceeds maxSeqLen=$maxSeqLen",
-    )
+    require(promptTokens.length + maxNewTokens <= maxSeqLen, s"Total sequence ${promptTokens.length + maxNewTokens} exceeds maxSeqLen=$maxSeqLen")
 
     currentSeqLen = 0
     val generatedTokens = scala.collection.mutable.ArrayBuffer[Int]()
@@ -180,6 +172,7 @@ case class LlamaF16Pipeline(
     val prefillPipeline = getOrBuildPipeline(prefillT, prefillT, withSampling = false)
     val decodePipeline = getOrBuildPipeline(1, maxSeqLen, withSampling = true)
     val prefillParams = PipelineParams(config, B, prefillT, 0)
+    val decodeParams = PipelineParams(config, B, 1, 0)
 
     val prefillAttnBuf = ByteBuffer.allocateDirect(8).order(ByteOrder.nativeOrder())
     prefillAttnBuf.putInt(prefillT)
@@ -231,7 +224,6 @@ case class LlamaF16Pipeline(
     val afterDecode = (0 until maxNewTokens - 1).foldLeft(afterPrefill): (region, stepIdx) =>
       val seqLen = prefillT + stepIdx + 1
       val startPos = seqLen - 1
-      val decodeParams = PipelineParams(config, B, 1, startPos)
 
       region.map: layout =>
         if shouldStop then layout
@@ -240,16 +232,15 @@ case class LlamaF16Pipeline(
           attnParamsBuf.putInt(seqLen)
           attnParamsBuf.putInt(startPos)
           attnParamsBuf.flip()
-          layout.decodeAttnParams.asInstanceOf[io.computenode.cyfra.dsl.binding.GBinding[AttentionParams]].write(attnParamsBuf, 0)
+          layout.decodeAttnParams.write(attnParamsBuf, 0)
 
           // Set sampling params
           sampleParamsBuf.clear()
           sampleParamsBuf.putFloat(temperature)
           sampleParamsBuf.putFloat(topP)
           sampleParamsBuf.putFloat(random.nextFloat())
-          sampleParamsBuf.putFloat(0.0f)
           sampleParamsBuf.rewind()
-          layout.sampleParams.asInstanceOf[io.computenode.cyfra.dsl.binding.GBinding[F16TopPSampleProgram.SampleParams]].write(sampleParamsBuf, 0)
+          layout.sampleParams.write(sampleParamsBuf, 0)
 
           NVTX.push(s"Decode[$stepIdx]")
           val stepStartNs = System.nanoTime()
@@ -278,58 +269,58 @@ case class LlamaF16Pipeline(
 
     afterDecode.runUnsafe(
       init = GenerationLayout(
-        tokenEmbed = GBuffer[Float16](tokenEmbedBuf),
-        attnNorm = GBuffer[Float16](attnNormBuf),
-        ffnNorm = GBuffer[Float16](ffnNormBuf),
-        outputNorm = GBuffer[Float16](outputNormBuf),
-        wq = GBuffer[Vec4[Float16]](wqBuf),
-        wk = GBuffer[Vec4[Float16]](wkBuf),
-        wv = GBuffer[Vec4[Float16]](wvBuf),
-        wo = GBuffer[Vec4[Float16]](woBuf),
-        ffnGate = GBuffer[Vec4[Float16]](ffnGateBuf),
-        ffnUp = GBuffer[Vec4[Float16]](ffnUpBuf),
-        ffnDown = GBuffer[Vec4[Float16]](ffnDownBuf),
-        outputWeight = GBuffer[Vec4[Float16]](outputWeightBuf),
-        kCache = GBuffer[Float16](L * maxSeqLen * kvSize),
-        vCache = GBuffer[Float16](L * maxSeqLen * kvSize),
-        prefillTokens = GBuffer[Int32](prefillTokensBuf),
-        prefillHidden = GBuffer[Float16](B * prefillT * C),
-        prefillResidual = GBuffer[Float16](B * prefillT * C),
-        prefillAttnNormOut = GBuffer[Float16](B * prefillT * C),
-        prefillQ = GBuffer[Float16](B * prefillT * C),
-        prefillK = GBuffer[Float16](B * prefillT * kvSize),
-        prefillV = GBuffer[Float16](B * prefillT * kvSize),
-        prefillQRoped = GBuffer[Float16](B * prefillT * C),
-        prefillKRoped = GBuffer[Float16](B * prefillT * kvSize),
-        prefillAttnScores = GBuffer[Float32](B * prefillT * NH * maxSeqLen),
-        prefillAttnOut = GBuffer[Float16](B * prefillT * C),
-        prefillFfnNormOut = GBuffer[Float16](B * prefillT * C),
-        prefillGate = GBuffer[Float16](B * prefillT * FFN),
-        prefillUp = GBuffer[Float16](B * prefillT * FFN),
-        prefillFfnHidden = GBuffer[Float16](B * prefillT * FFN),
-        prefillFfnOut = GBuffer[Float16](B * prefillT * C),
-        prefillLogits = GBuffer[Float32](prefillLogitsBuf),
+        tokenEmbed = GBuffer[GArray[Float16]](tokenEmbedBuf),
+        attnNorm = GBuffer[GArray[Float16]](attnNormBuf),
+        ffnNorm = GBuffer[GArray[Float16]](ffnNormBuf),
+        outputNorm = GBuffer[GArray[Float16]](outputNormBuf),
+        wq = GBuffer[GArray[Vec4[Float16]]](wqBuf),
+        wk = GBuffer[GArray[Vec4[Float16]]](wkBuf),
+        wv = GBuffer[GArray[Vec4[Float16]]](wvBuf),
+        wo = GBuffer[GArray[Vec4[Float16]]](woBuf),
+        ffnGate = GBuffer[GArray[Vec4[Float16]]](ffnGateBuf),
+        ffnUp = GBuffer[GArray[Vec4[Float16]]](ffnUpBuf),
+        ffnDown = GBuffer[GArray[Vec4[Float16]]](ffnDownBuf),
+        outputWeight = GBuffer[GArray[Vec4[Float16]]](outputWeightBuf),
+        kCache = GBuffer[GArray[Float16]](L * maxSeqLen * kvSize),
+        vCache = GBuffer[GArray[Float16]](L * maxSeqLen * kvSize),
+        prefillTokens = GBuffer[GArray[Int32]](prefillTokensBuf),
+        prefillHidden = GBuffer[GArray[Float16]](B * prefillT * C),
+        prefillResidual = GBuffer[GArray[Float16]](B * prefillT * C),
+        prefillAttnNormOut = GBuffer[GArray[Float16]](B * prefillT * C),
+        prefillQ = GBuffer[GArray[Float16]](B * prefillT * C),
+        prefillK = GBuffer[GArray[Float16]](B * prefillT * kvSize),
+        prefillV = GBuffer[GArray[Float16]](B * prefillT * kvSize),
+        prefillQRoped = GBuffer[GArray[Float16]](B * prefillT * C),
+        prefillKRoped = GBuffer[GArray[Float16]](B * prefillT * kvSize),
+        prefillAttnScores = GBuffer[GArray[Float32]](B * prefillT * NH * maxSeqLen),
+        prefillAttnOut = GBuffer[GArray[Float16]](B * prefillT * C),
+        prefillFfnNormOut = GBuffer[GArray[Float16]](B * prefillT * C),
+        prefillGate = GBuffer[GArray[Float16]](B * prefillT * FFN),
+        prefillUp = GBuffer[GArray[Float16]](B * prefillT * FFN),
+        prefillFfnHidden = GBuffer[GArray[Float16]](B * prefillT * FFN),
+        prefillFfnOut = GBuffer[GArray[Float16]](B * prefillT * C),
+        prefillLogits = GBuffer[GArray[Float32]](prefillLogitsBuf),
         prefillAttnParams = GUniform[AttentionParams](prefillAttnBuf),
-        decodeToken = GBuffer[Int32](decodeTokenBuf),
-        decodeHidden = GBuffer[Float16](B * 1 * C),
-        decodeResidual = GBuffer[Float16](B * 1 * C),
-        decodeAttnNormOut = GBuffer[Float16](B * 1 * C),
-        decodeQ = GBuffer[Float16](B * 1 * C),
-        decodeK = GBuffer[Float16](B * 1 * kvSize),
-        decodeV = GBuffer[Float16](B * 1 * kvSize),
-        decodeQRoped = GBuffer[Float16](B * 1 * C),
-        decodeKRoped = GBuffer[Float16](B * 1 * kvSize),
-        decodeAttnScores = GBuffer[Float32](B * 1 * NH * maxSeqLen),
-        decodeAttnOut = GBuffer[Float16](B * 1 * C),
-        decodeFfnNormOut = GBuffer[Float16](B * 1 * C),
-        decodeGate = GBuffer[Float16](B * 1 * FFN),
-        decodeUp = GBuffer[Float16](B * 1 * FFN),
-        decodeFfnHidden = GBuffer[Float16](B * 1 * FFN),
-        decodeFfnOut = GBuffer[Float16](B * 1 * C),
-        decodeLogits = GBuffer[Float32](decodeLogitsBuf),
+        decodeToken = GBuffer[GArray[Int32]](decodeTokenBuf),
+        decodeHidden = GBuffer[GArray[Float16]](B * 1 * C),
+        decodeResidual = GBuffer[GArray[Float16]](B * 1 * C),
+        decodeAttnNormOut = GBuffer[GArray[Float16]](B * 1 * C),
+        decodeQ = GBuffer[GArray[Float16]](B * 1 * C),
+        decodeK = GBuffer[GArray[Float16]](B * 1 * kvSize),
+        decodeV = GBuffer[GArray[Float16]](B * 1 * kvSize),
+        decodeQRoped = GBuffer[GArray[Float16]](B * 1 * C),
+        decodeKRoped = GBuffer[GArray[Float16]](B * 1 * kvSize),
+        decodeAttnScores = GBuffer[GArray[Float32]](B * 1 * NH * maxSeqLen),
+        decodeAttnOut = GBuffer[GArray[Float16]](B * 1 * C),
+        decodeFfnNormOut = GBuffer[GArray[Float16]](B * 1 * C),
+        decodeGate = GBuffer[GArray[Float16]](B * 1 * FFN),
+        decodeUp = GBuffer[GArray[Float16]](B * 1 * FFN),
+        decodeFfnHidden = GBuffer[GArray[Float16]](B * 1 * FFN),
+        decodeFfnOut = GBuffer[GArray[Float16]](B * 1 * C),
+        decodeLogits = GBuffer[GArray[Float32]](decodeLogitsBuf),
         decodeAttnParams = GUniform[AttentionParams](decodeAttnBuf),
         sampleParams = GUniform[F16TopPSampleProgram.SampleParams](sampleParamsBuf),
-        sampledToken = GBuffer[Int32](sampledTokenBuf),
+        sampledToken = GBuffer[GArray[Int32]](sampledTokenBuf),
       ),
       onDone = _ => (),
     )
@@ -357,12 +348,7 @@ object LlamaF16Pipeline:
 
   val DefaultMaxSeqLen = 2048
 
-  case class PipelineParams(
-    config: LlamaConfig,
-    B: Int,
-    T: Int,
-    startPos: Int = 0,
-  ):
+  case class PipelineParams(config: LlamaConfig, B: Int, T: Int, startPos: Int = 0):
     def C: Int = config.hiddenSize
     def NH: Int = config.numAttentionHeads
     def NKV: Int = config.numKeyValueHeads
@@ -383,131 +369,174 @@ object LlamaF16Pipeline:
     ffnUp: Array[Byte],
     ffnDown: Array[Byte],
   )
-  
-  case class F16ModelWeights(
-    tokenEmbed: Array[Byte],
-    layers: Seq[F16LayerWeights],
-    outputNorm: Array[Byte],
-    output: Array[Byte],
-  )
+
+  case class F16ModelWeights(tokenEmbed: Array[Byte], layers: Seq[F16LayerWeights], outputNorm: Array[Byte], output: Array[Byte])
 
   case class PipelineLayout(
-    tokens: GBuffer[Int32],
-    tokenEmbed: GBuffer[Float16],
-    attnNorm: GBuffer[Float16],
-    ffnNorm: GBuffer[Float16],
-    outputNorm: GBuffer[Float16],
-    wq: GBuffer[Vec4[Float16]],
-    wk: GBuffer[Vec4[Float16]],
-    wv: GBuffer[Vec4[Float16]],
-    wo: GBuffer[Vec4[Float16]],
-    ffnGate: GBuffer[Vec4[Float16]],
-    ffnUp: GBuffer[Vec4[Float16]],
-    ffnDown: GBuffer[Vec4[Float16]],
-    outputWeight: GBuffer[Vec4[Float16]],
-    kCache: GBuffer[Float16],
-    vCache: GBuffer[Float16],
-    hidden: GBuffer[Float16],
-    residual: GBuffer[Float16],
-    attnNormOut: GBuffer[Float16],
-    q: GBuffer[Float16],
-    k: GBuffer[Float16],
-    v: GBuffer[Float16],
-    qRoped: GBuffer[Float16],
-    kRoped: GBuffer[Float16],
-    attnScores: GBuffer[Float32],
-    attnOut: GBuffer[Float16],
-    ffnNormOut: GBuffer[Float16],
-    gate: GBuffer[Float16],
-    up: GBuffer[Float16],
-    ffnHidden: GBuffer[Float16],
-    ffnOut: GBuffer[Float16],
-    logits: GBuffer[Float32],
+    tokens: GBuffer[GArray[Int32]],
+    tokenEmbed: GBuffer[GArray[Float16]],
+    attnNorm: GBuffer[GArray[Float16]],
+    ffnNorm: GBuffer[GArray[Float16]],
+    outputNorm: GBuffer[GArray[Float16]],
+    wq: GBuffer[GArray[Vec4[Float16]]],
+    wk: GBuffer[GArray[Vec4[Float16]]],
+    wv: GBuffer[GArray[Vec4[Float16]]],
+    wo: GBuffer[GArray[Vec4[Float16]]],
+    ffnGate: GBuffer[GArray[Vec4[Float16]]],
+    ffnUp: GBuffer[GArray[Vec4[Float16]]],
+    ffnDown: GBuffer[GArray[Vec4[Float16]]],
+    outputWeight: GBuffer[GArray[Vec4[Float16]]],
+    kCache: GBuffer[GArray[Float16]],
+    vCache: GBuffer[GArray[Float16]],
+    hidden: GBuffer[GArray[Float16]],
+    residual: GBuffer[GArray[Float16]],
+    attnNormOut: GBuffer[GArray[Float16]],
+    q: GBuffer[GArray[Float16]],
+    k: GBuffer[GArray[Float16]],
+    v: GBuffer[GArray[Float16]],
+    qRoped: GBuffer[GArray[Float16]],
+    kRoped: GBuffer[GArray[Float16]],
+    attnScores: GBuffer[GArray[Float32]],
+    attnOut: GBuffer[GArray[Float16]],
+    ffnNormOut: GBuffer[GArray[Float16]],
+    gate: GBuffer[GArray[Float16]],
+    up: GBuffer[GArray[Float16]],
+    ffnHidden: GBuffer[GArray[Float16]],
+    ffnOut: GBuffer[GArray[Float16]],
+    logits: GBuffer[GArray[Float32]],
     attnParams: GUniform[AttentionParams],
     sampleParams: GUniform[F16TopPSampleProgram.SampleParams],
-    sampledToken: GBuffer[Int32],
+    sampledToken: GBuffer[GArray[Int32]],
   ) derives Layout
 
   case class GenerationLayout(
-    tokenEmbed: GBuffer[Float16],
-    attnNorm: GBuffer[Float16],
-    ffnNorm: GBuffer[Float16],
-    outputNorm: GBuffer[Float16],
-    wq: GBuffer[Vec4[Float16]],
-    wk: GBuffer[Vec4[Float16]],
-    wv: GBuffer[Vec4[Float16]],
-    wo: GBuffer[Vec4[Float16]],
-    ffnGate: GBuffer[Vec4[Float16]],
-    ffnUp: GBuffer[Vec4[Float16]],
-    ffnDown: GBuffer[Vec4[Float16]],
-    outputWeight: GBuffer[Vec4[Float16]],
-    kCache: GBuffer[Float16],
-    vCache: GBuffer[Float16],
-    prefillTokens: GBuffer[Int32],
-    prefillHidden: GBuffer[Float16],
-    prefillResidual: GBuffer[Float16],
-    prefillAttnNormOut: GBuffer[Float16],
-    prefillQ: GBuffer[Float16],
-    prefillK: GBuffer[Float16],
-    prefillV: GBuffer[Float16],
-    prefillQRoped: GBuffer[Float16],
-    prefillKRoped: GBuffer[Float16],
-    prefillAttnScores: GBuffer[Float32],
-    prefillAttnOut: GBuffer[Float16],
-    prefillFfnNormOut: GBuffer[Float16],
-    prefillGate: GBuffer[Float16],
-    prefillUp: GBuffer[Float16],
-    prefillFfnHidden: GBuffer[Float16],
-    prefillFfnOut: GBuffer[Float16],
-    prefillLogits: GBuffer[Float32],
+    tokenEmbed: GBuffer[GArray[Float16]],
+    attnNorm: GBuffer[GArray[Float16]],
+    ffnNorm: GBuffer[GArray[Float16]],
+    outputNorm: GBuffer[GArray[Float16]],
+    wq: GBuffer[GArray[Vec4[Float16]]],
+    wk: GBuffer[GArray[Vec4[Float16]]],
+    wv: GBuffer[GArray[Vec4[Float16]]],
+    wo: GBuffer[GArray[Vec4[Float16]]],
+    ffnGate: GBuffer[GArray[Vec4[Float16]]],
+    ffnUp: GBuffer[GArray[Vec4[Float16]]],
+    ffnDown: GBuffer[GArray[Vec4[Float16]]],
+    outputWeight: GBuffer[GArray[Vec4[Float16]]],
+    kCache: GBuffer[GArray[Float16]],
+    vCache: GBuffer[GArray[Float16]],
+    prefillTokens: GBuffer[GArray[Int32]],
+    prefillHidden: GBuffer[GArray[Float16]],
+    prefillResidual: GBuffer[GArray[Float16]],
+    prefillAttnNormOut: GBuffer[GArray[Float16]],
+    prefillQ: GBuffer[GArray[Float16]],
+    prefillK: GBuffer[GArray[Float16]],
+    prefillV: GBuffer[GArray[Float16]],
+    prefillQRoped: GBuffer[GArray[Float16]],
+    prefillKRoped: GBuffer[GArray[Float16]],
+    prefillAttnScores: GBuffer[GArray[Float32]],
+    prefillAttnOut: GBuffer[GArray[Float16]],
+    prefillFfnNormOut: GBuffer[GArray[Float16]],
+    prefillGate: GBuffer[GArray[Float16]],
+    prefillUp: GBuffer[GArray[Float16]],
+    prefillFfnHidden: GBuffer[GArray[Float16]],
+    prefillFfnOut: GBuffer[GArray[Float16]],
+    prefillLogits: GBuffer[GArray[Float32]],
     prefillAttnParams: GUniform[AttentionParams],
-    decodeToken: GBuffer[Int32],
-    decodeHidden: GBuffer[Float16],
-    decodeResidual: GBuffer[Float16],
-    decodeAttnNormOut: GBuffer[Float16],
-    decodeQ: GBuffer[Float16],
-    decodeK: GBuffer[Float16],
-    decodeV: GBuffer[Float16],
-    decodeQRoped: GBuffer[Float16],
-    decodeKRoped: GBuffer[Float16],
-    decodeAttnScores: GBuffer[Float32],
-    decodeAttnOut: GBuffer[Float16],
-    decodeFfnNormOut: GBuffer[Float16],
-    decodeGate: GBuffer[Float16],
-    decodeUp: GBuffer[Float16],
-    decodeFfnHidden: GBuffer[Float16],
-    decodeFfnOut: GBuffer[Float16],
-    decodeLogits: GBuffer[Float32],
+    decodeToken: GBuffer[GArray[Int32]],
+    decodeHidden: GBuffer[GArray[Float16]],
+    decodeResidual: GBuffer[GArray[Float16]],
+    decodeAttnNormOut: GBuffer[GArray[Float16]],
+    decodeQ: GBuffer[GArray[Float16]],
+    decodeK: GBuffer[GArray[Float16]],
+    decodeV: GBuffer[GArray[Float16]],
+    decodeQRoped: GBuffer[GArray[Float16]],
+    decodeKRoped: GBuffer[GArray[Float16]],
+    decodeAttnScores: GBuffer[GArray[Float32]],
+    decodeAttnOut: GBuffer[GArray[Float16]],
+    decodeFfnNormOut: GBuffer[GArray[Float16]],
+    decodeGate: GBuffer[GArray[Float16]],
+    decodeUp: GBuffer[GArray[Float16]],
+    decodeFfnHidden: GBuffer[GArray[Float16]],
+    decodeFfnOut: GBuffer[GArray[Float16]],
+    decodeLogits: GBuffer[GArray[Float32]],
     decodeAttnParams: GUniform[AttentionParams],
     // Sampling buffers
     sampleParams: GUniform[F16TopPSampleProgram.SampleParams],
-    sampledToken: GBuffer[Int32],
+    sampledToken: GBuffer[GArray[Int32]],
   ) derives Layout:
 
     def toPipelineLayout: PipelineLayout = PipelineLayout(
       tokens = prefillTokens,
-      tokenEmbed = tokenEmbed, attnNorm = attnNorm, ffnNorm = ffnNorm, outputNorm = outputNorm,
-      wq = wq, wk = wk, wv = wv, wo = wo,
-      ffnGate = ffnGate, ffnUp = ffnUp, ffnDown = ffnDown, outputWeight = outputWeight,
-      kCache = kCache, vCache = vCache,
-      hidden = prefillHidden, residual = prefillResidual, attnNormOut = prefillAttnNormOut,
-      q = prefillQ, k = prefillK, v = prefillV, qRoped = prefillQRoped, kRoped = prefillKRoped,
-      attnScores = prefillAttnScores, attnOut = prefillAttnOut, ffnNormOut = prefillFfnNormOut,
-      gate = prefillGate, up = prefillUp, ffnHidden = prefillFfnHidden, ffnOut = prefillFfnOut,
-      logits = prefillLogits, attnParams = prefillAttnParams, sampleParams = sampleParams, sampledToken = sampledToken,
+      tokenEmbed = tokenEmbed,
+      attnNorm = attnNorm,
+      ffnNorm = ffnNorm,
+      outputNorm = outputNorm,
+      wq = wq,
+      wk = wk,
+      wv = wv,
+      wo = wo,
+      ffnGate = ffnGate,
+      ffnUp = ffnUp,
+      ffnDown = ffnDown,
+      outputWeight = outputWeight,
+      kCache = kCache,
+      vCache = vCache,
+      hidden = prefillHidden,
+      residual = prefillResidual,
+      attnNormOut = prefillAttnNormOut,
+      q = prefillQ,
+      k = prefillK,
+      v = prefillV,
+      qRoped = prefillQRoped,
+      kRoped = prefillKRoped,
+      attnScores = prefillAttnScores,
+      attnOut = prefillAttnOut,
+      ffnNormOut = prefillFfnNormOut,
+      gate = prefillGate,
+      up = prefillUp,
+      ffnHidden = prefillFfnHidden,
+      ffnOut = prefillFfnOut,
+      logits = prefillLogits,
+      attnParams = prefillAttnParams,
+      sampleParams = sampleParams,
+      sampledToken = sampledToken,
     )
-    
+
     def toDecodeLayout: PipelineLayout = PipelineLayout(
       tokens = decodeToken,
-      tokenEmbed = tokenEmbed, attnNorm = attnNorm, ffnNorm = ffnNorm, outputNorm = outputNorm,
-      wq = wq, wk = wk, wv = wv, wo = wo,
-      ffnGate = ffnGate, ffnUp = ffnUp, ffnDown = ffnDown, outputWeight = outputWeight,
-      kCache = kCache, vCache = vCache,
-      hidden = decodeHidden, residual = decodeResidual, attnNormOut = decodeAttnNormOut,
-      q = decodeQ, k = decodeK, v = decodeV, qRoped = decodeQRoped, kRoped = decodeKRoped,
-      attnScores = decodeAttnScores, attnOut = decodeAttnOut, ffnNormOut = decodeFfnNormOut,
-      gate = decodeGate, up = decodeUp, ffnHidden = decodeFfnHidden, ffnOut = decodeFfnOut,
-      logits = decodeLogits, attnParams = decodeAttnParams, sampleParams = sampleParams, sampledToken = sampledToken,
+      tokenEmbed = tokenEmbed,
+      attnNorm = attnNorm,
+      ffnNorm = ffnNorm,
+      outputNorm = outputNorm,
+      wq = wq,
+      wk = wk,
+      wv = wv,
+      wo = wo,
+      ffnGate = ffnGate,
+      ffnUp = ffnUp,
+      ffnDown = ffnDown,
+      outputWeight = outputWeight,
+      kCache = kCache,
+      vCache = vCache,
+      hidden = decodeHidden,
+      residual = decodeResidual,
+      attnNormOut = decodeAttnNormOut,
+      q = decodeQ,
+      k = decodeK,
+      v = decodeV,
+      qRoped = decodeQRoped,
+      kRoped = decodeKRoped,
+      attnScores = decodeAttnScores,
+      attnOut = decodeAttnOut,
+      ffnNormOut = decodeFfnNormOut,
+      gate = decodeGate,
+      up = decodeUp,
+      ffnHidden = decodeFfnHidden,
+      ffnOut = decodeFfnOut,
+      logits = decodeLogits,
+      attnParams = decodeAttnParams,
+      sampleParams = sampleParams,
+      sampledToken = sampledToken,
     )
 
   def buildPipeline(
@@ -539,10 +568,7 @@ object LlamaF16Pipeline:
     val logitsSizes = F16OutputVec4Program.Sizes(B * T, C, V)
 
     val afterEmbedding = GExecution[PipelineParams, PipelineLayout]()
-      .addProgram(F16EmbeddingProgram.forward(embSizes))(
-        _ => embSizes,
-        l => F16EmbeddingProgram.ProgramLayout(l.tokens, l.tokenEmbed, l.hidden),
-      )
+      .addProgram(F16EmbeddingProgram.forward(embSizes))(_ => embSizes, l => F16EmbeddingProgram.ProgramLayout(l.tokens, l.tokenEmbed, l.hidden))
 
     val afterLayers = (0 until L).foldLeft(afterEmbedding): (pipeline, layer) =>
       val normOffset = layer * C
@@ -557,14 +583,20 @@ object LlamaF16Pipeline:
 
       val attnNormSizes = F16RMSNormProgram.Sizes(B * T, C, eps, normOffset, L * C)
       val qkvSizes = F16FusedQKVMatmulProgram.Sizes(
-        batchSize = B * T, inFeatures = C, qOutFeatures = C, kvOutFeatures = kvSize,
-        wqOffsetVec4 = wqOffsetVec4, wkOffsetVec4 = wkOffsetVec4, wvOffsetVec4 = wvOffsetVec4,
-        totalWqVec4 = L * C * (C / 4), totalWkVec4 = L * C * (kvSize / 4), totalWvVec4 = L * C * (kvSize / 4),
+        batchSize = B * T,
+        inFeatures = C,
+        qOutFeatures = C,
+        kvOutFeatures = kvSize,
+        wqOffsetVec4 = wqOffsetVec4,
+        wkOffsetVec4 = wkOffsetVec4,
+        wvOffsetVec4 = wvOffsetVec4,
+        totalWqVec4 = L * C * (C / 4),
+        totalWkVec4 = L * C * (kvSize / 4),
+        totalWvVec4 = L * C * (kvSize / 4),
       )
       val fusedRopeSizes = F16FusedRoPEProgram.Sizes(B, T, NH, NKV, headSize, theta)
-      val fusedKVWriteSizes = F16FusedKVCacheWriteProgram.Sizes(
-        B, T, NKV, headSize, maxSeqLen, layer, startPos, kvCacheLayerOffset, kvCacheLayerOffset, L,
-      )
+      val fusedKVWriteSizes =
+        F16FusedKVCacheWriteProgram.Sizes(B, T, NKV, headSize, maxSeqLen, layer, startPos, kvCacheLayerOffset, kvCacheLayerOffset, L)
       val attnScoresSizes = F16AttentionScoresProgram.Sizes(B, T, NH, NKV, headSize, maxSeqLen, kvCacheLayerOffset, L)
       val attnSoftmaxSizes = F16AttentionSoftmaxProgram.Sizes(B, T, NH, maxSeqLen)
       val attnOutputSizes = F16AttentionOutputProgram.Sizes(B, T, NH, NKV, headSize, maxSeqLen, kvCacheLayerOffset, L)
@@ -579,21 +611,21 @@ object LlamaF16Pipeline:
       pipeline
         .addBufferCopy(l => (l.hidden, l.residual), copySizeBytes)
         .addProgram(F16RMSNormProgram.forward(attnNormSizes))(
-        _ => attnNormSizes,
-        l => F16RMSNormProgram.ProgramLayout(l.hidden, l.attnNorm, l.attnNormOut),
-      )
+          _ => attnNormSizes,
+          l => F16RMSNormProgram.ProgramLayout(l.hidden, l.attnNorm, l.attnNormOut),
+        )
         .addProgram(F16FusedQKVMatmulProgram.forward(qkvSizes))(
-        _ => qkvSizes,
-        l => F16FusedQKVMatmulProgram.ProgramLayout(l.wq, l.wk, l.wv, l.attnNormOut, l.q, l.k, l.v),
-      )
+          _ => qkvSizes,
+          l => F16FusedQKVMatmulProgram.ProgramLayout(l.wq, l.wk, l.wv, l.attnNormOut, l.q, l.k, l.v),
+        )
         .addProgram(F16FusedRoPEProgram.forward(fusedRopeSizes))(
-        _ => fusedRopeSizes,
-        l => F16FusedRoPEProgram.ProgramLayout(l.q, l.k, l.qRoped, l.kRoped, l.attnParams),
-      )
+          _ => fusedRopeSizes,
+          l => F16FusedRoPEProgram.ProgramLayout(l.q, l.k, l.qRoped, l.kRoped, l.attnParams),
+        )
         .addProgram(F16FusedKVCacheWriteProgram.forward(fusedKVWriteSizes))(
-        _ => fusedKVWriteSizes,
-        l => F16FusedKVCacheWriteProgram.ProgramLayout(l.kRoped, l.v, l.kCache, l.vCache, l.attnParams),
-      )
+          _ => fusedKVWriteSizes,
+          l => F16FusedKVCacheWriteProgram.ProgramLayout(l.kRoped, l.v, l.kCache, l.vCache, l.attnParams),
+        )
         .addProgram(F16AttentionScoresProgram.forward(attnScoresSizes))(
           _ => attnScoresSizes,
           l => F16AttentionScoresProgram.ProgramLayout(l.qRoped, l.kCache, l.attnScores, l.attnParams),
@@ -606,10 +638,7 @@ object LlamaF16Pipeline:
           _ => attnOutputSizes,
           l => F16AttentionOutputProgram.ProgramLayout(l.attnScores, l.vCache, l.attnOut, l.attnParams),
         )
-        .addProgram(F16MatmulVecHybridProgram.forward(woSizes))(
-          _ => woSizes,
-          l => F16MatmulVecHybridProgram.ProgramLayout(l.wo, l.attnOut, l.hidden),
-        )
+        .addProgram(F16MatmulVecHybridProgram.forward(woSizes))(_ => woSizes, l => F16MatmulVecHybridProgram.ProgramLayout(l.wo, l.attnOut, l.hidden))
         .addProgram(F16ResidualAddProgram.forward(resSizes))(
           _ => resSizes,
           l => F16ResidualAddProgram.ProgramLayout(l.residual, l.hidden, l.attnNormOut),
@@ -623,22 +652,13 @@ object LlamaF16Pipeline:
           _ => gateSizes,
           l => F16MatmulVecHybridProgram.ProgramLayout(l.ffnGate, l.ffnNormOut, l.gate),
         )
-        .addProgram(F16MatmulVecHybridProgram.forward(upSizes))(
-          _ => upSizes,
-          l => F16MatmulVecHybridProgram.ProgramLayout(l.ffnUp, l.ffnNormOut, l.up),
-        )
-        .addProgram(F16SwiGLUProgram.forward(swiGluSizes))(
-          _ => swiGluSizes,
-          l => F16SwiGLUProgram.ProgramLayout(l.gate, l.up, l.ffnHidden),
-        )
+        .addProgram(F16MatmulVecHybridProgram.forward(upSizes))(_ => upSizes, l => F16MatmulVecHybridProgram.ProgramLayout(l.ffnUp, l.ffnNormOut, l.up))
+        .addProgram(F16SwiGLUProgram.forward(swiGluSizes))(_ => swiGluSizes, l => F16SwiGLUProgram.ProgramLayout(l.gate, l.up, l.ffnHidden))
         .addProgram(F16MatmulVecHybridProgram.forward(downSizes))(
           _ => downSizes,
           l => F16MatmulVecHybridProgram.ProgramLayout(l.ffnDown, l.ffnHidden, l.ffnOut),
         )
-        .addProgram(F16ResidualAddProgram.forward(resSizes))(
-          _ => resSizes,
-          l => F16ResidualAddProgram.ProgramLayout(l.residual, l.ffnOut, l.hidden),
-        )
+        .addProgram(F16ResidualAddProgram.forward(resSizes))(_ => resSizes, l => F16ResidualAddProgram.ProgramLayout(l.residual, l.ffnOut, l.hidden))
 
     val afterOutput = afterLayers
       .addProgram(F16RMSNormProgram.forward(finalNormSizes))(
@@ -656,5 +676,4 @@ object LlamaF16Pipeline:
         _ => sampleSizes,
         l => F16TopPSampleProgram.ProgramLayout(l.logits, l.sampleParams, l.sampledToken),
       )
-    else
-      afterOutput
+    else afterOutput

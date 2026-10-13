@@ -167,6 +167,17 @@ object GFunctionExamples:
     println(s"Saved to examples_output/julia.png")
     println()
 
+  def example4_FibonacciSequence(): Unit =
+    val fibonacciNth: GFunction[Int32, Float32, Float32] = GFunction: _ =>
+      GSeq
+        .gen(Vec2[Float32](0.0f, 1.0f), pair => Vec2(pair.y, pair.x + pair.y))
+        .limit(11)
+        .lastOr(Vec2[Float32](0.0f, 0.0f))
+        .x
+    val results: Array[Float] = fibonacciNth.run(Array.fill(256)(0.0f), 0)
+    println(s"Example 4: Fibonacci Sequence — fib(10) = ${results(0).toInt}, expected 55")
+    assert(results.forall(_ == 55.0f))
+
   case class TransformConfig(scale: Float32, offset: Float32)
 
   def example8_Uniforms(): Unit =

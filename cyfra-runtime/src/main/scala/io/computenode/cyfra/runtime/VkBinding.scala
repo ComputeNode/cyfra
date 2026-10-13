@@ -21,8 +21,9 @@ sealed abstract class VkBinding[T: Value](val buffer: Buffer):
   var execution: Either[PendingExecution, mutable.Buffer[PendingExecution]] = Right(mutable.Buffer.empty)
 
   def materialise(allocation: VkAllocation)(using Device): Unit =
-    // Sync all GPU work via timeline semaphore before reading
+    allocation.submitPendingWrites()
     allocation.executionHandler.sync()
+    execution.fold(Seq(_), _.toSeq).foreach(_.block())
 
 object VkBinding:
   def unapply(binding: GBinding[?]): Option[Buffer] = binding match

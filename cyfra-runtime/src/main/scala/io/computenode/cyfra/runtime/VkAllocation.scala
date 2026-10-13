@@ -36,8 +36,11 @@ class VkAllocation(val commandPool: CommandPool.Reset, val executionHandler: Exe
       .flatMap(_.execution.fold(Seq(_), _.toSeq))
       .filter(_.isPending)
 
-    if executions.nonEmpty then
-      PendingExecution.executeAll(executions, this)
+    if executions.nonEmpty then PendingExecution.executeAll(executions, this)
+
+  private[runtime] def submitPendingWrites(): Unit =
+    val pending = executions.filter(_.isPending).toSeq
+    if pending.nonEmpty then PendingExecution.executeAll(pending, this)
 
   extension (buffer: GBinding[?])
     def read(bb: ByteBuffer, offset: Int = 0): Unit =
@@ -63,7 +66,7 @@ class VkAllocation(val commandPool: CommandPool.Reset, val executionHandler: Exe
       buffer match
         case VkBinding(buffer: Buffer.HostBuffer) => buffer.copyFrom(bb, offset)
         case binding: VkBinding[?]                =>
-          binding.materialise(this)
+          executionHandler.sync()
           val stagingBuffer = getStagingBuffer(size)
           stagingBuffer.copyFrom(bb, 0)
           val cb = Buffer.copyBufferCommandBuffer(stagingBuffer, binding.buffer, 0, offset, size, commandPool)
@@ -78,12 +81,12 @@ class VkAllocation(val commandPool: CommandPool.Reset, val executionHandler: Exe
   extension [T: Value](buffer: GBinding[RuntimeArray[T]])
     def writeArray[ST: ClassTag](arr: Array[ST], offset: Int = 0)(using GCodec[T, ST]): Unit =
       val bb = BufferUtils.createByteBuffer(arr.size * typeStride(Value[T]))
-      buffer.write(bb, 0)
       GCodec.toByteBuffer[T, ST](bb, arr)
+      buffer.write(bb, offset * typeStride(Value[T]))
 
     def readArray[ST: ClassTag](arr: Array[ST], offset: Int = 0)(using GCodec[T, ST]): Array[ST] =
       val bb = BufferUtils.createByteBuffer(arr.size * typeStride(Value[T]))
-      buffer.read(bb, 0)
+      buffer.read(bb, offset * typeStride(Value[T]))
       GCodec.fromByteBuffer[T, ST](bb, arr)
 
   extension (buffers: GBuffer.type)
@@ -143,6 +146,7 @@ class VkAllocation(val commandPool: CommandPool.Reset, val executionHandler: Exe
 
   private val bindings = mutable.Buffer[VkUniform[?] | VkBuffer[?]]()
   private[cyfra] def close(): Unit =
+    executionHandler.close()
     executions.filter(_.isRunning).foreach(_.block())
     executions.foreach(_.destroy())
     bindings.map(getUnderlying).foreach(_.buffer.destroy())

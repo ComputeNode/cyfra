@@ -30,14 +30,22 @@ trait LlamaPipeline:
     *   - Decode: Generate tokens one at a time, attending to full cache
     *   - Sample: GPU-accelerated top-p sampling with temperature
     *
-    * @param promptTokens Input prompt tokens
-    * @param maxNewTokens Maximum tokens to generate
-    * @param temperature Sampling temperature (0 = greedy)
-    * @param topP Top-p (nucleus) sampling threshold
-    * @param onToken Callback for each generated token
-    * @param stopTokens Set of tokens that stop generation
-    * @param reportStats If true, logs performance stats after generation
-    * @return Array of generated tokens (not including prompt)
+    * @param promptTokens
+    *   Input prompt tokens
+    * @param maxNewTokens
+    *   Maximum tokens to generate
+    * @param temperature
+    *   Sampling temperature (0 = greedy)
+    * @param topP
+    *   Top-p (nucleus) sampling threshold
+    * @param onToken
+    *   Callback for each generated token
+    * @param stopTokens
+    *   Set of tokens that stop generation
+    * @param reportStats
+    *   If true, logs performance stats after generation
+    * @return
+    *   Array of generated tokens (not including prompt)
     */
   def generate(
     promptTokens: Array[Int],
@@ -49,21 +57,14 @@ trait LlamaPipeline:
     reportStats: Boolean = false,
   ): Array[Int]
 
-
 /** Performance metrics from generation. */
-case class GenerationStats(
-  promptTokens: Int,
-  generatedTokens: Int,
-  prefillTimeMs: Double,
-  decodeTimeMs: Double,
-  totalTimeMs: Double,
-):
+case class GenerationStats(promptTokens: Int, generatedTokens: Int, prefillTimeMs: Double, decodeTimeMs: Double, totalTimeMs: Double):
   def prefillTokPerSec: Double = if prefillTimeMs > 0 then promptTokens * 1000.0 / prefillTimeMs else 0
   def decodeTokPerSec: Double = if decodeTimeMs > 0 then generatedTokens * 1000.0 / decodeTimeMs else 0
   def totalTokPerSec: Double = if totalTimeMs > 0 then (promptTokens + generatedTokens) * 1000.0 / totalTimeMs else 0
 
   override def toString: String =
-    f"Gen: ${promptTokens}p+${generatedTokens}g, prefill=${prefillTokPerSec}%.0f tok/s, generate=${decodeTokPerSec}%.1f tok/s"
+    f"Gen: ${promptTokens}p+${generatedTokens}g, prefill=$prefillTokPerSec%.0f tok/s, generate=$decodeTokPerSec%.1f tok/s"
 
 /** Buffer utilities for pipeline implementations. */
 object PipelineUtils:

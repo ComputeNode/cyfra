@@ -20,8 +20,7 @@ import com.sun.jna.{Library, Native}
   * NVTX.pop()
   * }}}
   *
-  * Requires: CUDA toolkit installed with libnvtx3interop.so in library path.
-  * Run with: LD_LIBRARY_PATH=/opt/cuda/lib64:$LD_LIBRARY_PATH
+  * Requires: CUDA toolkit installed with libnvtx3interop.so in library path. Run with: LD_LIBRARY_PATH=/opt/cuda/lib64:$LD_LIBRARY_PATH
   */
 object NVTX:
 
@@ -33,8 +32,7 @@ object NVTX:
     def nvtxMarkA(message: String): Unit
 
   private lazy val lib: Option[NVTXLib] =
-    try
-      Some(Native.load("nvtx3interop", classOf[NVTXLib]))
+    try Some(Native.load("nvtx3interop", classOf[NVTXLib]))
     catch
       case e: UnsatisfiedLinkError =>
         System.err.println(s"[NVTX] Library not found: ${e.getMessage}")

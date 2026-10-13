@@ -1,6 +1,6 @@
 package io.computenode.cyfra.llama
 
-import io.computenode.cyfra.llama.gguf.{Dequantize => CpuDequantize}
+import io.computenode.cyfra.llama.gguf.Dequantize as CpuDequantize
 import munit.FunSuite
 
 import java.nio.{ByteBuffer, ByteOrder}
@@ -15,15 +15,15 @@ class DequantizationTest extends FunSuite:
   def floatToFp16(f: Float): Short =
     val bits = java.lang.Float.floatToIntBits(f)
     val sign = (bits >> 31) & 1
-    val exp = (bits >> 23) & 0xFF
-    val mant = bits & 0x7FFFFF
+    val exp = (bits >> 23) & 0xff
+    val mant = bits & 0x7fffff
 
     if exp == 0 then
       // Zero or denormalized
       (sign << 15).toShort
     else if exp == 255 then
       // Infinity or NaN
-      ((sign << 15) | 0x7C00).toShort
+      ((sign << 15) | 0x7c00).toShort
     else
       val newExp = exp - 127 + 15
       if newExp <= 0 then
@@ -31,7 +31,7 @@ class DequantizationTest extends FunSuite:
         (sign << 15).toShort
       else if newExp >= 31 then
         // Overflow to infinity
-        ((sign << 15) | 0x7C00).toShort
+        ((sign << 15) | 0x7c00).toShort
       else
         val newMant = mant >> 13
         ((sign << 15) | (newExp << 10) | newMant).toShort
@@ -43,9 +43,18 @@ class DequantizationTest extends FunSuite:
     //              m = ((scales[is+4] >> 4) & 0x0F) | ((scales[is] >> 6) << 4)
 
     val scales = Array[Byte](
-      0x3f, 0x3e, 0x3d, 0x3c, // scales[0-3]: values 63, 62, 61, 60
-      0x10, 0x20, 0x30, 0x40.toByte, // scales[4-7]: mins for j<4
-      0x05, 0x06, 0x07, 0x08, // scales[8-11]: for j>=4 extraction
+      0x3f,
+      0x3e,
+      0x3d,
+      0x3c, // scales[0-3]: values 63, 62, 61, 60
+      0x10,
+      0x20,
+      0x30,
+      0x40.toByte, // scales[4-7]: mins for j<4
+      0x05,
+      0x06,
+      0x07,
+      0x08, // scales[8-11]: for j>=4 extraction
     )
 
     // Verify CPU extraction for j=0
@@ -64,10 +73,10 @@ class DequantizationTest extends FunSuite:
   object Dequantize:
     def getScaleMinK4(j: Int, scales: Array[Byte]): (Float, Float) =
       if j < 4 then
-        val d = (scales(j) & 0x3F).toFloat
-        val m = (scales(j + 4) & 0x3F).toFloat
+        val d = (scales(j) & 0x3f).toFloat
+        val m = (scales(j + 4) & 0x3f).toFloat
         (d, m)
       else
-        val d = ((scales(j + 4) & 0x0F) | ((scales(j - 4) >> 6) << 4)).toFloat
-        val m = ((scales(j + 4) >> 4) & 0x0F | ((scales(j) >> 6) << 4)).toFloat
+        val d = ((scales(j + 4) & 0x0f) | ((scales(j - 4) >> 6) << 4)).toFloat
+        val m = ((scales(j + 4) >> 4) & 0x0f | ((scales(j) >> 6) << 4)).toFloat
         (d, m)

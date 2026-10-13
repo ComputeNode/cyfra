@@ -12,7 +12,6 @@ import io.computenode.cyfra.vulkan.compute.ComputePipeline
 import java.nio.channels.FileChannel
 import java.nio.file.{Paths, StandardOpenOption}
 import java.security.MessageDigest
-import scala.annotation.tailrec
 import scala.collection.mutable
 
 class VkCyfraRuntime(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()) extends CyfraRuntime:
@@ -42,9 +41,17 @@ class VkCyfraRuntime(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()) ex
     val expressions = body(Layout[L].layoutRef)
     val compiled = compiler.compile(expressions, config)
     val optimizedShaderCode = spirvToolsRunner.processShaderCodeWithSpirvTools(compiled)
-    // Extract written binding indices for smarter barrier insertion
-    val writtenBindingIndices: Set[Int] = VkCyfraRuntime.getWrittenBindingIndices(expressions.body, Set.empty)
-    SpirvProgram((il: InitProgramLayout) ?=> layout(il), dispatch, optimizedShaderCode, writtenBindingIndices, programName)
+    val writtenBindingIndices = expressions
+      .traverse(
+        {
+          case Expression.Write(binding: BindingRef[?], _, _) => Some(binding.layoutOffset)
+          case _                                              => None
+        },
+        enterFunctions = true,
+      )
+      .flatten
+      .toSet
+    SpirvProgram.fromCompiled(layout, dispatch, optimizedShaderCode, writtenBindingIndices, programName, workgroupSize)
 
   override def withAllocation(f: Allocation => Unit): Unit =
     context.withThreadContext: threadContext =>
@@ -62,21 +69,3 @@ object VkCyfraRuntime:
     val runtime = new VkCyfraRuntime(spirvTools)
     try f(using runtime)
     finally runtime.close()
-
-  /** Extract binding indices of all GBuffers that are written to in the GIO program.
-    * Used for smarter barrier insertion - only written buffers cause conflicts.
-    * Returns Set of layoutOffset values (binding indices).
-    */
-  @tailrec
-  private[runtime] def getWrittenBindingIndices(pending: List[Expression[?]], acc: Set[Int]): Set[Int] =
-    pending match
-      case Nil => acc
-      case Expression.Write(buffer: BindingRef[?], _, _) :: tail =>
-        getWrittenBindingIndices(tail, acc + buffer.layoutOffset)
-      case Expression.Branch(_, ifTrue, ifFalse, _) :: tail =>
-        getWrittenBindingIndices(ifTrue.body ::: ifFalse.body ::: tail, acc)
-      case Expression.Loop(body, continueBody, _, _) :: tail =>
-        getWrittenBindingIndices(body.body ::: continueBody.body ::: tail, acc)
-      case Expression.CustomCall(function, _) :: tail =>
-        getWrittenBindingIndices(function.body.body ::: tail, acc)
-      case _ :: tail => getWrittenBindingIndices(tail, acc)

@@ -8,9 +8,7 @@ import java.nio.file.{Files, Path, Paths}
 
 class GGUFTest extends FunSuite:
   // Set this to the path of a GGUF model file for testing
-  val testModelPath: Path = Paths.get(
-    sys.env.getOrElse("LLAMA_MODEL_PATH", "models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf")
-  )
+  val testModelPath: Path = Paths.get(sys.env.getOrElse("LLAMA_MODEL_PATH", "models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf"))
 
   test("parse GGUF header and metadata"):
     assume(Files.exists(testModelPath), s"Model file not found at $testModelPath")
@@ -21,14 +19,14 @@ class GGUFTest extends FunSuite:
       println(s"Tensors: ${gguf.tensors.size}")
       println(s"Data offset: ${gguf.dataOffset}")
       println()
-      
+
       println("Metadata keys:")
       gguf.metadata.keys.toSeq.sorted.foreach(k => println(s"  $k"))
       println()
-      
+
       println("Architecture:")
       gguf.getString("general.architecture").foreach(v => println(s"  $v"))
-      
+
       println("\nModel parameters:")
       val arch = gguf.getString("general.architecture").getOrElse("llama")
       gguf.getInt(s"$arch.embedding_length").foreach(v => println(s"  embedding_length: $v"))
@@ -39,14 +37,15 @@ class GGUFTest extends FunSuite:
       gguf.getInt(s"$arch.vocab_size").foreach(v => println(s"  vocab_size: $v"))
       gguf.getInt(s"$arch.context_length").foreach(v => println(s"  context_length: $v"))
       println()
-      
+
       println("Tensors (first 30):")
-      gguf.tensors.take(30).foreach: t =>
-        println(s"  ${t.name}: shape=${t.shape.mkString("x")}, type=${t.quantType}, offset=${t.offset}")
+      gguf.tensors
+        .take(30)
+        .foreach: t =>
+          println(s"  ${t.name}: shape=${t.shape.mkString("x")}, type=${t.quantType}, offset=${t.offset}")
 
       assert(gguf.tensors.nonEmpty)
-    finally
-      gguf.close()
+    finally gguf.close()
 
   test("load LlamaModel from GGUF"):
     assume(Files.exists(testModelPath), s"Model file not found at $testModelPath")
@@ -54,7 +53,7 @@ class GGUFTest extends FunSuite:
     val model = LlamaModel.fromGGUF(testModelPath)
     try
       model.logInfo()
-      
+
       // Verify config was extracted correctly
       println(s"\nExtracted config:")
       println(s"  hiddenSize: ${model.config.hiddenSize}")
@@ -67,7 +66,7 @@ class GGUFTest extends FunSuite:
       println(s"  headSize: ${model.config.headSize}")
       println(s"  gqaRatio: ${model.config.gqaRatio}")
       println(s"  ropeTheta: ${model.config.ropeTheta}")
-      
+
       // Verify expected tensor names exist
       val expectedTensors = Seq(
         LlamaModel.TensorNames.tokenEmbed,
@@ -77,14 +76,13 @@ class GGUFTest extends FunSuite:
         LlamaModel.TensorNames.ffnNorm(0),
         LlamaModel.TensorNames.ffnGate(0),
       )
-      
+
       println(s"\nChecking expected tensors:")
       expectedTensors.foreach: name =>
         model.getTensor(name) match
           case Some(t) => println(s"  ✓ $name: ${t.shape.mkString("x")} (${t.quantType})")
-          case None => println(s"  ✗ $name: NOT FOUND")
-      
+          case None    => println(s"  ✗ $name: NOT FOUND")
+
       assert(model.config.hiddenSize > 0)
       assert(model.config.numHiddenLayers > 0)
-    finally
-      model.close()
+    finally model.close()

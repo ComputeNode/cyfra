@@ -73,11 +73,11 @@ class F16TopPSampleTest extends FunSuite:
       val resultBuf = allocateBuffer(1)
 
       // Very low temperature + low random value = greedy
-      val paramsBuf = ByteBuffer.allocateDirect(16).order(ByteOrder.nativeOrder())
+      val paramsBuf = ByteBuffer.allocateDirect(12).order(ByteOrder.nativeOrder())
       paramsBuf.putFloat(0.001f) // very low temperature
-      paramsBuf.putFloat(0.99f)  // high topP
-      paramsBuf.putFloat(0.01f)  // low random value
-      paramsBuf.putFloat(0.0f)   // padding
+      paramsBuf.putFloat(0.99f) // high topP
+      paramsBuf.putFloat(0.01f) // low random value
+
       paramsBuf.rewind()
 
       val program = F16TopPSampleProgram.forward(sizes)
@@ -89,9 +89,9 @@ class F16TopPSampleTest extends FunSuite:
 
       region.runUnsafe(
         init = ProgramLayout(
-          logits = GBuffer[Float32](logitsBuf),
+          logits = GBuffer[GArray[Float32]](logitsBuf),
           params = GUniform[SampleParams](paramsBuf),
-          result = GBuffer[Int32](resultBuf),
+          result = GBuffer[GArray[Int32]](resultBuf),
         ),
         onDone = layout =>
           layout.result.read(resultBuf)
@@ -120,11 +120,11 @@ class F16TopPSampleTest extends FunSuite:
       val topP = 0.9f
       val randomValue = 0.5f
 
-      val paramsBuf = ByteBuffer.allocateDirect(16).order(ByteOrder.nativeOrder())
+      val paramsBuf = ByteBuffer.allocateDirect(12).order(ByteOrder.nativeOrder())
       paramsBuf.putFloat(temperature)
       paramsBuf.putFloat(topP)
       paramsBuf.putFloat(randomValue)
-      paramsBuf.putFloat(0.0f)
+
       paramsBuf.rewind()
 
       val program = F16TopPSampleProgram.forward(sizes)
@@ -136,9 +136,9 @@ class F16TopPSampleTest extends FunSuite:
 
       region.runUnsafe(
         init = ProgramLayout(
-          logits = GBuffer[Float32](logitsBuf),
+          logits = GBuffer[GArray[Float32]](logitsBuf),
           params = GUniform[SampleParams](paramsBuf),
-          result = GBuffer[Int32](resultBuf),
+          result = GBuffer[GArray[Int32]](resultBuf),
         ),
         onDone = layout =>
           layout.result.read(resultBuf)
@@ -166,11 +166,11 @@ class F16TopPSampleTest extends FunSuite:
       val topP = 0.99f
       val lowRandomValue = 0.1f
 
-      val paramsBuf = ByteBuffer.allocateDirect(16).order(ByteOrder.nativeOrder())
+      val paramsBuf = ByteBuffer.allocateDirect(12).order(ByteOrder.nativeOrder())
       paramsBuf.putFloat(temperature)
       paramsBuf.putFloat(topP)
       paramsBuf.putFloat(lowRandomValue)
-      paramsBuf.putFloat(0.0f)
+
       paramsBuf.rewind()
 
       val program = F16TopPSampleProgram.forward(sizes)
@@ -182,9 +182,9 @@ class F16TopPSampleTest extends FunSuite:
 
       region.runUnsafe(
         init = ProgramLayout(
-          logits = GBuffer[Float32](logitsBuf),
+          logits = GBuffer[GArray[Float32]](logitsBuf),
           params = GUniform[SampleParams](paramsBuf),
-          result = GBuffer[Int32](resultBuf),
+          result = GBuffer[GArray[Int32]](resultBuf),
         ),
         onDone = layout =>
           layout.result.read(resultBuf)
@@ -215,11 +215,11 @@ class F16TopPSampleTest extends FunSuite:
       copyToBuffer(logits, logitsBuf)
       val resultBuf = allocateBuffer(1)
 
-      val paramsBuf = ByteBuffer.allocateDirect(16).order(ByteOrder.nativeOrder())
+      val paramsBuf = ByteBuffer.allocateDirect(12).order(ByteOrder.nativeOrder())
       paramsBuf.putFloat(temperature)
       paramsBuf.putFloat(topP)
       paramsBuf.putFloat(randomValue)
-      paramsBuf.putFloat(0.0f)
+
       paramsBuf.rewind()
 
       val program = F16TopPSampleProgram.forward(sizes)
@@ -231,9 +231,9 @@ class F16TopPSampleTest extends FunSuite:
 
       region.runUnsafe(
         init = ProgramLayout(
-          logits = GBuffer[Float32](logitsBuf),
+          logits = GBuffer[GArray[Float32]](logitsBuf),
           params = GUniform[SampleParams](paramsBuf),
-          result = GBuffer[Int32](resultBuf),
+          result = GBuffer[GArray[Int32]](resultBuf),
         ),
         onDone = layout =>
           layout.result.read(resultBuf)
@@ -258,11 +258,11 @@ class F16TopPSampleTest extends FunSuite:
       val resultBuf = allocateBuffer(1)
 
       // Low temp + low random = should get argmax
-      val paramsBuf = ByteBuffer.allocateDirect(16).order(ByteOrder.nativeOrder())
+      val paramsBuf = ByteBuffer.allocateDirect(12).order(ByteOrder.nativeOrder())
       paramsBuf.putFloat(0.001f) // very low temperature
       paramsBuf.putFloat(0.99f)
       paramsBuf.putFloat(0.01f) // low random value
-      paramsBuf.putFloat(0.0f)
+
       paramsBuf.rewind()
 
       val program = F16TopPSampleProgram.forward(sizes)
@@ -274,9 +274,9 @@ class F16TopPSampleTest extends FunSuite:
 
       region.runUnsafe(
         init = ProgramLayout(
-          logits = GBuffer[Float32](logitsBuf),
+          logits = GBuffer[GArray[Float32]](logitsBuf),
           params = GUniform[SampleParams](paramsBuf),
-          result = GBuffer[Int32](resultBuf),
+          result = GBuffer[GArray[Int32]](resultBuf),
         ),
         onDone = layout =>
           layout.result.read(resultBuf)
@@ -285,6 +285,40 @@ class F16TopPSampleTest extends FunSuite:
       )
 
       assertEquals(result(0), expectedMaxIdx, s"Large vocab should find token at $expectedMaxIdx")
+
+  test("Sampling preserves legacy lane order and zero-temperature scaling"):
+    VkCyfraRuntime.using:
+      val logits = Array.fill(SMALL_VOCAB)(-20.0f)
+      logits(256) = 0.5f
+      logits(257) = 1.0f
+      logits(258) = 3.0f
+      logits(259) = 2.0f
+      val probabilities = logits.map(x => math.exp(x.toDouble - logits.max))
+      val total = probabilities.sum
+      val candidates = (0 until F16TopPSampleProgram.BLOCK_SIZE).map: lane =>
+        (lane until logits.length by F16TopPSampleProgram.BLOCK_SIZE).maxBy(logits(_))
+      val sizes = Sizes(logits.length)
+      val program = F16TopPSampleProgram.forward(sizes)
+      val logitsBuf = allocateBuffer(logits.length)
+      copyToBuffer(logits, logitsBuf)
+
+      for
+        temperature <- Seq(0.0f, 1.0f)
+        randomValue <- Seq(0.0f, 0.04f, 0.1f, 0.5f, 0.9f)
+      do
+        var cumulative = 0.0
+        val expected = candidates.find: idx =>
+          cumulative += probabilities(idx) / total
+          cumulative >= randomValue
+        val paramsBuf = ByteBuffer.allocateDirect(12).order(ByteOrder.nativeOrder())
+        paramsBuf.putFloat(temperature).putFloat(1.0f).putFloat(randomValue).rewind()
+        val resultBuf = allocateBuffer(1)
+        val region = GBufferRegion.allocate[ProgramLayout].map(layout => program.execute(sizes, layout))
+        region.runUnsafe(
+          init = ProgramLayout(GBuffer[GArray[Float32]](logitsBuf), GUniform[SampleParams](paramsBuf), GBuffer[GArray[Int32]](resultBuf)),
+          onDone = layout => layout.result.read(resultBuf),
+        )
+        assertEquals(resultBuf.getInt(0), expected.getOrElse(candidates.head), s"temperature=$temperature random=$randomValue")
 
   test("Benchmark: GPU sampling vs CPU"):
     VkCyfraRuntime.using:
@@ -308,7 +342,7 @@ class F16TopPSampleTest extends FunSuite:
       val logitsBuf = allocateBuffer(vocabSize)
       copyToBuffer(logits, logitsBuf)
       val resultBuf = allocateBuffer(1)
-      val paramsBuf = ByteBuffer.allocateDirect(16).order(ByteOrder.nativeOrder())
+      val paramsBuf = ByteBuffer.allocateDirect(12).order(ByteOrder.nativeOrder())
 
       val program = F16TopPSampleProgram.forward(sizes)
 
@@ -318,7 +352,7 @@ class F16TopPSampleTest extends FunSuite:
         paramsBuf.putFloat(temperature)
         paramsBuf.putFloat(topP)
         paramsBuf.putFloat(random.nextFloat())
-        paramsBuf.putFloat(0.0f)
+
         paramsBuf.rewind()
 
         val region = GBufferRegion
@@ -327,9 +361,9 @@ class F16TopPSampleTest extends FunSuite:
 
         region.runUnsafe(
           init = ProgramLayout(
-            logits = GBuffer[Float32](logitsBuf),
+            logits = GBuffer[GArray[Float32]](logitsBuf),
             params = GUniform[SampleParams](paramsBuf),
-            result = GBuffer[Int32](resultBuf),
+            result = GBuffer[GArray[Int32]](resultBuf),
           ),
           onDone = _ => (),
         )
@@ -341,7 +375,7 @@ class F16TopPSampleTest extends FunSuite:
         paramsBuf.putFloat(temperature)
         paramsBuf.putFloat(topP)
         paramsBuf.putFloat(random.nextFloat())
-        paramsBuf.putFloat(0.0f)
+
         paramsBuf.rewind()
 
         val region = GBufferRegion
@@ -350,17 +384,17 @@ class F16TopPSampleTest extends FunSuite:
 
         region.runUnsafe(
           init = ProgramLayout(
-            logits = GBuffer[Float32](logitsBuf),
+            logits = GBuffer[GArray[Float32]](logitsBuf),
             params = GUniform[SampleParams](paramsBuf),
-            result = GBuffer[Int32](resultBuf),
+            result = GBuffer[GArray[Int32]](resultBuf),
           ),
           onDone = _ => (),
         )
       val gpuTimeMs = (System.nanoTime() - gpuStart) / 1e6
 
       println(s"\n--- Sampling Benchmark ($numIterations iterations, vocab=$vocabSize) ---")
-      println(f"CPU top-p: ${cpuTimeMs}%.2f ms total (${cpuTimeMs / numIterations}%.3f ms/sample)")
-      println(f"GPU top-p: ${gpuTimeMs}%.2f ms total (${gpuTimeMs / numIterations}%.3f ms/sample)")
+      println(f"CPU top-p: $cpuTimeMs%.2f ms total (${cpuTimeMs / numIterations}%.3f ms/sample)")
+      println(f"GPU top-p: $gpuTimeMs%.2f ms total (${gpuTimeMs / numIterations}%.3f ms/sample)")
       println(f"Speedup: ${cpuTimeMs / gpuTimeMs}%.2fx")
 
       assert(gpuTimeMs < cpuTimeMs * 2, "GPU should not be much slower than CPU")

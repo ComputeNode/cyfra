@@ -1,3 +1,6 @@
+// Console Git supports linked worktrees, which the bundled JGit backend cannot resolve.
+com.github.sbt.git.SbtGit.useReadableConsoleGit
+
 ThisBuild / organization := "com.computenode.cyfra"
 ThisBuild / scalaVersion := "3.6.4"
 ThisBuild / version := "0.2.0-SNAPSHOT"
@@ -94,9 +97,7 @@ lazy val tapirSettings = Seq(
 
 lazy val utility = (project in file("cyfra-utility"))
   .settings(commonSettings)
-  .settings(
-    libraryDependencies += "net.java.dev.jna" % "jna" % "5.14.0",
-  )
+  .settings(libraryDependencies += "net.java.dev.jna" % "jna" % "5.14.0")
 
 lazy val core = (project in file("cyfra-core"))
   .settings(commonSettings)

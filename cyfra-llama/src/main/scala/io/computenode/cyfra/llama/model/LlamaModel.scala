@@ -6,13 +6,10 @@ import io.computenode.cyfra.llama.util.Logger
 import java.nio.file.Path
 
 /** Llama model loaded from GGUF file.
-  * 
+  *
   * Contains model configuration and weight tensors.
   */
-case class LlamaModel(
-  config: LlamaConfig,
-  gguf: GGUFFile,
-):
+case class LlamaModel(config: LlamaConfig, gguf: GGUFFile):
   /** Get a weight tensor by name. */
   def getTensor(name: String): Option[TensorInfo] = gguf.getTensor(name)
 
@@ -20,13 +17,13 @@ case class LlamaModel(
   def readWeightF32(name: String): Array[Float] =
     gguf.getTensor(name) match
       case Some(tensor) => gguf.readTensorF32(tensor)
-      case None => throw new IllegalArgumentException(s"Tensor not found: $name")
+      case None         => throw new IllegalArgumentException(s"Tensor not found: $name")
 
   /** Read raw tensor bytes (for quantized tensors). */
   def readWeightBytes(name: String): Array[Byte] =
     gguf.getTensor(name) match
       case Some(tensor) => gguf.readTensorBytes(tensor)
-      case None => throw new IllegalArgumentException(s"Tensor not found: $name")
+      case None         => throw new IllegalArgumentException(s"Tensor not found: $name")
 
   /** Close the underlying file. */
   def close(): Unit = gguf.close()
@@ -47,7 +44,7 @@ case class LlamaModel(
 
 object LlamaModel:
   /** Load Llama model from GGUF file.
-    * 
+    *
     * Extracts model configuration from GGUF metadata.
     */
   def fromGGUF(path: Path): LlamaModel =
@@ -76,13 +73,13 @@ object LlamaModel:
     def tokenEmbed: String = "token_embd.weight"
     def outputNorm: String = "output_norm.weight"
     def output: String = "output.weight"
-    
+
     def attnNorm(layer: Int): String = s"blk.$layer.attn_norm.weight"
     def attnQ(layer: Int): String = s"blk.$layer.attn_q.weight"
     def attnK(layer: Int): String = s"blk.$layer.attn_k.weight"
     def attnV(layer: Int): String = s"blk.$layer.attn_v.weight"
     def attnOutput(layer: Int): String = s"blk.$layer.attn_output.weight"
-    
+
     def ffnNorm(layer: Int): String = s"blk.$layer.ffn_norm.weight"
     def ffnGate(layer: Int): String = s"blk.$layer.ffn_gate.weight"
     def ffnUp(layer: Int): String = s"blk.$layer.ffn_up.weight"
