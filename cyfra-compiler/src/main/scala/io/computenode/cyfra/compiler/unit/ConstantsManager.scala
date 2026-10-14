@@ -98,6 +98,8 @@ object ConstantsManager:
       case x if x =:= Tag[Bool] =>
         val cond = const.asInstanceOf[Boolean]
         IR.SvRef[Bool](if cond then Op.OpConstantTrue else Op.OpConstantFalse, tpe, Nil)
+      case x if x =:= Tag[Float16] =>
+        IR.SvRef(Op.OpConstant, tpe, List(IntWord(java.lang.Float.floatToFloat16(const.asInstanceOf[Float]).toInt & 0xffff)))(using value)
       case x if x <:< Tag[FloatType] =>
         IR.SvRef(Op.OpConstant, tpe, List(floatToIntWord(const.asInstanceOf[Float])))(using value)
       case x if x <:< Tag[IntegerType] => IR.SvRef(Op.OpConstant, tpe, List(IntWord(const.asInstanceOf[Int])))(using value)

@@ -8,3 +8,10 @@ sealed trait BuildInVariable[T: Value] extends Variable[T]
 
 object BuildInVariable:
   case object GlobalInvocationId extends BuildInVariable[Vec3[UInt32]]
+  case object LocalInvocationId extends BuildInVariable[Vec3[UInt32]]
+  case object LocalInvocationIndex extends BuildInVariable[UInt32]
+  case object WorkgroupId extends BuildInVariable[Vec3[UInt32]]
+  case object NumWorkgroups extends BuildInVariable[Vec3[UInt32]]
+  case object SubgroupId extends BuildInVariable[UInt32]
+  case object SubgroupLocalInvocationId extends BuildInVariable[UInt32]
+  case object SubgroupSize extends BuildInVariable[UInt32]

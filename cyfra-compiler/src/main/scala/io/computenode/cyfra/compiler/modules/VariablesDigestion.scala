@@ -26,10 +26,17 @@ class VariablesDigestion extends StandardCompilationModule:
       val decorations = mutable.Buffer.empty[IR.SvInst]
       val hasBlockDecoration = mutable.Set.empty[IR.RefIR[?]]
       val interface = mutable.Buffer.empty[IR.Interface]
+      val sharedTypes = mutable.Buffer.empty[IR[?]]
       val res = input.suffix.map:
         case IR.Declare(root, None) =>
           root match
             case binding: BindingRef[?] =>
+              def containsHalf(v: Value[?]): Boolean =
+                v.tag =:= izumi.reflect.Tag[io.computenode.cyfra.core.expression.types.Float16] || v.composites.exists(containsHalf)
+              if containsHalf(binding.v) then
+                Ctx.enableCapability(
+                  if binding.isInstanceOf[GUniform[?]] then Capability.UniformAndStorageBuffer16BitAccess else Capability.StorageBuffer16BitAccess,
+                )
               val tupleValue = Value.surroundWithTuple(binding.v)
               val baseType = Ctx.getType(tupleValue, decorate = true)
               val storageClass = binding match
@@ -51,6 +58,16 @@ class VariablesDigestion extends StandardCompilationModule:
               globalDeclarations(root) = variable
               interface.addOne(IR.Interface(variable))
               variable
+            case shared: GShared[?] =>
+              val element = Ctx.getType(shared.elementValue)
+              val length = Ctx.getConstant[UInt32](shared.length)
+              val array = IR.SvRef[Unit](Op.OpTypeArray, List(element, length))
+              val pointer = IR.SvRef[Unit](Op.OpTypePointer, List(StorageClass.Workgroup, array))
+              sharedTypes.appendAll(List(array, pointer))
+              val variable = IR.SvRef[Unit](Op.OpVariable, pointer, List(StorageClass.Workgroup))
+              globalDeclarations(root) = variable
+              interface.addOne(IR.Interface(variable))
+              variable
             case variable: GlobalVariable[?] =>
               val baseType = Ctx.getType(variable.v)
               val storageClass = rootStorageClass(variable)
@@ -68,10 +85,23 @@ class VariablesDigestion extends StandardCompilationModule:
               variable match
                 case BuildInVariable.GlobalInvocationId =>
                   decorations.append(IR.SvInst(Op.OpDecorate, List(res, Decoration.BuiltIn, BuiltIn.GlobalInvocationId)))
+                case other =>
+                  val builtin = other match
+                    case BuildInVariable.LocalInvocationId         => BuiltIn.LocalInvocationId
+                    case BuildInVariable.LocalInvocationIndex      => BuiltIn.LocalInvocationIndex
+                    case BuildInVariable.WorkgroupId               => BuiltIn.WorkgroupId
+                    case BuildInVariable.NumWorkgroups             => BuiltIn.NumWorkgroups
+                    case BuildInVariable.SubgroupId                => BuiltIn.SubgroupId
+                    case BuildInVariable.SubgroupLocalInvocationId => BuiltIn.SubgroupLocalInvocationId
+                    case BuildInVariable.SubgroupSize              => BuiltIn.SubgroupSize
+                    case _                                         => throw IllegalArgumentException(s"Unsupported builtin $other")
+                  if Set(BuiltIn.SubgroupId, BuiltIn.SubgroupLocalInvocationId, BuiltIn.SubgroupSize).contains(builtin) then
+                    Ctx.enableCapability(Capability.GroupNonUniform)
+                  decorations.append(IR.SvInst(Op.OpDecorate, List(res, Decoration.BuiltIn, builtin)))
               res
             case other => throw NotImplementedError(s"how did it get here? [$other]")
-        case other                     => other
-      (res, decorations.toList, interface.toList, globalDeclarations.toMap)
+        case other => other
+      (sharedTypes.toList ++ res, decorations.toList, interface.toList, globalDeclarations.toMap)
     val c2 = c1.copy(prefix = c1.prefix ++ prefix, decorations = c1.decorations ++ decorations, suffix = suffix)
     (c2, declarations)
 
@@ -82,6 +112,7 @@ class VariablesDigestion extends StandardCompilationModule:
           case Private        => StorageClass.Private
           case Workgroup      => StorageClass.Workgroup
           case CrossWorkgroup => StorageClass.CrossWorkgroup
+      case _: GShared[?]         => StorageClass.Workgroup
       case _: LocalVariable[?]   => StorageClass.Function
       case _: BuildInVariable[?] => StorageClass.Input
       case _: GUniform[?]        => StorageClass.Uniform

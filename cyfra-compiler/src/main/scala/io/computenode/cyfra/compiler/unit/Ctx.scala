@@ -21,6 +21,9 @@ object Ctx:
     res.asInstanceOf[RefIR[A]]
 
   def getType(value: Value[?], decorate: Boolean = false)(using ctx: Ctx): RefIR[Unit] =
+    def containsHalf(v: Value[?]): Boolean =
+      v.tag =:= izumi.reflect.Tag[io.computenode.cyfra.core.expression.types.Float16] || v.composites.exists(containsHalf)
+    if containsHalf(value) then enableCapability(io.computenode.cyfra.compiler.Spirv.Capability.Float16)
     val (res, next) = ctx.context.types.getType(value, decorate)
     ctx.context = ctx.context.copy(types = next)
     res

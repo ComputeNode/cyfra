@@ -114,12 +114,12 @@ object GIO:
   def when(cond: Bool)(body: GIO ?=> Unit)(using GIO): Unit =
     branch[Unit](cond, body, ())
 
-  def loop(mainBody: (BreakTarget, ContinueTarget, GIO) ?=> Unit, continueBody: GIO ?=> Unit)(using gio: GIO): Unit =
+  def loop(mainBody: (BreakTarget, ContinueTarget, GIO) ?=> Unit, continueBody: GIO ?=> Unit, unroll: Boolean = false)(using gio: GIO): Unit =
     val jb = BreakTarget()
     val jc = ContinueTarget()
     val m = GIO.reify(mainBody(using jb, jc))
     val c = GIO.reify(continueBody)
-    val loop = Expression.Loop(m, c, jb, jc)
+    val loop = Expression.Loop(m, c, jb, jc, unroll)
     gio.add(loop)
 
   def conditionalJump[T: Value](cond: Bool, value: T)(using target: JumpTarget[T], gio: GIO): Unit =
@@ -144,3 +144,55 @@ object GIO:
 
   def conditionalContinue(cond: Bool)(using target: ContinueTarget, gio: GIO): Unit =
     conditionalJump(cond, ())
+
+  /** Materialize an expression here, so it can be reused in nested control flow. */
+  def eval[T: Value](value: T)(using GIO): T = reflect(value.irs)
+
+  def repeat(n: Int32, unroll: Boolean = false)(body: Int32 => GIO ?=> Unit)(using GIO): Unit =
+    val index = declare[Int32](Some(Int32(0)))
+    loop(
+      mainBody = {
+        val i = read(index)
+        conditionalBreak(i >= n)
+        body(i)
+      },
+      continueBody = write(index, read(index) + 1),
+      unroll = unroll,
+    )
+
+  def foldRepeat[A: Value](n: Int32, init: A, unroll: Boolean = false)(body: (Int32, A) => GIO ?=> A)(using GIO): A =
+    val accumulator = declare[A](Some(init))
+    repeat(n, unroll): i =>
+      write(accumulator, body(i, read(accumulator)))
+    read(accumulator)
+
+  def invocationId(using GIO): Int32 = Int32(read(io.computenode.cyfra.core.memory.BuildInVariable.GlobalInvocationId).x)
+  def localInvocationIndex(using GIO): Int32 = Int32(read(io.computenode.cyfra.core.memory.BuildInVariable.LocalInvocationIndex))
+  def localInvocationId(using GIO): Vec3[Int32] =
+    val v = read(io.computenode.cyfra.core.memory.BuildInVariable.LocalInvocationId)
+    Value.map(Operator.ConvertToS)(v)
+  def workgroupId(using GIO): Vec3[Int32] =
+    val v = read(io.computenode.cyfra.core.memory.BuildInVariable.WorkgroupId)
+    Value.map(Operator.ConvertToS)(v)
+  def numWorkgroups(using GIO): Vec3[Int32] =
+    val v = read(io.computenode.cyfra.core.memory.BuildInVariable.NumWorkgroups)
+    Value.map(Operator.ConvertToS)(v)
+  def subgroupId(using GIO): Int32 = Int32(read(io.computenode.cyfra.core.memory.BuildInVariable.SubgroupId))
+  def subgroupLocalInvocationId(using GIO): Int32 = Int32(read(io.computenode.cyfra.core.memory.BuildInVariable.SubgroupLocalInvocationId))
+  def subgroupSize(using GIO): Int32 = Int32(read(io.computenode.cyfra.core.memory.BuildInVariable.SubgroupSize))
+
+  def barrier(using GIO): Unit = op[Unit](Operator.WorkgroupBarrier)
+  def subgroupAdd[A <: NumericalType: Value](value: A)(using GIO): A = op(Operator.SubgroupAdd(), value)
+  def subgroupInclusiveAdd[A <: NumericalType: Value](value: A)(using GIO): A =
+    op(Operator.SubgroupAdd(Operator.GroupReduction.InclusiveScan), value)
+  def subgroupExclusiveAdd[A <: NumericalType: Value](value: A)(using GIO): A =
+    op(Operator.SubgroupAdd(Operator.GroupReduction.ExclusiveScan), value)
+  def subgroupMin[A <: NumericalType: Value](value: A)(using GIO): A = op(Operator.SubgroupMin, value)
+  def subgroupMax[A <: NumericalType: Value](value: A)(using GIO): A = op(Operator.SubgroupMax, value)
+  def subgroupBroadcast[A <: Scalar: Value](value: A, lane: Int32)(using GIO): A =
+    op(Operator.SubgroupBroadcast, value, Value.map(Operator.ConvertToU)[Int32, UInt32](lane))
+  def subgroupBroadcastFirst[A <: Scalar: Value](value: A)(using GIO): A = op(Operator.SubgroupBroadcastFirst, value)
+  def subgroupShuffle[A <: Scalar: Value](value: A, lane: Int32)(using GIO): A =
+    op(Operator.SubgroupShuffle, value, Value.map(Operator.ConvertToU)[Int32, UInt32](lane))
+  def subgroupShuffleXor[A <: Scalar: Value](value: A, mask: Int32)(using GIO): A =
+    op(Operator.SubgroupShuffleXor, value, Value.map(Operator.ConvertToU)[Int32, UInt32](mask))

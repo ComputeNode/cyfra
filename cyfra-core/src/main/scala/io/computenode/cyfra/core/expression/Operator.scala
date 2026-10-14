@@ -15,6 +15,17 @@ object Operator:
   abstract class Operator3 extends Operator
   abstract class Operator4 extends Operator
 
+  case object WorkgroupBarrier extends Operator0
+  enum GroupReduction:
+    case Reduce, InclusiveScan, ExclusiveScan
+  case class SubgroupAdd(reduction: GroupReduction = GroupReduction.Reduce) extends Operator1
+  case object SubgroupMin extends Operator1
+  case object SubgroupMax extends Operator1
+  case object SubgroupBroadcast extends Operator2
+  case object SubgroupBroadcastFirst extends Operator1
+  case object SubgroupShuffle extends Operator2
+  case object SubgroupShuffleXor extends Operator2
+
   // Concreate type operations
   case object Add extends Operator2
   case object Sub extends Operator2

@@ -31,23 +31,23 @@ object CompilationUnit:
       .toMap
 
     def irInternal(ir: IR[?]): String = ir match
-      case IR.Constant(value)                               => s"($value)"
-      case IR.ConstantArgs(value)                           => s"${value.mkString(", ")}"
-      case IR.Declare(focus, init)                          => s"#${focus.id}"
-      case IR.Read(focus, accessChain)                      => s"#${focus.id} ${accessChain.map(_.id).map(map).mkString(" ")}"
-      case IR.Write(focus, accessChain, value)              => s"#${focus.id} ${accessChain.map(_.id).map(map).mkString(" ")} ${map(value.id)}"
-      case IR.Operation(func, args)                         => s"${func.name} ${args.map(_.id).map(map).mkString(" ")}"
-      case IR.CallWithVar(func, args)                       => s"${func.name} ${args.map(x => s"#${x.id}").mkString(" ")}"
-      case IR.CallWithIR(func, args)                        => s"${func.name} ${args.map(x => map(x.id)).mkString(" ")}"
-      case IR.Branch(cond, ifTrue, ifFalse, break)          => s"${map(cond.id)} <if body>"
-      case IR.Loop(mainBody, continueBody, break, continue) => "<loop body>"
-      case IR.Jump(target, value)                           => s"${target.id} ${map(value.id)}"
-      case IR.ConditionalJump(cond, target, value)          => s"${map(cond.id)} ${target.id} ${map(value.id)}"
-      case IR.Interface(ref)                                => s"${map(ref.id)}"
-      case IR.CompositeExtract(value, index)                => s"${map(value.id)} $index"
-      case IR.CompositeInsert(original, replacement, index) => s"${map(original.id)} ${map(replacement.id)} $index"
-      case IR.CompositeCombine(values)                      => s"${values.map(_.id).map(map).mkString(" ")}"
-      case sv: (IR.SvInst | IR.SvRef[?])                    =>
+      case IR.Constant(value)                      => s"($value)"
+      case IR.ConstantArgs(value)                  => s"${value.mkString(", ")}"
+      case IR.Declare(focus, init)                 => s"#${focus.id}"
+      case IR.Read(focus, accessChain)             => s"#${focus.id} ${accessChain.map(_.id).map(map).mkString(" ")}"
+      case IR.Write(focus, accessChain, value)     => s"#${focus.id} ${accessChain.map(_.id).map(map).mkString(" ")} ${map(value.id)}"
+      case IR.Operation(func, args)                => s"${func.name} ${args.map(_.id).map(map).mkString(" ")}"
+      case IR.CallWithVar(func, args)              => s"${func.name} ${args.map(x => s"#${x.id}").mkString(" ")}"
+      case IR.CallWithIR(func, args)               => s"${func.name} ${args.map(x => map(x.id)).mkString(" ")}"
+      case IR.Branch(cond, ifTrue, ifFalse, break) => s"${map(cond.id)} <if body>"
+      case IR.Loop(mainBody, continueBody, break, continue, unroll) => "<loop body>"
+      case IR.Jump(target, value)                                   => s"${target.id} ${map(value.id)}"
+      case IR.ConditionalJump(cond, target, value)                  => s"${map(cond.id)} ${target.id} ${map(value.id)}"
+      case IR.Interface(ref)                                        => s"${map(ref.id)}"
+      case IR.CompositeExtract(value, index)                        => s"${map(value.id)} $index"
+      case IR.CompositeInsert(original, replacement, index)         => s"${map(original.id)} ${map(replacement.id)} $index"
+      case IR.CompositeCombine(values)                              => s"${values.map(_.id).map(map).mkString(" ")}"
+      case sv: (IR.SvInst | IR.SvRef[?])                            =>
         val operands = sv match
           case x: IR.SvInst   => x.operands
           case x: IR.SvRef[?] => x.tpe.toList ++ x.operands

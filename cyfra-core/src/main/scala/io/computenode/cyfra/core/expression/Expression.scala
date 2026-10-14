@@ -33,8 +33,13 @@ object Expression:
   case class Branch[A: Value](cond: Expression[Bool], ifTrue: ExpressionBlock[A], ifFalse: ExpressionBlock[A], break: JumpTarget[A])
       extends Expression[A]
       with BranchingExpression
-  case class Loop(mainBody: ExpressionBlock[Unit], continueBody: ExpressionBlock[Unit], break: BreakTarget, continue: ContinueTarget)
-      extends Expression[Unit]
+  case class Loop(
+    mainBody: ExpressionBlock[Unit],
+    continueBody: ExpressionBlock[Unit],
+    break: BreakTarget,
+    continue: ContinueTarget,
+    unroll: Boolean = false,
+  ) extends Expression[Unit]
       with BranchingExpression // TODO change jump target to phi
   case class Jump[B: Value](target: JumpTarget[B], value: Expression[B]) extends ExpressionUnit[B]
   case class ConditionalJump[B: Value](cond: Expression[Bool], target: JumpTarget[B], value: Expression[B]) extends ExpressionUnit[B]

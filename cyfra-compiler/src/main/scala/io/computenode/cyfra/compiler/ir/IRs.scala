@@ -43,10 +43,10 @@ case class IRs[A: Value](result: IR[A], body: List[IR[?]]):
           val nextT = ifTrue.flatMapReplaceImpl(f, replacements.clone(), enterControlFlow)
           val nextF = ifFalse.flatMapReplaceImpl(f, replacements.clone(), enterControlFlow)
           Branch[a](cond, nextT, nextF, t)
-        case Loop(mainBody, continueBody, b, c) if enterControlFlow =>
+        case Loop(mainBody, continueBody, b, c, unroll) if enterControlFlow =>
           val nextM = mainBody.flatMapReplaceImpl(f, replacements.clone(), enterControlFlow)
           val nextC = continueBody.flatMapReplaceImpl(f, replacements.clone(), enterControlFlow)
-          Loop(nextM, nextC, b, c)
+          Loop(nextM, nextC, b, c, unroll)
         case other => other
       val subst = next.substitute(replacements)
       val IRs(result, body) = f(subst, replacements)
