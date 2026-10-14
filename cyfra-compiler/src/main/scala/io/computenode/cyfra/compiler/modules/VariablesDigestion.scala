@@ -26,7 +26,6 @@ class VariablesDigestion extends StandardCompilationModule:
       val decorations = mutable.Buffer.empty[IR.SvInst]
       val hasBlockDecoration = mutable.Set.empty[IR.RefIR[?]]
       val interface = mutable.Buffer.empty[IR.Interface]
-      val sharedTypes = mutable.Buffer.empty[IR[?]]
       val res = input.suffix.map:
         case IR.Declare(root, None) =>
           root match
@@ -58,12 +57,8 @@ class VariablesDigestion extends StandardCompilationModule:
               globalDeclarations(root) = variable
               interface.addOne(IR.Interface(variable))
               variable
-            case shared: GShared[?] =>
-              val element = Ctx.getType(shared.elementValue)
-              val length = Ctx.getConstant[UInt32](shared.length)
-              val array = IR.SvRef[Unit](Op.OpTypeArray, List(element, length))
-              val pointer = IR.SvRef[Unit](Op.OpTypePointer, List(StorageClass.Workgroup, array))
-              sharedTypes.appendAll(List(array, pointer))
+            case shared: SharedVariable[?] =>
+              val pointer = Ctx.getTypePointer(shared.v, StorageClass.Workgroup)
               val variable = IR.SvRef[Unit](Op.OpVariable, pointer, List(StorageClass.Workgroup))
               globalDeclarations(root) = variable
               interface.addOne(IR.Interface(variable))
@@ -101,7 +96,7 @@ class VariablesDigestion extends StandardCompilationModule:
               res
             case other => throw NotImplementedError(s"how did it get here? [$other]")
         case other => other
-      (sharedTypes.toList ++ res, decorations.toList, interface.toList, globalDeclarations.toMap)
+      (res, decorations.toList, interface.toList, globalDeclarations.toMap)
     val c2 = c1.copy(prefix = c1.prefix ++ prefix, decorations = c1.decorations ++ decorations, suffix = suffix)
     (c2, declarations)
 
@@ -112,7 +107,7 @@ class VariablesDigestion extends StandardCompilationModule:
           case Private        => StorageClass.Private
           case Workgroup      => StorageClass.Workgroup
           case CrossWorkgroup => StorageClass.CrossWorkgroup
-      case _: GShared[?]         => StorageClass.Workgroup
+      case _: SharedVariable[?]  => StorageClass.Workgroup
       case _: LocalVariable[?]   => StorageClass.Function
       case _: BuildInVariable[?] => StorageClass.Input
       case _: GUniform[?]        => StorageClass.Uniform

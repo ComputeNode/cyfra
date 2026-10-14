@@ -74,6 +74,15 @@ object TypeManager:
       irs.addOne(r)
       next
 
+    value match
+      case list: GList.ListValue[?, ?] =>
+        val (uintType, m2) = m1.getType(Value[UInt32])
+        // Array lengths must be emitted before the types that reference them.
+        val length = SvRef[UInt32](Op.OpConstant, uintType, List(IntWord(list.length)))
+        val array = SvRef[Unit](Op.OpTypeArray, List(irs.head, length))
+        return m2.copy(block = length :: m2.block).withIr(key, array)
+      case _ => ()
+
     val cIR = value.baseTag.get match
       case t if t <:< Tag[Vec]    => SvRef[Unit](Op.OpTypeVector, List(irs.head, IntWord(rows(t))))
       case t if t <:< Tag[Mat]    => SvRef[Unit](Op.OpTypeMatrix, List(irs.head, IntWord(columns(t))))
@@ -116,7 +125,7 @@ object TypeManager:
       withDecoration(acc, x)
 
     base match
-      case t if t =:= Tag[GArray] =>
+      case t if t =:= Tag[GArray] || t =:= Tag[GList] =>
         val List(element) = value.composites
         val stride = typeStride(element)
         val dec = IR.SvInst(Op.OpDecorate, List(tpe, Decoration.ArrayStride, IntWord(stride)))
@@ -127,10 +136,8 @@ object TypeManager:
           case (acc, (v, idx)) =>
             val inst = IR.SvInst(Op.OpMemberDecorate, List(tpe, IntWord(idx), Decoration.Offset, IntWord(acc)))
             dec.addOne(inst)
-            if v.baseTag.exists(_ =:= Tag[GArray]) then
-              Int.MinValue
-            else
-              acc + typeStride(v)
+            if v.baseTag.exists(_ =:= Tag[GArray]) then Int.MinValue
+            else acc + typeStride(v)
         m1.copy(decorations = dec.toList ++ m1.decorations, decorated = m1.decorated + key)
       case t if t <:< Tag[Vec] => m1.copy(decorated = m1.decorated + key)
       case t if t <:< Tag[Mat] =>

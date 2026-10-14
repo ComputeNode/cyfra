@@ -37,9 +37,9 @@ case class ExpressionBlock[A](result: Expression[A], body: List[Expression[?]]):
         case Expression.CustomCall(func, _) =>
           if !func.isPure then break(None)
           acc
-        case Expression.Branch(_, ifTrue, ifFalse, _)         => nested(ifTrue, ifFalse)
-        case Expression.Loop(mainBody, continueBody, _, _, _) => nested(mainBody, continueBody)
-        case Expression.OperationImpure(_, _)                 => break(None)
+        case Expression.Branch(_, ifTrue, ifFalse, _)      => nested(ifTrue, ifFalse)
+        case Expression.Loop(mainBody, continueBody, _, _) => nested(mainBody, continueBody)
+        case Expression.OperationImpure(_, _)              => break(None)
         case Expression.Operation(
               Operator.WorkgroupBarrier | _: Operator.SubgroupAdd | Operator.SubgroupMin | Operator.SubgroupMax | Operator.SubgroupBroadcast |
               Operator.SubgroupBroadcastFirst | Operator.SubgroupShuffle | Operator.SubgroupShuffleXor,
@@ -64,7 +64,7 @@ case class ExpressionBlock[A](result: Expression[A], body: List[Expression[?]]):
         case x if !visited.add(x.id)           => Nil
         case x: Expression.BranchingExpression =>
           x match
-            case x @ Expression.Loop(mainBody, continueBody, _, _, _) => rec(continueBody) ++ rec(mainBody) :+ f(x)
+            case x @ Expression.Loop(mainBody, continueBody, _, _)    => rec(continueBody) ++ rec(mainBody) :+ f(x)
             case x @ Expression.Branch(_, ifTrue, ifFalse, _)         => rec(ifFalse) ++ rec(ifTrue) :+ f(x)
             case x @ Expression.CustomCall(func, _) if enterFunctions => rec(func.body) :+ f(x)
             case x: Expression.CustomCall[?]                          => List(f(x))
@@ -88,7 +88,7 @@ case class ExpressionBlock[A](result: Expression[A], body: List[Expression[?]]):
         case Expression.Operation(func, args)                => s"$func ${args.map(_.id).mkString("%", " %", "")}"
         case Expression.CustomCall(func, args)               => s"call #${func.id} ${args.map(_.id).mkString("%", " %", "")}"
         case Expression.Branch(cond, ifTrue, ifFalse, break) => s"branch %${cond.id} ? [%${ifTrue._1.id}] : [%${ifFalse._1.id}] -> jt#${break.id}"
-        case Expression.Loop(mainBody, continueBody, break, continue, unroll) =>
+        case Expression.Loop(mainBody, continueBody, break, continue) =>
           s"loop body[%${mainBody._1.id}] cont[%${continueBody._1.id}] break#${break.id} continue#${continue.id}"
         case Expression.Jump(target, value)                  => s"jump jt#${target.id} <- %${value.id}"
         case Expression.ConditionalJump(cond, target, value) => s"cjump %${cond.id} ? jt#${target.id} <- %${value.id}"

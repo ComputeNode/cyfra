@@ -92,8 +92,8 @@ class Transformer extends CompilationModule[(ExpressionBlock[Unit], Config), Com
           convertToIRs(ifFalse, functionMap, expressionMap),
           break,
         )
-      case Expression.Loop(mainBody, continueBody, break, continue, unroll) =>
-        IR.Loop(convertToIRs(mainBody, functionMap, expressionMap), convertToIRs(continueBody, functionMap, expressionMap), break, continue, unroll)
+      case Expression.Loop(mainBody, continueBody, break, continue) =>
+        IR.Loop(convertToIRs(mainBody, functionMap, expressionMap), convertToIRs(continueBody, functionMap, expressionMap), break, continue)
       case x: Expression.Jump[a] =>
         given Value[a] = x.v2
         IR.Jump(x.target, convertToRefIR(x.value, functionMap, expressionMap))

@@ -76,7 +76,7 @@ class StructuredControlFlow extends FunctionCompilationModule:
           phiMap.remove(break)
           res
 
-        case Loop(mainBody, continueBody, break, continue, unroll) =>
+        case Loop(mainBody, continueBody, break, continue) =>
           val loopLabel = SvRef[Unit](Op.OpLabel, Nil)
           val bodyLabel = SvRef[Unit](Op.OpLabel, Nil)
           val continueLabel = SvRef[Unit](Op.OpLabel, Nil)
@@ -91,7 +91,7 @@ class StructuredControlFlow extends FunctionCompilationModule:
             FlatList(
               SvInst(Op.OpBranch, List(loopLabel)),
               loopLabel,
-              SvInst(Op.OpLoopMerge, List(mergeLabel, continueLabel, if unroll then LoopControlMask.Unroll else LoopControlMask.MaskNone)),
+              SvInst(Op.OpLoopMerge, List(mergeLabel, continueLabel, LoopControlMask.MaskNone)),
               SvInst(Op.OpBranch, List(bodyLabel)),
               bodyLabel,
               compileRec(mainBody, bodyLabel, targets, phiMap, replaced)._1.body,

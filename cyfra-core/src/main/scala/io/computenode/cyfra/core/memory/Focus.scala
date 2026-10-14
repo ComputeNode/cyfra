@@ -1,7 +1,7 @@
 package io.computenode.cyfra.core.memory
 
 import io.computenode.cyfra.core.expression.Value
-import io.computenode.cyfra.core.expression.types.{IntegerType, Mat, GArray, Vec, Vec2, Vec3, Vec4}
+import io.computenode.cyfra.core.expression.types.{IntegerType, Mat, GArray, GList, Vec, Vec2, Vec3, Vec4}
 import io.computenode.cyfra.utility.Utility.nextId
 
 import scala.quoted.{Expr, Quotes, Type}
@@ -26,6 +26,11 @@ object Focus:
 
       def at[I <: IntegerType: Value](index: I): To = scala.sys.error("method can only be used inside focus lambda")
 
+    extension [To: Value, N <: Int & Singleton](from: GList[To, N])
+      def at(index: Int): To = scala.sys.error("method can only be used inside focus lambda")
+
+      def at[I <: IntegerType: Value](index: I): To = scala.sys.error("method can only be used inside focus lambda")
+
   extension [From: Value, To: Value](from: Focus[From])
     transparent inline def focus(inline lambda: FocusContext ?=> From => To): Focus[To] =
       ${ focusImpl[From, To]('from, 'lambda) }
@@ -39,8 +44,8 @@ object Focus:
     enum AccessStep:
       case TupleElement(index: Int, parentType: TypeRepr, elementType: TypeRepr)
       case CaseClassField(fieldName: String, index: Int, parentType: TypeRepr, elementType: TypeRepr)
-      case ArrayConstant(index: Int, elementType: TypeRepr)
-      case ArrayDynamic(indexExpr: Term, indexType: TypeRepr, elementType: TypeRepr)
+      case ArrayConstant(index: Int, parentType: TypeRepr, elementType: TypeRepr)
+      case ArrayDynamic(indexExpr: Term, indexType: TypeRepr, parentType: TypeRepr, elementType: TypeRepr)
 
     // Extract lambda body - handles context function wrapping
     def extractLambdaBody(term: Term): Term = term match
@@ -108,23 +113,23 @@ object Focus:
 
       // Extension method array access with constant Int: context.at[Elem](qualifier)(constIndex)(evidence)
       // Tree: Apply(Apply(Apply(TypeApply(Select(context, "at"), List(elemType)), List(qualifier)), List(index)), List(evidence))
-      case Apply(Apply(Apply(TypeApply(Select(_, "at"), List(elemTypeTree)), List(qualifier)), List(indexTerm)), _)
+      case Apply(Apply(Apply(TypeApply(Select(_, "at"), elemTypeTree :: _), List(qualifier)), List(indexTerm)), _)
           if indexTerm.tpe.widen <:< TypeRepr.of[Int] =>
         indexTerm match
           case Literal(IntConstant(idx)) =>
             val (innerSteps, param) = collectSteps(qualifier)
             val elemType = elemTypeTree.tpe.widen
-            val step = AccessStep.ArrayConstant(idx, elemType)
+            val step = AccessStep.ArrayConstant(idx, qualifier.tpe.widen, elemType)
             (innerSteps :+ step, param)
           case _ =>
             report.errorAndAbort(s"Expected constant Int index in at(), got: ${indexTerm.show}")
 
       // Extension method array access with dynamic IntegerType: context.at[Elem](qualifier)[I](index)(evidences)
       // Tree: Apply(Apply(TypeApply(Apply(TypeApply(Select(context, "at"), List(elemType)), List(qualifier)), List(indexType)), List(index)), List(evidences))
-      case Apply(Apply(TypeApply(Apply(TypeApply(Select(_, "at"), List(elemTypeTree)), List(qualifier)), _), List(indexTerm)), _) =>
+      case Apply(Apply(TypeApply(Apply(TypeApply(Select(_, "at"), elemTypeTree :: _), List(qualifier)), _), List(indexTerm)), _) =>
         val (innerSteps, param) = collectSteps(qualifier)
         val elemType = elemTypeTree.tpe.widen
-        val step = AccessStep.ArrayDynamic(indexTerm, indexTerm.tpe.widen, elemType)
+        val step = AccessStep.ArrayDynamic(indexTerm, indexTerm.tpe.widen, qualifier.tpe.widen, elemType)
         (innerSteps :+ step, param)
 
       // Base case: the lambda parameter
@@ -189,8 +194,7 @@ object Focus:
               )
               buildFocusExpr(rest, newFocus, elementType)
 
-            case AccessStep.ArrayConstant(index, elementType) =>
-              val parentType = TypeRepr.of[GArray].appliedTo(elementType)
+            case AccessStep.ArrayConstant(index, parentType, elementType) =>
               val parentTypeTree = TypeTree.of(using parentType.asType)
               val elementTypeTree = TypeTree.of(using elementType.asType)
 
@@ -213,8 +217,7 @@ object Focus:
               )
               buildFocusExpr(rest, newFocus, elementType)
 
-            case AccessStep.ArrayDynamic(indexExpr, indexType, elementType) =>
-              val parentType = TypeRepr.of[GArray].appliedTo(elementType)
+            case AccessStep.ArrayDynamic(indexExpr, indexType, parentType, elementType) =>
               val parentTypeTree = TypeTree.of(using parentType.asType)
               val elementTypeTree = TypeTree.of(using elementType.asType)
 

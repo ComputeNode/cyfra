@@ -34,6 +34,7 @@ object Ctx:
     res
 
   def getTypePointer(value: Value[?], storageClass: Code)(using ctx: Ctx): RefIR[Unit] =
+    getType(value)
     val (res, next) = ctx.context.types.getPointer(value, storageClass)
     ctx.context = ctx.context.copy(types = next)
     res

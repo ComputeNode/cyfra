@@ -7,6 +7,7 @@ export io.computenode.cyfra.core.expression.types.Bool
 export io.computenode.cyfra.core.expression.types.Float16
 export io.computenode.cyfra.core.expression.types.Float32
 export io.computenode.cyfra.core.expression.types.GArray
+export io.computenode.cyfra.core.expression.types.GList
 export io.computenode.cyfra.core.expression.types.Int32
 export io.computenode.cyfra.core.expression.types.Mat
 export io.computenode.cyfra.core.expression.types.Mat2x2
@@ -26,7 +27,7 @@ export io.computenode.cyfra.core.expression.types.Vec3
 export io.computenode.cyfra.core.expression.types.Vec4
 
 export io.computenode.cyfra.core.memory.BuildInVariable.*
-export io.computenode.cyfra.core.memory.{GBuffer, GUniform, GShared}
+export io.computenode.cyfra.core.memory.{GBuffer, GUniform, SharedVariable}
 
 export io.computenode.cyfra.dsl.direct.{GIO, GioProgram}
 

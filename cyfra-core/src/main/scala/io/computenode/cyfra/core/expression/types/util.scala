@@ -8,6 +8,9 @@ private[types] def const[A: Value](value: Any): A =
   Value[A].extract(ExpressionBlock(Expression.Constant[A](value)))
 
 def typeStride(value: Value[?]): Int =
+  value match
+    case list: GList.ListValue[?, ?] => return list.length * typeStride(list.composites.head)
+    case _                           => ()
   if value.baseTag.exists(_ <:< Tag[Tuple]) then return value.composites.map(typeStride).sum
 
   val elementSize = value.bottomComposite.tag match

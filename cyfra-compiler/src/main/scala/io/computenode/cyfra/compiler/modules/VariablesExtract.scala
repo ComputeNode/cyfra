@@ -7,7 +7,7 @@ import io.computenode.cyfra.core.expression.types.given
 import io.computenode.cyfra.compiler.modules.CompilationModule.{FunctionCompilationModule, StandardCompilationModule}
 import io.computenode.cyfra.compiler.unit.{CompilationUnit, Ctx}
 import io.computenode.cyfra.compiler.Compiler.Compute
-import io.computenode.cyfra.core.memory.{BuildInVariable, FocusRoot, GBinding, GlobalVariable, GShared, LocalVariable, Variable}
+import io.computenode.cyfra.core.memory.{BuildInVariable, FocusRoot, GBinding, GlobalVariable, SharedVariable, LocalVariable, Variable}
 
 import scala.collection.mutable
 
@@ -46,10 +46,10 @@ class VariablesExtract extends StandardCompilationModule:
       case x @ IR.Write(variable: BuildInVariable[?], _, _) =>
         buildInRoots.add(variable)
         IRs(x)(using x.v)
-      case x @ IR.Read(variable: GShared[?], _) =>
+      case x @ IR.Read(variable: SharedVariable[?], _) =>
         buildInRoots.add(variable)
         IRs(x)(using x.v)
-      case x @ IR.Write(variable: GShared[?], _, _) =>
+      case x @ IR.Write(variable: SharedVariable[?], _, _) =>
         buildInRoots.add(variable)
         IRs(x)(using x.v)
       case other => IRs(other)(using other.v)

@@ -55,8 +55,8 @@ object GIO:
     def extractFocusTrailAcc(focus: Focus[?]): List[ExpressionBlock[?]] =
       focus match
         case root: FocusRoot[?]           => Nil
-        case FocusConstant(parent, value) => ExpressionBlock(Expression.Constant[Int32](value)) :: extractFocusTrail(parent)
-        case FocusDynamic(parent, value)  => value.asInstanceOf[ExpressionHolder[?]].block :: extractFocusTrail(parent)
+        case FocusConstant(parent, value) => ExpressionBlock(Expression.Constant[Int32](value)) :: extractFocusTrailAcc(parent)
+        case FocusDynamic(parent, value)  => value.asInstanceOf[ExpressionHolder[?]].block :: extractFocusTrailAcc(parent)
 
     extractFocusTrailAcc(focus).reverse
 
@@ -114,12 +114,12 @@ object GIO:
   def when(cond: Bool)(body: GIO ?=> Unit)(using GIO): Unit =
     branch[Unit](cond, body, ())
 
-  def loop(mainBody: (BreakTarget, ContinueTarget, GIO) ?=> Unit, continueBody: GIO ?=> Unit, unroll: Boolean = false)(using gio: GIO): Unit =
+  def loop(mainBody: (BreakTarget, ContinueTarget, GIO) ?=> Unit, continueBody: GIO ?=> Unit)(using gio: GIO): Unit =
     val jb = BreakTarget()
     val jc = ContinueTarget()
     val m = GIO.reify(mainBody(using jb, jc))
     val c = GIO.reify(continueBody)
-    val loop = Expression.Loop(m, c, jb, jc, unroll)
+    val loop = Expression.Loop(m, c, jb, jc)
     gio.add(loop)
 
   def conditionalJump[T: Value](cond: Bool, value: T)(using target: JumpTarget[T], gio: GIO): Unit =
@@ -149,6 +149,12 @@ object GIO:
   def eval[T: Value](value: T)(using GIO): T = reflect(value.irs)
 
   def repeat(n: Int32, unroll: Boolean = false)(body: Int32 => GIO ?=> Unit)(using GIO): Unit =
+    if unroll then
+      n.irs.result match
+        case Expression.Constant(count: Int) =>
+          for i <- 0 until count do body(Int32(i))
+        case _ => throw IllegalArgumentException("Unrolling requires a constant iteration count")
+      return
     val index = declare[Int32](Some(Int32(0)))
     loop(
       mainBody = {
@@ -157,7 +163,6 @@ object GIO:
         body(i)
       },
       continueBody = write(index, read(index) + 1),
-      unroll = unroll,
     )
 
   def foldRepeat[A: Value](n: Int32, init: A, unroll: Boolean = false)(body: (Int32, A) => GIO ?=> A)(using GIO): A =
