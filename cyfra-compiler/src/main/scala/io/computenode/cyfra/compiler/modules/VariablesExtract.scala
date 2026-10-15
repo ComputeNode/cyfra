@@ -28,6 +28,7 @@ class VariablesExtract extends StandardCompilationModule:
     val localDeclarations = mutable.Buffer.empty[IR.Declare[?]]
     val globalDeclarations = mutable.Buffer.empty[IR.Declare[?]]
     val buildInRoots = mutable.Set.empty[FocusRoot[?]]
+    val sharedDeclarations = mutable.Set.empty[SharedVariable[?]]
 
     val IRs(res, body) = input.flatMapReplace:
       case x @ IR.Declare(variable, init) =>
@@ -47,17 +48,17 @@ class VariablesExtract extends StandardCompilationModule:
         buildInRoots.add(variable)
         IRs(x)(using x.v)
       case x @ IR.Read(variable: SharedVariable[?], _) =>
-        buildInRoots.add(variable)
+        sharedDeclarations.add(variable)
         IRs(x)(using x.v)
       case x @ IR.Write(variable: SharedVariable[?], _, _) =>
-        buildInRoots.add(variable)
+        sharedDeclarations.add(variable)
         IRs(x)(using x.v)
       case other => IRs(other)(using other.v)
 
-    val buildInDeclarations = buildInRoots
+    val declarations = (buildInRoots ++ sharedDeclarations)
       .map:
         case root: FocusRoot[a] =>
           IR.Declare(root, None)(using root.v)
       .toSeq
 
-    (IRs(res, localDeclarations.toList ++ body)(using res.v), globalDeclarations.toSeq ++ buildInDeclarations)
+    (IRs(res, localDeclarations.toList ++ body)(using res.v), globalDeclarations.toSeq ++ declarations)
