@@ -77,22 +77,19 @@ class VariablesDigestion extends StandardCompilationModule:
               val res = IR.SvRef[Unit](Op.OpVariable, pointer, List(storageClass))
               globalDeclarations(root) = res
               interface.addOne(IR.Interface(res))
-              variable match
-                case BuildInVariable.GlobalInvocationId =>
-                  decorations.append(IR.SvInst(Op.OpDecorate, List(res, Decoration.BuiltIn, BuiltIn.GlobalInvocationId)))
-                case other =>
-                  val builtin = other match
-                    case BuildInVariable.LocalInvocationId         => BuiltIn.LocalInvocationId
-                    case BuildInVariable.LocalInvocationIndex      => BuiltIn.LocalInvocationIndex
-                    case BuildInVariable.WorkgroupId               => BuiltIn.WorkgroupId
-                    case BuildInVariable.NumWorkgroups             => BuiltIn.NumWorkgroups
-                    case BuildInVariable.SubgroupId                => BuiltIn.SubgroupId
-                    case BuildInVariable.SubgroupLocalInvocationId => BuiltIn.SubgroupLocalInvocationId
-                    case BuildInVariable.SubgroupSize              => BuiltIn.SubgroupSize
-                    case _                                         => throw IllegalArgumentException(s"Unsupported builtin $other")
-                  if Set(BuiltIn.SubgroupId, BuiltIn.SubgroupLocalInvocationId, BuiltIn.SubgroupSize).contains(builtin) then
-                    Ctx.enableCapability(Capability.GroupNonUniform)
-                  decorations.append(IR.SvInst(Op.OpDecorate, List(res, Decoration.BuiltIn, builtin)))
+              val builtin = variable match
+                case BuildInVariable.GlobalInvocationId        => BuiltIn.GlobalInvocationId
+                case BuildInVariable.LocalInvocationId         => BuiltIn.LocalInvocationId
+                case BuildInVariable.LocalInvocationIndex      => BuiltIn.LocalInvocationIndex
+                case BuildInVariable.WorkgroupId               => BuiltIn.WorkgroupId
+                case BuildInVariable.NumWorkgroups             => BuiltIn.NumWorkgroups
+                case BuildInVariable.SubgroupId                => BuiltIn.SubgroupId
+                case BuildInVariable.SubgroupLocalInvocationId => BuiltIn.SubgroupLocalInvocationId
+                case BuildInVariable.SubgroupSize              => BuiltIn.SubgroupSize
+                case other                                     => throw IllegalArgumentException(s"Unsupported builtin $other")
+              if Set(BuiltIn.SubgroupId, BuiltIn.SubgroupLocalInvocationId, BuiltIn.SubgroupSize).contains(builtin) then
+                Ctx.enableCapability(Capability.GroupNonUniform)
+              decorations.append(IR.SvInst(Op.OpDecorate, List(res, Decoration.BuiltIn, builtin)))
               res
             case other => throw NotImplementedError(s"how did it get here? [$other]")
         case other => other
