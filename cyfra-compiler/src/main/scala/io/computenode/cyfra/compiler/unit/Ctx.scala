@@ -15,8 +15,9 @@ object Ctx:
     (res, ctx.context)
 
   def getConstant[A: Value](value: Any)(using ctx: Ctx): RefIR[A] =
-    val (res, next) = ctx.context.types.getConstant(value, Value[A])
-    ctx.context = ctx.context.copy(types = next)
+    getType(Value[A])
+    val (res, next) = ctx.context.constants.get(ctx.context.types, value, Value[A])
+    ctx.context = ctx.context.copy(constants = next)
     res.asInstanceOf[RefIR[A]]
 
   def getType(value: Value[?], decorate: Boolean = false)(using ctx: Ctx): RefIR[Unit] =

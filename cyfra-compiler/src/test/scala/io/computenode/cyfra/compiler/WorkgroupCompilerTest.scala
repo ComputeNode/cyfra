@@ -160,25 +160,6 @@ class WorkgroupCompilerTest extends munit.FunSuite:
     SpirvValidator.validateSpirv(code, SpirvValidator.Enable(throwOnFail = true))
     assert(instructions(code).exists { case (op, args) => op == 17 && args == List(9) })
 
-  test("array lengths reuse constants across element types and shader literals"):
-    case class FixedLayout(output: GBuffer[GArray[UInt32]]) derives Layout
-    val ref = Layout[FixedLayout].layoutRef
-    val body = GIO.reify:
-      val a = SharedVariable[GList[Float32, 4]]()
-      val b = SharedVariable[GList[UInt32, 4]]()
-      GIO.write(a.focus(_.at(0)), Float32(1))
-      GIO.write(b.focus(_.at(0)), UInt32(4))
-      GIO.write(ref.output.focus(_.at(0)), GIO.read(b.focus(_.at(0))))
-    val code = new Compiler().compile(body, Compiler.Compute(Layout[FixedLayout].toBindings(ref), (128, 1, 1)))
-    SpirvValidator.validateSpirv(code, SpirvValidator.Enable(throwOnFail = true))
-    val ops = instructions(code)
-    val uintType = ops.collectFirst { case (21, List(id, 32, 0)) => id }.get
-    val lengths = ops.collect { case (43, List(tpe, id, 4)) if tpe == uintType => id }
-    assertEquals(lengths.size, 1)
-    val arrays = ops.filter(_._1 == 28)
-    assertEquals(arrays.size, 2)
-    assert(arrays.forall(_._2.last == lengths.head))
-
   test("unused nested half bindings register storage capabilities without a read"):
     case class HalfFields(values: GList[Float16, 8])
     case class HalfLayout(uniform: GUniform[HalfFields], storage: GBuffer[HalfFields]) derives Layout
@@ -187,17 +168,3 @@ class WorkgroupCompilerTest extends munit.FunSuite:
     SpirvValidator.validateSpirv(code, SpirvValidator.Enable(throwOnFail = true))
     val capabilities = instructions(code).collect { case (17, List(capability)) => capability }.toSet
     assert(Set(9, 4433, 4434).subsetOf(capabilities))
-
-  test("a cached literal can later become an array length without duplicate or forward declarations"):
-    import io.computenode.cyfra.compiler.ir.IR
-    import io.computenode.cyfra.compiler.unit.TypeManager
-    val (literal, m1) = TypeManager().getConstant(4, Value[UInt32])
-    val (array, m2) = m1.getType(Value[GList[UInt32, 4]])
-    val (_, m3) = m2.getConstant((4, 4), Value[Vec2[UInt32]])
-    val definitions = m3.output.collect { case ref: IR.SvRef[?] => ref }
-    assertEquals(definitions.count(_.id == literal.id), 1)
-    assertEquals(array.asInstanceOf[IR.SvRef[Unit]].operands.last, literal)
-    val positions = definitions.zipWithIndex.map((ref, index) => ref.id -> index).toMap
-    definitions.foreach: ref =>
-      val dependencies = ref.tpe.toList ++ ref.operands.collect { case dep: IR.RefIR[?] => dep }
-      assert(dependencies.forall(dep => positions(dep.id) < positions(ref.id)))

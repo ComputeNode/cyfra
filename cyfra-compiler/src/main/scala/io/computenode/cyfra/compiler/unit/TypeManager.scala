@@ -19,16 +19,8 @@ case class TypeManager(
   cache: Map[CacheKey, RefIR[Unit]] = Map.empty,
   decorations: List[IR[?]] = List.empty,
   decorated: Set[CacheKey] = Set.empty,
-  constants: ConstantsManager = ConstantsManager(),
   requiredCapabilities: Set[Code] = Set.empty,
 ):
-  def getConstant(const: Any, value: Value[?]): (RefIR[?], TypeManager) =
-    val (_, m1) = getType(value)
-    val (ref, next) = m1.constants.get(m1, const, value)
-    // Types and constants share dependency order, including array-length constants.
-    val added = next.block.take(next.cache.size - m1.constants.cache.size)
-    (ref, m1.copy(constants = next, block = added ++ m1.block))
-
   def getType(value: Value[?], decorate: Boolean = false): (RefIR[Unit], TypeManager) =
     val m1 = TypeManager.withType(this, value)
     val m2 = if decorate then TypeManager.withDecoration(m1, value) else m1
@@ -86,9 +78,11 @@ object TypeManager:
 
     value match
       case list: GList.ListValue[?, ?] =>
-        val (length, m2) = m1.getConstant(list.length, Value[UInt32])
+        val (uintType, m2) = m1.getType(Value[UInt32])
+        // Array lengths must be emitted before the types that reference them.
+        val length = SvRef[UInt32](Op.OpConstant, uintType, List(IntWord(list.length)))
         val array = SvRef[Unit](Op.OpTypeArray, List(irs.head, length))
-        return m2.withIr(key, array)
+        return m2.copy(block = length :: m2.block).withIr(key, array)
       case _ => ()
 
     val cIR = value.baseTag.get match
