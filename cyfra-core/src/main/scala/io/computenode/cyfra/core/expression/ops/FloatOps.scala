@@ -15,8 +15,8 @@ trait FloatOps[T <: FloatType: Value] extends NegativeOps[T]:
   @targetName("scalarTimesVector")
   def *[V <: Vec](vec: V[T])(using Value[V[T]]): V[T] = Value.map(Operator.VectorTimesScalar)(vec, self)
 
-  def asFloat16: io.computenode.cyfra.core.expression.types.Float16 = Value.map(Operator.Convert)(self)
-  def asFloat32: io.computenode.cyfra.core.expression.types.Float32 = Value.map(Operator.Convert)(self)
+  def asFloat16: io.computenode.cyfra.core.expression.types.Float16 = Value.convert(self)
+  def asFloat32: io.computenode.cyfra.core.expression.types.Float32 = Value.convert(self)
   def asInt32: io.computenode.cyfra.core.expression.types.Int32 = Value.map(Operator.ConvertToS)(self)
 
   def isNan: Bool = Value.map(Operator.IsNan)(self)

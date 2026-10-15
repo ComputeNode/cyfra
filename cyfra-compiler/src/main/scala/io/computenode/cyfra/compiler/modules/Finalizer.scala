@@ -33,7 +33,8 @@ class Finalizer extends StandardCompilationModule:
     val cap = input.metadata.config match
       case _: Compiler.Compute => Capability.Shader
 
-    val extensions = input.context.extensions.enableCapability(cap)
+    val extensions = input.context.types.requiredCapabilities.foldLeft(input.context.extensions.enableCapability(cap)): (manager, capability) =>
+      manager.enableCapability(capability)
     val c2 = input.context.copy(extensions = extensions, prefix = prefix ++ prevPrefix)
 
     input.copy(context = c2)

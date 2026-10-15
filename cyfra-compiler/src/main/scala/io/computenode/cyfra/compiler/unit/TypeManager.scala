@@ -19,7 +19,16 @@ case class TypeManager(
   cache: Map[CacheKey, RefIR[Unit]] = Map.empty,
   decorations: List[IR[?]] = List.empty,
   decorated: Set[CacheKey] = Set.empty,
+  constants: ConstantsManager = ConstantsManager(),
+  requiredCapabilities: Set[Code] = Set.empty,
 ):
+  def getConstant(const: Any, value: Value[?]): (RefIR[?], TypeManager) =
+    val (_, m1) = getType(value)
+    val (ref, next) = m1.constants.get(m1, const, value)
+    // Types and constants share dependency order, including array-length constants.
+    val added = next.block.take(next.cache.size - m1.constants.cache.size)
+    (ref, m1.copy(constants = next, block = added ++ m1.block))
+
   def getType(value: Value[?], decorate: Boolean = false): (RefIR[Unit], TypeManager) =
     val m1 = TypeManager.withType(this, value)
     val m2 = if decorate then TypeManager.withDecoration(m1, value) else m1
@@ -66,7 +75,8 @@ object TypeManager:
         case t if t =:= Tag[UInt16]  => SvRef[Unit](Op.OpTypeInt, List(IntWord(16), IntWord(0)))
         case t if t =:= Tag[UInt32]  => SvRef[Unit](Op.OpTypeInt, List(IntWord(32), IntWord(0)))
         case _                       => throw new Exception(s"Unsupported type: ${value.tag}")
-      return manager.withIr(key, ir)
+      val next = manager.withIr(key, ir)
+      return if value.tag =:= Tag[Float16] then next.copy(requiredCapabilities = next.requiredCapabilities + Capability.Float16) else next
 
     val irs = mutable.Buffer.empty[RefIR[Unit]]
     val m1 = composites.foldLeft(manager): (acc, c) =>
@@ -76,11 +86,9 @@ object TypeManager:
 
     value match
       case list: GList.ListValue[?, ?] =>
-        val (uintType, m2) = m1.getType(Value[UInt32])
-        // Array lengths must be emitted before the types that reference them.
-        val length = SvRef[UInt32](Op.OpConstant, uintType, List(IntWord(list.length)))
+        val (length, m2) = m1.getConstant(list.length, Value[UInt32])
         val array = SvRef[Unit](Op.OpTypeArray, List(irs.head, length))
-        return m2.copy(block = length :: m2.block).withIr(key, array)
+        return m2.withIr(key, array)
       case _ => ()
 
     val cIR = value.baseTag.get match
@@ -97,7 +105,18 @@ object TypeManager:
 
     val (baseIR, nextManager) = manager.getType(value)
     val ptrIR = SvRef[Unit](Op.OpTypePointer, List(storageClass, baseIR))
-    nextManager.copy(block = ptrIR :: nextManager.block, cache = nextManager.cache.updated(key, ptrIR))
+    val capability = storageClass match
+      case StorageClass.StorageBuffer if containsHalf(value) => Some(Capability.StorageBuffer16BitAccess)
+      case StorageClass.Uniform if containsHalf(value)       => Some(Capability.UniformAndStorageBuffer16BitAccess)
+      case _                                                 => None
+    nextManager.copy(
+      block = ptrIR :: nextManager.block,
+      cache = nextManager.cache.updated(key, ptrIR),
+      requiredCapabilities = nextManager.requiredCapabilities ++ capability,
+    )
+
+  private def containsHalf(value: Value[?]): Boolean =
+    value.tag =:= Tag[Float16] || value.composites.exists(containsHalf)
 
   private def withTypeFunction(manager: TypeManager, result: Value[?], args: List[Value[?]]): TypeManager =
     val key = Function(result.tag, args.map(_.tag))

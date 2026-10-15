@@ -26,8 +26,9 @@ trait Value[A]:
     ExpressionBlock.trust(block)
     extractUnsafe(block.copy())
   final def peel(x: A): ExpressionBlock[A] = x match
-    case p: Product if baseTag.exists(_ <:< Tag[Tuple]) => Value.productAsExpression(p)(using this.asInstanceOf[Value[Product]]).asInstanceOf[ExpressionBlock[A]]
-    case x                                              => ExpressionBlock.pure(x)
+    case p: Product if baseTag.exists(_ <:< Tag[Tuple]) =>
+      Value.productAsExpression(p)(using this.asInstanceOf[Value[Product]]).asInstanceOf[ExpressionBlock[A]]
+    case x => ExpressionBlock.pure(x)
 
   @tailrec
   final def bottomComposite: Value[?] =
@@ -51,6 +52,10 @@ object Value:
     protected def extractUnsafe(ir: ExpressionBlock[Any]): Any = ir.result.asInstanceOf[Expression.Constant[Any]].value
 
     def tag: Tag[Any] = Tag[Any]
+
+  private[expression] def convert[A: Value, B: Value](value: A): B =
+    if Value[A].tag =:= Value[B].tag then value.asInstanceOf[B]
+    else map(Operator.Convert)(value)
 
   def map[Res: Value](f: Operator0)(): Res =
     val next = Expression.Operation[Res](f, Nil)
@@ -150,8 +155,7 @@ object Value:
     val sym = tpe.typeSymbol
 
     // Don't try to derive for type parameters - let implicit search find the context-bound instance
-    if sym.isTypeParam then
-      report.errorAndAbort(s"Cannot derive Value for type parameter ${tpe.show}. Use a context bound instead.")
+    if sym.isTypeParam then report.errorAndAbort(s"Cannot derive Value for type parameter ${tpe.show}. Use a context bound instead.")
 
     // Check if this is a NamedTuple - extract the value types tuple
     val actualType = tpe match

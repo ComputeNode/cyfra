@@ -15,15 +15,11 @@ object Ctx:
     (res, ctx.context)
 
   def getConstant[A: Value](value: Any)(using ctx: Ctx): RefIR[A] =
-    getType(Value[A])
-    val (res, next) = ctx.context.constants.get(ctx.context.types, value, Value[A])
-    ctx.context = ctx.context.copy(constants = next)
+    val (res, next) = ctx.context.types.getConstant(value, Value[A])
+    ctx.context = ctx.context.copy(types = next)
     res.asInstanceOf[RefIR[A]]
 
   def getType(value: Value[?], decorate: Boolean = false)(using ctx: Ctx): RefIR[Unit] =
-    def containsHalf(v: Value[?]): Boolean =
-      v.tag =:= izumi.reflect.Tag[io.computenode.cyfra.core.expression.types.Float16] || v.composites.exists(containsHalf)
-    if containsHalf(value) then enableCapability(io.computenode.cyfra.compiler.Spirv.Capability.Float16)
     val (res, next) = ctx.context.types.getType(value, decorate)
     ctx.context = ctx.context.copy(types = next)
     res
@@ -34,7 +30,6 @@ object Ctx:
     res
 
   def getTypePointer(value: Value[?], storageClass: Code)(using ctx: Ctx): RefIR[Unit] =
-    getType(value)
     val (res, next) = ctx.context.types.getPointer(value, storageClass)
     ctx.context = ctx.context.copy(types = next)
     res

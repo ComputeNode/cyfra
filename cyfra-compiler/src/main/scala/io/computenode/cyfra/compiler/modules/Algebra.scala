@@ -20,7 +20,6 @@ class Algebra extends FunctionCompilationModule:
 
   private def handleOperation[A: Value](operation: IR.Operation[A])(using Ctx): IRs[A] =
     val IR.Operation(operator, args) = operation
-    if operator == Convert && (args.head.v.tag =:= Value[A].tag) then return IRs.proxy(args.head.asInstanceOf[IR[A]])
     val argBaseTag = args.head.v.bottomComposite.tag
     val tpe = Ctx.getType(Value[A])
 

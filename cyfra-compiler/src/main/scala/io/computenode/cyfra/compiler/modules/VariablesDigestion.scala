@@ -30,12 +30,6 @@ class VariablesDigestion extends StandardCompilationModule:
         case IR.Declare(root, None) =>
           root match
             case binding: BindingRef[?] =>
-              def containsHalf(v: Value[?]): Boolean =
-                v.tag =:= izumi.reflect.Tag[io.computenode.cyfra.core.expression.types.Float16] || v.composites.exists(containsHalf)
-              if containsHalf(binding.v) then
-                Ctx.enableCapability(
-                  if binding.isInstanceOf[GUniform[?]] then Capability.UniformAndStorageBuffer16BitAccess else Capability.StorageBuffer16BitAccess,
-                )
               val tupleValue = Value.surroundWithTuple(binding.v)
               val baseType = Ctx.getType(tupleValue, decorate = true)
               val storageClass = binding match

@@ -9,8 +9,8 @@ trait VecFloatOps[T <: Scalar: Value, Vec[_ <: Scalar]](using Value[Vec[T]], Val
   this: Vec[T] =>
   private val self: Vec[T] = this
 
-  def asFloat32(using T <:< FloatType, Value[Vec[Float32]]): Vec[Float32] = Value.map(Operator.Convert)(self)
-  def asFloat16(using T <:< FloatType, Value[Vec[Float16]]): Vec[Float16] = Value.map(Operator.Convert)(self)
+  def asFloat32(using T <:< FloatType, Value[Vec[Float32]]): Vec[Float32] = Value.convert(self)
+  def asFloat16(using T <:< FloatType, Value[Vec[Float16]]): Vec[Float16] = Value.convert(self)
 
   @targetName("vectorTimesScalar")
   def *(scalar: T)(using T <:< FloatType): Vec[T] = Value.map(Operator.VectorTimesScalar)(self, scalar)

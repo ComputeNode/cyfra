@@ -15,7 +15,7 @@ case class CompilationUnit(metadata: Metadata, context: Context, functionBodies:
 object CompilationUnit:
   def apply(functions: List[(FunctionIR[?], IRs[?])], config: Config): CompilationUnit =
     val (f, fir) = functions.unzip
-    val context = Context(ExtensionManager(), Nil, Nil, TypeManager(), ConstantsManager(), Nil)
+    val context = Context(ExtensionManager(), Nil, Nil, TypeManager(), Nil)
     val meta = Metadata(f, config)
     CompilationUnit(meta, context, fir)
 
@@ -62,14 +62,13 @@ object CompilationUnit:
             case w          => w.toString
           .mkString(" ")
 
-    val Context(extensions, prefix, decorations, types, constants, suffix) = compilation.context
+    val Context(extensions, prefix, decorations, types, suffix) = compilation.context
     val data =
       Seq(
         (extensions.output, "Extensions"),
         (prefix, "Prefix"),
         (decorations, "Decorations"),
-        (types.output, "Type Info"),
-        (constants.output, "Constants"),
+        (types.output, "Types and Constants"),
         (suffix, "Suffix"),
       ) ++
         compilation.metadata.functions
