@@ -53,10 +53,6 @@ object Value:
 
     def tag: Tag[Any] = Tag[Any]
 
-  private[expression] def convert[A: Value, B: Value](value: A): B =
-    if Value[A].tag =:= Value[B].tag then value.asInstanceOf[B]
-    else map(Operator.Convert)(value)
-
   def map[Res: Value](f: Operator0)(): Res =
     val next = Expression.Operation[Res](f, Nil)
     Value[Res].extract(ExpressionBlock(next, List(next)))

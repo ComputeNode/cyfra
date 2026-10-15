@@ -77,7 +77,7 @@ object TypeManager:
       next
 
     value match
-      case list: GList.ListValue[?, ?] =>
+      case list: GList.GListImpl[?, ?] =>
         val (uintType, m2) = m1.getType(Value[UInt32])
         // Array lengths must be emitted before the types that reference them.
         val length = SvRef[UInt32](Op.OpConstant, uintType, List(IntWord(list.length)))
