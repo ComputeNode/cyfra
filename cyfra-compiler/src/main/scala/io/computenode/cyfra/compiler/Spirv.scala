@@ -504,19 +504,6 @@ private[cyfra] object Spirv:
     val ExclusiveScan = Code("ExclusiveScan", 2)
     val ClusteredReduce = Code("ClusteredReduce", 3)
 
-  object MemorySemantics:
-    val None = Code("None", 0x0)
-    val Acquire = Code("Acquire", 0x2)
-    val Release = Code("Release", 0x4)
-    val AcquireRelease = Code("AcquireRelease", 0x8)
-    val SequentiallyConsistent = Code("SequentiallyConsistent", 0x10)
-    val UniformMemory = Code("UniformMemory", 0x40)
-    val SubgroupMemory = Code("SubgroupMemory", 0x80)
-    val WorkgroupMemory = Code("WorkgroupMemory", 0x100)
-    val CrossWorkgroupMemory = Code("CrossWorkgroupMemory", 0x200)
-    val AtomicCounterMemory = Code("AtomicCounterMemory", 0x400)
-    val ImageMemory = Code("ImageMemory", 0x800)
-
   object KernelEnqueueFlags:
     val NoWait = Code("NoWait", 0)
     val WaitKernel = Code("WaitKernel", 1)
