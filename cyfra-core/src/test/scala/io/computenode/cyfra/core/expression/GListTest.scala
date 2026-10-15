@@ -17,3 +17,12 @@ class GListTest extends munit.FunSuite:
   test("fixed-list lengths must be positive"):
     intercept[IllegalArgumentException](Value[GList[Float32, 0]])
     intercept[IllegalArgumentException](Value[GList[Float32, -1]])
+
+  test("fixed-list values preserve their expression block and expose their length"):
+    val value = Value[GList[Float32, 4]]
+    val root = io.computenode.cyfra.core.memory.LocalVariable[GList[Float32, 4]]()
+    val block = ExpressionBlock(Expression.Read[GList[Float32, 4]](root, Nil))
+    val list = value.extractUnchecked(block)
+    assertEquals(value.peel(list), block)
+    assertEquals(list.length, 4)
+    assertEquals(value.arrayLength, Some(4))

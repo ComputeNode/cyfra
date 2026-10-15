@@ -76,11 +76,11 @@ object TypeManager:
       irs.addOne(r)
       next
 
-    value match
-      case list: GList.GListImpl[?, ?] =>
+    value.arrayLength match
+      case Some(size) =>
         val (uintType, m2) = m1.getType(Value[UInt32])
         // Array lengths must be emitted before the types that reference them.
-        val length = SvRef[UInt32](Op.OpConstant, uintType, List(IntWord(list.length)))
+        val length = SvRef[UInt32](Op.OpConstant, uintType, List(IntWord(size)))
         val array = SvRef[Unit](Op.OpTypeArray, List(irs.head, length))
         return m2.copy(block = length :: m2.block).withIr(key, array)
       case _ => ()

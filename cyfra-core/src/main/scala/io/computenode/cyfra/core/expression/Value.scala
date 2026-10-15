@@ -16,6 +16,7 @@ trait Value[A]:
   def tag: Tag[A]
   def baseTag: Option[Tag[?]]
   def composites: List[Value[?]]
+  def arrayLength: Option[Int] = None
 
   final def indirect(ir: Expression[A]): A = extract(ExpressionBlock(ir, List()))
   final def extract(block: ExpressionBlock[A]): A =
@@ -58,6 +59,7 @@ object Value:
     Value[Res].extract(ExpressionBlock(next, List(next)))
 
   def map(f: Operator1)[A1: Value, Res: Value](x1: A1): Res =
+    if f == Operator.Convert && (Value[A1].tag =:= Value[Res].tag) then return x1.asInstanceOf[Res]
     val arg1 = Value[A1].peel(x1)
     val next = Expression.Operation[Res](f, List(arg1.result))
     Value[Res].extract(arg1.add(next))

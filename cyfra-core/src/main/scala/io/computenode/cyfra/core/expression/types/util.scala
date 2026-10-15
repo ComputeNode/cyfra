@@ -26,7 +26,7 @@ def typeStride(value: Value[?]): Int =
   val numberOfElements = value.baseTag match
     case None                                        => 1
     case Some(t) if t <:< Tag[Vec] || t <:< Tag[Mat] => rows(t)
-    case Some(t) if t =:= Tag[GList]                 => value.asInstanceOf[GList.GListImpl[?, ?]].length
+    case Some(t) if t =:= Tag[GList]                 => value.arrayLength.get
     case Some(t) if t =:= Tag[GArray]                => throw new IllegalArgumentException("GArray has infinite size")
     case t                                           => throw new NotImplementedError(s"Unknown type $t")
 
