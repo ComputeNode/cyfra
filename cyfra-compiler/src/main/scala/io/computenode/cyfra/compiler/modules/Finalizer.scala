@@ -1,6 +1,6 @@
 package io.computenode.cyfra.compiler.modules
 
-import io.computenode.cyfra.compiler.Compiler
+import io.computenode.cyfra.compiler.{CompilationException, Compiler}
 import io.computenode.cyfra.compiler.modules.CompilationModule.StandardCompilationModule
 import io.computenode.cyfra.compiler.unit.CompilationUnit
 import io.computenode.cyfra.compiler.unit.Ctx
@@ -33,8 +33,30 @@ class Finalizer extends StandardCompilationModule:
     val cap = input.metadata.config match
       case _: Compiler.Compute => Capability.Shader
 
-    val extensions = input.context.types.requiredCapabilities.foldLeft(input.context.extensions.enableCapability(cap)): (manager, capability) =>
-      manager.enableCapability(capability)
-    val c2 = input.context.copy(extensions = extensions, prefix = prefix ++ prevPrefix)
+    val (_, context) = Ctx.withCapability(input.context):
+      Ctx.enableCapability(cap)
+    val declarations = orderDeclarations(context.types.block.reverse ++ context.constants.output)
+    // Finalization consumes declaration blocks; their caches and annotations remain intact.
+    val finalized = context.copy(
+      prefix = prefix ++ prevPrefix,
+      types = context.types.copy(block = Nil),
+      constants = context.constants.copy(block = Nil),
+      suffix = declarations ++ context.suffix,
+    )
+    input.copy(context = finalized)
 
-    input.copy(context = c2)
+  private def orderDeclarations(declarations: List[IR[?]]): List[IR[?]] =
+    val refs = declarations.map:
+      case ref: IR.SvRef[?] => ref
+      case other            => throw CompilationException(s"Expected a type or constant declaration, got ${other.name}")
+    val byId = refs.map(ref => ref.id -> ref).toMap
+
+    def visit(ref: IR.SvRef[?], visiting: Set[Int], state: (Set[Int], List[IR[?]])): (Set[Int], List[IR[?]]) =
+      if state._1(ref.id) then return state
+      if visiting(ref.id) then throw CompilationException(s"Cyclic type/constant dependency at ${ref.name} #${ref.id}")
+      val dependencies = ref.tpe.toList ++ ref.operands.collect { case dependency: RefIR[?] => dependency }
+      val (visited, ordered) = dependencies.foldLeft(state): (acc, dependency) =>
+        byId.get(dependency.id).fold(acc)(visit(_, visiting + ref.id, acc))
+      (visited + ref.id, ref :: ordered)
+
+    refs.foldLeft((Set.empty[Int], List.empty[IR[?]]))((state, ref) => visit(ref, Set.empty, state))._2.reverse

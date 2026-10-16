@@ -168,3 +168,27 @@ class WorkgroupCompilerTest extends munit.FunSuite:
     SpirvValidator.validateSpirv(code, SpirvValidator.Enable(throwOnFail = true))
     val capabilities = instructions(code).collect { case (17, List(capability)) => capability }.toSet
     assert(Set(9, 4433, 4434).subsetOf(capabilities))
+
+  test("finalization orders shared array lengths and reuses shader constants"):
+    case class FixedLayout(output: GBuffer[GArray[UInt32]]) derives Layout
+    val ref = Layout[FixedLayout].layoutRef
+    val body = GIO.reify:
+      val a = SharedVariable[GList[Float32, 4]]()
+      val b = SharedVariable[GList[UInt32, 4]]()
+      GIO.write(a.focus(_.at(0)), Float32(1))
+      GIO.write(b.focus(_.at(0)), UInt32(4))
+      GIO.write(ref.output.focus(_.at(0)), GIO.read(b.focus(_.at(0))))
+    val code = new Compiler().compile(body, Compiler.Compute(Layout[FixedLayout].toBindings(ref), (128, 1, 1)))
+    SpirvValidator.validateSpirv(code, SpirvValidator.Enable(throwOnFail = true))
+    val ops = instructions(code)
+    val uintType = ops.collectFirst { case (21, List(id, 32, 0)) => id }.get
+    val lengths = ops.collect { case (43, List(tpe, id, 4)) if tpe == uintType => id }
+    assertEquals(lengths.size, 1)
+    val arrays = ops.filter(_._1 == 28)
+    assertEquals(arrays.size, 2)
+    assert(arrays.forall(_._2.last == lengths.head))
+
+  test("matrix constants register their vector and scalar dependencies"):
+    compile:
+      val local = GIO.declare[Mat2x2[Float32]]()
+      GIO.write(local, Mat2x2[Float32](1.0f, 2.0f, 3.0f, 4.0f))
