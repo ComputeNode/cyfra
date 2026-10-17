@@ -25,9 +25,9 @@ sealed trait IR[A: Value] extends Product:
     this.productIterator
       .zip(that.productIterator)
       .forall:
-        case (a: IR[?], b: IR[?])     => a.id == b.id
+        case (a: IR[?], b: IR[?])             => a.id == b.id
         case (Some(a: IR[?]), Some(b: IR[?])) => a.id == b.id
-        case (a: List[?], b: List[?]) =>
+        case (a: List[?], b: List[?])         =>
           a.length == b.length &&
           a.zip(b)
             .forall:

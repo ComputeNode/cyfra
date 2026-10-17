@@ -22,8 +22,8 @@ object TestingStuff:
   case class EmitProgramUniform(emitN: UInt32)
 
   case class EmitProgramLayout(
-    in: GBuffer[GArray[UInt32]],
-    out: GBuffer[GArray[UInt32]],
+    in: GBuffer[RuntimeArray[UInt32]],
+    out: GBuffer[RuntimeArray[UInt32]],
     args: GUniform[EmitProgramUniform] = GUniform.fromParams, // todo will be different in the future
   )
 
@@ -57,8 +57,8 @@ object TestingStuff:
   case class FilterProgramUniform(filterValue: UInt32)
 
   case class FilterProgramLayout(
-    in: GBuffer[GArray[UInt32]],
-    out: GBuffer[GArray[UInt32]],
+    in: GBuffer[RuntimeArray[UInt32]],
+    out: GBuffer[RuntimeArray[UInt32]],
     params: GUniform[FilterProgramUniform] = GUniform.fromParams,
   )
 
@@ -81,7 +81,7 @@ object TestingStuff:
 
   case class EmitFilterParams(inSize: Int, emitN: Int, filterValue: Int)
 
-  case class EmitFilterLayout(inBuffer: GBuffer[GArray[UInt32]], emitBuffer: GBuffer[GArray[UInt32]], filterBuffer: GBuffer[GArray[UInt32]])
+  case class EmitFilterLayout(inBuffer: GBuffer[RuntimeArray[UInt32]], emitBuffer: GBuffer[RuntimeArray[UInt32]], filterBuffer: GBuffer[RuntimeArray[UInt32]])
 
   val emitFilterExecution = GExecution[EmitFilterParams, EmitFilterLayout]()
     .addProgram(emitProgram)(
@@ -112,7 +112,7 @@ object TestingStuff:
     val result = BufferUtils.createIntBuffer(data.length * 2)
     val rbb = MemoryUtil.memByteBuffer(result)
     region.runUnsafe(
-      init = EmitProgramLayout(in = GBuffer[GArray[UInt32]](buffer), out = GBuffer[GArray[UInt32]](data.length * 2)),
+      init = EmitProgramLayout(in = GBuffer[RuntimeArray[UInt32]](buffer), out = GBuffer[RuntimeArray[UInt32]](data.length * 2)),
       onDone = layout => layout.out.read(rbb),
     )
     runtime.close()
@@ -149,9 +149,9 @@ object TestingStuff:
     val rbb = MemoryUtil.memByteBuffer(result)
     region.runUnsafe(
       init = EmitFilterLayout(
-        inBuffer = GBuffer[GArray[UInt32]](buffer),
-        emitBuffer = GBuffer[GArray[UInt32]](data.length * 2),
-        filterBuffer = GBuffer[GArray[UInt32]](data.length * 2),
+        inBuffer = GBuffer[RuntimeArray[UInt32]](buffer),
+        emitBuffer = GBuffer[RuntimeArray[UInt32]](data.length * 2),
+        filterBuffer = GBuffer[RuntimeArray[UInt32]](data.length * 2),
       ),
       onDone = layout => layout.filterBuffer.read(rbb),
     )

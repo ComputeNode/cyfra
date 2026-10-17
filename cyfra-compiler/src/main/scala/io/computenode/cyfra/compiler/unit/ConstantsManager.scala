@@ -6,104 +6,65 @@ import io.computenode.cyfra.compiler.Spirv.*
 import io.computenode.cyfra.compiler.CompilationException
 import io.computenode.cyfra.compiler.unit.ConstantsManager.*
 import io.computenode.cyfra.core.expression.*
-import io.computenode.cyfra.utility.Utility.accumulate
 import io.computenode.cyfra.core.expression.given
 import io.computenode.cyfra.core.expression.types.*
 import io.computenode.cyfra.core.expression.types.given
 import izumi.reflect.Tag
-import izumi.reflect.macrortti.LightTypeTag
 
 case class ConstantsManager(block: List[IR[?]] = Nil, cache: Map[CacheKey, RefIR[?]] = Map.empty):
-  def get(types: TypeManager, const: Any, value: Value[?]): (RefIR[?], ConstantsManager) =
-    val next = ConstantsManager.withConstant(this, types, const, value)
-    val key = CacheKey(const, value.tag)
-    (next.cache(key), next)
-
-  def withIr(key: CacheKey, ir: RefIR[?]): ConstantsManager =
-    if cache.contains(key) then this
-    else copy(block = ir :: block, cache = cache.updated(key, ir))
-
   def output: List[IR[?]] = block.reverse
 
 object ConstantsManager:
   case class CacheKey(const: Any, tag: Tag[?])
 
-  private def withConstant(manager: ConstantsManager, types: TypeManager, const: Any, value: Value[?]): ConstantsManager =
+  def get(const: Any, value: Value[?])(using Ctx): RefIR[?] =
     val key = CacheKey(const, value.tag)
-    if manager.cache.contains(key) then return manager
+    Ctx
+      .inspect(_.constants.cache.get(key))
+      .getOrElse:
+        val ref = value.baseTag match
+          case None                        => getScalar(const, value)
+          case Some(t) if t <:< Tag[Vec]   => getVector(const, value)
+          case Some(t) if t <:< Tag[Mat]   => getMatrix(const, value)
+          case Some(t) if t <:< Tag[Tuple] => getTuple(const, value)
+          case _                           => throw CompilationException(s"Cannot create constant of type: ${value.tag}")
+        Ctx.modify: context =>
+          val manager = context.constants
+          context.copy(constants = manager.copy(block = ref :: manager.block, cache = manager.cache.updated(key, ref)))
+        ref
 
-    value.baseTag match
-      case None                        => getScalar(manager, types, const, value)._2
-      case Some(t) if t <:< Tag[Vec]   => getVector(manager, types, const, value)._2
-      case Some(t) if t <:< Tag[Mat]   => getMatrix(manager, types, const, value)._2
-      case Some(t) if t <:< Tag[Tuple] => getTuple(manager, types, const, value)._2
-      case other                       => throw CompilationException(s"Cannot create constant of type: ${value.tag}")
+  private def getTuple(const: Any, value: Value[?])(using Ctx): RefIR[?] =
+    val constants = const.asInstanceOf[Product].productIterator.toList
+    val members = value.composites.zip(constants).map((v, c) => get(c, v))
+    val tpe = TypeManager.getType(value)
+    IR.SvRef(Op.OpConstantComposite, tpe, members)(using value)
 
-  private def getTuple(manager: ConstantsManager, types: TypeManager, const: Any, value: Value[?]): (RefIR[?], ConstantsManager) =
-    val key = CacheKey(const, value.tag)
-    if manager.cache.contains(key) then return (manager.cache(key), manager)
+  private def getMatrix(const: Any, value: Value[?])(using Ctx): RefIR[?] =
+    val element = value.composites.head
+    val members = const
+      .asInstanceOf[Product]
+      .productIterator
+      .grouped(columns(value.baseTag.get))
+      .map: group =>
+        get(Tuple.fromArray(group.toArray), element)
+    val vectors = members.toList
+    val tpe = TypeManager.getType(value)
+    IR.SvRef(Op.OpConstantComposite, tpe, vectors)(using value)
 
-    val constants = const.asInstanceOf[Product].productIterator.toSeq
+  private def getVector(const: Any, value: Value[?])(using Ctx): RefIR[?] =
+    val element = value.composites.head
+    val members = const.asInstanceOf[Product].productIterator.map(get(_, element)).toList
+    val tpe = TypeManager.getType(value)
+    IR.SvRef(Op.OpConstantComposite, tpe, members)(using value)
 
-    val (members, m1) = value.composites
-      .zip(constants)
-      .accumulate(manager):
-        case (acc, (v, c)) =>
-          val r = acc.get(types, c, v)
-          (r._2, r._1)
-
-    val tpe = types.getType(value)._1
-    val ir = IR.SvRef(Op.OpConstantComposite, tpe, members.toList)(using value)
-
-    (ir, m1.withIr(key, ir))
-
-  private def getMatrix(manager: ConstantsManager, types: TypeManager, const: Any, value: Value[?]): (RefIR[?], ConstantsManager) =
-    val key = CacheKey(const, value.tag)
-    if manager.cache.contains(key) then return (manager.cache(key), manager)
-
-    val va = value.composites.head
-    val seq = const.asInstanceOf[Product].productIterator.grouped(columns(value.baseTag.get)).toSeq
-
-    val (scalars, m1) = seq.accumulate(manager): (acc, v) =>
-      ConstantsManager.getVector(acc, types, v, va).swap
-
-    val tpe = types.getType(value)._1
-    val ir = IR.SvRef(Op.OpConstantComposite, tpe, scalars.toList)(using value)
-
-    (ir, m1.withIr(key, ir))
-
-  private def getVector(manager: ConstantsManager, types: TypeManager, const: Any, value: Value[?]): (RefIR[?], ConstantsManager) =
-    val key = CacheKey(const, value.tag)
-    if manager.cache.contains(key) then return (manager.cache(key), manager)
-
-    val va = value.composites.head
-    val seq = const.asInstanceOf[Product].productIterator.toSeq
-
-    val (scalars, m1) = seq.accumulate(manager): (acc, v) =>
-      ConstantsManager.getScalar(acc, types, v, va).swap
-
-    val tpe = types.getType(value)._1
-    val ir = IR.SvRef(Op.OpConstantComposite, tpe, scalars.toList)(using value)
-
-    (ir, m1.withIr(key, ir))
-
-  private def getScalar(manager: ConstantsManager, types: TypeManager, const: Any, value: Value[?]): (RefIR[?], ConstantsManager) =
-    val key = CacheKey(const, value.tag)
-    if manager.cache.contains(key) then return (manager.cache(key), manager)
-
-    val tpe = types.getType(value)._1
-
-    val ir = value.tag match
+  private def getScalar(const: Any, value: Value[?])(using Ctx): RefIR[?] =
+    val tpe = TypeManager.getType(value)
+    value.tag match
       case x if x =:= Tag[Unit] => throw CompilationException("Cannot create constant of type Unit")
       case x if x =:= Tag[Bool] =>
-        val cond = const.asInstanceOf[Boolean]
-        IR.SvRef[Bool](if cond then Op.OpConstantTrue else Op.OpConstantFalse, tpe, Nil)
+        IR.SvRef[Bool](if const.asInstanceOf[Boolean] then Op.OpConstantTrue else Op.OpConstantFalse, tpe, Nil)
+      case x if x =:= Tag[Float16] =>
+        IR.SvRef(Op.OpConstant, tpe, List(IntWord(java.lang.Float.floatToFloat16(const.asInstanceOf[Float]).toInt & 0xffff)))(using value)
       case x if x <:< Tag[FloatType] =>
-        IR.SvRef(Op.OpConstant, tpe, List(floatToIntWord(const.asInstanceOf[Float])))(using value)
+        IR.SvRef(Op.OpConstant, tpe, List(IntWord(java.lang.Float.floatToRawIntBits(const.asInstanceOf[Float]))))(using value)
       case x if x <:< Tag[IntegerType] => IR.SvRef(Op.OpConstant, tpe, List(IntWord(const.asInstanceOf[Int])))(using value)
-
-    (ir, manager.withIr(key, ir))
-
-  private def floatToIntWord(f: Float): IntWord =
-    val bits = java.lang.Float.floatToRawIntBits(f)
-    IntWord(bits)

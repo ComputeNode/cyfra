@@ -3,6 +3,8 @@ package io.computenode.cyfra.runtime
 import io.computenode.cyfra.compiler.Compiler
 import io.computenode.cyfra.core.GProgram.InitProgramLayout
 import io.computenode.cyfra.core.{Allocation, CyfraRuntime, ExpressionProgram, GExecution, GProgram, Layout}
+import io.computenode.cyfra.core.expression.Expression
+import io.computenode.cyfra.core.memory.BindingRef
 import io.computenode.cyfra.spirvtools.SpirvToolsRunner
 import io.computenode.cyfra.vulkan.VulkanContext
 import io.computenode.cyfra.vulkan.compute.ComputePipeline
@@ -30,22 +32,26 @@ class VkCyfraRuntime(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()) ex
       case _                               => throw new IllegalArgumentException(s"Unsupported program type: ${program.getClass.getName}")
 
     gProgramCache.update(program, spirvProgram)
-    shaderCache.getOrElseUpdate(spirvProgram.shaderHash, VkShader(spirvProgram)).asInstanceOf[VkShader[L]]
+    shaderCache.getOrElseUpdate(spirvProgram.shaderHash, VkShader(spirvProgram, program.name)).asInstanceOf[VkShader[L]]
 
   private def compile[Params, L: Layout](program: ExpressionProgram[Params, L]): SpirvProgram[Params, L] =
-    val ExpressionProgram(body, layout, dispatch, workgroupSize) = program
+    val ExpressionProgram(body, layout, dispatch, workgroupSize, programName) = program
     val bindings = Layout[L].toBindings(Layout[L].layoutRef).toList
     val config = Compiler.Compute(bindings, workgroupSize)
-    val compiled = compiler.compile(body(Layout[L].layoutRef), config)
-
-//    val outputPath = Paths.get("out.spv")
-//    val channel = FileChannel.open(outputPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)
-//    channel.write(compiled)
-//    channel.close()
-//    println(s"SPIR-V bytecode written to $outputPath")
-
+    val expressions = body(Layout[L].layoutRef)
+    val compiled = compiler.compile(expressions, config)
     val optimizedShaderCode = spirvToolsRunner.processShaderCodeWithSpirvTools(compiled)
-    SpirvProgram((il: InitProgramLayout) ?=> layout(il), dispatch, optimizedShaderCode)
+    val writtenBindingIndices = expressions
+      .traverse(
+        {
+          case Expression.Write(binding: BindingRef[?], _, _) => Some(binding.layoutOffset)
+          case _                                              => None
+        },
+        enterFunctions = true,
+      )
+      .flatten
+      .toSet
+    SpirvProgram.fromCompiled(layout, dispatch, optimizedShaderCode, writtenBindingIndices, programName, workgroupSize)
 
   override def withAllocation(f: Allocation => Unit): Unit =
     context.withThreadContext: threadContext =>
@@ -59,7 +65,7 @@ class VkCyfraRuntime(spirvToolsRunner: SpirvToolsRunner = SpirvToolsRunner()) ex
     context.destroy()
 
 object VkCyfraRuntime:
-  def using[T](f: VkCyfraRuntime ?=> T): T =
-    val runtime = new VkCyfraRuntime()
+  def using[T](f: VkCyfraRuntime ?=> T)(using spirvTools: SpirvToolsRunner = SpirvToolsRunner()): T =
+    val runtime = new VkCyfraRuntime(spirvTools)
     try f(using runtime)
     finally runtime.close()

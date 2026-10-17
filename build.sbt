@@ -1,3 +1,6 @@
+// Console Git supports linked worktrees, which the bundled JGit backend cannot resolve.
+com.github.sbt.git.SbtGit.useReadableConsoleGit
+
 ThisBuild / organization := "com.computenode.cyfra"
 ThisBuild / scalaVersion := "3.6.4"
 ThisBuild / version := "0.2.0-SNAPSHOT"
@@ -94,6 +97,7 @@ lazy val tapirSettings = Seq(
 
 lazy val utility = (project in file("cyfra-utility"))
   .settings(commonSettings)
+  .settings(libraryDependencies += "net.java.dev.jna" % "jna" % "5.14.0")
 
 lazy val core = (project in file("cyfra-core"))
   .settings(commonSettings)
@@ -154,10 +158,15 @@ lazy val e2eTest = (project in file("cyfra-e2e-test"))
   .settings(publish / skip := true)
   .dependsOn(runtime, fs2interop, foton)
 
+lazy val llama = (project in file("cyfra-llama"))
+  .settings(commonSettings, runnerSettings)
+  .settings(publish / skip := true)
+  .dependsOn(runtime, dsl, core, utility)
+
 lazy val root = (project in file("."))
   .settings(name := "Cyfra")
   .settings(publish / skip := true)
-  .aggregate(compiler, dsl, foton, core, runtime, vulkan, examples, fs2interop, fluids, analytics, utility, spirvTools, vscode)
+  .aggregate(compiler, dsl, foton, core, runtime, vulkan, examples, fs2interop, fluids, analytics, utility, spirvTools, vscode, llama)
 
 e2eTest / Test / javaOptions ++= Seq("-Dorg.lwjgl.system.stackSize=1024", "-DuniqueLibraryNames=true")
 

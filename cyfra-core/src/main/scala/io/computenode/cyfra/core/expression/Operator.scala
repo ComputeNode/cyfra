@@ -15,7 +15,7 @@ object Operator:
   abstract class Operator3 extends Operator
   abstract class Operator4 extends Operator
 
-  // Concreate type operations
+  // Concrete type operations
   case object Add extends Operator2
   case object Sub extends Operator2
   case object Mul extends Operator2
@@ -165,3 +165,15 @@ object Operator:
   case object UnpackSnorm4x8 extends Operator1
   case object UnpackUnorm4x8 extends Operator1
   case object UnpackDouble2x32 extends Operator1
+
+  // subgroup operations
+  case object WorkgroupBarrier extends Operator0
+  case object SubgroupAdd extends Operator1
+  case object SubgroupInclusiveAdd extends Operator1
+  case object SubgroupExclusiveAdd extends Operator1
+  case object SubgroupMin extends Operator1
+  case object SubgroupMax extends Operator1
+  case object SubgroupBroadcast extends Operator2
+  case object SubgroupBroadcastFirst extends Operator1
+  case object SubgroupShuffle extends Operator2
+  case object SubgroupShuffleXor extends Operator2

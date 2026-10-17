@@ -2,7 +2,7 @@ package io.computenode.cyfra.core
 
 import io.computenode.cyfra.core.memory.{GBinding, GBuffer, GUniform}
 import io.computenode.cyfra.core.expression.Value
-import io.computenode.cyfra.core.expression.types.GArray
+import io.computenode.cyfra.core.expression.types.RuntimeArray
 import izumi.reflect.Tag
 
 import java.nio.ByteBuffer
@@ -16,7 +16,7 @@ trait Allocation:
 
     def write(bb: ByteBuffer, offset: Int = 0): Unit
 
-  extension [T: Value](buffer: GBinding[GArray[T]])
+  extension [T: Value](buffer: GBinding[RuntimeArray[T]])
 
     def readArray[ST: ClassTag](arr: Array[ST], offset: Int = 0)(using GCodec[T, ST]): Array[ST]
 
@@ -27,7 +27,7 @@ trait Allocation:
   extension (buffers: GBuffer.type)
     def apply[T: Value](length: Int): GBuffer[T]
 
-    def apply[ST: ClassTag, T: Value](scalaArray: Array[ST])(using GCodec[T, ST]): GBuffer[GArray[T]]
+    def apply[ST: ClassTag, T: Value](scalaArray: Array[ST])(using GCodec[T, ST]): GBuffer[RuntimeArray[T]]
 
     def apply[T: Value](buff: ByteBuffer): GBuffer[T]
 

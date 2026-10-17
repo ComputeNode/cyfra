@@ -22,18 +22,25 @@ import scala.collection.mutable
 import scala.reflect.ClassTag
 import scala.util.Try
 import scala.util.chaining.*
+import io.computenode.cyfra.utility.NVTX
 
-class VkAllocation(val commandPool: CommandPool.Reset, executionHandler: ExecutionHandler)(using Allocator, Device) extends Allocation:
+class VkAllocation(val commandPool: CommandPool.Reset, val executionHandler: ExecutionHandler)(using Allocator, Device) extends Allocation:
   given VkAllocation = this
 
   override def submitLayout[L: Layout](layout: L): Unit =
+    // With timeline semaphores, ExecutionHandler tracks all submissions
+    // Only sync if there are old-style pending executions (from writes)
     val executions = Layout[L]
       .toBindings(layout)
       .flatMap(x => Try(getUnderlying(x)).toOption)
       .flatMap(_.execution.fold(Seq(_), _.toSeq))
       .filter(_.isPending)
 
-    PendingExecution.executeAll(executions, this)
+    if executions.nonEmpty then PendingExecution.executeAll(executions, this)
+
+  private[runtime] def submitPendingWrites(): Unit =
+    val pending = executions.filter(_.isPending).toSeq
+    if pending.nonEmpty then PendingExecution.executeAll(pending, this)
 
   extension (buffer: GBinding[?])
     def read(bb: ByteBuffer, offset: Int = 0): Unit =
@@ -41,10 +48,16 @@ class VkAllocation(val commandPool: CommandPool.Reset, executionHandler: Executi
       buffer match
         case VkBinding(buffer: Buffer.HostBuffer) => buffer.copyTo(bb, offset)
         case binding: VkBinding[?]                =>
+          NVTX.push(s"Materialise[$buffer]")
           binding.materialise(this)
+          NVTX.pop()
+          NVTX.push(s"CopyToStaging[$buffer]")
           val stagingBuffer = getStagingBuffer(size)
           Buffer.copyBuffer(binding.buffer, stagingBuffer, offset, 0, size, commandPool)
+          NVTX.pop()
+          NVTX.push(s"CopyToHost[$buffer]")
           stagingBuffer.copyTo(bb, 0)
+          NVTX.pop()
           stagingBuffer.destroy()
         case _ => throw new IllegalArgumentException(s"Tried to read from non-VkBinding $buffer")
 
@@ -53,7 +66,7 @@ class VkAllocation(val commandPool: CommandPool.Reset, executionHandler: Executi
       buffer match
         case VkBinding(buffer: Buffer.HostBuffer) => buffer.copyFrom(bb, offset)
         case binding: VkBinding[?]                =>
-          binding.materialise(this)
+          executionHandler.sync()
           val stagingBuffer = getStagingBuffer(size)
           stagingBuffer.copyFrom(bb, 0)
           val cb = Buffer.copyBufferCommandBuffer(stagingBuffer, binding.buffer, 0, offset, size, commandPool)
@@ -65,30 +78,30 @@ class VkAllocation(val commandPool: CommandPool.Reset, executionHandler: Executi
           binding.execution = Left(pe)
         case _ => throw new IllegalArgumentException(s"Tried to write to non-VkBinding $buffer")
 
-  extension [T: Value](buffer: GBinding[GArray[T]])
+  extension [T: Value](buffer: GBinding[RuntimeArray[T]])
     def writeArray[ST: ClassTag](arr: Array[ST], offset: Int = 0)(using GCodec[T, ST]): Unit =
       val bb = BufferUtils.createByteBuffer(arr.size * typeStride(Value[T]))
-      buffer.write(bb, 0)
       GCodec.toByteBuffer[T, ST](bb, arr)
+      buffer.write(bb, offset * typeStride(Value[T]))
 
     def readArray[ST: ClassTag](arr: Array[ST], offset: Int = 0)(using GCodec[T, ST]): Array[ST] =
       val bb = BufferUtils.createByteBuffer(arr.size * typeStride(Value[T]))
-      buffer.read(bb, 0)
+      buffer.read(bb, offset * typeStride(Value[T]))
       GCodec.fromByteBuffer[T, ST](bb, arr)
 
   extension (buffers: GBuffer.type)
     def apply[T: Value](length: Int): GBuffer[T] =
       VkBuffer[T](length).tap(bindings += _)
 
-    def apply[ST: ClassTag, T: Value](scalaArray: Array[ST])(using GCodec[T, ST]): GBuffer[GArray[T]] =
+    def apply[ST: ClassTag, T: Value](scalaArray: Array[ST])(using GCodec[T, ST]): GBuffer[RuntimeArray[T]] =
       val bb = BufferUtils.createByteBuffer(scalaArray.length * typeStride(Value[T]))
       GCodec.toByteBuffer[T, ST](bb, scalaArray)
-      GBuffer[GArray[T]](bb)
+      GBuffer[RuntimeArray[T]](bb)
 
     def apply[T: Value](buff: ByteBuffer): GBuffer[T] =
       val v = Value[T]
       val sizeOfT = v.baseTag match
-        case Some(value) if value =:= Tag[GArray] =>
+        case Some(value) if value =:= Tag[RuntimeArray] =>
           typeStride(v.composites.head)
         case _ =>
           typeStride(v)
@@ -128,8 +141,12 @@ class VkAllocation(val commandPool: CommandPool.Reset, executionHandler: Executi
   def addExecution(pe: PendingExecution): Unit =
     executions += pe
 
+  /** Check if there are any pending (not yet submitted) executions from buffer writes. */
+  def hasPendingWrites: Boolean = executions.exists(_.isPending)
+
   private val bindings = mutable.Buffer[VkUniform[?] | VkBuffer[?]]()
   private[cyfra] def close(): Unit =
+    executionHandler.close()
     executions.filter(_.isRunning).foreach(_.block())
     executions.foreach(_.destroy())
     bindings.map(getUnderlying).foreach(_.buffer.destroy())

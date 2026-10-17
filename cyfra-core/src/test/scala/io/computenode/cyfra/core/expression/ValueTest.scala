@@ -73,7 +73,7 @@ class ValueTest extends munit.FunSuite:
     assert(i2 =:= Tag[UInt32])
 
   test("extract rejects impure blocks, extractUnchecked embeds them"):
-    val read = Expression.Read[Int32](io.computenode.cyfra.core.memory.BufferRef[GArray[Int32]](0), Nil)
+    val read = Expression.Read[Int32](io.computenode.cyfra.core.memory.BufferRef[RuntimeArray[Int32]](0), Nil)
     val block = ExpressionBlock(read)
     intercept[RuntimeException](Value[Int32].extract(block))
     val v = Value[Int32].extractUnchecked(block)
@@ -82,7 +82,7 @@ class ValueTest extends munit.FunSuite:
     assert(Value[Int32].peel(derived).isPure)
 
   test("a block rejected by extract can still be trusted later"):
-    val read = Expression.Read[Int32](io.computenode.cyfra.core.memory.BufferRef[GArray[Int32]](0), Nil)
+    val read = Expression.Read[Int32](io.computenode.cyfra.core.memory.BufferRef[RuntimeArray[Int32]](0), Nil)
     val block = ExpressionBlock(read)
     intercept[RuntimeException](Value[Int32].extract(block))
     val v = Value[Int32].extractUnchecked(block)

@@ -10,7 +10,7 @@ class LayoutDerivationTest extends munit.FunSuite:
 
   test("Layout should derive for concrete types"):
     // This test passes - Layout derivation works fine for concrete types
-    case class ConcreteLayout(buffer: GBuffer[GArray[Int32]], uniform: GUniform[Float32])
+    case class ConcreteLayout(buffer: GBuffer[RuntimeArray[Int32]], uniform: GUniform[Float32])
     
     val layout = Layout[ConcreteLayout]
     assert(layout != null)
@@ -23,12 +23,12 @@ class LayoutDerivationTest extends munit.FunSuite:
   // have the same name.
   //
   // Example that fails to compile:
-  //   case class TestLayout[T](buffer: GBuffer[GArray[T]], uniform: GUniform[T])
+  //   case class TestLayout[T](buffer: GBuffer[RuntimeArray[T]], uniform: GUniform[T])
   //   def useLayout[T: Value]: Layout[TestLayout[T]] = Layout[TestLayout[T]]
   //
   // Compiler error:
-  //   Found:    GBuffer[GArray[T]]
-  //   Required: GBuffer[GArray[T²]]
+  //   Found:    GBuffer[RuntimeArray[T]]
+  //   Required: GBuffer[RuntimeArray[T²]]
   //   where: T is a type in class TestLayout
   //          T² is a type in method useLayout
   //

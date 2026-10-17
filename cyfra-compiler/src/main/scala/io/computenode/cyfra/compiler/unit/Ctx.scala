@@ -1,10 +1,8 @@
 package io.computenode.cyfra.compiler.unit
 
-import io.computenode.cyfra.compiler.ir.{IR, IRs}
 import io.computenode.cyfra.compiler.ir.IR.RefIR
 import io.computenode.cyfra.compiler.Spirv.Code
 import io.computenode.cyfra.core.expression.Value
-import izumi.reflect.macrortti.LightTypeTag
 
 case class Ctx(private var context: Context)
 
@@ -14,36 +12,29 @@ object Ctx:
     val res = f(using ctx)
     (res, ctx.context)
 
-  def getConstant[A: Value](value: Any)(using ctx: Ctx): RefIR[A] =
-    getType(Value[A])
-    val (res, next) = ctx.context.constants.get(ctx.context.types, value, Value[A])
-    ctx.context = ctx.context.copy(constants = next)
-    res.asInstanceOf[RefIR[A]]
+  def inspect[A](f: Context => A)(using ctx: Ctx): A = f(ctx.context)
 
-  def getType(value: Value[?], decorate: Boolean = false)(using ctx: Ctx): RefIR[Unit] =
-    val (res, next) = ctx.context.types.getType(value, decorate)
-    ctx.context = ctx.context.copy(types = next)
-    res
+  /** Apply a pure update to the current context, after resolving any manager dependencies. */
+  def modify(f: Context => Context)(using ctx: Ctx): Unit =
+    ctx.context = f(ctx.context)
 
-  def getTypeFunction(returnType: Value[?], parameter: Option[Value[?]])(using ctx: Ctx): RefIR[Unit] =
-    val (res, next) = ctx.context.types.getTypeFunction(returnType, parameter)
-    ctx.context = ctx.context.copy(types = next)
-    res
+  def getConstant[A: Value](value: Any)(using Ctx): RefIR[A] =
+    ConstantsManager.get(value, Value[A]).asInstanceOf[RefIR[A]]
 
-  def getTypePointer(value: Value[?], storageClass: Code)(using ctx: Ctx): RefIR[Unit] =
-    val (res, next) = ctx.context.types.getPointer(value, storageClass)
-    ctx.context = ctx.context.copy(types = next)
-    res
+  def getType(value: Value[?], decorate: Boolean = false)(using Ctx): RefIR[Unit] =
+    TypeManager.getType(value, decorate)
 
-  def enableCapability(capability: Code)(using ctx: Ctx): Unit =
-    val next = ctx.context.extensions.enableCapability(capability)
-    ctx.context = ctx.context.copy(extensions = next)
+  def getTypeFunction(returnType: Value[?], parameter: Option[Value[?]])(using Ctx): RefIR[Unit] =
+    TypeManager.getTypeFunction(returnType, parameter)
 
-  def enableExtension(name: String)(using ctx: Ctx): Unit =
-    val next = ctx.context.extensions.enableExtension(name)
-    ctx.context = ctx.context.copy(extensions = next)
+  def getTypePointer(value: Value[?], storageClass: Code)(using Ctx): RefIR[Unit] =
+    TypeManager.getPointer(value, storageClass)
 
-  def getExtInstImport(name: String)(using ctx: Ctx): RefIR[Unit] =
-    val (res, next) = ctx.context.extensions.getExtInstImport(name)
-    ctx.context = ctx.context.copy(extensions = next)
-    res
+  def enableCapability(capability: Code)(using Ctx): Unit =
+    ExtensionManager.enableCapability(capability)
+
+  def enableExtension(name: String)(using Ctx): Unit =
+    ExtensionManager.enableExtension(name)
+
+  def getExtInstImport(name: String)(using Ctx): RefIR[Unit] =
+    ExtensionManager.getExtInstImport(name)

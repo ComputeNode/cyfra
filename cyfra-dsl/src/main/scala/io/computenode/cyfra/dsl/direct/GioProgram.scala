@@ -17,6 +17,6 @@ object GioProgram:
     layout: InitProgramLayout ?=> Params => L,
     dispatch: (L, Params) => ProgramDispatch,
     workgroupSize: WorkDimensions = (128, 1, 1),
-  )(body: L => GIO ?=> Unit): GProgram[Params, L] =
+  )(body: L => GIO ?=> Unit)(using enclosing: sourcecode.Enclosing): GProgram[Params, L] =
     val nBody = (layout: L) => reify(body(layout))
-    new ExpressionProgram[Params, L](nBody, s => layout(using s), dispatch, workgroupSize)
+    new ExpressionProgram[Params, L](nBody, s => layout(using s), dispatch, workgroupSize, enclosing.value)
