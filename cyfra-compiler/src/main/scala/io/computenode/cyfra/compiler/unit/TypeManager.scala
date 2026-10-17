@@ -78,11 +78,11 @@ object TypeManager:
       case _ => ()
 
     value.baseTag.get match
-      case t if t <:< Tag[Vec]    => SvRef[Unit](Op.OpTypeVector, List(elements.head, IntWord(rows(t))))
-      case t if t <:< Tag[Mat]    => SvRef[Unit](Op.OpTypeMatrix, List(elements.head, IntWord(columns(t))))
-      case t if t =:= Tag[GArray] => SvRef[Unit](Op.OpTypeRuntimeArray, List(elements.head))
-      case t if t <:< Tag[Tuple]  => SvRef[Unit](Op.OpTypeStruct, elements)
-      case _                      => throw new Exception(s"Unsupported type: ${value.tag}")
+      case t if t <:< Tag[Vec]          => SvRef[Unit](Op.OpTypeVector, List(elements.head, IntWord(rows(t))))
+      case t if t <:< Tag[Mat]          => SvRef[Unit](Op.OpTypeMatrix, List(elements.head, IntWord(columns(t))))
+      case t if t =:= Tag[RuntimeArray] => SvRef[Unit](Op.OpTypeRuntimeArray, List(elements.head))
+      case t if t <:< Tag[Tuple]        => SvRef[Unit](Op.OpTypeStruct, elements)
+      case _                            => throw new Exception(s"Unsupported type: ${value.tag}")
 
   private def containsHalf(value: Value[?]): Boolean =
     value.tag =:= Tag[Float16] || value.composites.exists(containsHalf)
@@ -94,8 +94,8 @@ object TypeManager:
     val tpe = Ctx.inspect(_.types.cache(key))
     value.composites.foreach(withDecoration)
     val decorations: List[IR[?]] = value.baseTag match
-      case None                                             => Nil
-      case Some(t) if t =:= Tag[GArray] || t =:= Tag[GList] =>
+      case None                                                        => Nil
+      case Some(t) if t =:= Tag[RuntimeArray] || t =:= Tag[SizedArray] =>
         val List(element) = value.composites
         List(IR.SvInst(Op.OpDecorate, List(tpe, Decoration.ArrayStride, IntWord(typeStride(element)))))
       case Some(t) if t <:< Tag[Tuple] =>
@@ -103,7 +103,7 @@ object TypeManager:
           .foldLeft((0, List.empty[IR[?]])):
             case ((offset, instructions), (member, index)) =>
               val inst = IR.SvInst(Op.OpMemberDecorate, List(tpe, IntWord(index), Decoration.Offset, IntWord(offset)))
-              val nextOffset = if member.baseTag.exists(_ =:= Tag[GArray]) then Int.MinValue else offset + typeStride(member)
+              val nextOffset = if member.baseTag.exists(_ =:= Tag[RuntimeArray]) then Int.MinValue else offset + typeStride(member)
               (nextOffset, inst :: instructions)
           ._2
       case Some(t) if t <:< Tag[Vec] => Nil

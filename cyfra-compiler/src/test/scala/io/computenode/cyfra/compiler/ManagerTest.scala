@@ -14,14 +14,14 @@ class ManagerTest extends munit.FunSuite:
     val initial = empty
     val ((length, array, repeated), context) = Ctx.withCapability(initial):
       val length = Ctx.getConstant[UInt32](4)
-      val array = Ctx.getType(Value[GList[GList[Float16, 4], 2]], decorate = true)
+      val array = Ctx.getType(Value[SizedArray[SizedArray[Float16, 4], 2]], decorate = true)
       val repeated = Ctx.getConstant[UInt32](4)
       (length, array, repeated)
     assertEquals(length.id, repeated.id)
     assert(context.types.cache.contains(TypeManager.Type(Value[Float16].tag)))
     assert(context.types.cache.contains(TypeManager.Type(Value[UInt32].tag)))
     assert(context.types.cache.values.exists(_.id == array.id))
-    val inner = context.types.cache(TypeManager.Type(Value[GList[Float16, 4]].tag)).asInstanceOf[IR.SvRef[Unit]]
+    val inner = context.types.cache(TypeManager.Type(Value[SizedArray[Float16, 4]].tag)).asInstanceOf[IR.SvRef[Unit]]
     assertEquals(inner.operands.last, length)
     assertEquals(context.constants.cache.size, 2)
     assert(context.extensions.capabilitySet(Capability.Float16.opcode))
@@ -31,15 +31,15 @@ class ManagerTest extends munit.FunSuite:
 
   test("pointer registration enables capabilities directly and cache hits add no declarations"):
     val (_, context) = Ctx.withCapability(empty):
-      Ctx.getTypePointer(Value[GList[Float16, 8]], StorageClass.StorageBuffer)
-      Ctx.getTypePointer(Value[GList[Float16, 8]], StorageClass.Uniform)
+      Ctx.getTypePointer(Value[SizedArray[Float16, 8]], StorageClass.StorageBuffer)
+      Ctx.getTypePointer(Value[SizedArray[Float16, 8]], StorageClass.Uniform)
     assert(
       Set(Capability.Float16, Capability.StorageBuffer16BitAccess, Capability.UniformAndStorageBuffer16BitAccess)
         .forall(c => context.extensions.capabilitySet(c.opcode)),
     )
     val (_, repeated) = Ctx.withCapability(context):
-      Ctx.getTypePointer(Value[GList[Float16, 8]], StorageClass.StorageBuffer)
-      Ctx.getTypePointer(Value[GList[Float16, 8]], StorageClass.Uniform)
+      Ctx.getTypePointer(Value[SizedArray[Float16, 8]], StorageClass.StorageBuffer)
+      Ctx.getTypePointer(Value[SizedArray[Float16, 8]], StorageClass.Uniform)
     assertEquals(repeated, context)
 
   test("composite constant recursion preserves scalar cache entries"):
@@ -82,9 +82,9 @@ class ManagerTest extends munit.FunSuite:
     import io.computenode.cyfra.compiler.ir.IRs
     import io.computenode.cyfra.compiler.modules.Finalizer
     val (pointer, context) = Ctx.withCapability(empty):
-      TypeManager.getType(Value[GList[GList[Float32, 4], 2]], decorate = true)
+      TypeManager.getType(Value[SizedArray[SizedArray[Float32, 4], 2]], decorate = true)
       ConstantsManager.get((4, 2), Value[Vec2[UInt32]])
-      TypeManager.getPointer(Value[GList[GList[Float32, 4], 2]], StorageClass.Workgroup)
+      TypeManager.getPointer(Value[SizedArray[SizedArray[Float32, 4], 2]], StorageClass.Workgroup)
     val global = IR.SvRef[Unit](Op.OpVariable, pointer, List(StorageClass.Workgroup))
     val main = IR.SvRef[Unit](Op.OpFunction, Nil)
     val input = CompilationUnit(Metadata(Nil, Compiler.Compute(Seq.empty, (1, 1, 1))), context.copy(suffix = List(global)), List(IRs(main)))

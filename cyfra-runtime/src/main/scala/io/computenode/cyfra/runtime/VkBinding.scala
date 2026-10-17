@@ -8,7 +8,7 @@ import izumi.reflect.Tag
 import org.lwjgl.vulkan.VK10
 import org.lwjgl.vulkan.VK10.*
 import io.computenode.cyfra.core.memory.{GBinding, GBuffer, GUniform}
-import io.computenode.cyfra.core.expression.types.{GArray, typeStride}
+import io.computenode.cyfra.core.expression.types.{RuntimeArray, typeStride}
 
 import scala.collection.mutable
 import scala.util.chaining.given
@@ -39,7 +39,7 @@ object VkBuffer:
   def apply[T: Value](length: Int)(using Allocator): VkBuffer[T] =
     val v = Value[T]
     val sizeOfT = v.baseTag match
-      case Some(value) if value =:= Tag[GArray] =>
+      case Some(value) if value =:= Tag[RuntimeArray] =>
         assert(length > 0)
         typeStride(v.composites.head)
       case _ =>

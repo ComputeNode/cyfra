@@ -6,8 +6,8 @@ export io.computenode.cyfra.core.expression.ops.Functions.*
 export io.computenode.cyfra.core.expression.types.Bool
 export io.computenode.cyfra.core.expression.types.Float16
 export io.computenode.cyfra.core.expression.types.Float32
-export io.computenode.cyfra.core.expression.types.GArray
-export io.computenode.cyfra.core.expression.types.GList
+export io.computenode.cyfra.core.expression.types.RuntimeArray
+export io.computenode.cyfra.core.expression.types.SizedArray
 export io.computenode.cyfra.core.expression.types.Int32
 export io.computenode.cyfra.core.expression.types.Mat
 export io.computenode.cyfra.core.expression.types.Mat2x2

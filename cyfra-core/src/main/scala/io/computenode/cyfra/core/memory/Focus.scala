@@ -1,7 +1,7 @@
 package io.computenode.cyfra.core.memory
 
 import io.computenode.cyfra.core.expression.Value
-import io.computenode.cyfra.core.expression.types.{IntegerType, Mat, GArray, GList, Vec, Vec2, Vec3, Vec4}
+import io.computenode.cyfra.core.expression.types.{IntegerType, Mat, RuntimeArray, SizedArray, Vec, Vec2, Vec3, Vec4}
 import io.computenode.cyfra.utility.Utility.nextId
 
 import scala.quoted.{Expr, Quotes, Type}
@@ -21,12 +21,12 @@ case class FocusDynamic[Parent: Value, T: Value](parent: Focus[Parent], value: I
 
 object Focus:
   trait FocusContext:
-    extension [To: Value](from: GArray[To])
+    extension [To: Value](from: RuntimeArray[To])
       def at(index: Int): To = scala.sys.error("method can only be used inside focus lambda")
 
       def at[I <: IntegerType: Value](index: I): To = scala.sys.error("method can only be used inside focus lambda")
 
-    extension [To: Value, N <: Int & Singleton](from: GList[To, N])
+    extension [To: Value, N <: Int & Singleton](from: SizedArray[To, N])
       def at(index: Int): To = scala.sys.error("method can only be used inside focus lambda")
 
       def at[I <: IntegerType: Value](index: I): To = scala.sys.error("method can only be used inside focus lambda")

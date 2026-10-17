@@ -11,7 +11,7 @@ import io.computenode.cyfra.spirvtools.SpirvValidator
 import java.nio.{ByteBuffer, ByteOrder}
 
 class WorkgroupCompilerTest extends munit.FunSuite:
-  case class TestLayout(output: GBuffer[GArray[Float32]], half: GBuffer[GArray[Float16]]) derives Layout
+  case class TestLayout(output: GBuffer[RuntimeArray[Float32]], half: GBuffer[RuntimeArray[Float16]]) derives Layout
   private val layout = Layout[TestLayout].layoutRef
 
   private def compile(body: GIO ?=> Unit): ByteBuffer =
@@ -31,7 +31,7 @@ class WorkgroupCompilerTest extends munit.FunSuite:
   test("shared arrays, barriers and subgroup collectives validate"):
     val code = compile:
       val local = GIO.localInvocationIndex
-      val shared = SharedVariable[GList[Float32, 128]]()
+      val shared = SharedVariable[SizedArray[Float32, 128]]()
       GIO.write(shared.focus(_.at(local)), local.asFloat)
       GIO.barrier
       val neighbor = GIO.read(shared.focus(_.at((local + 1) % 128)))
@@ -100,9 +100,9 @@ class WorkgroupCompilerTest extends munit.FunSuite:
 
   test("shared variables use cached fixed-list types and support scalar storage"):
     val code = compile:
-      val a = SharedVariable[GList[Float32, 4]]()
-      val b = SharedVariable[GList[Float32, 4]]()
-      val c = SharedVariable[GList[Float32, 8]]()
+      val a = SharedVariable[SizedArray[Float32, 4]]()
+      val b = SharedVariable[SizedArray[Float32, 4]]()
+      val c = SharedVariable[SizedArray[Float32, 8]]()
       val scalar = SharedVariable[Float16]()
       val i = GIO.localInvocationIndex % 4
       GIO.write(a.focus(_.at(i)), Float32(2))
@@ -119,7 +119,7 @@ class WorkgroupCompilerTest extends munit.FunSuite:
     val arrayIds = arrays.map(_._2.head).toSet
     assertEquals(ops.count { case (op, args) => op == 32 && args(1) == 4 && arrayIds(args.last) }, 2)
 
-  case class FixedFields(values: GList[Vec4[Float32], 4])
+  case class FixedFields(values: SizedArray[Vec4[Float32], 4])
 
   test("fixed lists preserve nested focus paths and buffer layout"):
     case class FixedLayout(data: GBuffer[FixedFields]) derives Layout
@@ -136,8 +136,8 @@ class WorkgroupCompilerTest extends munit.FunSuite:
 
   test("nested fixed lists work as local and shared variables"):
     val code = compile:
-      val local = GIO.declare[GList[GList[Float32, 3], 2]]()
-      val shared = SharedVariable[GList[GList[Float32, 3], 2]]()
+      val local = GIO.declare[SizedArray[SizedArray[Float32, 3], 2]]()
+      val shared = SharedVariable[SizedArray[SizedArray[Float32, 3], 2]]()
       GIO.write(local.focus(_.at(1).at(2)), Float32(9))
       GIO.write(shared.focus(_.at(1).at(2)), GIO.read(local.focus(_.at(1).at(2))))
       GIO.barrier
@@ -163,7 +163,7 @@ class WorkgroupCompilerTest extends munit.FunSuite:
     assert(instructions(code).exists { case (op, args) => op == 17 && args == List(9) })
 
   test("unused nested half bindings register storage capabilities without a read"):
-    case class HalfFields(values: GList[Float16, 8])
+    case class HalfFields(values: SizedArray[Float16, 8])
     case class HalfLayout(uniform: GUniform[HalfFields], storage: GBuffer[HalfFields]) derives Layout
     val ref = Layout[HalfLayout].layoutRef
     val code = new Compiler().compile(GIO.reify(()), Compiler.Compute(Layout[HalfLayout].toBindings(ref), (128, 1, 1)))
@@ -172,11 +172,11 @@ class WorkgroupCompilerTest extends munit.FunSuite:
     assert(Set(9, 4433, 4434).subsetOf(capabilities))
 
   test("finalization orders shared array lengths and reuses shader constants"):
-    case class FixedLayout(output: GBuffer[GArray[UInt32]]) derives Layout
+    case class FixedLayout(output: GBuffer[RuntimeArray[UInt32]]) derives Layout
     val ref = Layout[FixedLayout].layoutRef
     val body = GIO.reify:
-      val a = SharedVariable[GList[Float32, 4]]()
-      val b = SharedVariable[GList[UInt32, 4]]()
+      val a = SharedVariable[SizedArray[Float32, 4]]()
+      val b = SharedVariable[SizedArray[UInt32, 4]]()
       GIO.write(a.focus(_.at(0)), Float32(1))
       GIO.write(b.focus(_.at(0)), UInt32(4))
       GIO.write(ref.output.focus(_.at(0)), GIO.read(b.focus(_.at(0))))

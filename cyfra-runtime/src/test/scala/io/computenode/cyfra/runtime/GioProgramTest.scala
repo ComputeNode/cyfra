@@ -30,8 +30,8 @@ class GioProgramTest extends munit.FunSuite:
   case class EmitProgramParams(inSize: Int, emitN: Int)
   case class EmitProgramUniform(emitN: UInt32)
   case class EmitProgramLayout(
-    in: GBuffer[GArray[UInt32]],
-    out: GBuffer[GArray[UInt32]],
+    in: GBuffer[RuntimeArray[UInt32]],
+    out: GBuffer[RuntimeArray[UInt32]],
     args: GUniform[EmitProgramUniform] = GUniform.fromParams,
   )
 
@@ -64,8 +64,8 @@ class GioProgramTest extends munit.FunSuite:
   case class FilterProgramParams(inSize: Int, filterValue: Int)
   case class FilterProgramUniform(filter: UInt32)
   case class FilterProgramLayout(
-    in: GBuffer[GArray[UInt32]],
-    out: GBuffer[GArray[UInt32]],
+    in: GBuffer[RuntimeArray[UInt32]],
+    out: GBuffer[RuntimeArray[UInt32]],
     params: GUniform[FilterProgramUniform] = GUniform.fromParams,
   )
 
@@ -87,9 +87,9 @@ class GioProgramTest extends munit.FunSuite:
 
   case class EmitFilterParams(inSize: Int, emitN: Int, filterValue: Int)
   case class EmitFilterLayout(
-    inBuffer: GBuffer[GArray[UInt32]],
-    emitBuffer: GBuffer[GArray[UInt32]],
-    filterBuffer: GBuffer[GArray[UInt32]],
+    inBuffer: GBuffer[RuntimeArray[UInt32]],
+    emitBuffer: GBuffer[RuntimeArray[UInt32]],
+    filterBuffer: GBuffer[RuntimeArray[UInt32]],
   )
 
   val emitFilterExecution = GExecution[EmitFilterParams, EmitFilterLayout]()
@@ -103,7 +103,7 @@ class GioProgramTest extends munit.FunSuite:
     )
 
 
-  case class SingleBufferLayout(buf: GBuffer[GArray[UInt32]])
+  case class SingleBufferLayout(buf: GBuffer[RuntimeArray[UInt32]])
 
   val returnFirstRead = CustomFunction[UInt32, UInt32]: v =>
     GIO.reify:

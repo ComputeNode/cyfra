@@ -65,7 +65,7 @@ class VkAllocation(val commandPool: CommandPool.Reset, executionHandler: Executi
           binding.execution = Left(pe)
         case _ => throw new IllegalArgumentException(s"Tried to write to non-VkBinding $buffer")
 
-  extension [T: Value](buffer: GBinding[GArray[T]])
+  extension [T: Value](buffer: GBinding[RuntimeArray[T]])
     def writeArray[ST: ClassTag](arr: Array[ST], offset: Int = 0)(using GCodec[T, ST]): Unit =
       val bb = BufferUtils.createByteBuffer(arr.size * typeStride(Value[T]))
       buffer.write(bb, 0)
@@ -80,15 +80,15 @@ class VkAllocation(val commandPool: CommandPool.Reset, executionHandler: Executi
     def apply[T: Value](length: Int): GBuffer[T] =
       VkBuffer[T](length).tap(bindings += _)
 
-    def apply[ST: ClassTag, T: Value](scalaArray: Array[ST])(using GCodec[T, ST]): GBuffer[GArray[T]] =
+    def apply[ST: ClassTag, T: Value](scalaArray: Array[ST])(using GCodec[T, ST]): GBuffer[RuntimeArray[T]] =
       val bb = BufferUtils.createByteBuffer(scalaArray.length * typeStride(Value[T]))
       GCodec.toByteBuffer[T, ST](bb, scalaArray)
-      GBuffer[GArray[T]](bb)
+      GBuffer[RuntimeArray[T]](bb)
 
     def apply[T: Value](buff: ByteBuffer): GBuffer[T] =
       val v = Value[T]
       val sizeOfT = v.baseTag match
-        case Some(value) if value =:= Tag[GArray] =>
+        case Some(value) if value =:= Tag[RuntimeArray] =>
           typeStride(v.composites.head)
         case _ =>
           typeStride(v)

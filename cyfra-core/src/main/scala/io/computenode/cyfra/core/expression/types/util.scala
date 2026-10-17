@@ -13,9 +13,9 @@ def typeStride(value: Value[?]): Int = value.baseTag match
 
     val numberOfElements = bt match
       case t if t <:< Tag[Vec] || t <:< Tag[Mat] => rows(t)
-      case t if t =:= Tag[GList]                 => value.arrayLength.get
+      case t if t =:= Tag[SizedArray]            => value.arrayLength.get
       case t if t <:< Tag[Tuple]                 => 1
-      case t if t =:= Tag[GArray]                => throw new IllegalArgumentException("GArray has infinite size")
+      case t if t =:= Tag[RuntimeArray]          => throw new IllegalArgumentException("RuntimeArray has infinite size")
       case t                                     => throw new NotImplementedError(s"Unknown type $t")
 
     numberOfElements * elementSize

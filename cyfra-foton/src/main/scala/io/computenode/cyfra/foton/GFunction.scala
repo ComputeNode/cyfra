@@ -13,7 +13,7 @@ import scala.reflect.ClassTag
 import io.computenode.cyfra.core.GCodec.{*, given}
 import io.computenode.cyfra.core.expression.*
 import io.computenode.cyfra.core.expression.types.*
-import io.computenode.cyfra.core.expression.types.GArray.given
+import io.computenode.cyfra.core.expression.types.RuntimeArray.given
 import io.computenode.cyfra.core.memory.{BufferRef, GBinding, GBuffer, GUniform, UniformRef}
 import io.computenode.cyfra.dsl.direct.GioProgram
 import io.computenode.cyfra.dsl.Library.*
@@ -54,27 +54,27 @@ case class GFunction[G: Value, H: Value, R: Value](underlying: GProgram[GFunctio
 object GFunction:
   case class GFunctionParams(size: Int)
 
-  case class GFunctionLayout[G: Value, H: Value, R: Value](in: GBuffer[GArray[H]], out: GBuffer[GArray[R]], uniform: GUniform[G])
+  case class GFunctionLayout[G: Value, H: Value, R: Value](in: GBuffer[RuntimeArray[H]], out: GBuffer[RuntimeArray[R]], uniform: GUniform[G])
 
   object GFunctionLayout:
     given [G: Value, H: Value, R: Value]: Layout[GFunctionLayout[G, H, R]] with
       def fromBindings(bindings: Seq[GBinding[?]]): GFunctionLayout[G, H, R] =
         GFunctionLayout(
-          bindings(0).asInstanceOf[GBuffer[GArray[H]]],
-          bindings(1).asInstanceOf[GBuffer[GArray[R]]],
+          bindings(0).asInstanceOf[GBuffer[RuntimeArray[H]]],
+          bindings(1).asInstanceOf[GBuffer[RuntimeArray[R]]],
           bindings(2).asInstanceOf[GUniform[G]],
         )
       def toBindings(layout: GFunctionLayout[G, H, R]): Seq[GBinding[?]] = Seq(layout.in, layout.out, layout.uniform)
-      def layoutRef: GFunctionLayout[G, H, R] = GFunctionLayout(BufferRef[GArray[H]](0), BufferRef[GArray[R]](1), UniformRef[G](2))
+      def layoutRef: GFunctionLayout[G, H, R] = GFunctionLayout(BufferRef[RuntimeArray[H]](0), BufferRef[RuntimeArray[R]](1), UniformRef[G](2))
 
-  def forEachIndex[G: Value, H: Value, R: Value](fn: (G, Int32, GBuffer[GArray[H]]) => R): GFunction[G, H, R] =
+  def forEachIndex[G: Value, H: Value, R: Value](fn: (G, Int32, GBuffer[RuntimeArray[H]]) => R): GFunction[G, H, R] =
     val program = GioProgram[GFunctionParams, GFunctionLayout[G, H, R]](
       layout = (p: GFunctionParams) => GFunctionLayout[G, H, R](in = GBuffer(p.size), out = GBuffer(p.size), uniform = GUniform()),
       dispatch = (l, p) => StaticDispatch((p.size + 255) / 256, 1, 1),
       workgroupSize = (256, 1, 1),
     ): (layout: GFunctionLayout[G, H, R]) =>
-      given vh: Value[GArray[H]] = layout.in.v
-      given vr: Value[GArray[R]] = layout.out.v
+      given vh: Value[RuntimeArray[H]] = layout.in.v
+      given vr: Value[RuntimeArray[R]] = layout.out.v
       val g = GIO.read(layout.uniform)
       val result = fn(g, Int32(invocationIdX), layout.in)
       GIO.write(layout.out.focus(_.at(invocationIdX)), result)
@@ -88,7 +88,7 @@ object GFunction:
     GFunction.forEachIndex[G, H, R]((g, index, a) => fn(g, a.at(index)))
 
   def from2D[G: Value, H: Value, R: Value](width: Int)(fn: (G, (Int32, Int32), GArray2D[H]) => R): GFunction[G, H, R] =
-    GFunction.forEachIndex[G, H, R]((g: G, index: Int32, a: GBuffer[GArray[H]]) =>
+    GFunction.forEachIndex[G, H, R]((g: G, index: Int32, a: GBuffer[RuntimeArray[H]]) =>
       val x: Int32 = index % width
       val y: Int32 = index / width
       val arr = GArray2D(width, a)
