@@ -26,11 +26,11 @@ class WorkgroupOperations extends FunctionCompilationModule:
         else if tag <:< Tag[SignedIntType] then signed
         else unsigned
       val (code, capability, group) = x.func match
-        case Operator.SubgroupAdd(reduction) =>
-          val operation = reduction match
-            case Operator.GroupReduction.Reduce        => GroupOperation.Reduce
-            case Operator.GroupReduction.InclusiveScan => GroupOperation.InclusiveScan
-            case Operator.GroupReduction.ExclusiveScan => GroupOperation.ExclusiveScan
+        case Operator.SubgroupAdd | Operator.SubgroupInclusiveAdd | Operator.SubgroupExclusiveAdd =>
+          val operation = x.func match
+            case Operator.SubgroupInclusiveAdd => GroupOperation.InclusiveScan
+            case Operator.SubgroupExclusiveAdd => GroupOperation.ExclusiveScan
+            case _                             => GroupOperation.Reduce
           (numeric(Op.OpGroupNonUniformFAdd, Op.OpGroupNonUniformIAdd, Op.OpGroupNonUniformIAdd), Capability.GroupNonUniformArithmetic, List(operation))
         case Operator.SubgroupMin =>
           (
@@ -54,7 +54,7 @@ class WorkgroupOperations extends FunctionCompilationModule:
     case other => IRs(other)(using other.v)
 
   private def isSubgroup(op: Operator): Boolean = op match
-    case _: Operator.SubgroupAdd | Operator.SubgroupMin | Operator.SubgroupMax | Operator.SubgroupBroadcast | Operator.SubgroupBroadcastFirst |
-        Operator.SubgroupShuffle | Operator.SubgroupShuffleXor =>
+    case Operator.SubgroupAdd | Operator.SubgroupInclusiveAdd | Operator.SubgroupExclusiveAdd | Operator.SubgroupMin | Operator.SubgroupMax |
+        Operator.SubgroupBroadcast | Operator.SubgroupBroadcastFirst | Operator.SubgroupShuffle | Operator.SubgroupShuffleXor =>
       true
     case _ => false

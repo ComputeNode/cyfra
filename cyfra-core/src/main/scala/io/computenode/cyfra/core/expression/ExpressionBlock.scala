@@ -41,8 +41,9 @@ case class ExpressionBlock[A](result: Expression[A], body: List[Expression[?]]):
         case Expression.Loop(mainBody, continueBody, _, _) => nested(mainBody, continueBody)
         case Expression.OperationImpure(_, _)              => break(None)
         case Expression.Operation(
-              Operator.WorkgroupBarrier | _: Operator.SubgroupAdd | Operator.SubgroupMin | Operator.SubgroupMax | Operator.SubgroupBroadcast |
-              Operator.SubgroupBroadcastFirst | Operator.SubgroupShuffle | Operator.SubgroupShuffleXor,
+              Operator.WorkgroupBarrier | Operator.SubgroupAdd | Operator.SubgroupInclusiveAdd | Operator.SubgroupExclusiveAdd |
+              Operator.SubgroupMin | Operator.SubgroupMax | Operator.SubgroupBroadcast | Operator.SubgroupBroadcastFirst | Operator.SubgroupShuffle |
+              Operator.SubgroupShuffleXor,
               _,
             ) =>
           break(None)

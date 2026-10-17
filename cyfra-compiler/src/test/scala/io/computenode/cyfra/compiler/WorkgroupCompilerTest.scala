@@ -29,7 +29,7 @@ class WorkgroupCompilerTest extends munit.FunSuite:
     out.result()
 
   test("shared arrays, barriers and subgroup collectives validate"):
-    compile:
+    val code = compile:
       val local = GIO.localInvocationIndex
       val shared = SharedVariable[GList[Float32, 128]]()
       GIO.write(shared.focus(_.at(local)), local.asFloat)
@@ -49,6 +49,8 @@ class WorkgroupCompilerTest extends munit.FunSuite:
         layout.output.focus(_.at(local)),
         sum + minimum + maximum + prefix + exclusive + broadcast + first + shuffled + lane.asFloat + ids.asFloat,
       )
+    val addModes = instructions(code).collect { case (350, args) => args(3) }
+    assertEquals(addModes.sorted, List(0, 1, 2))
 
   test("half constants contain half bits, and scalar and vector conversion validate"):
     val code = compile:

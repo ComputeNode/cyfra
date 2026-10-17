@@ -16,9 +16,9 @@ object Operator:
   abstract class Operator4 extends Operator
 
   case object WorkgroupBarrier extends Operator0
-  enum GroupReduction:
-    case Reduce, InclusiveScan, ExclusiveScan
-  case class SubgroupAdd(reduction: GroupReduction = GroupReduction.Reduce) extends Operator1
+  case object SubgroupAdd extends Operator1
+  case object SubgroupInclusiveAdd extends Operator1
+  case object SubgroupExclusiveAdd extends Operator1
   case object SubgroupMin extends Operator1
   case object SubgroupMax extends Operator1
   case object SubgroupBroadcast extends Operator2

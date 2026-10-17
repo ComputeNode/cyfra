@@ -187,11 +187,11 @@ object GIO:
   def subgroupSize(using GIO): Int32 = Int32(read(io.computenode.cyfra.core.memory.BuildInVariable.SubgroupSize))
 
   def barrier(using GIO): Unit = op[Unit](Operator.WorkgroupBarrier)
-  def subgroupAdd[A <: NumericalType: Value](value: A)(using GIO): A = op(Operator.SubgroupAdd(), value)
+  def subgroupAdd[A <: NumericalType: Value](value: A)(using GIO): A = op(Operator.SubgroupAdd, value)
   def subgroupInclusiveAdd[A <: NumericalType: Value](value: A)(using GIO): A =
-    op(Operator.SubgroupAdd(Operator.GroupReduction.InclusiveScan), value)
+    op(Operator.SubgroupInclusiveAdd, value)
   def subgroupExclusiveAdd[A <: NumericalType: Value](value: A)(using GIO): A =
-    op(Operator.SubgroupAdd(Operator.GroupReduction.ExclusiveScan), value)
+    op(Operator.SubgroupExclusiveAdd, value)
   def subgroupMin[A <: NumericalType: Value](value: A)(using GIO): A = op(Operator.SubgroupMin, value)
   def subgroupMax[A <: NumericalType: Value](value: A)(using GIO): A = op(Operator.SubgroupMax, value)
   def subgroupBroadcast[A <: Scalar: Value](value: A, lane: Int32)(using GIO): A =
