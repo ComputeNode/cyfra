@@ -25,9 +25,9 @@ object F16AttentionScoresProgram:
     def numIterations: Int = (maxSeqLen + BLOCK_SIZE - 1) / BLOCK_SIZE
 
   case class ProgramLayout(
-    q: GBuffer[GArray[Float16]],
-    kCache: GBuffer[GArray[Float16]],
-    scores: GBuffer[GArray[Float32]],
+    q: GBuffer[RuntimeArray[Float16]],
+    kCache: GBuffer[RuntimeArray[Float16]],
+    scores: GBuffer[RuntimeArray[Float32]],
     params: GUniform[AttentionParams],
   ) derives Layout
 
@@ -48,9 +48,9 @@ object F16AttentionScoresProgram:
     GioProgram[Sizes, ProgramLayout](
       layout = s =>
         ProgramLayout(
-          q = GBuffer[GArray[Float16]](s.B * s.T * s.NH * s.headSize),
-          kCache = GBuffer[GArray[Float16]](s.fullCacheSize),
-          scores = GBuffer[GArray[Float32]](s.B * s.T * s.NH * s.maxSeqLen),
+          q = GBuffer[RuntimeArray[Float16]](s.B * s.T * s.NH * s.headSize),
+          kCache = GBuffer[RuntimeArray[Float16]](s.fullCacheSize),
+          scores = GBuffer[RuntimeArray[Float32]](s.B * s.T * s.NH * s.maxSeqLen),
           params = GUniform[AttentionParams](),
         ),
       dispatch = (_, s) => StaticDispatch((s.B * s.T * s.NH, 1, 1)),

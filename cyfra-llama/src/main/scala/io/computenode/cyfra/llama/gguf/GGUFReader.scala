@@ -159,7 +159,7 @@ object GGUFReader:
       buffer.get(result)
       result
 
-    /** Read tensor data directly into a ByteBuffer for GPU upload. Returns little-endian ordered buffer suitable for GBuffer[GArray[UInt32]].
+    /** Read tensor data directly into a ByteBuffer for GPU upload. Returns little-endian ordered buffer suitable for GBuffer[RuntimeArray[UInt32]].
       */
     def readTensorToBuffer(tensor: TensorInfo): ByteBuffer =
       val buffer = ByteBuffer.allocateDirect(tensor.numBytes.toInt).order(ByteOrder.LITTLE_ENDIAN)

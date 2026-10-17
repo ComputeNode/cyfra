@@ -6,7 +6,7 @@ import io.computenode.cyfra.core.Layout
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.core.memory.Focus.*
 import io.computenode.cyfra.dsl.direct.GIO
-import io.computenode.cyfra.core.memory.GShared
+import io.computenode.cyfra.core.memory.SharedVariable
 
 /** F16 Root Mean Square Layer Normalization.
   *
@@ -19,7 +19,8 @@ object F16RMSNormProgram:
     def numIterations: Int = (rowSize + BLOCK_SIZE - 1) / BLOCK_SIZE
     def actualWeightSize: Int = if totalWeightSize < 0 then rowSize else totalWeightSize
 
-  case class ProgramLayout(input: GBuffer[GArray[Float16]], weight: GBuffer[GArray[Float16]], output: GBuffer[GArray[Float16]]) derives Layout
+  case class ProgramLayout(input: GBuffer[RuntimeArray[Float16]], weight: GBuffer[RuntimeArray[Float16]], output: GBuffer[RuntimeArray[Float16]])
+      derives Layout
 
   def forward(sizes: Sizes): GProgram[Sizes, ProgramLayout] =
     val rowSize = sizes.rowSize
@@ -30,16 +31,16 @@ object F16RMSNormProgram:
     GioProgram[Sizes, ProgramLayout](
       layout = s =>
         ProgramLayout(
-          input = GBuffer[GArray[Float16]](s.numRows * s.rowSize),
-          weight = GBuffer[GArray[Float16]](s.actualWeightSize),
-          output = GBuffer[GArray[Float16]](s.numRows * s.rowSize),
+          input = GBuffer[RuntimeArray[Float16]](s.numRows * s.rowSize),
+          weight = GBuffer[RuntimeArray[Float16]](s.actualWeightSize),
+          output = GBuffer[RuntimeArray[Float16]](s.numRows * s.rowSize),
         ),
       dispatch = (_, s) => StaticDispatch((s.numRows, 1, 1)),
       workgroupSize = (BLOCK_SIZE, 1, 1),
     ): layout =>
       val tid = GIO.localInvocationIndex
       val row = GIO.workgroupId.x
-      val shared = GShared[Float32](BLOCK_SIZE)
+      val shared = SharedVariable[SizedArray[Float32, BLOCK_SIZE.type]]()
 
       val rowSizeVal: Int32 = rowSize
       val epsVal: Float32 = eps
@@ -87,7 +88,7 @@ object F16RMSNormProgram:
       }
 
   // Helper for one level of tree reduction
-  private def reduceShared(shared: GShared[Float32], tid: Int32, stride: Int)(using GIO): Unit =
+  private def reduceShared(shared: SharedVariable[SizedArray[Float32, BLOCK_SIZE.type]], tid: Int32, stride: Int)(using GIO): Unit =
     val strideVal: Int32 = stride
     GIO.when(tid < strideVal):
       val current = GIO.read(shared.focus(_.at(tid)))

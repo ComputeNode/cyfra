@@ -5,7 +5,7 @@ import io.computenode.cyfra.core.GProgram.StaticDispatch
 import io.computenode.cyfra.core.Layout
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.core.memory.Focus.*
-import io.computenode.cyfra.core.memory.GShared
+import io.computenode.cyfra.core.memory.SharedVariable
 import io.computenode.cyfra.dsl.direct.GIO
 
 /** GPU-based sampling from thread-local top candidates.
@@ -34,9 +34,9 @@ object F16TopPSampleProgram:
   ) derives Value
 
   case class ProgramLayout(
-    logits: GBuffer[GArray[Float32]],
+    logits: GBuffer[RuntimeArray[Float32]],
     params: GUniform[SampleParams],
-    result: GBuffer[GArray[Int32]], // Output: single sampled token index
+    result: GBuffer[RuntimeArray[Int32]], // Output: single sampled token index
   ) derives Layout
 
   /** Top-p sampling with temperature scaling.
@@ -51,7 +51,8 @@ object F16TopPSampleProgram:
     val numIterations = sizes.numIterations
 
     GioProgram[Sizes, ProgramLayout](
-      layout = _ => ProgramLayout(logits = GBuffer[GArray[Float32]](vocabSize), params = GUniform[SampleParams](), result = GBuffer[GArray[Int32]](1)),
+      layout = _ =>
+        ProgramLayout(logits = GBuffer[RuntimeArray[Float32]](vocabSize), params = GUniform[SampleParams](), result = GBuffer[RuntimeArray[Int32]](1)),
       dispatch = (_, _) => StaticDispatch((1, 1, 1)),
       workgroupSize = (BLOCK_SIZE, 1, 1),
     ): layout =>
@@ -65,11 +66,11 @@ object F16TopPSampleProgram:
       val randomValue: Float32 = runtimeParams.randomValue
 
       // Shared memory for reductions
-      val sharedMax = GShared[Float32](NUM_WARPS)
-      val sharedSum = GShared[Float32](NUM_WARPS)
+      val sharedMax = SharedVariable[SizedArray[Float32, NUM_WARPS.type]]()
+      val sharedSum = SharedVariable[SizedArray[Float32, NUM_WARPS.type]]()
       // 256 thread-local candidates
-      val sharedProbs = GShared[Float32](BLOCK_SIZE)
-      val sharedIndices = GShared[Int32](BLOCK_SIZE)
+      val sharedProbs = SharedVariable[SizedArray[Float32, BLOCK_SIZE.type]]()
+      val sharedIndices = SharedVariable[SizedArray[Int32, BLOCK_SIZE.type]]()
 
       // ========== PHASE 1: SOFTMAX ==========
       // Step 1a: Each thread finds local max

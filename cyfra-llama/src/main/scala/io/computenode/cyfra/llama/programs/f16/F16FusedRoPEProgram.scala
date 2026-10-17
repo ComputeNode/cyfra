@@ -21,10 +21,10 @@ object F16FusedRoPEProgram:
     def totalPairs: Int = totalQPairs + totalKPairs
 
   case class ProgramLayout(
-    qIn: GBuffer[GArray[Float16]],
-    kIn: GBuffer[GArray[Float16]],
-    qOut: GBuffer[GArray[Float16]],
-    kOut: GBuffer[GArray[Float16]],
+    qIn: GBuffer[RuntimeArray[Float16]],
+    kIn: GBuffer[RuntimeArray[Float16]],
+    qOut: GBuffer[RuntimeArray[Float16]],
+    kOut: GBuffer[RuntimeArray[Float16]],
     params: GUniform[AttentionParams],
   ) derives Layout
 
@@ -42,10 +42,10 @@ object F16FusedRoPEProgram:
     GioProgram[Sizes, ProgramLayout](
       layout = s =>
         ProgramLayout(
-          qIn = GBuffer[GArray[Float16]](s.B * s.T * s.numHeadsQ * s.headSize),
-          kIn = GBuffer[GArray[Float16]](s.B * s.T * s.numHeadsK * s.headSize),
-          qOut = GBuffer[GArray[Float16]](s.B * s.T * s.numHeadsQ * s.headSize),
-          kOut = GBuffer[GArray[Float16]](s.B * s.T * s.numHeadsK * s.headSize),
+          qIn = GBuffer[RuntimeArray[Float16]](s.B * s.T * s.numHeadsQ * s.headSize),
+          kIn = GBuffer[RuntimeArray[Float16]](s.B * s.T * s.numHeadsK * s.headSize),
+          qOut = GBuffer[RuntimeArray[Float16]](s.B * s.T * s.numHeadsQ * s.headSize),
+          kOut = GBuffer[RuntimeArray[Float16]](s.B * s.T * s.numHeadsK * s.headSize),
           params = GUniform[AttentionParams](),
         ),
       dispatch = (_, s) => StaticDispatch(((s.totalPairs + BLOCK_SIZE - 1) / BLOCK_SIZE, 1, 1)),

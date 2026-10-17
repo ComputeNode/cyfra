@@ -5,7 +5,7 @@ import io.computenode.cyfra.core.GProgram.StaticDispatch
 import io.computenode.cyfra.core.Layout
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.core.memory.Focus.*
-import io.computenode.cyfra.core.memory.{GBuffer, GShared}
+import io.computenode.cyfra.core.memory.{GBuffer, SharedVariable}
 import io.computenode.cyfra.dsl.direct.GIO
 import io.computenode.cyfra.llama.programs.AttentionParams
 
@@ -43,9 +43,9 @@ object F16AttentionOutputProgram:
     def dispatchZ: Int = B * T // batch × positions (1 for decode)
 
   case class ProgramLayout(
-    attnWeights: GBuffer[GArray[Float32]],
-    vCache: GBuffer[GArray[Float16]],
-    output: GBuffer[GArray[Float16]],
+    attnWeights: GBuffer[RuntimeArray[Float32]],
+    vCache: GBuffer[RuntimeArray[Float16]],
+    output: GBuffer[RuntimeArray[Float16]],
     params: GUniform[AttentionParams],
   ) derives Layout
 
@@ -65,9 +65,9 @@ object F16AttentionOutputProgram:
     GioProgram[Sizes, ProgramLayout](
       layout = s =>
         ProgramLayout(
-          attnWeights = GBuffer[GArray[Float32]](s.B * s.T * s.NH * s.maxSeqLen),
-          vCache = GBuffer[GArray[Float16]](s.fullCacheSize),
-          output = GBuffer[GArray[Float16]](s.B * s.T * s.NH * s.headSize),
+          attnWeights = GBuffer[RuntimeArray[Float32]](s.B * s.T * s.NH * s.maxSeqLen),
+          vCache = GBuffer[RuntimeArray[Float16]](s.fullCacheSize),
+          output = GBuffer[RuntimeArray[Float16]](s.B * s.T * s.NH * s.headSize),
           params = GUniform[AttentionParams](),
         ),
       // 3D dispatch: [dimQuads, heads, batch*T]
@@ -87,7 +87,7 @@ object F16AttentionOutputProgram:
       val seqLen: Int32 = runtimeParams.seqLen
 
       // Shared memory for cross-warp reduction (4 warps × 4 dims)
-      val sharedSums = GShared[Vec4[Float32]](NUM_WARPS)
+      val sharedSums = SharedVariable[SizedArray[Vec4[Float32], NUM_WARPS.type]]()
 
       // KV head from Q head - only ONE division (gqaRatio is compile-time)
       val kvHeadIdx = GIO.eval(headIdx / gqaRatio)

@@ -22,7 +22,7 @@ object F16AttentionSoftmaxProgram:
     def numIterations: Int = (maxSeqLen + BLOCK_SIZE - 1) / BLOCK_SIZE
 
   case class ProgramLayout(
-    scores: GBuffer[GArray[Float32]], // in-place: [B, T, NH, maxSeqLen]
+    scores: GBuffer[RuntimeArray[Float32]], // in-place: [B, T, NH, maxSeqLen]
     params: GUniform[AttentionParams],
   ) derives Layout
 
@@ -34,7 +34,7 @@ object F16AttentionSoftmaxProgram:
     val numIterations = sizes.numIterations
 
     GioProgram[Sizes, ProgramLayout](
-      layout = s => ProgramLayout(scores = GBuffer[GArray[Float32]](s.B * s.T * s.NH * s.maxSeqLen), params = GUniform[AttentionParams]()),
+      layout = s => ProgramLayout(scores = GBuffer[RuntimeArray[Float32]](s.B * s.T * s.NH * s.maxSeqLen), params = GUniform[AttentionParams]()),
       dispatch = (_, s) => StaticDispatch((s.numRows, 1, 1)),
       workgroupSize = (BLOCK_SIZE, 1, 1),
     ): layout =>

@@ -14,15 +14,16 @@ import io.computenode.cyfra.dsl.direct.GIO
 object F16SwiGLUProgram:
   case class Sizes(numElements: Int)
 
-  case class ProgramLayout(gate: GBuffer[GArray[Float16]], up: GBuffer[GArray[Float16]], output: GBuffer[GArray[Float16]]) derives Layout
+  case class ProgramLayout(gate: GBuffer[RuntimeArray[Float16]], up: GBuffer[RuntimeArray[Float16]], output: GBuffer[RuntimeArray[Float16]])
+      derives Layout
 
   def forward(sizes: Sizes): GProgram[Sizes, ProgramLayout] =
     GioProgram[Sizes, ProgramLayout](
       layout = s =>
         ProgramLayout(
-          gate = GBuffer[GArray[Float16]](s.numElements),
-          up = GBuffer[GArray[Float16]](s.numElements),
-          output = GBuffer[GArray[Float16]](s.numElements),
+          gate = GBuffer[RuntimeArray[Float16]](s.numElements),
+          up = GBuffer[RuntimeArray[Float16]](s.numElements),
+          output = GBuffer[RuntimeArray[Float16]](s.numElements),
         ),
       dispatch = (_, s) => StaticDispatch(((s.numElements + 255) / 256, 1, 1)),
       workgroupSize = (256, 1, 1),

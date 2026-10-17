@@ -5,7 +5,7 @@ import io.computenode.cyfra.core.GProgram.StaticDispatch
 import io.computenode.cyfra.core.Layout
 import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.core.memory.Focus.*
-import io.computenode.cyfra.core.memory.{GBuffer, GShared}
+import io.computenode.cyfra.core.memory.{GBuffer, SharedVariable}
 import io.computenode.cyfra.dsl.direct.GIO
 
 /** F16 matrix-vector multiply with Vec4-packed weights.
@@ -35,11 +35,15 @@ object F16MatmulVecHybridProgram:
     def numVecIterations: Int = inFeaturesDiv4 / BLOCK_SIZE
     def actualWeightVec4: Int = if totalWeightVec4 < 0 then outFeatures * inFeaturesDiv4 else totalWeightVec4
 
-  case class ProgramLayout(weight: GBuffer[GArray[Vec4[Float16]]], input: GBuffer[GArray[Float16]], output: GBuffer[GArray[Float16]]) derives Layout
+  case class ProgramLayout(weight: GBuffer[RuntimeArray[Vec4[Float16]]], input: GBuffer[RuntimeArray[Float16]], output: GBuffer[RuntimeArray[Float16]])
+      derives Layout
 
   /** Layout with Vec4 input for optimal memory bandwidth. */
-  case class ProgramLayoutVec4(weight: GBuffer[GArray[Vec4[Float16]]], input: GBuffer[GArray[Vec4[Float16]]], output: GBuffer[GArray[Float16]])
-      derives Layout
+  case class ProgramLayoutVec4(
+    weight: GBuffer[RuntimeArray[Vec4[Float16]]],
+    input: GBuffer[RuntimeArray[Vec4[Float16]]],
+    output: GBuffer[RuntimeArray[Float16]],
+  ) derives Layout
 
   def forward(sizes: Sizes): GProgram[Sizes, ProgramLayout] =
     // Compile-time constants (embedded in shader as literals)
@@ -53,9 +57,9 @@ object F16MatmulVecHybridProgram:
     GioProgram[Sizes, ProgramLayout](
       layout = s =>
         ProgramLayout(
-          weight = GBuffer[GArray[Vec4[Float16]]](s.actualWeightVec4),
-          input = GBuffer[GArray[Float16]](s.batchSize * s.inFeatures),
-          output = GBuffer[GArray[Float16]](s.totalOutputs),
+          weight = GBuffer[RuntimeArray[Vec4[Float16]]](s.actualWeightVec4),
+          input = GBuffer[RuntimeArray[Float16]](s.batchSize * s.inFeatures),
+          output = GBuffer[RuntimeArray[Float16]](s.totalOutputs),
         ),
       dispatch = (_, s) => StaticDispatch((s.numWorkgroups, 1, 1)),
       workgroupSize = (BLOCK_SIZE, 1, 1),
@@ -66,7 +70,7 @@ object F16MatmulVecHybridProgram:
       val warpId: Int32 = tid / WARP_SIZE
 
       // Shared memory for partial sums from each warp (4 rows per workgroup)
-      val sharedSums = GShared[Vec4[Float32]](NUM_WARPS)
+      val sharedSums = SharedVariable[SizedArray[Vec4[Float32], NUM_WARPS.type]]()
 
       // Materialize indices before the hot loop.
       // Pre-compute all indices outside the hot loop
@@ -151,9 +155,9 @@ object F16MatmulVecHybridProgram:
     GioProgram[Sizes, ProgramLayoutVec4](
       layout = s =>
         ProgramLayoutVec4(
-          weight = GBuffer[GArray[Vec4[Float16]]](s.actualWeightVec4),
-          input = GBuffer[GArray[Vec4[Float16]]](s.batchSize * s.inFeaturesDiv4),
-          output = GBuffer[GArray[Float16]](s.totalOutputs),
+          weight = GBuffer[RuntimeArray[Vec4[Float16]]](s.actualWeightVec4),
+          input = GBuffer[RuntimeArray[Vec4[Float16]]](s.batchSize * s.inFeaturesDiv4),
+          output = GBuffer[RuntimeArray[Float16]](s.totalOutputs),
         ),
       dispatch = (_, s) => StaticDispatch((s.numWorkgroups, 1, 1)),
       workgroupSize = (BLOCK_SIZE, 1, 1),
@@ -163,7 +167,7 @@ object F16MatmulVecHybridProgram:
       val laneId: Int32 = tid % WARP_SIZE
       val warpId: Int32 = tid / WARP_SIZE
 
-      val sharedSums = GShared[Vec4[Float32]](NUM_WARPS)
+      val sharedSums = SharedVariable[SizedArray[Vec4[Float32], NUM_WARPS.type]]()
 
       // Pre-compute all indices outside the hot loop
       val firstRow = GIO.eval(workgroupId * NUM_ROWS)

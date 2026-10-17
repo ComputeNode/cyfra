@@ -8,7 +8,7 @@ import io.computenode.cyfra.runtime.VkCyfraRuntime
 import io.computenode.cyfra.spirvtools.{SpirvToolsRunner, SpirvValidator}
 
 class WorkgroupPrimitivesTest extends munit.FunSuite:
-  case class Buffers(output: GBuffer[GArray[Int32]]) derives Layout
+  case class Buffers(output: GBuffer[RuntimeArray[Int32]]) derives Layout
 
   private def run(body: Buffers => GIO ?=> Unit): Array[Int] =
     val program = GioProgram[Unit, Buffers](
@@ -21,7 +21,7 @@ class WorkgroupPrimitivesTest extends munit.FunSuite:
     VkCyfraRuntime.using:
       summon[VkCyfraRuntime].withAllocation: allocation =>
         import allocation.*
-        val result = GBuffer[GArray[Int32]](256)
+        val result = GBuffer[RuntimeArray[Int32]](256)
         program.execute((), Buffers(result))
         result.readArray(output)
     output
@@ -29,7 +29,7 @@ class WorkgroupPrimitivesTest extends munit.FunSuite:
   test("workgroup builtins and shared memory communicate across invocations"):
     val result = run: layout =>
       val local = GIO.localInvocationIndex
-      val shared = GShared[Int32](128)
+      val shared = SharedVariable[SizedArray[Int32, 128]]()
       GIO.write(shared.focus(_.at(local)), GIO.invocationId)
       GIO.barrier
       val neighbor = GIO.read(shared.focus(_.at((local + 1) % 128)))

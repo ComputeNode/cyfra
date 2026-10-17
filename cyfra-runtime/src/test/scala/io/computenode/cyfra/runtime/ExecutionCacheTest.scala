@@ -7,7 +7,7 @@ import io.computenode.cyfra.core.expression.types.given
 import io.computenode.cyfra.core.memory.BuildInVariable.GlobalInvocationId
 
 class ExecutionCacheTest extends munit.FunSuite:
-  case class Buffers(input: GBuffer[GArray[Float32]], output: GBuffer[GArray[Float32]]) derives Layout
+  case class Buffers(input: GBuffer[RuntimeArray[Float32]], output: GBuffer[RuntimeArray[Float32]]) derives Layout
 
   private val copy = GioProgram[Int, Buffers](
     layout = _ => Buffers(GBuffer(256), GBuffer(256)),
@@ -82,9 +82,9 @@ class ExecutionCacheTest extends munit.FunSuite:
 
   test("barriers cover DMA read-after-write, write-after-read and write-after-write"):
     import ExecutionHandler.{BufferCopyStep, PipelineBarrier, insertBarriers}
-    val a = new GProgram.BufferLengthSpec[GArray[Float32]](256)
-    val b = new GProgram.BufferLengthSpec[GArray[Float32]](256)
-    val c = new GProgram.BufferLengthSpec[GArray[Float32]](256)
+    val a = new GProgram.BufferLengthSpec[RuntimeArray[Float32]](256)
+    val b = new GProgram.BufferLengthSpec[RuntimeArray[Float32]](256)
+    val c = new GProgram.BufferLengthSpec[RuntimeArray[Float32]](256)
     val first = BufferCopyStep(a, b, 1024)
     for next <- Seq(BufferCopyStep(b, c, 1024), BufferCopyStep(c, a, 1024), BufferCopyStep(c, b, 1024)) do
       assertEquals(insertBarriers(Seq(first, next)), Seq(first, PipelineBarrier, next))

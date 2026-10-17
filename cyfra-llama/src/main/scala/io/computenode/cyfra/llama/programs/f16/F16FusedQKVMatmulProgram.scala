@@ -43,13 +43,13 @@ object F16FusedQKVMatmulProgram:
     def numVecIterations: Int = (inFeaturesDiv4 + WARP_SIZE - 1) / WARP_SIZE
 
   case class ProgramLayout(
-    wq: GBuffer[GArray[Vec4[Float16]]],
-    wk: GBuffer[GArray[Vec4[Float16]]],
-    wv: GBuffer[GArray[Vec4[Float16]]],
-    input: GBuffer[GArray[Float16]],
-    q: GBuffer[GArray[Float16]],
-    k: GBuffer[GArray[Float16]],
-    v: GBuffer[GArray[Float16]],
+    wq: GBuffer[RuntimeArray[Vec4[Float16]]],
+    wk: GBuffer[RuntimeArray[Vec4[Float16]]],
+    wv: GBuffer[RuntimeArray[Vec4[Float16]]],
+    input: GBuffer[RuntimeArray[Float16]],
+    q: GBuffer[RuntimeArray[Float16]],
+    k: GBuffer[RuntimeArray[Float16]],
+    v: GBuffer[RuntimeArray[Float16]],
   ) derives Layout
 
   def forward(sizes: Sizes): GProgram[Sizes, ProgramLayout] =
@@ -67,13 +67,13 @@ object F16FusedQKVMatmulProgram:
     GioProgram[Sizes, ProgramLayout](
       layout = s =>
         ProgramLayout(
-          wq = GBuffer[GArray[Vec4[Float16]]](s.totalWqVec4),
-          wk = GBuffer[GArray[Vec4[Float16]]](s.totalWkVec4),
-          wv = GBuffer[GArray[Vec4[Float16]]](s.totalWvVec4),
-          input = GBuffer[GArray[Float16]](s.batchSize * s.inFeatures),
-          q = GBuffer[GArray[Float16]](s.totalQOutputs),
-          k = GBuffer[GArray[Float16]](s.totalKOutputs),
-          v = GBuffer[GArray[Float16]](s.totalVOutputs),
+          wq = GBuffer[RuntimeArray[Vec4[Float16]]](s.totalWqVec4),
+          wk = GBuffer[RuntimeArray[Vec4[Float16]]](s.totalWkVec4),
+          wv = GBuffer[RuntimeArray[Vec4[Float16]]](s.totalWvVec4),
+          input = GBuffer[RuntimeArray[Float16]](s.batchSize * s.inFeatures),
+          q = GBuffer[RuntimeArray[Float16]](s.totalQOutputs),
+          k = GBuffer[RuntimeArray[Float16]](s.totalKOutputs),
+          v = GBuffer[RuntimeArray[Float16]](s.totalVOutputs),
         ),
       dispatch = (_, s) => StaticDispatch((s.numWorkgroups, 1, 1)),
       workgroupSize = (BLOCK_SIZE, 1, 1),
@@ -106,7 +106,9 @@ object F16FusedQKVMatmulProgram:
       val isV = !isQ && !isK
 
       // Helper function to compute matmul for a given buffer and offset
-      def computeMatmul(weightBuffer: GBuffer[GArray[Vec4[Float16]]], weightOffset: Int32, outFeatures: Int32, localIdx: Int32)(using GIO): Float32 =
+      def computeMatmul(weightBuffer: GBuffer[RuntimeArray[Vec4[Float16]]], weightOffset: Int32, outFeatures: Int32, localIdx: Int32)(using
+        GIO,
+      ): Float32 =
         val batch = localIdx / outFeatures
         val outIdx = localIdx % outFeatures
         val localSum = GIO.foldRepeat[Float32](numVecIterations, 0.0f, unroll = true) { (iter, sum) =>

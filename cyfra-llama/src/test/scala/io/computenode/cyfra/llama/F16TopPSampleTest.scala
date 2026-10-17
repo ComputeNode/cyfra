@@ -89,9 +89,9 @@ class F16TopPSampleTest extends FunSuite:
 
       region.runUnsafe(
         init = ProgramLayout(
-          logits = GBuffer[GArray[Float32]](logitsBuf),
+          logits = GBuffer[RuntimeArray[Float32]](logitsBuf),
           params = GUniform[SampleParams](paramsBuf),
-          result = GBuffer[GArray[Int32]](resultBuf),
+          result = GBuffer[RuntimeArray[Int32]](resultBuf),
         ),
         onDone = layout =>
           layout.result.read(resultBuf)
@@ -136,9 +136,9 @@ class F16TopPSampleTest extends FunSuite:
 
       region.runUnsafe(
         init = ProgramLayout(
-          logits = GBuffer[GArray[Float32]](logitsBuf),
+          logits = GBuffer[RuntimeArray[Float32]](logitsBuf),
           params = GUniform[SampleParams](paramsBuf),
-          result = GBuffer[GArray[Int32]](resultBuf),
+          result = GBuffer[RuntimeArray[Int32]](resultBuf),
         ),
         onDone = layout =>
           layout.result.read(resultBuf)
@@ -182,9 +182,9 @@ class F16TopPSampleTest extends FunSuite:
 
       region.runUnsafe(
         init = ProgramLayout(
-          logits = GBuffer[GArray[Float32]](logitsBuf),
+          logits = GBuffer[RuntimeArray[Float32]](logitsBuf),
           params = GUniform[SampleParams](paramsBuf),
-          result = GBuffer[GArray[Int32]](resultBuf),
+          result = GBuffer[RuntimeArray[Int32]](resultBuf),
         ),
         onDone = layout =>
           layout.result.read(resultBuf)
@@ -231,9 +231,9 @@ class F16TopPSampleTest extends FunSuite:
 
       region.runUnsafe(
         init = ProgramLayout(
-          logits = GBuffer[GArray[Float32]](logitsBuf),
+          logits = GBuffer[RuntimeArray[Float32]](logitsBuf),
           params = GUniform[SampleParams](paramsBuf),
-          result = GBuffer[GArray[Int32]](resultBuf),
+          result = GBuffer[RuntimeArray[Int32]](resultBuf),
         ),
         onDone = layout =>
           layout.result.read(resultBuf)
@@ -274,9 +274,9 @@ class F16TopPSampleTest extends FunSuite:
 
       region.runUnsafe(
         init = ProgramLayout(
-          logits = GBuffer[GArray[Float32]](logitsBuf),
+          logits = GBuffer[RuntimeArray[Float32]](logitsBuf),
           params = GUniform[SampleParams](paramsBuf),
-          result = GBuffer[GArray[Int32]](resultBuf),
+          result = GBuffer[RuntimeArray[Int32]](resultBuf),
         ),
         onDone = layout =>
           layout.result.read(resultBuf)
@@ -315,7 +315,7 @@ class F16TopPSampleTest extends FunSuite:
         val resultBuf = allocateBuffer(1)
         val region = GBufferRegion.allocate[ProgramLayout].map(layout => program.execute(sizes, layout))
         region.runUnsafe(
-          init = ProgramLayout(GBuffer[GArray[Float32]](logitsBuf), GUniform[SampleParams](paramsBuf), GBuffer[GArray[Int32]](resultBuf)),
+          init = ProgramLayout(GBuffer[RuntimeArray[Float32]](logitsBuf), GUniform[SampleParams](paramsBuf), GBuffer[RuntimeArray[Int32]](resultBuf)),
           onDone = layout => layout.result.read(resultBuf),
         )
         assertEquals(resultBuf.getInt(0), expected.getOrElse(candidates.head), s"temperature=$temperature random=$randomValue")
@@ -361,9 +361,9 @@ class F16TopPSampleTest extends FunSuite:
 
         region.runUnsafe(
           init = ProgramLayout(
-            logits = GBuffer[GArray[Float32]](logitsBuf),
+            logits = GBuffer[RuntimeArray[Float32]](logitsBuf),
             params = GUniform[SampleParams](paramsBuf),
-            result = GBuffer[GArray[Int32]](resultBuf),
+            result = GBuffer[RuntimeArray[Int32]](resultBuf),
           ),
           onDone = _ => (),
         )
@@ -384,9 +384,9 @@ class F16TopPSampleTest extends FunSuite:
 
         region.runUnsafe(
           init = ProgramLayout(
-            logits = GBuffer[GArray[Float32]](logitsBuf),
+            logits = GBuffer[RuntimeArray[Float32]](logitsBuf),
             params = GUniform[SampleParams](paramsBuf),
-            result = GBuffer[GArray[Int32]](resultBuf),
+            result = GBuffer[RuntimeArray[Int32]](resultBuf),
           ),
           onDone = _ => (),
         )

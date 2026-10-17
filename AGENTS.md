@@ -65,7 +65,7 @@ io.computenode.cyfra
 │   ├── Expression.*        # Expression tree nodes
 │   ├── algebra/            # ScalarAlgebra, VectorAlgebra (givens)
 │   ├── binding/            # GBuffer, GUniform, GShared
-│   ├── collections/        # GArray, GArray2D, GSeq
+│   ├── collections/        # RuntimeArray, GArray2D, GSeq
 │   ├── control/            # When (conditionals), Pure, Scope
 │   ├── gio/                # GIO monad for GPU operations
 │   ├── library/            # Functions, Math3D, Color, Random

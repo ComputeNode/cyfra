@@ -28,7 +28,8 @@ object F16OutputVec4Program:
     def numWorkgroups: Int = (totalOutputs + NUM_ROWS - 1) / NUM_ROWS
     def numVecIterations: Int = (hiddenSizeDiv4 + WARP_SIZE - 1) / WARP_SIZE
 
-  case class ProgramLayout(input: GBuffer[GArray[Float16]], weight: GBuffer[GArray[Vec4[Float16]]], output: GBuffer[GArray[Float32]]) derives Layout
+  case class ProgramLayout(input: GBuffer[RuntimeArray[Float16]], weight: GBuffer[RuntimeArray[Vec4[Float16]]], output: GBuffer[RuntimeArray[Float32]])
+      derives Layout
 
   def forward(sizes: Sizes): GProgram[Sizes, ProgramLayout] =
     val hiddenSize = sizes.hiddenSize
@@ -39,9 +40,9 @@ object F16OutputVec4Program:
     GioProgram[Sizes, ProgramLayout](
       layout = s =>
         ProgramLayout(
-          input = GBuffer[GArray[Float16]](s.batchSize * s.hiddenSize),
-          weight = GBuffer[GArray[Vec4[Float16]]](s.vocabSize * s.hiddenSizeDiv4),
-          output = GBuffer[GArray[Float32]](s.totalOutputs),
+          input = GBuffer[RuntimeArray[Float16]](s.batchSize * s.hiddenSize),
+          weight = GBuffer[RuntimeArray[Vec4[Float16]]](s.vocabSize * s.hiddenSizeDiv4),
+          output = GBuffer[RuntimeArray[Float32]](s.totalOutputs),
         ),
       dispatch = (_, s) => StaticDispatch((s.numWorkgroups, 1, 1)),
       workgroupSize = (BLOCK_SIZE, 1, 1),

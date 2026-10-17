@@ -37,10 +37,10 @@ object F16FusedKVCacheWriteProgram:
     def fullCacheSize: Int = L * maxSeqLen * kvSizePerPos
 
   case class ProgramLayout(
-    k: GBuffer[GArray[Float16]],
-    v: GBuffer[GArray[Float16]],
-    kCache: GBuffer[GArray[Float16]],
-    vCache: GBuffer[GArray[Float16]],
+    k: GBuffer[RuntimeArray[Float16]],
+    v: GBuffer[RuntimeArray[Float16]],
+    kCache: GBuffer[RuntimeArray[Float16]],
+    vCache: GBuffer[RuntimeArray[Float16]],
     params: GUniform[AttentionParams],
   ) derives Layout
 
@@ -60,10 +60,10 @@ object F16FusedKVCacheWriteProgram:
     GioProgram[Sizes, ProgramLayout](
       layout = s =>
         ProgramLayout(
-          k = GBuffer[GArray[Float16]](s.totalKElements),
-          v = GBuffer[GArray[Float16]](s.totalVElements),
-          kCache = GBuffer[GArray[Float16]](s.fullCacheSize),
-          vCache = GBuffer[GArray[Float16]](s.fullCacheSize),
+          k = GBuffer[RuntimeArray[Float16]](s.totalKElements),
+          v = GBuffer[RuntimeArray[Float16]](s.totalVElements),
+          kCache = GBuffer[RuntimeArray[Float16]](s.fullCacheSize),
+          vCache = GBuffer[RuntimeArray[Float16]](s.fullCacheSize),
           params = GUniform[AttentionParams](),
         ),
       dispatch = (_, s) => StaticDispatch(((s.totalElements + 255) / 256, 1, 1)),

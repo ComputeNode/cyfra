@@ -15,15 +15,16 @@ object F16EmbeddingProgram:
   case class Sizes(seqLen: Int, hiddenSize: Int, vocabSize: Int):
     def totalOutputs: Int = seqLen * hiddenSize
 
-  case class ProgramLayout(tokens: GBuffer[GArray[Int32]], embeddings: GBuffer[GArray[Float16]], output: GBuffer[GArray[Float16]]) derives Layout
+  case class ProgramLayout(tokens: GBuffer[RuntimeArray[Int32]], embeddings: GBuffer[RuntimeArray[Float16]], output: GBuffer[RuntimeArray[Float16]])
+      derives Layout
 
   def forward(sizes: Sizes): GProgram[Sizes, ProgramLayout] =
     GioProgram[Sizes, ProgramLayout](
       layout = s =>
         ProgramLayout(
-          tokens = GBuffer[GArray[Int32]](s.seqLen),
-          embeddings = GBuffer[GArray[Float16]](s.vocabSize * s.hiddenSize),
-          output = GBuffer[GArray[Float16]](s.totalOutputs),
+          tokens = GBuffer[RuntimeArray[Int32]](s.seqLen),
+          embeddings = GBuffer[RuntimeArray[Float16]](s.vocabSize * s.hiddenSize),
+          output = GBuffer[RuntimeArray[Float16]](s.totalOutputs),
         ),
       dispatch = (_, s) => StaticDispatch(((s.totalOutputs + 255) / 256, 1, 1)),
       workgroupSize = (256, 1, 1),
