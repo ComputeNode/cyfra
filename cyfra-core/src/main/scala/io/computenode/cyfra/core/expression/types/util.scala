@@ -7,10 +7,23 @@ import izumi.reflect.Tag
 private[types] def const[A: Value](value: Any): A =
   Value[A].extract(ExpressionBlock(Expression.Constant[A](value)))
 
-def typeStride(value: Value[?]): Int =
-  if value.baseTag.exists(_ <:< Tag[Tuple]) then return value.composites.map(typeStride).sum
+def typeStride(value: Value[?]): Int = value.baseTag match
+  case Some(bt) =>
+    val elementSize = value.composites.map(typeStride).sum
 
-  val elementSize = value.bottomComposite.tag match
+    val numberOfElements = bt match
+      case t if t <:< Tag[Vec] || t <:< Tag[Mat] => rows(t)
+      case t if t =:= Tag[SizedArray]            => value.arrayLength.get
+      case t if t <:< Tag[Tuple]                 => 1
+      case t if t =:= Tag[RuntimeArray]          => throw new IllegalArgumentException("RuntimeArray has infinite size")
+      case t                                     => throw new NotImplementedError(s"Unknown type $t")
+
+    numberOfElements * elementSize
+  case None =>
+    scalarSize(value)
+
+def scalarSize(value: Value[?]) =
+  value.tag match
     case t if t =:= Tag[Bool]    => throw new IllegalArgumentException("Bool has no size")
     case t if t =:= Tag[Float16] => 2
     case t if t =:= Tag[Float32] => 4
@@ -19,25 +32,6 @@ def typeStride(value: Value[?]): Int =
     case t if t =:= Tag[UInt16]  => 2
     case t if t =:= Tag[UInt32]  => 4
     case t                       => throw new NotImplementedError(s"Unknown type $t")
-
-  val numberOfElements = value.baseTag match
-    case None                         => 1
-    case Some(t) if t =:= Tag[Vec2]   => 2
-    case Some(t) if t =:= Tag[Vec3]   => 3
-    case Some(t) if t =:= Tag[Vec4]   => 4
-    case Some(t) if t =:= Tag[Mat2x2] => 4
-    case Some(t) if t =:= Tag[Mat2x3] => 6
-    case Some(t) if t =:= Tag[Mat2x4] => 8
-    case Some(t) if t =:= Tag[Mat3x2] => 6
-    case Some(t) if t =:= Tag[Mat3x3] => 9
-    case Some(t) if t =:= Tag[Mat3x4] => 12
-    case Some(t) if t =:= Tag[Mat4x2] => 8
-    case Some(t) if t =:= Tag[Mat4x3] => 12
-    case Some(t) if t =:= Tag[Mat4x4] => 16
-    case Some(t) if t =:= Tag[GArray] => throw new IllegalArgumentException("GArray has infinite size")
-    case t                            => throw new NotImplementedError(s"Unknown type $t")
-
-  numberOfElements * elementSize
 
 def rows(tag: Tag[?]): Int =
   tag match

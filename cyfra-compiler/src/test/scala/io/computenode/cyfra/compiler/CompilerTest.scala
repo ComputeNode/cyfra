@@ -17,7 +17,7 @@ import io.computenode.cyfra.spirvtools.SpirvValidator.Enable
 class CompilerTest extends munit.FunSuite:
   val compiler = new Compiler("all")
 
-  case class TestLayout(in1: GBuffer[GArray[Int32]], in2: GUniform[Vec3[UInt32]]) derives Layout
+  case class TestLayout(in1: GBuffer[RuntimeArray[Int32]], in2: GUniform[Vec3[UInt32]]) derives Layout
 
   test("compile simple case"):
     val ref = Layout[TestLayout].layoutRef

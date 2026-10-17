@@ -24,8 +24,8 @@ case class ExpressionBlock[A](result: Expression[A], body: List[Expression[?]]):
         (declared, blocks.foldLeft(free)((f, b) => f ++ (b.freeVariables.getOrElse(break(None)) -- declared)))
       expr match
         case e if e.trusted                          => acc
-        case Expression.VariableDeclare(variable, _)     => (declared + variable.id, free)
-        case Expression.Read(focus, _) =>
+        case Expression.VariableDeclare(variable, _) => (declared + variable.id, free)
+        case Expression.Read(focus, _)               =>
           focus.getRoot match
             case variable: LocalVariable[?] => use(variable.id)
             case _: GUniform[?]             => acc
@@ -40,8 +40,15 @@ case class ExpressionBlock[A](result: Expression[A], body: List[Expression[?]]):
         case Expression.Branch(_, ifTrue, ifFalse, _)      => nested(ifTrue, ifFalse)
         case Expression.Loop(mainBody, continueBody, _, _) => nested(mainBody, continueBody)
         case Expression.OperationImpure(_, _)              => break(None)
-        case _: (Expression.Constant[?] | Expression.LiteralArgs | Expression.Operation[?] | Expression.Jump[?] |
-              Expression.ConditionalJump[?] | Expression.Extract[?, ?] | Expression.Insert[?, ?] | Expression.Combine[?]) =>
+        case Expression.Operation(
+              Operator.WorkgroupBarrier | Operator.SubgroupAdd | Operator.SubgroupInclusiveAdd | Operator.SubgroupExclusiveAdd |
+              Operator.SubgroupMin | Operator.SubgroupMax | Operator.SubgroupBroadcast | Operator.SubgroupBroadcastFirst | Operator.SubgroupShuffle |
+              Operator.SubgroupShuffleXor,
+              _,
+            ) =>
+          break(None)
+        case _: (Expression.Constant[?] | Expression.LiteralArgs | Expression.Operation[?] | Expression.Jump[?] | Expression.ConditionalJump[?] |
+              Expression.Extract[?, ?] | Expression.Insert[?, ?] | Expression.Combine[?]) =>
           acc
     Some(free)
 
@@ -55,13 +62,13 @@ case class ExpressionBlock[A](result: Expression[A], body: List[Expression[?]]):
     val visited = mutable.HashSet.empty[Int]
     def rec(block: ExpressionBlock[?]): List[Option[T]] =
       block.body.flatMap:
-        case x if !visited.add(x.id) => Nil
+        case x if !visited.add(x.id)           => Nil
         case x: Expression.BranchingExpression =>
           x match
-            case x @ Expression.Loop(mainBody, continueBody, _, _) => rec(continueBody) ++ rec(mainBody) :+ f(x)
-            case x @ Expression.Branch(_, ifTrue, ifFalse, _)      => rec(ifFalse) ++ rec(ifTrue) :+ f(x)
+            case x @ Expression.Loop(mainBody, continueBody, _, _)    => rec(continueBody) ++ rec(mainBody) :+ f(x)
+            case x @ Expression.Branch(_, ifTrue, ifFalse, _)         => rec(ifFalse) ++ rec(ifTrue) :+ f(x)
             case x @ Expression.CustomCall(func, _) if enterFunctions => rec(func.body) :+ f(x)
-            case x: Expression.CustomCall[?]                         => List(f(x))
+            case x: Expression.CustomCall[?]                          => List(f(x))
         case other => List(f(other))
     rec(this)
 

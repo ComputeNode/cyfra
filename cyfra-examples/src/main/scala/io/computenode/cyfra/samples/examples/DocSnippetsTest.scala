@@ -11,10 +11,10 @@ import io.computenode.cyfra.runtime.VkCyfraRuntime
 object DocSnippets_GpuPrograms:
 
   // === Snippet 1: Basic DoubleLayout and doubleProgram ===
-  case class DoubleLayout(input: GBuffer[GArray[Float32]], output: GBuffer[GArray[Float32]]) derives Layout
+  case class DoubleLayout(input: GBuffer[RuntimeArray[Float32]], output: GBuffer[RuntimeArray[Float32]]) derives Layout
 
   val doubleProgram: GProgram[Int, DoubleLayout] = GioProgram[Int, DoubleLayout](
-    layout = size => DoubleLayout(input = GBuffer[GArray[Float32]](size), output = GBuffer[GArray[Float32]](size)),
+    layout = size => DoubleLayout(input = GBuffer[RuntimeArray[Float32]](size), output = GBuffer[RuntimeArray[Float32]](size)),
     dispatch = (_, size) => StaticDispatch(((size + 127) / 128, 1, 1)),
   ): layout =>
     val idx = GIO.read(GlobalInvocationId.focus(_.x))
@@ -34,7 +34,7 @@ object DocSnippets_GpuPrograms:
         doubleProgram.execute(size, layout)
 
     region.runUnsafe(
-      init = DoubleLayout(input = GBuffer(inputData), output = GBuffer[GArray[Float32]](size)),
+      init = DoubleLayout(input = GBuffer(inputData), output = GBuffer[RuntimeArray[Float32]](size)),
       onDone = layout => layout.output.readArray(results),
     )
 
@@ -46,10 +46,10 @@ object DocSnippets_GpuPrograms:
   // === Snippet 2: Parameterized Program with MulParams ===
   case class MulParams(factor: Float32)
 
-  case class MulLayout(input: GBuffer[GArray[Float32]], output: GBuffer[GArray[Float32]], params: GUniform[MulParams]) derives Layout
+  case class MulLayout(input: GBuffer[RuntimeArray[Float32]], output: GBuffer[RuntimeArray[Float32]], params: GUniform[MulParams]) derives Layout
 
   val mulProgram: GProgram[Int, MulLayout] = GioProgram[Int, MulLayout](
-    layout = size => MulLayout(input = GBuffer[GArray[Float32]](size), output = GBuffer[GArray[Float32]](size), params = GUniform[MulParams]()),
+    layout = size => MulLayout(input = GBuffer[RuntimeArray[Float32]](size), output = GBuffer[RuntimeArray[Float32]](size), params = GUniform[MulParams]()),
     dispatch = (_, size) => StaticDispatch(((size + 127) / 128, 1, 1)),
   ): layout =>
     val idx = GIO.read(GlobalInvocationId.focus(_.x))
@@ -70,7 +70,7 @@ object DocSnippets_GpuPrograms:
         mulProgram.execute(size, layout)
 
     region.runUnsafe(
-      init = MulLayout(input = GBuffer(inputData), output = GBuffer[GArray[Float32]](size), params = GUniform(MulParams(3.0f))),
+      init = MulLayout(input = GBuffer(inputData), output = GBuffer[RuntimeArray[Float32]](size), params = GUniform(MulParams(3.0f))),
       onDone = layout => layout.output.readArray(results),
     )
 
@@ -82,10 +82,10 @@ object DocSnippets_GpuPrograms:
 
   // === Snippet 3: Running Multiple Programs ===
   case class AddParams(addend: Float32)
-  case class AddLayout(input: GBuffer[GArray[Float32]], output: GBuffer[GArray[Float32]], params: GUniform[AddParams]) derives Layout
+  case class AddLayout(input: GBuffer[RuntimeArray[Float32]], output: GBuffer[RuntimeArray[Float32]], params: GUniform[AddParams]) derives Layout
 
   val addProgram: GProgram[Int, AddLayout] = GioProgram[Int, AddLayout](
-    layout = size => AddLayout(GBuffer[GArray[Float32]](size), GBuffer[GArray[Float32]](size), GUniform[AddParams]()),
+    layout = size => AddLayout(GBuffer[RuntimeArray[Float32]](size), GBuffer[RuntimeArray[Float32]](size), GUniform[AddParams]()),
     dispatch = (_, size) => StaticDispatch(((size + 127) / 128, 1, 1)),
   ): layout =>
     val idx = GIO.read(GlobalInvocationId.focus(_.x))
@@ -94,7 +94,7 @@ object DocSnippets_GpuPrograms:
       val addend = GIO.read(layout.params).addend
       GIO.write(layout.output.focus(_.at(idx)), value + addend)
 
-  case class PipelineLayout(input: GBuffer[GArray[Float32]], intermediate: GBuffer[GArray[Float32]], output: GBuffer[GArray[Float32]], addParams: GUniform[AddParams])
+  case class PipelineLayout(input: GBuffer[RuntimeArray[Float32]], intermediate: GBuffer[RuntimeArray[Float32]], output: GBuffer[RuntimeArray[Float32]], addParams: GUniform[AddParams])
       derives Layout
 
   @main
@@ -118,8 +118,8 @@ object DocSnippets_GpuPrograms:
     region.runUnsafe(
       init = PipelineLayout(
         input = GBuffer(inputData),
-        intermediate = GBuffer[GArray[Float32]](size),
-        output = GBuffer[GArray[Float32]](size),
+        intermediate = GBuffer[RuntimeArray[Float32]](size),
+        output = GBuffer[RuntimeArray[Float32]](size),
         addParams = GUniform(AddParams(10.0f)),
       ),
       onDone = layout => layout.output.readArray(results),
@@ -136,10 +136,10 @@ object DocSnippets_GpuPrograms:
   */
 object DocSnippets_GpuPipelines:
 
-  case class DoubleLayout(input: GBuffer[GArray[Float32]], output: GBuffer[GArray[Float32]]) derives Layout
+  case class DoubleLayout(input: GBuffer[RuntimeArray[Float32]], output: GBuffer[RuntimeArray[Float32]]) derives Layout
 
   val doubleProgram: GProgram[Int, DoubleLayout] = GioProgram[Int, DoubleLayout](
-    layout = size => DoubleLayout(input = GBuffer[GArray[Float32]](size), output = GBuffer[GArray[Float32]](size)),
+    layout = size => DoubleLayout(input = GBuffer[RuntimeArray[Float32]](size), output = GBuffer[RuntimeArray[Float32]](size)),
     dispatch = (_, size) => StaticDispatch(((size + 255) / 256, 1, 1)),
     workgroupSize = (256, 1, 1),
   ): layout =>
@@ -149,10 +149,10 @@ object DocSnippets_GpuPipelines:
       GIO.write(layout.output.focus(_.at(idx)), value * 2.0f)
 
   case class AddParams(value: Float32)
-  case class AddLayout(input: GBuffer[GArray[Float32]], output: GBuffer[GArray[Float32]], params: GUniform[AddParams]) derives Layout
+  case class AddLayout(input: GBuffer[RuntimeArray[Float32]], output: GBuffer[RuntimeArray[Float32]], params: GUniform[AddParams]) derives Layout
 
   val addProgram: GProgram[Int, AddLayout] = GioProgram[Int, AddLayout](
-    layout = size => AddLayout(input = GBuffer[GArray[Float32]](size), output = GBuffer[GArray[Float32]](size), params = GUniform[AddParams]()),
+    layout = size => AddLayout(input = GBuffer[RuntimeArray[Float32]](size), output = GBuffer[RuntimeArray[Float32]](size), params = GUniform[AddParams]()),
     dispatch = (_, size) => StaticDispatch(((size + 255) / 256, 1, 1)),
     workgroupSize = (256, 1, 1),
   ): layout =>
@@ -162,7 +162,7 @@ object DocSnippets_GpuPipelines:
       val addValue = GIO.read(layout.params).value
       GIO.write(layout.output.focus(_.at(idx)), value + addValue)
 
-  case class PipelineLayout(input: GBuffer[GArray[Float32]], doubled: GBuffer[GArray[Float32]], output: GBuffer[GArray[Float32]], addParams: GUniform[AddParams])
+  case class PipelineLayout(input: GBuffer[RuntimeArray[Float32]], doubled: GBuffer[RuntimeArray[Float32]], output: GBuffer[RuntimeArray[Float32]], addParams: GUniform[AddParams])
       derives Layout
 
   val doubleAndAddPipeline: GExecution[Int, PipelineLayout, PipelineLayout] =
@@ -184,8 +184,8 @@ object DocSnippets_GpuPipelines:
     region.runUnsafe(
       init = PipelineLayout(
         input = GBuffer(inputData),
-        doubled = GBuffer[GArray[Float32]](size),
-        output = GBuffer[GArray[Float32]](size),
+        doubled = GBuffer[RuntimeArray[Float32]](size),
+        output = GBuffer[RuntimeArray[Float32]](size),
         addParams = GUniform(AddParams(10.0f)),
       ),
       onDone = layout => layout.output.readArray(results),

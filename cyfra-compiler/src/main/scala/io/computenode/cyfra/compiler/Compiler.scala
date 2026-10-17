@@ -19,6 +19,7 @@ class Compiler(verbose: "none" | "last" | "all" = "none"):
       new Functions,
       new CompositeManipulator,
       new Constants,
+      new WorkgroupOperations,
       new Algebra,
       new ConstantArgs,
       new Finalizer,

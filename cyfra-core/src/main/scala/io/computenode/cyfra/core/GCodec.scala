@@ -42,6 +42,17 @@ object GCodec:
       outBuf.rewind()
       arr
 
+  given GCodec[Float16, Float]:
+    def toByteBuffer(inBuf: ByteBuffer, values: Array[Float]): ByteBuffer =
+      inBuf.clear().order(ByteOrder.nativeOrder())
+      values.foreach(value => inBuf.putShort(java.lang.Float.floatToFloat16(value)))
+      inBuf.flip()
+    def fromByteBuffer(outBuf: ByteBuffer, values: Array[Float]): Array[Float] =
+      outBuf.order(ByteOrder.nativeOrder())
+      values.indices.foreach(i => values(i) = java.lang.Float.float16ToFloat(outBuf.getShort()))
+      outBuf.rewind()
+      values
+
   given GCodec[Float32, Float]:
     def toByteBuffer(inBuf: ByteBuffer, chunk: Array[Float]): ByteBuffer =
       inBuf.clear().order(ByteOrder.nativeOrder())

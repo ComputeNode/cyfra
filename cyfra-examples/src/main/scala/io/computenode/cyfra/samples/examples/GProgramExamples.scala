@@ -8,10 +8,10 @@ import io.computenode.cyfra.runtime.VkCyfraRuntime
 
 object Example1_DoubleAndAddPipeline:
 
-  case class DoubleLayout(input: GBuffer[GArray[Float32]], output: GBuffer[GArray[Float32]]) derives Layout
+  case class DoubleLayout(input: GBuffer[RuntimeArray[Float32]], output: GBuffer[RuntimeArray[Float32]]) derives Layout
 
   val doubleProgram: GProgram[Int, DoubleLayout] = GioProgram[Int, DoubleLayout](
-    layout = size => DoubleLayout(input = GBuffer[GArray[Float32]](size), output = GBuffer[GArray[Float32]](size)),
+    layout = size => DoubleLayout(input = GBuffer[RuntimeArray[Float32]](size), output = GBuffer[RuntimeArray[Float32]](size)),
     dispatch = (_, size) => StaticDispatch(((size + 255) / 256, 1, 1)),
     workgroupSize = (256, 1, 1),
   ): layout =>
@@ -23,10 +23,10 @@ object Example1_DoubleAndAddPipeline:
 
   case class AddParams(value: Float32)
 
-  case class AddLayout(input: GBuffer[GArray[Float32]], output: GBuffer[GArray[Float32]], params: GUniform[AddParams]) derives Layout
+  case class AddLayout(input: GBuffer[RuntimeArray[Float32]], output: GBuffer[RuntimeArray[Float32]], params: GUniform[AddParams]) derives Layout
 
   val addProgram: GProgram[Int, AddLayout] = GioProgram[Int, AddLayout](
-    layout = size => AddLayout(input = GBuffer[GArray[Float32]](size), output = GBuffer[GArray[Float32]](size), params = GUniform[AddParams]()),
+    layout = size => AddLayout(input = GBuffer[RuntimeArray[Float32]](size), output = GBuffer[RuntimeArray[Float32]](size), params = GUniform[AddParams]()),
     dispatch = (_, size) => StaticDispatch(((size + 255) / 256, 1, 1)),
     workgroupSize = (256, 1, 1),
   ): layout =>
@@ -37,7 +37,7 @@ object Example1_DoubleAndAddPipeline:
       val addValue = GIO.read(layout.params).value
       GIO.write(layout.output.focus(_.at(idx)), value + addValue)
 
-  case class PipelineLayout(input: GBuffer[GArray[Float32]], doubled: GBuffer[GArray[Float32]], output: GBuffer[GArray[Float32]], addParams: GUniform[AddParams])
+  case class PipelineLayout(input: GBuffer[RuntimeArray[Float32]], doubled: GBuffer[RuntimeArray[Float32]], output: GBuffer[RuntimeArray[Float32]], addParams: GUniform[AddParams])
       derives Layout
 
   val doubleAndAddPipeline: GExecution[Int, PipelineLayout, PipelineLayout] =
@@ -61,8 +61,8 @@ object Example1_DoubleAndAddPipeline:
     region.runUnsafe(
       init = PipelineLayout(
         input = GBuffer(inputData),
-        doubled = GBuffer[GArray[Float32]](size),
-        output = GBuffer[GArray[Float32]](size),
+        doubled = GBuffer[RuntimeArray[Float32]](size),
+        output = GBuffer[RuntimeArray[Float32]](size),
         addParams = GUniform(AddParams(10.0f)),
       ),
       onDone = layout => layout.output.readArray(results),
@@ -85,10 +85,10 @@ object Example2_ConfigurableMulAddPipeline:
 
   case class MulParams(factor: Float32)
 
-  case class MulLayout(input: GBuffer[GArray[Float32]], output: GBuffer[GArray[Float32]], params: GUniform[MulParams]) derives Layout
+  case class MulLayout(input: GBuffer[RuntimeArray[Float32]], output: GBuffer[RuntimeArray[Float32]], params: GUniform[MulParams]) derives Layout
 
   val mulProgram: GProgram[Int, MulLayout] = GioProgram[Int, MulLayout](
-    layout = size => MulLayout(input = GBuffer[GArray[Float32]](size), output = GBuffer[GArray[Float32]](size), params = GUniform[MulParams]()),
+    layout = size => MulLayout(input = GBuffer[RuntimeArray[Float32]](size), output = GBuffer[RuntimeArray[Float32]](size), params = GUniform[MulParams]()),
     dispatch = (_, size) => StaticDispatch(((size + 127) / 128, 1, 1)),
   ): layout =>
     val idx = GIO.read(GlobalInvocationId.focus(_.x))
@@ -99,10 +99,10 @@ object Example2_ConfigurableMulAddPipeline:
 
   case class AddParams(addend: Float32)
 
-  case class AddLayout(input: GBuffer[GArray[Float32]], output: GBuffer[GArray[Float32]], params: GUniform[AddParams]) derives Layout
+  case class AddLayout(input: GBuffer[RuntimeArray[Float32]], output: GBuffer[RuntimeArray[Float32]], params: GUniform[AddParams]) derives Layout
 
   val addProgram: GProgram[Int, AddLayout] = GioProgram[Int, AddLayout](
-    layout = size => AddLayout(input = GBuffer[GArray[Float32]](size), output = GBuffer[GArray[Float32]](size), params = GUniform[AddParams]()),
+    layout = size => AddLayout(input = GBuffer[RuntimeArray[Float32]](size), output = GBuffer[RuntimeArray[Float32]](size), params = GUniform[AddParams]()),
     dispatch = (_, size) => StaticDispatch(((size + 127) / 128, 1, 1)),
   ): layout =>
     val idx = GIO.read(GlobalInvocationId.focus(_.x))
@@ -112,9 +112,9 @@ object Example2_ConfigurableMulAddPipeline:
       GIO.write(layout.output.focus(_.at(idx)), value + addend)
 
   case class MulAddLayout(
-    input: GBuffer[GArray[Float32]],
-    multiplied: GBuffer[GArray[Float32]],
-    output: GBuffer[GArray[Float32]],
+    input: GBuffer[RuntimeArray[Float32]],
+    multiplied: GBuffer[RuntimeArray[Float32]],
+    output: GBuffer[RuntimeArray[Float32]],
     mulParams: GUniform[MulParams],
     addParams: GUniform[AddParams],
   ) derives Layout
@@ -142,8 +142,8 @@ object Example2_ConfigurableMulAddPipeline:
     region.runUnsafe(
       init = MulAddLayout(
         input = GBuffer(inputData),
-        multiplied = GBuffer[GArray[Float32]](size),
-        output = GBuffer[GArray[Float32]](size),
+        multiplied = GBuffer[RuntimeArray[Float32]](size),
+        output = GBuffer[RuntimeArray[Float32]](size),
         mulParams = GUniform(MulParams(multiplyFactor)),
         addParams = GUniform(AddParams(addValue)),
       ),
@@ -165,10 +165,10 @@ object Example2_ConfigurableMulAddPipeline:
 
 object Example4_MapFilterPipeline:
 
-  case class SquareLayout(input: GBuffer[GArray[Float32]], output: GBuffer[GArray[Float32]]) derives Layout
+  case class SquareLayout(input: GBuffer[RuntimeArray[Float32]], output: GBuffer[RuntimeArray[Float32]]) derives Layout
 
   val squareProgram: GProgram[Int, SquareLayout] = GioProgram[Int, SquareLayout](
-    layout = size => SquareLayout(input = GBuffer[GArray[Float32]](size), output = GBuffer[GArray[Float32]](size)),
+    layout = size => SquareLayout(input = GBuffer[RuntimeArray[Float32]](size), output = GBuffer[RuntimeArray[Float32]](size)),
     dispatch = (_, size) => StaticDispatch(((size + 127) / 128, 1, 1)),
   ): layout =>
     val idx = GIO.read(GlobalInvocationId.focus(_.x))
@@ -178,10 +178,10 @@ object Example4_MapFilterPipeline:
 
   case class ThresholdParams(threshold: Float32)
 
-  case class ThresholdLayout(input: GBuffer[GArray[Float32]], output: GBuffer[GArray[Float32]], params: GUniform[ThresholdParams]) derives Layout
+  case class ThresholdLayout(input: GBuffer[RuntimeArray[Float32]], output: GBuffer[RuntimeArray[Float32]], params: GUniform[ThresholdParams]) derives Layout
 
   val thresholdProgram: GProgram[Int, ThresholdLayout] = GioProgram[Int, ThresholdLayout](
-    layout = size => ThresholdLayout(input = GBuffer[GArray[Float32]](size), output = GBuffer[GArray[Float32]](size), params = GUniform[ThresholdParams]()),
+    layout = size => ThresholdLayout(input = GBuffer[RuntimeArray[Float32]](size), output = GBuffer[RuntimeArray[Float32]](size), params = GUniform[ThresholdParams]()),
     dispatch = (_, size) => StaticDispatch(((size + 127) / 128, 1, 1)),
   ): layout =>
     val idx = GIO.read(GlobalInvocationId.focus(_.x))
@@ -191,7 +191,7 @@ object Example4_MapFilterPipeline:
       val result = when[Float32](value > threshold)(1.0f).otherwise(0.0f)
       GIO.write(layout.output.focus(_.at(idx)), result)
 
-  case class MapFilterLayout(input: GBuffer[GArray[Float32]], squared: GBuffer[GArray[Float32]], output: GBuffer[GArray[Float32]], thresholdParams: GUniform[ThresholdParams])
+  case class MapFilterLayout(input: GBuffer[RuntimeArray[Float32]], squared: GBuffer[RuntimeArray[Float32]], output: GBuffer[RuntimeArray[Float32]], thresholdParams: GUniform[ThresholdParams])
       derives Layout
 
   val mapFilterPipeline: GExecution[Int, MapFilterLayout, MapFilterLayout] =
@@ -216,8 +216,8 @@ object Example4_MapFilterPipeline:
     region.runUnsafe(
       init = MapFilterLayout(
         input = GBuffer(inputData),
-        squared = GBuffer[GArray[Float32]](size),
-        output = GBuffer[GArray[Float32]](size),
+        squared = GBuffer[RuntimeArray[Float32]](size),
+        output = GBuffer[RuntimeArray[Float32]](size),
         thresholdParams = GUniform(ThresholdParams(thresholdValue)),
       ),
       onDone = layout => layout.output.readArray(results),
