@@ -3,7 +3,6 @@ package io.computenode.cyfra.core.expression.types
 import io.computenode.cyfra.core.expression.*
 import izumi.reflect.Tag
 
-/** A fixed-size GPU array whose length is part of its type. */
 abstract class SizedArray[T: Value, N <: Int: ValueOf]:
   def length: Int = valueOf[N]
 
